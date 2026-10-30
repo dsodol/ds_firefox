@@ -14,8 +14,16 @@ concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 env:
   MOZ_NO_PROMPT: 1
+  MAR_CHANNEL: ds-firefox
+  # Repository whose releases serve updates. Override with the RELEASE_REPO
+  # repository variable to publish to a separate (for example public) repo;
+  # that needs a RELEASE_TOKEN secret with write access to it.
+  RELEASE_REPO: ${{ vars.RELEASE_REPO || github.repository }}
 
 jobs:
   windows:
@@ -36,20 +44,27 @@ jobs:
         run: |
           sudo dpkg --add-architecture i386
           sudo apt-get update
-          sudo apt-get install -y libc6:i386 lib32gcc-s1 msitools
+          sudo apt-get install -y libc6:i386 lib32gcc-s1 msitools xz-utils python3-venv
           rustup target add x86_64-pc-windows-msvc
 
       - name: Write mozconfig
         run: |
-          cat > "$GITHUB_WORKSPACE/mozconfig" <<'MOZ'
+          UPDATE_URL="https://github.com/${RELEASE_REPO}/releases/latest/download/update.xml"
+          echo "UPDATE_URL=$UPDATE_URL" >> "$GITHUB_ENV"
+          cat > "$GITHUB_WORKSPACE/mozconfig" <<MOZ
           ac_add_options --enable-project=browser
           ac_add_options --target=x86_64-pc-windows-msvc
           ac_add_options --disable-tests
           ac_add_options --disable-debug
           ac_add_options --enable-optimize
           ac_add_options --disable-debug-symbols
+          ac_add_options --disable-maintenance-service
+          ac_add_options --with-app-update-url=$UPDATE_URL
+          export MAR_CHANNEL_ID=$MAR_CHANNEL
+          export ACCEPTED_MAR_CHANNEL_IDS=$MAR_CHANNEL
           mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-win64
           MOZ
+          cat "$GITHUB_WORKSPACE/mozconfig"
           echo "MOZCONFIG=$GITHUB_WORKSPACE/mozconfig" >> "$GITHUB_ENV"
 
       - name: Bootstrap toolchains
@@ -64,12 +79,63 @@ jobs:
       - name: Package
         run: |
           ./mach package
+          ./mach build installer || echo "Installer build failed; continuing with the zip only."
           df -h /
-          ls -la obj-win64/dist/*.zip
+          ls -la obj-win64/dist/*.zip obj-win64/dist/install/sea/ || true
 
-      - name: Build installer
-        continue-on-error: true
-        run: ./mach build installer
+      - name: Check update settings in the build
+        run: |
+          grep -A1 '^\[AppUpdate\]' obj-win64/dist/bin/application.ini
+          grep -q "URL=$UPDATE_URL" obj-win64/dist/bin/application.ini
+          cat obj-win64/dist/bin/update-settings.ini
+          grep -q "ACCEPTED_MAR_CHANNEL_IDS=$MAR_CHANNEL" obj-win64/dist/bin/update-settings.ini
+
+      - name: Create signed update package
+        id: mar
+        env:
+          MAR_SIGNING_KEY: ${{ secrets.MAR_SIGNING_KEY }}
+        run: |
+          if [ -z "$MAR_SIGNING_KEY" ]; then
+            echo "::warning::MAR_SIGNING_KEY secret is not set; skipping the update package and release."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python3 -m venv "$RUNNER_TEMP/marvenv"
+          "$RUNNER_TEMP/marvenv/bin/pip" install --quiet "mar==3.2.1"
+          KEY="$RUNNER_TEMP/mar-signing-key.pem"
+          ( umask 077; printf '%s\n' "$MAR_SIGNING_KEY" > "$KEY" )
+          export MAR_TOOL="$RUNNER_TEMP/marvenv/bin/mar"
+          export MAR_SIGNING_KEY_FILE="$KEY"
+
+          BUILD_ID=$(sed -n 's/^BuildID=//p' obj-win64/dist/bin/application.ini | head -1)
+          VERSION=$(sed -n 's/^Version=//p' obj-win64/dist/bin/application.ini | head -1)
+          TAG="build-$BUILD_ID"
+          MAR="obj-win64/dist/firefox-$VERSION-$BUILD_ID.complete.mar"
+          ./mach repackage mar --input obj-win64/dist/firefox-*.zip --mar "$PWD/tools/ds_firefox/signed-mar.sh" \
+            --output "$MAR" --arch x86_64 --mar-channel-id "$MAR_CHANNEL"
+          rm -f "$KEY"
+
+          openssl x509 -inform DER -in toolkit/mozapps/update/updater/ds_firefox_primary.der \
+            -pubkey -noout > "$RUNNER_TEMP/mar-signing-pub.pem"
+          "$RUNNER_TEMP/marvenv/bin/mar" -v "$MAR" -k "$RUNNER_TEMP/mar-signing-pub.pem"
+          "$RUNNER_TEMP/marvenv/bin/mar" -T "$MAR" > "$RUNNER_TEMP/mar-listing.txt"
+          head -n 8 "$RUNNER_TEMP/mar-listing.txt"
+
+          SIZE=$(stat -c %s "$MAR")
+          HASH=$(sha512sum "$MAR" | cut -d' ' -f1)
+          MAR_URL="https://github.com/${RELEASE_REPO}/releases/download/$TAG/$(basename "$MAR")"
+          cat > obj-win64/dist/update.xml <<XML
+          <?xml version="1.0"?>
+          <updates>
+            <update type="minor" displayVersion="$VERSION" appVersion="$VERSION" platformVersion="$VERSION" buildID="$BUILD_ID" detailsURL="https://github.com/${RELEASE_REPO}/releases/tag/$TAG">
+              <patch type="complete" URL="$MAR_URL" size="$SIZE" hashFunction="sha512" hashValue="$HASH"/>
+            </update>
+          </updates>
+          XML
+          cat obj-win64/dist/update.xml
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "mar=$MAR" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Upload build
         uses: actions/upload-artifact@v4
@@ -78,4 +144,26 @@ jobs:
           path: |
             obj-win64/dist/*.zip
             obj-win64/dist/install/sea/*.exe
+            obj-win64/dist/*.complete.mar
+            obj-win64/dist/update.xml
           if-no-files-found: error
+
+      - name: Publish release (serves the update)
+        if: steps.mar.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+          TAG: ${{ steps.mar.outputs.tag }}
+          MAR: ${{ steps.mar.outputs.mar }}
+          VERSION: ${{ steps.mar.outputs.version }}
+        run: |
+          FILES="$MAR obj-win64/dist/update.xml $(ls obj-win64/dist/firefox-*.zip)"
+          for f in obj-win64/dist/install/sea/*.exe; do
+            [ -f "$f" ] && FILES="$FILES $f"
+          done
+          TARGET=()
+          if [ "$RELEASE_REPO" = "$GITHUB_REPOSITORY" ]; then
+            TARGET=(--target "$GITHUB_SHA")
+          fi
+          gh release create "$TAG" $FILES --repo "$RELEASE_REPO" "${TARGET[@]}" \
+            --title "ds_firefox $VERSION ($TAG)" --latest \
+            --notes "Windows x86_64 build of $GITHUB_SHA. Installed builds update to this release silently."

@@ -40,6 +40,17 @@ option(
 set_config("MOZ_UPDATER", True, when="--enable-updater")
 set_define("MOZ_UPDATER", True, when="--enable-updater")
 
+option(
+    "--with-app-update-url",
+    nargs=1,
+    help="Full URL of the update.xml checked for application updates",
+)
+
+set_config(
+    "MOZ_APPUPDATE_URL",
+    depends_if("--with-app-update-url")(lambda value: value[0]),
+)
+
 # Updates that do not verify signatures
 # ==============================================================
 

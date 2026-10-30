@@ -29,11 +29,19 @@ XPCOMUtils.defineLazyServiceGetter(
 
 const PREF_APP_UPDATE_UNSUPPORTED_URL = "app.update.unsupported.url";
 const PREF_APP_UPDATE_SUPPRESS_PROMPTS = "app.update.suppressPrompts";
+const PREF_APP_UPDATE_SILENT = "app.update.silent";
 
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "SUPPRESS_PROMPTS",
   PREF_APP_UPDATE_SUPPRESS_PROMPTS,
+  false
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "SILENT",
+  PREF_APP_UPDATE_SILENT,
   false
 );
 
@@ -218,6 +226,9 @@ export var UpdateListener = {
   },
 
   showUpdateNotification(type, mainAction, mainActionDismiss, options = {}) {
+    if (lazy.SILENT) {
+      return;
+    }
     const addTelemetry = metric => {
       // No telemetry for the "downloading" state.
       if (type !== "downloading") {

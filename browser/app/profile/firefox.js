@@ -142,6 +142,9 @@ pref("app.update.elevate.maxAttempts", 2);
 // If set to true, a message will be displayed in the hamburger menu while
 // an update is being downloaded.
 pref("app.update.notifyDuringDownload", false);
+// If set to true, no update notifications, badges or doorhangers are shown.
+// Updates are still checked, downloaded, staged and applied on restart.
+pref("app.update.silent", true);
 
 // If set to true, the Update Service will automatically download updates if the
 // user can apply updates. This pref is no longer used on Windows, except as the
@@ -199,7 +202,7 @@ pref("app.update.langpack.enabled", true);
   // Firefox Desktop browsing profile that _schedules_ the background update
   // task, and then the background update task collects telemetry in accordance
   // with the mirrored pref.
-  pref("app.update.background.allowUpdatesForUnelevatedInstallations", false);
+  pref("app.update.background.allowUpdatesForUnelevatedInstallations", true);
 #endif
 
 #ifdef XP_MACOSX
