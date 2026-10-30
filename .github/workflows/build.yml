@@ -1,0 +1,126 @@
+name: Build Firefox
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - claude/exciting-mccarthy-o2x8zn
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MOZ_NO_PROMPT: 1
+
+jobs:
+  linux:
+    name: Linux x86_64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - name: Free disk space on runner
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift
+          sudo docker image prune --all --force || true
+          df -h /
+
+      - uses: actions/checkout@v4
+
+      - name: Write mozconfig
+        run: |
+          cat > "$GITHUB_WORKSPACE/mozconfig" <<'MOZ'
+          ac_add_options --enable-project=browser
+          ac_add_options --disable-tests
+          ac_add_options --disable-debug
+          ac_add_options --enable-optimize
+          ac_add_options --disable-debug-symbols
+          mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-ff
+          MOZ
+          echo "MOZCONFIG=$GITHUB_WORKSPACE/mozconfig" >> "$GITHUB_ENV"
+
+      - name: Bootstrap toolchains
+        run: ./mach --no-interactive bootstrap --application-choice browser
+
+      - name: Build
+        run: ./mach build
+
+      - name: Package
+        run: |
+          ./mach package
+          df -h /
+          ls -la obj-ff/dist/*.tar.*
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefox-linux-x86_64
+          path: obj-ff/dist/*.tar.*
+          if-no-files-found: error
+
+  windows:
+    name: Windows x86_64 (cross-compiled on Linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - name: Free disk space on runner
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift
+          sudo docker image prune --all --force || true
+          df -h /
+
+      - uses: actions/checkout@v4
+
+      - name: Install cross-compile host dependencies
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y libc6:i386 lib32gcc-s1 msitools
+          rustup target add x86_64-pc-windows-msvc
+
+      - name: Write mozconfig
+        run: |
+          cat > "$GITHUB_WORKSPACE/mozconfig" <<'MOZ'
+          ac_add_options --enable-project=browser
+          ac_add_options --target=x86_64-pc-windows-msvc
+          ac_add_options --disable-tests
+          ac_add_options --disable-debug
+          ac_add_options --enable-optimize
+          ac_add_options --disable-debug-symbols
+          mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-win64
+          MOZ
+          echo "MOZCONFIG=$GITHUB_WORKSPACE/mozconfig" >> "$GITHUB_ENV"
+
+      - name: Bootstrap toolchains
+        run: ./mach --no-interactive bootstrap --application-choice browser
+
+      - name: Configure (downloads the Windows SDK and MSVC runtime)
+        run: ./mach configure
+
+      - name: Build
+        run: ./mach build
+
+      - name: Package
+        run: |
+          ./mach package
+          df -h /
+          ls -la obj-win64/dist/*.zip
+
+      - name: Build installer
+        continue-on-error: true
+        run: ./mach build installer
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefox-windows-x86_64
+          path: |
+            obj-win64/dist/*.zip
+            obj-win64/dist/install/sea/*.exe
+          if-no-files-found: error
