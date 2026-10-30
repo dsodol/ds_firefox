@@ -17,7 +17,18 @@ at that commit. Upstream history is not included (it is tens of gigabytes);
 use the upstream repository when you need `git log` or `git blame` on
 original Firefox code.
 
+## Changes from upstream
+
+- Automatic application updates are disabled completely. The build is
+  configured with `--disable-updater`, which removes the updater binary,
+  the update service, and (on Windows) the maintenance service and the
+  background update agent. There is no update checking or update UI.
+
 ## Building
+
+The GitHub Actions workflow in `.github/workflows/build.yml` builds the
+Windows x86_64 package on every push to the default branch and uploads it as
+a workflow artifact.
 
 Follow the standard Firefox build docs:
 https://firefox-source-docs.mozilla.org/setup/
