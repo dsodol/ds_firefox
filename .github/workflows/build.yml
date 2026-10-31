@@ -79,9 +79,8 @@ jobs:
       - name: Package
         run: |
           ./mach package
-          ./mach build installer
           df -h /
-          ls -la obj-win64/dist/*.zip obj-win64/dist/install/sea/ || true
+          ls -la obj-win64/dist/*.win64.zip obj-win64/dist/*.installer.exe
 
       - name: Check update settings in the build
         run: |
@@ -119,7 +118,7 @@ jobs:
           VERSION="${{ steps.info.outputs.version }}"
           TAG="${{ steps.info.outputs.tag }}"
           MAR="obj-win64/dist/firefox-$VERSION-$BUILD_ID.complete.mar"
-          ./mach repackage mar --input obj-win64/dist/firefox-*.zip --mar "$PWD/tools/ds_firefox/signed-mar.sh" \
+          ./mach repackage mar --input obj-win64/dist/firefox-*.win64.zip --mar "$PWD/tools/ds_firefox/signed-mar.sh" \
             --output "$MAR" --arch x86_64 --mar-channel-id "$MAR_CHANNEL"
           rm -f "$KEY"
 
@@ -148,8 +147,8 @@ jobs:
         with:
           name: firefox-windows-x86_64
           path: |
-            obj-win64/dist/*.zip
-            obj-win64/dist/install/sea/*.exe
+            obj-win64/dist/*.win64.zip
+            obj-win64/dist/*.installer.exe
             obj-win64/dist/*.complete.mar
             obj-win64/dist/update.xml
           if-no-files-found: error
@@ -162,7 +161,7 @@ jobs:
           MAR: ${{ steps.mar.outputs.mar }}
         run: |
           shopt -s nullglob
-          FILES=(obj-win64/dist/install/sea/*.exe obj-win64/dist/firefox-*.zip)
+          FILES=(obj-win64/dist/*.installer.exe obj-win64/dist/firefox-*.win64.zip)
           if [ ${#FILES[@]} -eq 0 ]; then
             echo "::error::No installer or zip to publish."
             exit 1
