@@ -79,7 +79,7 @@ jobs:
       - name: Package
         run: |
           ./mach package
-          ./mach build installer || echo "Installer build failed; continuing with the zip only."
+          ./mach build installer
           df -h /
           ls -la obj-win64/dist/*.zip obj-win64/dist/install/sea/ || true
 
@@ -90,14 +90,22 @@ jobs:
           cat obj-win64/dist/bin/update-settings.ini
           grep -q "ACCEPTED_MAR_CHANNEL_IDS=$MAR_CHANNEL" obj-win64/dist/bin/update-settings.ini
 
+      - name: Release info
+        id: info
+        run: |
+          BUILD_ID=$(sed -n 's/^BuildID=//p' obj-win64/dist/bin/application.ini | head -1)
+          VERSION=$(sed -n 's/^Version=//p' obj-win64/dist/bin/application.ini | head -1)
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=build-$BUILD_ID" >> "$GITHUB_OUTPUT"
+
       - name: Create signed update package
         id: mar
         env:
           MAR_SIGNING_KEY: ${{ secrets.MAR_SIGNING_KEY }}
         run: |
           if [ -z "$MAR_SIGNING_KEY" ]; then
-            echo "::warning::MAR_SIGNING_KEY secret is not set; skipping the update package and release."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::MAR_SIGNING_KEY secret is not set; the release will not include an update package."
             exit 0
           fi
           python3 -m venv "$RUNNER_TEMP/marvenv"
@@ -107,9 +115,9 @@ jobs:
           export MAR_TOOL="$RUNNER_TEMP/marvenv/bin/mar"
           export MAR_SIGNING_KEY_FILE="$KEY"
 
-          BUILD_ID=$(sed -n 's/^BuildID=//p' obj-win64/dist/bin/application.ini | head -1)
-          VERSION=$(sed -n 's/^Version=//p' obj-win64/dist/bin/application.ini | head -1)
-          TAG="build-$BUILD_ID"
+          BUILD_ID="${{ steps.info.outputs.build_id }}"
+          VERSION="${{ steps.info.outputs.version }}"
+          TAG="${{ steps.info.outputs.tag }}"
           MAR="obj-win64/dist/firefox-$VERSION-$BUILD_ID.complete.mar"
           ./mach repackage mar --input obj-win64/dist/firefox-*.zip --mar "$PWD/tools/ds_firefox/signed-mar.sh" \
             --output "$MAR" --arch x86_64 --mar-channel-id "$MAR_CHANNEL"
@@ -133,9 +141,7 @@ jobs:
           </updates>
           XML
           cat obj-win64/dist/update.xml
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "mar=$MAR" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Upload build
         uses: actions/upload-artifact@v4
@@ -148,22 +154,30 @@ jobs:
             obj-win64/dist/update.xml
           if-no-files-found: error
 
-      - name: Publish release (serves the update)
-        if: steps.mar.outputs.skip != 'true'
+      - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
-          TAG: ${{ steps.mar.outputs.tag }}
+          TAG: ${{ steps.info.outputs.tag }}
+          VERSION: ${{ steps.info.outputs.version }}
           MAR: ${{ steps.mar.outputs.mar }}
-          VERSION: ${{ steps.mar.outputs.version }}
         run: |
-          FILES="$MAR obj-win64/dist/update.xml $(ls obj-win64/dist/firefox-*.zip)"
-          for f in obj-win64/dist/install/sea/*.exe; do
-            [ -f "$f" ] && FILES="$FILES $f"
-          done
+          shopt -s nullglob
+          FILES=(obj-win64/dist/install/sea/*.exe obj-win64/dist/firefox-*.zip)
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "::error::No installer or zip to publish."
+            exit 1
+          fi
+          NOTES="Windows x86_64 build of $GITHUB_SHA. Run the installer .exe to install."
+          if [ -n "$MAR" ] && [ -f "$MAR" ]; then
+            FILES+=("$MAR" obj-win64/dist/update.xml)
+            NOTES="$NOTES Installed builds update to this release silently."
+          else
+            NOTES="$NOTES This release has no update package because the MAR_SIGNING_KEY secret was not set."
+          fi
+          printf 'Publishing: %s\n' "${FILES[@]}"
           TARGET=()
           if [ "$RELEASE_REPO" = "$GITHUB_REPOSITORY" ]; then
             TARGET=(--target "$GITHUB_SHA")
           fi
-          gh release create "$TAG" $FILES --repo "$RELEASE_REPO" "${TARGET[@]}" \
-            --title "ds_firefox $VERSION ($TAG)" --latest \
-            --notes "Windows x86_64 build of $GITHUB_SHA. Installed builds update to this release silently."
+          gh release create "$TAG" "${FILES[@]}" --repo "$RELEASE_REPO" "${TARGET[@]}" \
+            --title "ds_firefox $VERSION ($TAG)" --latest --notes "$NOTES"
