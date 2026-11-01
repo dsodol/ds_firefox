@@ -8,6 +8,7 @@ on:
       - claude/exciting-mccarthy-o2x8zn
     paths-ignore:
       - '**.md'
+      - '.github/workflows/cleanup-releases.yml'
   workflow_dispatch:
 
 concurrency:
