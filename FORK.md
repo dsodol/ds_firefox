@@ -5,17 +5,12 @@ GitHub repository: https://github.com/mozilla-firefox/firefox
 
 ## Upstream origin
 
-| | |
-|---|---|
-| Upstream repo | https://github.com/mozilla-firefox/firefox |
-| Upstream branch | `main` |
-| Upstream commit | `86136a5faf970e59063cd07b822717f6fd03a958` |
-| Upstream commit date | 2026-10-29T17:14:50+00:00 |
+This fork tracks stable Firefox releases from
+https://github.com/mozilla-firefox/firefox. The release it is currently based
+on is recorded in `tools/ds_firefox/upstream.env` (tag and commit).
 
-The import is a single squashed root commit containing the full source tree
-at that commit. Upstream history is not included (it is tens of gigabytes);
-use the upstream repository when you need `git log` or `git blame` on
-original Firefox code.
+Upstream history is not included (it is tens of gigabytes); use the upstream
+repository when you need `git log` or `git blame` on original Firefox code.
 
 ## Silent updates
 
@@ -48,7 +43,7 @@ notification, badge or prompt. Changes from upstream:
    there. The update URL is baked in at build time from `RELEASE_REPO`.
 
 Each push then builds Windows x86_64, signs a complete update package, and
-publishes a release with the zip, installer, update package and `update.xml`.
+publishes a release with the installer, update package and `update.xml`.
 Installed builds pick it up within a day.
 
 ## Building
@@ -64,22 +59,24 @@ https://firefox-source-docs.mozilla.org/setup/
 
 ## Syncing with upstream
 
-Add upstream as a remote and fetch it shallowly (a full fetch pulls the
-entire Firefox history):
+The `Sync with upstream Firefox` workflow runs daily. When Mozilla publishes a
+newer stable release tag (`FIREFOX_<version>_RELEASE`), it:
+
+1. Takes the fork's changes, which are everything that differs between the
+   recorded upstream commit and this branch.
+2. Replaces the source tree with the new release and re-applies those changes
+   with a 3-way merge.
+3. Commits and pushes the result, then starts the Windows build, which
+   publishes the installer (and the signed update) as a release.
+
+If the fork's changes no longer apply cleanly, the workflow fails and lists the
+conflicting files; GitHub emails you about the failed run. Resolve it locally
+with the same script:
 
 ```bash
-git remote add upstream https://github.com/mozilla-firefox/firefox
-git fetch --depth 1 upstream main
+tools/ds_firefox/sync-upstream.sh
 ```
 
-Because this fork does not share history with upstream, apply upstream
-changes as a diff between the recorded upstream commit and the new one, then
-update the commit recorded in this file:
-
-```bash
-git fetch --depth 1 upstream main
-git diff 86136a5faf970e59063cd07b822717f6fd03a958 upstream/main | git apply --3way
-```
-
-Alternatively, re-import a fresh snapshot of upstream and reapply local
-changes on top of it.
+`--check` only reports whether a newer release exists, and `--tag <tag>` syncs
+to a specific release tag. The workflow can also be started by hand from the
+Actions tab.

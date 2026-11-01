@@ -1,0 +1,60 @@
+name: Sync with upstream Firefox
+
+on:
+  schedule:
+    - cron: '23 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check for a new Firefox release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+      tag: ${{ steps.check.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: tools/ds_firefox
+          filter: blob:none
+      - id: check
+        run: tools/ds_firefox/sync-upstream.sh --check
+
+  sync:
+    name: Apply fork changes to ${{ needs.check.outputs.tag }}
+    needs: check
+    if: needs.check.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Re-apply fork changes on the new release
+        env:
+          TAG: ${{ needs.check.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          tools/ds_firefox/sync-upstream.sh --tag "$TAG"
+          git log --oneline -2
+
+      - name: Push and start the build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          # Pushes made with GITHUB_TOKEN do not trigger workflows, so start
+          # the build explicitly.
+          gh workflow run build.yml --ref "$GITHUB_REF_NAME"

@@ -80,7 +80,7 @@ jobs:
         run: |
           ./mach package
           df -h /
-          ls -la obj-win64/dist/*.win64.zip obj-win64/dist/*.installer.exe
+          ls -la obj-win64/dist/*.installer.exe
 
       - name: Check update settings in the build
         run: |
@@ -142,17 +142,6 @@ jobs:
           cat obj-win64/dist/update.xml
           echo "mar=$MAR" >> "$GITHUB_OUTPUT"
 
-      - name: Upload build
-        uses: actions/upload-artifact@v4
-        with:
-          name: firefox-windows-x86_64
-          path: |
-            obj-win64/dist/*.win64.zip
-            obj-win64/dist/*.installer.exe
-            obj-win64/dist/*.complete.mar
-            obj-win64/dist/update.xml
-          if-no-files-found: error
-
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
@@ -161,9 +150,9 @@ jobs:
           MAR: ${{ steps.mar.outputs.mar }}
         run: |
           shopt -s nullglob
-          FILES=(obj-win64/dist/*.installer.exe obj-win64/dist/firefox-*.win64.zip)
+          FILES=(obj-win64/dist/*.installer.exe)
           if [ ${#FILES[@]} -eq 0 ]; then
-            echo "::error::No installer or zip to publish."
+            echo "::error::No installer to publish."
             exit 1
           fi
           NOTES="Windows x86_64 build of $GITHUB_SHA. Run the installer .exe to install."
