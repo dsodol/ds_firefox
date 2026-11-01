@@ -263,7 +263,7 @@ def cargo(
             build = command_context._spawn(BuildDriver)
             ret = build.build(
                 command_context.metrics,
-                what=["rust-prereqs"],
+                what=["pre-export", "export"],
                 jobs=jobs,
                 verbose=verbose,
                 mach_context=command_context._mach_context,
@@ -1132,7 +1132,7 @@ def gtest(
         return 1
 
     res = command_context._mach_context.commands.dispatch(
-        "build", command_context._mach_context, what=["gtest"]
+        "build", command_context._mach_context, what=["recurse_gtest"]
     )
     if res:
         print("Could not build xul-gtest")
@@ -1641,22 +1641,16 @@ def source_package(command_context, output, upload):
             f"--exclude=./{substs['DIST']}",
             f"--exclude={os.path.basename(command_context.topobjdir)}",
         ]
-        from mozbuild.action.package import is_gnu_tar
-
-        tar = substs["TAR"]
-        if is_gnu_tar(tar):
-            tar_flags = ["--mode=go-w", f"--transform=s,^./,{archive_prefix}/,"]
-        else:
-            tar_flags = ["-s", f",^./,{archive_prefix}/,"]
         command_context.run_process(
             [
-                tar,
+                "tar",
                 "-cJv",
                 "--owner=0",
                 "--group=0",
                 "--numeric-owner",
+                "--mode=go-w",
                 *excludes,
-                *tar_flags,
+                f"--transform=s,^./,{archive_prefix}/,",
                 "-f",
                 archive_path,
                 "./",
@@ -4042,12 +4036,7 @@ def repackage_desktop_file(
 @CommandArgument(
     "--verbose", action="store_true", help="Log informative status messages."
 )
-@CommandArgument(
-    "--package-tests",
-    action="store_true",
-    help="Package the multi-locale test archives after packaging.",
-)
-def package_l10n(command_context, locales, verbose=False, package_tests=False):
+def package_l10n(command_context, verbose=False, locales=[]):
     if "RecursiveMake" not in command_context.substs["BUILD_BACKENDS"]:
         print(
             "Artifact builds do not support localization. "
@@ -4146,29 +4135,6 @@ def package_l10n(command_context, locales, verbose=False, package_tests=False):
             + "to install the multi-locale geckoview_example and test APKs."
         )
 
-    if package_tests:
-        command_context._run_make(
-            directory=command_context.topobjdir,
-            target=["package-tests", "AB_CD=multi"],
-            pass_thru=True,
-            ensure_exit_code=True,
-        )
-
-    return 0
-
-
-@SubCommand(
-    "package-multi-locale",
-    "upload",
-    description="Copy the multi-locale package to $UPLOAD_PATH.",
-)
-def package_l10n_upload(command_context):
-    command_context._run_make(
-        directory=command_context.topobjdir,
-        target=["upload", "AB_CD=multi"],
-        pass_thru=True,
-        ensure_exit_code=True,
-    )
     return 0
 
 

@@ -60,8 +60,28 @@ class ExternalTexture;
 
 namespace mozilla::dom {
 
-struct VideoFrameData;
-struct VideoFrameSerializedData;
+struct VideoFrameData {
+  VideoFrameData(layers::Image* aImage, const Maybe<VideoPixelFormat>& aFormat,
+                 gfx::IntRect aVisibleRect, gfx::IntSize aDisplaySize,
+                 Maybe<uint64_t> aDuration, int64_t aTimestamp,
+                 const VideoColorSpaceInternal& aColorSpace);
+  VideoFrameData(const VideoFrameData& aData) = default;
+
+  const RefPtr<layers::Image> mImage;
+  const Maybe<VideoPixelFormat> mFormat;
+  const gfx::IntRect mVisibleRect;
+  const gfx::IntSize mDisplaySize;
+  const Maybe<uint64_t> mDuration;
+  const int64_t mTimestamp;
+  const VideoColorSpaceInternal mColorSpace;
+};
+
+struct VideoFrameSerializedData : VideoFrameData {
+  VideoFrameSerializedData(const VideoFrameData& aData,
+                           gfx::IntSize aCodedSize);
+
+  const gfx::IntSize mCodedSize;
+};
 
 class VideoFrame final : public nsISupports,
                          public nsWrapperCache,
@@ -71,24 +91,12 @@ class VideoFrame final : public nsISupports,
   NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(VideoFrame)
 
  public:
-  class Format;
-  class Resource;
-
-  // The only way to obtain a Resource.
-  static Result<Resource, MediaResult> ValidateImage(
-      const RefPtr<layers::Image>& aImage, Maybe<Format> aFormat);
-
-  static Result<RefPtr<VideoFrame>, MediaResult> CreateFromImage(
-      nsIGlobalObject* aParent, const RefPtr<layers::Image>& aImage,
-      const Maybe<VideoPixelFormat>& aFormat, gfx::IntRect aVisibleRect,
-      gfx::IntSize aDisplaySize, const Maybe<uint64_t>& aDuration,
-      int64_t aTimestamp, const VideoColorSpaceInternal& aColorSpace);
-
-  VideoFrame(nsIGlobalObject* aParent, const Resource& aResource,
+  VideoFrame(nsIGlobalObject* aParent, const RefPtr<layers::Image>& aImage,
+             const Maybe<VideoPixelFormat>& aFormat, gfx::IntSize aCodedSize,
              gfx::IntRect aVisibleRect, gfx::IntSize aDisplaySize,
              const Maybe<uint64_t>& aDuration, int64_t aTimestamp,
              const VideoColorSpaceInternal& aColorSpace);
-  VideoFrame(nsIGlobalObject* aParent, const VideoFrameData& aData);
+  VideoFrame(nsIGlobalObject* aParent, const VideoFrameSerializedData& aData);
   VideoFrame(const VideoFrame& aOther);
 
  protected:
@@ -182,9 +190,7 @@ class VideoFrame final : public nsISupports,
                                                       TransferredData* aData);
 
   // Native only methods.
-  gfx::IntSize NativeCodedSize() const {
-    return mResource ? mResource->mCodedSize : gfx::IntSize();
-  }
+  const gfx::IntSize& NativeCodedSize() const { return mCodedSize; }
   const gfx::IntSize& NativeDisplaySize() const { return mDisplaySize; }
   const gfx::IntRect& NativeVisibleRect() const { return mVisibleRect; }
   already_AddRefed<layers::Image> GetImage() const;
@@ -221,28 +227,6 @@ class VideoFrame final : public nsISupports,
     VideoPixelFormat mFormat;
   };
 
-  // A validated layers::Image with cached properties.
-  class Resource final {
-   public:
-    Resource(const Resource& aOther) = default;
-    ~Resource() = default;
-    Maybe<VideoPixelFormat> TryPixelFormat() const;
-    Resource CreateOpaque() const;
-    bool CopyPlaneInto(const Format::Plane& aPlane, const gfx::IntRect& aRect,
-                       Span<uint8_t> aPlaneDest,
-                       size_t aDestinationStride) const;
-
-    const RefPtr<layers::Image> mImage;
-    const Maybe<Format> mFormat;
-    const gfx::IntSize mCodedSize;
-    const gfx::IntRect mPictureRect;
-
-   private:
-    friend class VideoFrame;
-    Resource(const RefPtr<layers::Image>& aImage, Maybe<Format> aFormat,
-             gfx::IntSize aCodedSize, gfx::IntRect aPictureRect);
-  };
-
  private:
   // VideoFrame can run on either main thread or worker thread.
   void AssertIsOnOwningThread() const { NS_ASSERT_OWNINGTHREAD(VideoFrame); }
@@ -258,12 +242,31 @@ class VideoFrame final : public nsISupports,
   void StopAutoClose();
   void CloseIfNeeded();
 
+  // A class representing the VideoFrame's data.
+  class Resource final {
+   public:
+    Resource(const RefPtr<layers::Image>& aImage, Maybe<Format>&& aFormat);
+    Resource(const Resource& aOther);
+    ~Resource() = default;
+    Maybe<VideoPixelFormat> TryPixelFormat() const;
+    uint32_t Stride(const Format::Plane& aPlane) const;
+    bool CopyPlaneInto(const Format::Plane& aPlane, const gfx::IntRect& aRect,
+                       Span<uint8_t> aPlaneDest,
+                       size_t aDestinationStride) const;
+
+    const RefPtr<layers::Image> mImage;
+    // Nothing() if mImage is not in VideoPixelFormat
+    const Maybe<Format> mFormat;
+  };
+
   nsCOMPtr<nsIGlobalObject> mParent;
 
   // Use Maybe instead of UniquePtr to allow copy ctor.
   // The mResource's existence is used as the [[Detached]] for [Transferable].
   Maybe<const Resource> mResource;  // Nothing() after `Close()`d
 
+  // TODO: Replace this by mResource->mImage->GetSize()?
+  gfx::IntSize mCodedSize;
   gfx::IntRect mVisibleRect;
   gfx::IntSize mDisplaySize;
 
@@ -277,31 +280,6 @@ class VideoFrame final : public nsISupports,
   // WebGPU external textures that were imported from this video frame. We must
   // call `Expire()` on them when the video frame is closed.
   nsTArray<WeakPtr<webgpu::ExternalTexture>> mWebGPUExternalTextures;
-};
-
-struct VideoFrameData {
-  VideoFrameData(const VideoFrameData& aData) = default;
-
-  const VideoFrame::Resource mResource;
-  const gfx::IntRect mVisibleRect;
-  const gfx::IntSize mDisplaySize;
-  const Maybe<uint64_t> mDuration;
-  const int64_t mTimestamp;
-  const VideoColorSpaceInternal mColorSpace;
-
- private:
-  // Only a VideoFrame can create one, so mVisibleRect was validated against
-  // mResource.mCodedSize.
-  friend class VideoFrame;
-  VideoFrameData(const VideoFrame::Resource& aResource,
-                 gfx::IntRect aVisibleRect, gfx::IntSize aDisplaySize,
-                 Maybe<uint64_t> aDuration, int64_t aTimestamp,
-                 const VideoColorSpaceInternal& aColorSpace);
-};
-
-struct VideoFrameSerializedData : VideoFrameData {
-  explicit VideoFrameSerializedData(const VideoFrameData& aData);
-  VideoFrameSerializedData(const VideoFrameSerializedData& aData) = default;
 };
 
 }  // namespace mozilla::dom

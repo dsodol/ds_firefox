@@ -317,27 +317,20 @@ bool nsHttpHeaderArray::HasHeader(const nsHttpAtom& header) const {
 nsresult nsHttpHeaderArray::VisitHeaders(
     nsIHttpHeaderVisitor* visitor, nsHttpHeaderArray::VisitorFilter filter) {
   NS_ENSURE_ARG_POINTER(visitor);
-  return VisitHeaders(filter,
-                      [visitor = nsCOMPtr{visitor}](const nsACString& aHeader,
-                                                    const nsACString& aValue) {
-                        return visitor->VisitHeader(aHeader, aValue);
-                      });
-}
+  nsresult rv;
 
-nsresult nsHttpHeaderArray::VisitHeaders(VisitorFilter aFilter,
-                                         VisitorCallback aCallback) {
-  uint32_t count = mHeaders.Length();
-  for (uint32_t i = 0; i < count; ++i) {
+  uint32_t i, count = mHeaders.Length();
+  for (i = 0; i < count; ++i) {
     const nsEntry& entry = mHeaders[i];
-    if (aFilter == eFilterSkipDefault &&
+    if (filter == eFilterSkipDefault &&
         entry.variety == eVarietyRequestDefault) {
       continue;
     }
-    if (aFilter == eFilterResponse &&
+    if (filter == eFilterResponse &&
         entry.variety == eVarietyResponseNetOriginal) {
       continue;
     }
-    if (aFilter == eFilterResponseOriginal &&
+    if (filter == eFilterResponseOriginal &&
         entry.variety == eVarietyResponse) {
       continue;
     }
@@ -345,7 +338,7 @@ nsresult nsHttpHeaderArray::VisitHeaders(VisitorFilter aFilter,
     const nsCString& hdr = entry.headerNameOriginal.IsEmpty()
                                ? entry.header.val()
                                : entry.headerNameOriginal;
-    nsresult rv = aCallback(hdr, entry.value);
+    rv = visitor->VisitHeader(hdr, entry.value);
     if (NS_FAILED(rv)) {
       return rv;
     }

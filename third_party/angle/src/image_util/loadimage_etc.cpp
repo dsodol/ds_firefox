@@ -12,7 +12,6 @@
 
 #include "image_util/loadimage.h"
 
-#include <array>
 #include <type_traits>
 #include "common/mathutil.h"
 
@@ -92,8 +91,8 @@ struct ETC2Block
     // the result R8 may have some precision issue like multiplier == 0 case.
     void transcodeAsBC4(uint8_t *dest, size_t x, size_t y, size_t w, size_t h, bool isSigned) const
     {
-        static constexpr std::array<int, 8> kIndexMap = {1, 7, 6, 5, 4, 3, 2, 0};
-        std::array<int, 16> alpha;
+        static constexpr int kIndexMap[] = {1, 7, 6, 5, 4, 3, 2, 0};
+        int alpha[16];
         size_t k     = 0;
         int minAlpha = std::numeric_limits<int>::max();
         int maxAlpha = std::numeric_limits<int>::min();
@@ -351,8 +350,8 @@ struct ETC2Block
                     unsigned char HG2b : 1;
                 } hm;
             } mode;
-            std::array<unsigned char, 2> pixelIndexMSB;
-            std::array<unsigned char, 2> pixelIndexLSB;
+            unsigned char pixelIndexMSB[2];
+            unsigned char pixelIndexLSB[2];
         } idht;
         // planar mode
         struct
@@ -538,8 +537,8 @@ struct ETC2Block
         const IntensityModifier *intensityModifier =
             nonOpaquePunchThroughAlpha ? intensityModifierNonOpaque : intensityModifierDefault;
 
-        std::array<R8G8B8A8, 4> subblockColors0;
-        std::array<R8G8B8A8, 4> subblockColors1;
+        R8G8B8A8 subblockColors0[4];
+        R8G8B8A8 subblockColors1[4];
         for (size_t modifierIdx = 0; modifierIdx < 4; modifierIdx++)
         {
             const int i1                 = intensityModifier[u.idht.mode.idm.cw1][modifierIdx];
@@ -617,10 +616,10 @@ struct ETC2Block
         int g2 = extend_4to8bits(block.TG2);
         int b2 = extend_4to8bits(block.TB2);
 
-        static constexpr std::array<int, 8> kDistance = {3, 6, 11, 16, 23, 32, 41, 64};
-        const int d                                   = kDistance[block.Tda << 1 | block.Tdb];
+        static int distance[8] = {3, 6, 11, 16, 23, 32, 41, 64};
+        const int d            = distance[block.Tda << 1 | block.Tdb];
 
-        const std::array<R8G8B8A8, 4> paintColors = {
+        const R8G8B8A8 paintColors[4] = {
             createRGBA(r1, g1, b1),
             createRGBA(r2 + d, g2 + d, b2 + d),
             createRGBA(r2, g2, b2),
@@ -664,12 +663,12 @@ struct ETC2Block
         int g2 = extend_4to8bits(block.HG2a << 1 | block.HG2b);
         int b2 = extend_4to8bits(block.HB2);
 
-        static constexpr std::array<int, 8> kDistance = {3, 6, 11, 16, 23, 32, 41, 64};
+        static const int distance[8] = {3, 6, 11, 16, 23, 32, 41, 64};
         const int orderingTrickBit =
             ((r1 << 16 | g1 << 8 | b1) >= (r2 << 16 | g2 << 8 | b2) ? 1 : 0);
-        const int d = kDistance[(block.Hda << 2) | (block.Hdb << 1) | orderingTrickBit];
+        const int d = distance[(block.Hda << 2) | (block.Hdb << 1) | orderingTrickBit];
 
-        const std::array<R8G8B8A8, 4> paintColors = {
+        const R8G8B8A8 paintColors[4] = {
             createRGBA(r1 + d, g1 + d, b1 + d),
             createRGBA(r1 - d, g1 - d, b1 - d),
             createRGBA(r2 + d, g2 + d, b2 + d),
@@ -782,16 +781,16 @@ struct ETC2Block
         // Project each pixel on the (maxColor, minColor) line to decide which
         // BC1 code to assign to it.
 
-        std::array<std::array<uint8_t, 3>, 2> decodedColors = {
-            {{maxColor.R, maxColor.G, maxColor.B}, {minColor.R, minColor.G, minColor.B}}};
+        uint8_t decodedColors[2][3] = {{maxColor.R, maxColor.G, maxColor.B},
+                                       {minColor.R, minColor.G, minColor.B}};
 
-        std::array<int, 3> direction;
+        int direction[3];
         for (int ch = 0; ch < 3; ch++)
         {
             direction[ch] = decodedColors[0][ch] - decodedColors[1][ch];
         }
 
-        std::array<int, 2> stops;
+        int stops[2];
         for (int i = 0; i < 2; i++)
         {
             stops[i] = decodedColors[i][0] * direction[0] + decodedColors[i][1] * direction[1] +
@@ -800,7 +799,7 @@ struct ETC2Block
 
         ASSERT(numColors <= kNumPixelsInBlock);
 
-        std::array<int, kNumPixelsInBlock> encodedColors;
+        int encodedColors[kNumPixelsInBlock];
         if (nonOpaquePunchThroughAlpha)
         {
             for (size_t i = 0; i < numColors; i++)
@@ -1281,8 +1280,8 @@ struct ETC2Block
         int g2 = extend_4to8bits(block.TG2);
         int b2 = extend_4to8bits(block.TB2);
 
-        static constexpr std::array<int, 8> kDistance = {3, 6, 11, 16, 23, 32, 41, 64};
-        const int d                                   = kDistance[block.Tda << 1 | block.Tdb];
+        static int distance[8] = {3, 6, 11, 16, 23, 32, 41, 64};
+        const int d            = distance[block.Tda << 1 | block.Tdb];
 
         // In ETC opaque punch through formats, index == 2 means transparent pixel.
         // Thus we don't need to compute its color, just assign it as black.
@@ -1334,10 +1333,10 @@ struct ETC2Block
         int g2 = extend_4to8bits(block.HG2a << 1 | block.HG2b);
         int b2 = extend_4to8bits(block.HB2);
 
-        static constexpr std::array<int, 8> kDistance = {3, 6, 11, 16, 23, 32, 41, 64};
+        static const int distance[8] = {3, 6, 11, 16, 23, 32, 41, 64};
         const int orderingTrickBit =
             ((r1 << 16 | g1 << 8 | b1) >= (r2 << 16 | g2 << 8 | b2) ? 1 : 0);
-        const int d = kDistance[(block.Hda << 2) | (block.Hdb << 1) | orderingTrickBit];
+        const int d = distance[(block.Hda << 2) | (block.Hdb << 1) | orderingTrickBit];
 
         // In ETC opaque punch through formats, index == 2 means transparent pixel.
         // Thus we don't need to compute its color, just assign it as black.
@@ -1440,7 +1439,8 @@ struct ETC2Block
     int getSingleChannelModifier(size_t x, size_t y) const
     {
         // clang-format off
-        static constexpr std::array<std::array<int, 8>, 16> modifierTable = {{
+        static const int modifierTable[16][8] =
+        {
             { -3, -6,  -9, -15, 2, 5, 8, 14 },
             { -3, -7, -10, -13, 2, 6, 9, 12 },
             { -2, -5,  -8, -13, 1, 4, 7, 12 },
@@ -1456,8 +1456,8 @@ struct ETC2Block
             { -3, -4,  -7, -10, 2, 3, 6,  9 },
             { -1, -2,  -3, -10, 0, 1, 2,  9 },
             { -4, -6,  -8,  -9, 3, 5, 7,  8 },
-            { -3, -5,  -7,  -9, 2, 4, 6,  8 },
-        }};
+            { -3, -5,  -7,  -9, 2, 4, 6,  8 }
+        };
         // clang-format on
 
         return modifierTable[u.scblk.table_index][getSingleChannelIndex(x, y)];

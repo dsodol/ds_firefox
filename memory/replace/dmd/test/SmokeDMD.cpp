@@ -20,28 +20,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <memory>
-#include <string>
-
 #include "mozilla/Assertions.h"
 #include "mozilla/JSONWriter.h"
 #include "mozilla/Sprintf.h"
+#include "mozilla/UniquePtr.h"
 #include "DMD.h"
 
+using mozilla::MakeUnique;
 using namespace mozilla::dmd;
 
 MOZ_RUNINIT DMDFuncs::Singleton DMDFuncs::sSingleton;
 
-// The directory the JSON files are written to.
-static const char* sOutputDir = ".";
-
 class FpWriteFunc final : public mozilla::JSONWriteFunc {
  public:
   explicit FpWriteFunc(const char* aFilename) {
-    std::string path = std::string(sOutputDir) + "/" + aFilename;
-    mFp = fopen(path.c_str(), "w");
+    mFp = fopen(aFilename, "w");
     if (!mFp) {
-      fprintf(stderr, "SmokeDMD: can't create %s file: %s\n", path.c_str(),
+      fprintf(stderr, "SmokeDMD: can't create %s file: %s\n", aFilename,
               strerror(errno));
       exit(1);
     }
@@ -100,7 +95,7 @@ void Foo(int aSeven) {
 void TestEmpty(const char* aTestName, const char* aMode) {
   char filename[128];
   SprintfLiteral(filename, "complete-%s-%s.json", aTestName, aMode);
-  auto f = std::make_unique<FpWriteFunc>(filename);
+  auto f = MakeUnique<FpWriteFunc>(filename);
 
   char options[128];
   SprintfLiteral(options, "--mode=%s --stacks=full", aMode);
@@ -113,7 +108,7 @@ void TestEmpty(const char* aTestName, const char* aMode) {
 void TestFull(const char* aTestName, int aNum, const char* aMode, int aSeven) {
   char filename[128];
   SprintfLiteral(filename, "complete-%s%d-%s.json", aTestName, aNum, aMode);
-  auto f = std::make_unique<FpWriteFunc>(filename);
+  auto f = MakeUnique<FpWriteFunc>(filename);
 
   // The --show-dump-stats=yes is there just to give that option some basic
   // testing, e.g. ensure it doesn't crash. It's hard to test much beyond that.
@@ -283,7 +278,7 @@ void TestFull(const char* aTestName, int aNum, const char* aMode, int aSeven) {
 void TestPartial(const char* aTestName, const char* aMode, int aSeven) {
   char filename[128];
   SprintfLiteral(filename, "complete-%s-%s.json", aTestName, aMode);
-  auto f = std::make_unique<FpWriteFunc>(filename);
+  auto f = MakeUnique<FpWriteFunc>(filename);
 
   char options[128];
   SprintfLiteral(options, "--mode=%s", aMode);
@@ -324,7 +319,7 @@ void TestPartial(const char* aTestName, const char* aMode, int aSeven) {
 }
 
 void TestScan(int aSeven) {
-  auto f = std::make_unique<FpWriteFunc>("basic-scan.json");
+  auto f = MakeUnique<FpWriteFunc>("basic-scan.json");
 
   ResetEverything("--mode=scan");
 
@@ -374,11 +369,7 @@ void RunTests() {
   TestScan(seven);
 }
 
-int main(int argc, char** argv) {
-  if (argc > 1) {
-    sOutputDir = argv[1];
-  }
-
+int main() {
   RunTests();
 
   return 0;

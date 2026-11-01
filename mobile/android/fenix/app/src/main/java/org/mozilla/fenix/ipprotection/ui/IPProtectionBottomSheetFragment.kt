@@ -64,7 +64,7 @@ class IPProtectionBottomSheetFragment : BottomSheetDialogFragment() {
         //  even if already entitled, they would have to re-authorize vpn. We probably want to chain the check and
         //  toggle actions or even check the account before showing the onboarding (so we don't have to maintain the UI
         //  in a loading state.
-        requireComponents.ipProtection.store.dispatch(IPProtectionAction.AccountAction.CheckAccount)
+        requireComponents.ipProtection.store.dispatch(IPProtectionAction.CheckAccount)
     }
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog =

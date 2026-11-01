@@ -9,33 +9,18 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 import {
   expandUrlTokens,
   stripUnresolvedUrlTokens,
-  URL_REGEX,
   UrlTokenizer,
 } from "moz-src:///browser/components/aiwindow/ui/modules/UrlTokenizer.sys.mjs";
-import { componentTypeName } from "chrome://browser/content/aiwindow/modules/AITabUtils.mjs";
-import { sanitizeUntrustedContent } from "moz-src:///browser/components/aiwindow/models/ChatUtils.sys.mjs";
-
-import {
-  getSmartPageName,
-  isSmartPageURL,
-} from "chrome://browser/content/aiwindow/modules/TrustedInternalURLs.mjs";
 
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  AIWindow:
-    "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
   AITabStore:
     "moz-src:///browser/components/aiwindow/ui/modules/AITabStore.sys.mjs",
-  AuthProvider:
-    "moz-src:///browser/components/aiwindow/models/AuthProvider.sys.mjs",
   ConversationStore:
     "moz-src:///browser/components/aiwindow/ui/modules/ConversationStore.sys.mjs",
-  BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   JsonSchema: "resource://gre/modules/JsonSchema.sys.mjs",
   GetPageContent: "moz-src:///browser/components/aiwindow/models/Tools.sys.mjs",
-  isAllowedURLProtocol:
-    "moz-src:///browser/components/aiwindow/models/SecurityProperties.sys.mjs",
   buildConversation:
     "moz-src:///browser/components/aiwindow/models/PromptLoader.sys.mjs",
   buildEngineForFeature:
@@ -43,10 +28,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   loadPrompt:
     "moz-src:///browser/components/aiwindow/models/PromptLoader.sys.mjs",
   MODEL_FEATURES: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
-  FEATURE_MAJOR_VERSIONS:
-    "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
-  parseVersion: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   renderPrompt: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
+  openAIEngine:
+    "moz-src:///browser/components/aiwindow/models/openAIEngine.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
 });
 
@@ -91,13 +75,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
 // produces a validated surface only.
 //
 // component_schema.json is an A2UI-compatible *catalog*: a single JSON-Schema
-// object with a `components` map (name -> property schema), shared `$defs`,
-// and a `version` ("{major}.{minor}") paired with the aitab Remote Settings
-// major (FEATURE_MAJOR_VERSIONS.aitab): the prompts published at that major
-// describe this catalog. A catalog change that older prompts cannot describe
-// (a new component, a new property on a component that forbids unknown ones)
-// bumps the catalog major, FEATURE_MAJOR_VERSIONS.aitab, and the packaged
-// dump's aitab records together, so two releases can be served side by side.
+// object with a `components` map (name -> property schema), shared `$defs`.
 const COMPONENT_SCHEMA_URL =
   "chrome://browser/content/aiwindow/aitab/component_schema.json";
 // The `component` type every surface's root must use.
@@ -109,12 +87,11 @@ const JSON_SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema";
 
 // Total budget (characters) for page text sent to the model, split evenly
 // across the requested tabs so multi-tab requests don't overflow the prompt.
-// Measured after URL tokenization, since URLs only reach the model as tokens.
 const SOURCE_TEXT_BUDGET = 10000;
 // Separator inserted between each page's text in the model prompt.
 const PAGE_BREAK = "\n\n<----- PAGE BREAK ---->\n\n";
 
-export const MAX_AITAB_CONTEXT_TABS = 10;
+const MAX_AITAB_URLS = 20;
 
 // Surface properties the browser navigates to or loads. The model may only
 // fill them with URL tokens it was given (see expandSurfaceUrlTokens).
@@ -143,10 +120,7 @@ const MAX_INSTRUCTION_CHARS = 1500;
 // request is refused rather than answered badly.
 const MAX_HISTORY_CHARS = 100000;
 
-const CANCELED_RESULT = Object.freeze({
-  error: "page generation was canceled",
-  code: "canceled",
-});
+const CANCELED_ERROR = "page generation was canceled";
 
 // The viewer page for AITab pages. The `page` query string parameter names the
 // slug the page data is loaded from.
@@ -177,8 +151,6 @@ const HISTORY_LIMIT_ERROR = "No more modifications are supported";
  * type, all sharing the document's `$defs`.
  *
  * @typedef {object} A2UICatalog
- * @property {string} [version] - "{major}.{minor}"; the major is paired with
- *   FEATURE_MAJOR_VERSIONS.aitab. Required on the packaged catalog.
  * @property {Record<string, A2UISchema>} components - Component type name to its property schema.
  * @property {Record<string, A2UISchema>} [$defs] - Definitions the component schemas `$ref`.
  * @property {string} [catalogId] - Identifier of the catalog.
@@ -320,9 +292,6 @@ const HISTORY_LIMIT_ERROR = "No more modifications are supported";
  * @typedef {object} AITabMetadata
  * @property {string} id - Slug of `title` (see `#slugify`), or the slug being
  *   revised when this generation modified an existing page.
- * @property {string} [convId] - Id of the chat that owns the page being
- *   revised, which keeps it whichever chat asked for the revision. Absent for
- *   a new page, which belongs to the chat that asked for it.
  * @property {string} toolConvId - Id of the conversation the surface was
  *   composed in, in the ConversationStore. Stored alongside the page so a
  *   later modification can continue that exchange, and so deleting the page
@@ -335,10 +304,9 @@ const HISTORY_LIMIT_ERROR = "No more modifications are supported";
 
 /**
  * The result of a generation attempt: metadata plus the validated surface, or
- * a description of what went wrong and its canonical error code (the one
- * reported to telemetry).
+ * a description of what went wrong.
  *
- * @typedef {{metadata: AITabMetadata, surface: A2UISurface} | {error: string, code: string}} AITabResult
+ * @typedef {{metadata: AITabMetadata, surface: A2UISurface} | {error: string}} AITabResult
  */
 
 /**
@@ -371,40 +339,9 @@ export class AITab {
    * @returns {Promise<{env: ValidationEnv}>}
    */
   static async loadAssets() {
-    const override = lazy.overrideCatalog;
-    const catalog = override ?? (await AITab.#loadPackagedCatalog());
-    // The packaged catalog must declare its version; a dev override may omit
-    // it, but when it declares one it is held to the same pairing rule.
-    AITab.#checkCatalogVersion(catalog, { versionRequired: !override });
+    const catalog =
+      lazy.overrideCatalog ?? (await AITab.#loadPackagedCatalog());
     return { env: AITab.#makeEnv(catalog) };
-  }
-
-  /**
-   * Enforce the catalog/prompt pairing: the catalog's major must equal the
-   * aitab major this build reads prompts for, or the prompt and the validator
-   * would disagree on which components exist.
-   *
-   * @param {A2UICatalog} catalog
-   * @param {object} options
-   * @param {boolean} options.versionRequired - Reject a catalog with no `version`.
-   * @throws {Error} with `clientReason` "catalogVersionMismatch".
-   */
-  static #checkCatalogVersion(catalog, { versionRequired }) {
-    const expected = lazy.FEATURE_MAJOR_VERSIONS[lazy.MODEL_FEATURES.AITAB];
-    if (catalog?.version == null && !versionRequired) {
-      lazy.console.warn(
-        `aitab catalog override has no version; assuming major ${expected}`
-      );
-      return;
-    }
-    const parsed = lazy.parseVersion(catalog?.version);
-    if (!parsed || parsed.major !== expected) {
-      const err = new Error(
-        `aitab catalog version ${JSON.stringify(catalog?.version)} does not match this build's aitab major ${expected}`
-      );
-      err.clientReason = "catalogVersionMismatch";
-      throw err;
-    }
   }
 
   /**
@@ -817,38 +754,6 @@ export class AITab {
   }
 
   /**
-   * Selects up to MAX_AITAB_CONTEXT_TABS unique context urls (http, https
-   * or a smartpage) to build an AITab. Prioritizes candidate urls from
-   * open tabs (sorted by lastAccessed), followed by the remaining
-   * candidates as urls/mentions from the chat conversation.
-   *
-   * @param {string[]} candidateUrls - Candidate context urls.
-   * @returns {string[]}
-   */
-  static selectContextUrls(candidateUrls) {
-    if (!Array.isArray(candidateUrls)) {
-      return [];
-    }
-    const candidates = new Set(
-      candidateUrls.filter(
-        url => lazy.isAllowedURLProtocol(url) || isSmartPageURL(URL.parse(url))
-      )
-    );
-    const openTabUrls = new Set(
-      lazy.BrowserWindowTracker.orderedWindows
-        .filter(win => !win.closed && lazy.AIWindow.isAIWindowActive(win))
-        .flatMap(win => win.gBrowser.tabs)
-        .filter(tab => candidates.has(tab.linkedBrowser.currentURI.spec))
-        .sort((a, b) => b.lastAccessed - a.lastAccessed)
-        .map(tab => tab.linkedBrowser.currentURI.spec)
-    );
-    return Array.from(openTabUrls.union(candidates)).slice(
-      0,
-      MAX_AITAB_CONTEXT_TABS
-    );
-  }
-
-  /**
    * Generate an AITab from a list of URLs, content handed over inline, or both.
    * Each URL's readable content is pulled via get_page_content, then an LLM
    * composes a structured A2UI surface that is validated against the packaged
@@ -873,8 +778,6 @@ export class AITab {
    * @param {string} [options.modifySlug] - Slug of the stored page to revise.
    * @param {string} [options.modifyInstructions] - What to change about it.
    *   Cut to MAX_INSTRUCTION_CHARS.
-   * @param {string} [options.howInitiated] - How the generation was requested,
-   *   for telemetry: tab_list, tab_group, chat, chat_followup or refresh.
    * @param {AbortSignal} [options.signal] - Cancels the generation. Checked at
    *   every await boundary here and in #generateStructuredSurface, and passed to
    *   the page extractions so they can be torn down early.
@@ -889,92 +792,24 @@ export class AITab {
       rawContent,
       modifySlug,
       modifyInstructions,
-      howInitiated = "chat",
       signal,
     } = {},
     conversation
   ) {
     const urls = Array.isArray(urlList)
-      ? urlList
-          .filter(url => typeof url == "string")
-          .slice(0, MAX_AITAB_CONTEXT_TABS)
+      ? urlList.filter(url => typeof url == "string").slice(0, MAX_AITAB_URLS)
       : [];
     const rawText = typeof rawContent == "string" ? rawContent.trim() : "";
     const slug = typeof modifySlug == "string" ? modifySlug.trim() : "";
 
-    const initiateExtra = {
-      num_tabs: urls.length,
-      how_initiated: howInitiated,
-      raw_content_len: typeof rawContent == "string" ? rawContent.length : 0,
-    };
-    if (slug) {
-      Glean.smartWindow.aitabEditInitiate.record(initiateExtra);
-    } else {
-      Glean.smartWindow.aitabCreateInitiate.record({
-        ...initiateExtra,
-        num_tabs_total_attempted: Array.isArray(urlList) ? urlList.length : 0,
-      });
-    }
-
-    const startTime = ChromeUtils.now();
-    const stats = { charsRead: 0, charsOut: 0 };
-    const result = await AITab.#generate(
-      { urls, rawText, slug, focus, modifyInstructions, signal, stats },
-      conversation
-    );
-
-    const completeExtra = {
-      is_success: !result.error,
-      components_used: result.surface
-        ? AITab.#componentsUsed(result.surface)
-        : "[]",
-      num_chars_read: stats.charsRead,
-      num_chars_out: stats.charsOut,
-      seconds_elapsed: Math.round((ChromeUtils.now() - startTime) / 1000),
-    };
-    if (result.error) {
-      completeExtra.error = result.code;
-    }
-    if (slug) {
-      Glean.smartWindow.aitabEditComplete.record(completeExtra);
-    } else {
-      Glean.smartWindow.aitabCreateComplete.record(completeExtra);
-    }
-
-    return result.error ? { error: result.error, code: result.code } : result;
-  }
-
-  /**
-   * The body of generateAITab, with its options already normalized.
-   *
-   * @param {object} options
-   * @param {string[]} options.urls
-   * @param {string} options.rawText
-   * @param {string} options.slug - Slug of the page to revise, or "".
-   * @param {string} options.focus
-   * @param {string} [options.modifyInstructions]
-   * @param {AbortSignal} [options.signal]
-   * @param {{charsRead: number, charsOut: number}} options.stats - Filled in
-   *   with the characters sent to and received from the model.
-   * @param {ChatConversation} conversation
-   * @returns {Promise<AITabResult|{error: string, code: string}>} On failure,
-   *   `code` is the canonical error code reported to telemetry.
-   */
-  static async #generate(
-    { urls, rawText, slug, focus, modifyInstructions, signal, stats },
-    conversation
-  ) {
     // A modification already has a page to work from, so it needs no material
     // of its own; anything else has to bring something to build one out of.
     if (!urls.length && !rawText && !slug) {
-      return {
-        error: "no URLs or content were provided to build a page from",
-        code: "no_content",
-      };
+      return { error: "no URLs or content were provided to build a page from" };
     }
 
     if (signal?.aborted) {
-      return CANCELED_RESULT;
+      return { error: CANCELED_ERROR };
     }
 
     // Resolved before any content is fetched: a slug that names no page of
@@ -984,11 +819,11 @@ export class AITab {
     if (slug) {
       prior = await AITab.#loadPageToModify(slug, conversation);
       if (prior.error) {
-        return prior;
+        return { error: prior.error };
       }
 
       if (signal?.aborted) {
-        return CANCELED_RESULT;
+        return { error: CANCELED_ERROR };
       }
     }
 
@@ -1022,15 +857,14 @@ export class AITab {
       modifyInstructions: instructions,
       priorConversation: prior?.conversation,
       signal,
-      stats,
     });
 
     if (signal?.aborted) {
-      return CANCELED_RESULT;
+      return { error: CANCELED_ERROR };
     }
 
     if (structured.error) {
-      return structured;
+      return { error: structured.error };
     }
 
     // Every page in urlList was extracted into this conversation, so it holds
@@ -1068,7 +902,7 @@ export class AITab {
     await AITab.#hydrateFavicons(structured.surface, signal);
 
     if (signal?.aborted) {
-      return CANCELED_RESULT;
+      return { error: CANCELED_ERROR };
     }
 
     const title =
@@ -1083,7 +917,6 @@ export class AITab {
     /** @type {AITabMetadata} */
     const metadata = {
       id: prior ? prior.page.slug : AITab.#slugify(title),
-      convId: prior?.page.convId,
       toolConvId: toolConversation.id,
       title,
       howCreated: "chat",
@@ -1114,35 +947,6 @@ export class AITab {
   }
 
   /**
-   * The longest prefix of `text` that fits in `budget` once its URLs are
-   * tokenized. Never ends inside a URL, which would hand the model a token
-   * for a URL that doesn't exist.
-   *
-   * @param {string} text
-   * @param {number} budget
-   * @returns {string}
-   */
-  static #truncateToBudget(text, budget) {
-    // Measures token lengths only. The prompt is tokenized separately, so
-    // nothing registered here can resolve a link in the model's output.
-    const urlTokenizer = new UrlTokenizer();
-    let length = 0;
-    let end = 0;
-    for (const match of text.matchAll(URL_REGEX)) {
-      const gap = match.index - end;
-      if (length + gap >= budget) {
-        break;
-      }
-      length += gap + urlTokenizer.tokenizeText(match[0]).length;
-      if (length > budget) {
-        return text.slice(0, match.index);
-      }
-      end = match.index + match[0].length;
-    }
-    return text.slice(0, end + Math.max(0, budget - length));
-  }
-
-  /**
    * Read the material a surface is composed from: the readable text of each
    * requested URL, plus any content handed over inline, laid out as the
    * prompt's source sections and separated by PAGE_BREAK.
@@ -1169,17 +973,14 @@ export class AITab {
       );
 
       if (signal?.aborted) {
-        return CANCELED_RESULT;
+        return { error: CANCELED_ERROR };
       }
 
       // Nothing readable: report it instead of generating a page whose only
       // source material is the refusal. A partial read still generates, from
       // whichever URLs were allowed.
       if (!contents.some(result => result.ok)) {
-        return {
-          error: "none of the requested pages could be read",
-          code: "pages_unreadable",
-        };
+        return { error: "none of the requested pages could be read" };
       }
     }
 
@@ -1214,7 +1015,8 @@ export class AITab {
 
       // Trim each page's text to its share of the budget before sending to the
       // model.
-      const budgetedText = AITab.#truncateToBudget(text, perTabBudget);
+      const budgetedText =
+        text.length > perTabBudget ? text.slice(0, perTabBudget) : text;
       const headLines = [`## ${heading}`, `URL: ${url}`];
       // Omit the Image: line when absent so the model never echoes an empty
       // value.
@@ -1225,12 +1027,12 @@ export class AITab {
     }
 
     if (signal?.aborted) {
-      return CANCELED_RESULT;
+      return { error: CANCELED_ERROR };
     }
 
     if (rawText) {
       sourceParts.push(
-        `${RAW_CONTENT_HEADING}\n\n${AITab.#truncateToBudget(rawText, perTabBudget)}`
+        `${RAW_CONTENT_HEADING}\n\n${rawText.slice(0, perTabBudget)}`
       );
     }
 
@@ -1242,16 +1044,13 @@ export class AITab {
    * composed it. The stored conversation carries its messages, URL ledgers and
    * security flags but no engine; #resolvePromptSet attaches one.
    *
-   * Only a page belonging to `conversation`, or one the user referenced in it
-   * (the current tab or an @mention), can be loaded: slugs are visible in page
-   * URLs, so without that check a model could be talked into rewriting a page
-   * from an unrelated chat. URLs the conversation merely came across, such as
-   * open tabs or links in fetched pages, do not count. Keying the lookup on
-   * the chat conversation would also file the new version under the wrong
-   * slug.
+   * Only a page belonging to `conversation` can be loaded: slugs are visible in
+   * page URLs, so without that check a model could be talked into rewriting a
+   * page from an unrelated chat. Keying the lookup on the chat conversation
+   * would also file the new version under the wrong slug.
    *
    * @param {string} slug
-   * @param {ChatConversation} conversation - The chat asking for the revision.
+   * @param {ChatConversation} conversation - The chat that owns the page.
    * @returns {Promise<{page: object, conversation: Conversation}
    *   |{error: string}>}
    */
@@ -1267,20 +1066,11 @@ export class AITab {
       }
     } catch (error) {
       lazy.console.error("could not load the page to modify", slug, error);
-      return {
-        error: `the page "${slug}" could not be loaded`,
-        code: "page_load_failed",
-      };
+      return { error: `the page "${slug}" could not be loaded` };
     }
 
-    const referencedByUser = [
-      ...(conversation?.getAllMentionURLs() ?? []),
-    ].some(url => getSmartPageName(URL.parse(url)) === slug);
-    if (!page || (page.convId !== conversation?.id && !referencedByUser)) {
-      return {
-        error: `this conversation has no page with the slug "${slug}"`,
-        code: "page_not_found",
-      };
+    if (!page || page.convId !== conversation?.id) {
+      return { error: `this conversation has no page with the slug "${slug}"` };
     }
 
     // The surface to revise lives in that conversation's assistant message, so
@@ -1291,7 +1081,6 @@ export class AITab {
         error:
           `the conversation that generated "${slug}" is no longer available, ` +
           `so it can only be generated again from scratch`,
-        code: "conversation_unavailable",
       };
     }
 
@@ -1340,34 +1129,6 @@ export class AITab {
       return typeof value == "string" ? value : "";
     }
     return "";
-  }
-
-  /**
-   * The component types a validated surface uses, for telemetry: a
-   * JSON-encoded array in render order, walking from the root through each
-   * component's header then children. A component carrying a `layout` is
-   * listed as `component_layout`.
-   *
-   * @param {A2UISurface} surface
-   * @returns {string}
-   */
-  static #componentsUsed(surface) {
-    const byId = new Map(surface.components.map(c => [c.id, c]));
-    const visited = new Set();
-    const used = [];
-    const visit = id => {
-      const comp = byId.get(id);
-      if (!comp || visited.has(id)) {
-        return;
-      }
-      visited.add(id);
-      used.push(componentTypeName(comp));
-      for (const ref of [comp.header, comp.children].flat()) {
-        visit(typeof ref == "string" ? ref : ref?.componentId);
-      }
-    };
-    visit(ROOT_ID);
-    return JSON.stringify(used);
   }
 
   /**
@@ -1463,9 +1224,8 @@ export class AITab {
   }
 
   /**
-   * The page-icon: URL for a page whose favicon Places has stored. Never
-   * rejects; returns "" when no favicon is stored for the page or the lookup
-   * fails.
+   * Look up the URL of a page's stored favicon in Places. Never rejects;
+   * returns "" when no favicon is stored for the page or the lookup fails.
    *
    * @param {string} url
    * @returns {Promise<string>}
@@ -1475,7 +1235,7 @@ export class AITab {
       const favicon = await lazy.PlacesUtils.favicons.getFaviconForPage(
         Services.io.newURI(url)
       );
-      return favicon ? `page-icon:${url}` : "";
+      return favicon?.uri?.spec ?? "";
     } catch (e) {
       lazy.console.debug("getFaviconURL failed", url, e);
       return "";
@@ -1653,8 +1413,6 @@ export class AITab {
    * @param {Conversation} [options.priorConversation] The conversation to
    *   continue; a fresh one is built when there is none.
    * @param {AbortSignal} [options.signal] - Cancels the generation.
-   * @param {{charsRead: number, charsOut: number}} options.stats - Filled in
-   *   with the characters sent to and received from the model.
    * @returns {Promise<{surface: A2UISurface, conversation: Conversation}
    *   | {error: string}>}
    */
@@ -1664,7 +1422,6 @@ export class AITab {
     modifyInstructions,
     priorConversation,
     signal,
-    stats,
   }) {
     try {
       const { env } = await AITab.loadAssets();
@@ -1681,9 +1438,7 @@ export class AITab {
       // source-content template around an empty body would read as "the
       // sources are gone", so it is left out and only the instructions go in.
       const userParts = [];
-      let charsRead = modifyInstructions?.length ?? 0;
       if (sourceText) {
-        charsRead += sourceText.length + (focus?.length ?? 0);
         userParts.push(
           lazy.renderPrompt(user, {
             focus: focus ?? "",
@@ -1695,10 +1450,7 @@ export class AITab {
         userParts.push(`${MODIFY_CONTENT_HEADING}\n\n${modifyInstructions}`);
       }
       if (!userParts.length) {
-        return {
-          error: "nothing was provided to change the page with",
-          code: "nothing_to_change",
-        };
+        return { error: "nothing was provided to change the page with" };
       }
       conversation.addUserMessage(userParts.join(PAGE_BREAK));
 
@@ -1717,57 +1469,40 @@ export class AITab {
           lazy.console.warn(
             `refusing to modify: history is ${history.length} chars`
           );
-          return { error: HISTORY_LIMIT_ERROR, code: "history_limit" };
+          return { error: HISTORY_LIMIT_ERROR };
         }
       }
 
       if (signal?.aborted) {
-        return CANCELED_RESULT;
+        return { error: CANCELED_ERROR };
       }
 
-      stats.charsRead = charsRead;
       // The signal is deliberately not forwarded to run(): an AbortSignal
       // cannot be structured-cloned to the engine actor, so the model call can
       // only be abandoned once it resolves.
       const response = await conversation.run({
         args,
-        token: await lazy.AuthProvider.getToken(),
+        fxAccountToken: await lazy.openAIEngine.getFxAccountToken(),
       });
 
       if (signal?.aborted) {
-        return CANCELED_RESULT;
+        return { error: CANCELED_ERROR };
       }
 
       const text = response?.finalOutput?.trim();
-      stats.charsOut = text?.length ?? 0;
       lazy.console.debug(
         `model returned ${text?.length || 0} chars`,
         text ? text.slice(0, 500) : response
       );
       if (!text) {
-        return {
-          error: "the model returned an empty response",
-          code: "empty_response",
-        };
+        return { error: "the model returned an empty response" };
       }
 
       const parsed = AITab.parsePageConfig(text);
       if (!parsed) {
         lazy.console.error("model did not return valid JSON:", text);
-        return {
-          error: "the model did not return valid JSON",
-          code: "invalid_json",
-        };
+        return { error: "the model did not return valid JSON" };
       }
-
-      if (parsed.error && typeof parsed.error == "string") {
-        lazy.console.warn("Model returned response error", parsed.error);
-        return {
-          error: sanitizeUntrustedContent(parsed.error),
-          code: "content_related",
-        };
-      }
-
       const surface = AITab.expandSurfaceUrlTokens(parsed, urlTokenizer);
 
       const result = AITab.buildSurface(surface, env);
@@ -1775,7 +1510,6 @@ export class AITab {
         lazy.console.error("surface failed validation", result.errors, surface);
         return {
           error: "the generated page did not match the required format",
-          code: "invalid_format",
         };
       }
 
@@ -1789,10 +1523,7 @@ export class AITab {
       return { surface: result.surface, conversation };
     } catch (error) {
       lazy.console.error("structured generation failed", error);
-      return {
-        error: `page generation failed: ${error?.message ?? error}`,
-        code: "generation_failed",
-      };
+      return { error: `page generation failed: ${error?.message ?? error}` };
     }
   }
 
@@ -1874,19 +1605,17 @@ export class AITab {
   }
 
   /**
-   * Turn a title into a lowercase kebab-case slug.
+   * Turn a title into a lowercase snake_case slug.
    *
    * @param {string} title
    * @returns {string}
    */
   static #slugify(title) {
     const slug = title
-      .slice(0, 60)
       .toLowerCase()
-      .normalize("NFD")
-      .replace(/\p{M}/gu, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 60);
     // A title with no ASCII alphanumerics at all (e.g. one written in Japanese)
     // slugs to the empty string, which is not a usable identifier.
     return slug || "aitab";

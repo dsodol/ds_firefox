@@ -46,6 +46,10 @@ nsresult XULStoreIterator::GetNext(nsAString* item) {
   return xulstore_iter_get_next(this, item);
 }
 
+void DefaultDelete<XULStoreIterator>::operator()(XULStoreIterator* ptr) const {
+  xulstore_iter_free(ptr);
+}
+
 namespace XULStore {
 already_AddRefed<nsIXULStore> GetService() {
   nsCOMPtr<nsIXULStore> xulStore;
@@ -77,24 +81,21 @@ nsresult RemoveValue(const nsAString& doc, const nsAString& id,
                      const nsAString& attr) {
   return xulstore_remove_value(&doc, &id, &attr);
 }
-nsresult GetIDs(
-    const nsAString& doc,
-    std::unique_ptr<XULStoreIterator, XULStoreIterator::Deleter>& iter) {
+nsresult GetIDs(const nsAString& doc, UniquePtr<XULStoreIterator>& iter) {
   // We assign the value of the iter here in C++ via a return value
   // rather than in the Rust function via an out parameter in order
-  // to ensure that any old value is deleted, since the std::unique_ptr's
+  // to ensure that any old value is deleted, since the UniquePtr's
   // assignment operator won't delete the old value if the assignment
   // happens in Rust.
   nsresult result;
   iter.reset(xulstore_get_ids(&doc, &result));
   return result;
 }
-nsresult GetAttrs(
-    const nsAString& doc, const nsAString& id,
-    std::unique_ptr<XULStoreIterator, XULStoreIterator::Deleter>& iter) {
+nsresult GetAttrs(const nsAString& doc, const nsAString& id,
+                  UniquePtr<XULStoreIterator>& iter) {
   // We assign the value of the iter here in C++ via a return value
   // rather than in the Rust function via an out parameter in order
-  // to ensure that any old value is deleted, since the std::unique_ptr's
+  // to ensure that any old value is deleted, since the UniquePtr's
   // assignment operator won't delete the old value if the assignment
   // happens in Rust.
   nsresult result;
@@ -105,8 +106,3 @@ nsresult Shutdown() { return xulstore_shutdown(); }
 
 };  // namespace XULStore
 };  // namespace mozilla
-
-void std::default_delete<XULStoreIterator>::operator()(
-    mozilla::XULStoreIterator* ptr) const {
-  xulstore_iter_free(ptr);
-}

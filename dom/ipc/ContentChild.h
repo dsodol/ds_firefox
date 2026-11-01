@@ -181,11 +181,6 @@ class ContentChild final : public PContentChild,
   mozilla::ipc::IPCResult RecvInitProfiler(
       Endpoint<PProfilerChild>&& aEndpoint);
 
-#ifdef MOZ_WIDGET_ANDROID
-  mozilla::ipc::IPCResult RecvInitProcInfo(
-      Endpoint<PProcInfoChild>&& aEndpoint);
-#endif
-
   mozilla::ipc::IPCResult RecvGMPsChanged(
       nsTArray<GMPCapabilityData>&& capabilities);
 
@@ -513,7 +508,6 @@ class ContentChild final : public PContentChild,
                                           const ImageIntSize& aSize,
                                           const bool& aStretch,
                                           const ColorScheme& aColoScheme,
-                                          NotNull<nsIPrincipal*> aPrincipal,
                                           DecodeImageResolver&& aResolver);
 
 #if defined(XP_WIN)
@@ -789,27 +783,13 @@ class ContentChild final : public PContentChild,
       const uint32_t aStopFlags);
 
   mozilla::ipc::IPCResult RecvDeactivateDocuments(
-      const MaybeDiscarded<BrowsingContext>& aContext,
-      const Maybe<SessionHistoryInfo>& aPageSwapTargetInfo,
-      const NavigationType& aNavigationType, const bool aForUnload);
-
-  MOZ_CAN_RUN_SCRIPT_BOUNDARY
-  mozilla::ipc::IPCResult RecvBeginOutboundCrossDocumentViewTransition(
-      const MaybeDiscarded<BrowsingContext>& aContext,
-      const Maybe<SessionHistoryInfo>& aPageSwapTargetInfo,
-      const NavigationType& aNavigationType, const TabId& aSnapshotTargetTab,
-      BeginOutboundCrossDocumentViewTransitionResolver&& aResolver);
+      const MaybeDiscarded<BrowsingContext>& aContext);
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
   mozilla::ipc::IPCResult RecvReactivateDocuments(
       const MaybeDiscarded<BrowsingContext>& aContext,
       const Maybe<SessionHistoryInfo>& aReactivatedEntry,
       const nsTArray<SessionHistoryInfo>& aNewSHEs,
       const Maybe<PreviousSessionHistoryInfo>& aPreviousEntryForActivation);
-  MOZ_CAN_RUN_SCRIPT_BOUNDARY
-  mozilla::ipc::IPCResult RecvFirePageSwap(
-      const MaybeDiscarded<BrowsingContext>& aContext,
-      const Maybe<SessionHistoryInfo>& aPageSwapTargetInfo,
-      const NavigationType& aNavigationType);
 
   mozilla::ipc::IPCResult RecvRawMessage(const JSActorMessageMeta& aMeta,
                                          JSIPCValue&& aData,
@@ -960,9 +940,7 @@ class ContentChild final : public PContentChild,
   // See `BrowsingContext::mEpochs` for an explanation of this field.
   uint64_t mBrowsingContextFieldEpoch = 0;
 
-  // Atomic because the profiler reads it from another thread.
-  Atomic<hal::ProcessPriority, Relaxed> mProcessPriority{
-      hal::PROCESS_PRIORITY_UNKNOWN};
+  hal::ProcessPriority mProcessPriority = hal::PROCESS_PRIORITY_UNKNOWN;
 
   // Session created when the process priority is FOREGROUND to ensure high
   // priority scheduling of important threads. (Currently main thread and style

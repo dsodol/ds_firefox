@@ -18,6 +18,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   AIWindowUI:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindowUI.sys.mjs",
   ChatsController: "resource:///modules/ChatsController.sys.mjs",
+  URILoadingHelper: "resource:///modules/URILoadingHelper.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", function () {
@@ -125,7 +126,32 @@ class ChatsInView extends ViewPage {
       return;
     }
 
-    lazy.AIWindowUI.reopenConversationInTab(this.getWindow(), conversation);
+    const win = event.target.documentGlobal;
+    const mostRecentPage = conversation.getMostRecentPageVisited();
+
+    if (mostRecentPage?.href) {
+      // Chat has a page URL - open the page and sidebar
+      lazy.URILoadingHelper.openTrustedLinkIn(win, mostRecentPage.href, "tab", {
+        resolveOnContentBrowserCreated: async targetBrowser => {
+          lazy.AIWindowUI.openSidebar(
+            targetBrowser.documentGlobal,
+            conversation
+          );
+        },
+      });
+    } else {
+      // Chat has no page URL - open AI Window directly in fullpage mode
+      lazy.URILoadingHelper.openTrustedLinkIn(
+        win,
+        lazy.AIWindow.newTabURL,
+        "tab",
+        {
+          resolveOnContentBrowserCreated: async targetBrowser => {
+            lazy.AIWindowUI.openInFullWindow(targetBrowser, conversation);
+          },
+        }
+      );
+    }
 
     if (this.controller.searchQuery) {
       this.cumulativeSearches = 0;

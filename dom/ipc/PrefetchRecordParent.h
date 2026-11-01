@@ -20,7 +20,6 @@
 #include "nsIReferrerInfo.h"
 #include "nsIRequestObserver.h"
 #include "nsIStreamListener.h"
-#include "nsITimer.h"
 #include "nsIURI.h"
 #include "nsString.h"
 #include "nsTArray.h"
@@ -71,7 +70,6 @@ class PrefetchRecordParent final : public PPrefetchRecordParent,
   bool HadConflictingCredentials() const { return mHadConflictingCredentials; }
   const nsTArray<Maybe<nsString>>& Tags() const { return mTags; }
   const nsString& NoVarySearchHint() const { return mNoVarySearchHint; }
-  bool IsEligibleForPrefetch() const { return mIsEligibleForPrefetch; }
 
   // (https://wicg.github.io/nav-speculation/prefetch.html#prefetch-record-cancel-and-discard).
   mozilla::ipc::IPCResult RecvCancel();
@@ -98,11 +96,6 @@ class PrefetchRecordParent final : public PPrefetchRecordParent,
   // https://wicg.github.io/nav-speculation/prefetch.html#prefetch-record-is-expected-to-match-a-url
   bool IsExpectedToMatch(nsIURI* aURL) const;
 
-  // Matches using only candidate data available in both experiment branches.
-  // Unlike IsExpectedToMatch, this never consults response data, which the
-  // dry-run branch cannot observe.
-  bool MatchesCandidateURL(nsIURI* aURL) const;
-
   void ActorDestroy(ActorDestroyReason aReason) override;
 
  private:
@@ -114,8 +107,6 @@ class PrefetchRecordParent final : public PPrefetchRecordParent,
   void FillResponseOnLastEntry(nsIChannel* aChannel);
   nsString ComputePartitionKeyForChannel(nsIChannel* aChannel) const;
   bool IsReferrerPolicySufficientlyStrict() const;
-  void ReleaseCacheToken();
-  bool MatchesNoVarySearchHint(nsIURI* aURL) const;
 
   // Prefetch record fields:
   // https://wicg.github.io/nav-speculation/prefetch.html#prefetch-record
@@ -127,18 +118,12 @@ class PrefetchRecordParent final : public PPrefetchRecordParent,
   PrefetchSource mSource = PrefetchSource::SpeculationRules;
   PrefetchState mState = PrefetchState::Ongoing;
   nsCOMPtr<nsIChannel> mChannel;
-  // Keeps the response's HTTP cache entry alive so activation can be served
-  // from it; no-store responses would otherwise be purged as expired.
-  nsCOMPtr<nsISupports> mCacheToken;
-  // Releases mCacheToken once the record expires.
-  nsCOMPtr<nsITimer> mExpiryTimer;
   nsTArray<ExchangeRecord> mRedirectChain;
   TimeStamp mStartTime;
   TimeStamp mExpiryTime;
   nsString mSourcePartitionKey;
   nsString mIsolatedPartitionKey;
   bool mHadConflictingCredentials = false;
-  bool mIsEligibleForPrefetch = false;
 
   // Tracks incoming body bytes for the body cap.
   uint64_t mBytesReceived = 0;

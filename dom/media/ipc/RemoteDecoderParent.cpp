@@ -122,7 +122,7 @@ void RemoteDecoderParent::DecodeNextSample(
     DecodedOutputIPDL result;
     MediaResult rv = ProcessDecodedData(std::move(aOutput), result);
     if (NS_FAILED(rv)) {
-      resolver(AdjustDecodeError(rv));  // Out of Memory.
+      resolver(std::move(rv));  // Out of Memory.
     } else {
       resolver(std::move(result));
     }
@@ -149,7 +149,7 @@ void RemoteDecoderParent::DecodeNextSample(
                  if (mPendingDecodeResolver) {
                    auto resolver = std::move(*mPendingDecodeResolver);
                    mPendingDecodeResolver.reset();
-                   resolver(AdjustDecodeError(aValue.RejectValue()));
+                   resolver(aValue.RejectValue());
                  }
                  return;
                }
@@ -244,14 +244,14 @@ mozilla::ipc::IPCResult RemoteDecoderParent::RecvDrain(
               return;
             }
             if (aValue.IsReject()) {
-              resolver(AdjustDecodeError(aValue.RejectValue()));
+              resolver(aValue.RejectValue());
               return;
             }
             DecodedOutputIPDL output;
             MediaResult rv =
                 ProcessDecodedData(std::move(aValue.ResolveValue()), output);
             if (NS_FAILED(rv)) {
-              resolver(AdjustDecodeError(rv));
+              resolver(rv);
             } else {
               resolver(std::move(output));
             }
@@ -293,8 +293,6 @@ mozilla::ipc::IPCResult RemoteDecoderParent::RecvSetSeekThreshold(
 
 void RemoteDecoderParent::ActorDestroy(ActorDestroyReason aWhy) {
   MOZ_ASSERT(OnManagerThread());
-  // Ensure a decoder still being created is shut down when it is ready.
-  mShutdown = true;
   AbortPendingRequests();
   if (mDecoder) {
     mDecoder->Shutdown();

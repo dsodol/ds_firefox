@@ -11,6 +11,14 @@ let searchIcon;
 let engine;
 
 add_setup(async function () {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      // Force settings redesign to false, so that `hideOneOffButton` will correctly
+      // work for the time being.
+      ["browser.settings-redesign.enabled", false],
+    ],
+  });
+
   let searchbar = await gCUITestUtils.addSearchBar();
   registerCleanupFunction(() => {
     gCUITestUtils.removeSearchBar();
@@ -49,7 +57,7 @@ add_task(async function test_hidden() {
   info("Closing search panel");
   EventUtils.synthesizeKey("KEY_Escape");
   await promise;
-}).skip();
+});
 
 add_task(async function test_shown() {
   engine.hideOneOffButton = false;

@@ -273,7 +273,6 @@ constructor(
                                                     appIntent = appIntent,
                                                     fallbackUrl = fallbackUrl,
                                                     appName = appName,
-                                                    sourceUrl = session.currentUrl.ifEmpty { null },
                                                 )
                                             }
                                         }

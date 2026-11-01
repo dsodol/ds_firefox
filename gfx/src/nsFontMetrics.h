@@ -181,13 +181,6 @@ class nsFontMetrics final {
   nscoord EmHeight() const;
 
   /**
-   * Returns the "normal" line-height for the font. If internal and
-   * external leading values are both zero, this will return the em-height
-   * scaled by kNormalLineHeightFactor.
-   */
-  nscoord CalcNormalLineHeight() const;
-
-  /**
    * Returns the ascent with half the internal leading trimmed.
    */
   nscoord TrimmedAscent() const;
@@ -306,8 +299,6 @@ class nsFontMetrics final {
 #ifdef XP_WIN
   bool AllowForceGDIClassic() const { return mAllowForceGDIClassic; }
 #endif
-
-  static constexpr float kNormalLineHeightFactor = 1.2f;
 
  private:
   // Private destructor, to discourage deletion outside of Release():

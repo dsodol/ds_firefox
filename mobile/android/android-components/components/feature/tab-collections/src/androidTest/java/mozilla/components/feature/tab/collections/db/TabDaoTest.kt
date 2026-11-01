@@ -10,7 +10,6 @@ import androidx.test.core.app.ApplicationProvider
 import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -34,7 +33,7 @@ class TabDaoTest {
     }
 
     @Test
-    fun testAddingTabsToCollection() = runTest {
+    fun testAddingTabsToCollection() {
         val collection =
             TabCollectionEntity(title = "Collection One", createdAt = 10).also {
                 it.id = tabCollectionDao.insertTabCollection(it)
@@ -42,23 +41,27 @@ class TabDaoTest {
 
         val tab1 =
             TabEntity(
-                title = "Tab One",
-                url = "https://www.mozilla.org",
-                stateFile = UUID.randomUUID().toString(),
-                tabCollectionId = collection.id!!,
-                createdAt = 200,
-            )
-        tab1.id = tabDao.insertTab(tab1)
+                    title = "Tab One",
+                    url = "https://www.mozilla.org",
+                    stateFile = UUID.randomUUID().toString(),
+                    tabCollectionId = collection.id!!,
+                    createdAt = 200,
+                )
+                .also {
+                    it.id = tabDao.insertTab(it)
+                }
 
         val tab2 =
             TabEntity(
-                title = "Tab Two",
-                url = "https://www.firefox.com",
-                stateFile = UUID.randomUUID().toString(),
-                tabCollectionId = collection.id!!,
-                createdAt = 100,
-            )
-        tab2.id = tabDao.insertTab(tab2)
+                    title = "Tab Two",
+                    url = "https://www.firefox.com",
+                    stateFile = UUID.randomUUID().toString(),
+                    tabCollectionId = collection.id!!,
+                    createdAt = 100,
+                )
+                .also {
+                    it.id = tabDao.insertTab(it)
+                }
 
         val pagedList = mutableListOf<TabCollectionWithTabs>()
         tabCollectionDao.getTabCollectionsPaged().create().map {
@@ -72,7 +75,7 @@ class TabDaoTest {
     }
 
     @Test
-    fun testRemovingTabFromCollection() = runTest {
+    fun testRemovingTabFromCollection() {
         val collection =
             TabCollectionEntity(title = "Collection One", createdAt = 10).also {
                 it.id = tabCollectionDao.insertTabCollection(it)
@@ -80,23 +83,27 @@ class TabDaoTest {
 
         val tab1 =
             TabEntity(
-                title = "Tab One",
-                url = "https://www.mozilla.org",
-                stateFile = UUID.randomUUID().toString(),
-                tabCollectionId = collection.id!!,
-                createdAt = 200,
-            )
-        tab1.id = tabDao.insertTab(tab1)
+                    title = "Tab One",
+                    url = "https://www.mozilla.org",
+                    stateFile = UUID.randomUUID().toString(),
+                    tabCollectionId = collection.id!!,
+                    createdAt = 200,
+                )
+                .also {
+                    it.id = tabDao.insertTab(it)
+                }
 
         val tab2 =
             TabEntity(
-                title = "Tab Two",
-                url = "https://www.firefox.com",
-                stateFile = UUID.randomUUID().toString(),
-                tabCollectionId = collection.id!!,
-                createdAt = 100,
-            )
-        tab2.id = tabDao.insertTab(tab2)
+                    title = "Tab Two",
+                    url = "https://www.firefox.com",
+                    stateFile = UUID.randomUUID().toString(),
+                    tabCollectionId = collection.id!!,
+                    createdAt = 100,
+                )
+                .also {
+                    it.id = tabDao.insertTab(it)
+                }
 
         tabDao.deleteTab(tab1)
 

@@ -142,7 +142,7 @@ class SdpConnectionAttribute : public SdpAttribute {
       : SdpAttribute(kConnectionAttribute), mValue(value) {}
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpConnectionAttribute>(*this);
+    return MakeUnique<SdpConnectionAttribute>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -182,7 +182,7 @@ class SdpDirectionAttribute : public SdpAttribute {
       : SdpAttribute(kDirectionAttribute), mValue(value) {}
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpDirectionAttribute>(*this);
+    return MakeUnique<SdpDirectionAttribute>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -283,7 +283,7 @@ class SdpDtlsMessageAttribute : public SdpAttribute {
   }
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpDtlsMessageAttribute>(*this);
+    return MakeUnique<SdpDtlsMessageAttribute>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -355,7 +355,7 @@ class SdpExtmapAttributeList : public SdpAttribute {
   }
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpExtmapAttributeList>(*this);
+    return MakeUnique<SdpExtmapAttributeList>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -450,7 +450,7 @@ class SdpFingerprintAttributeList : public SdpAttribute {
   }
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpFingerprintAttributeList>(*this);
+    return MakeUnique<SdpFingerprintAttributeList>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -529,7 +529,7 @@ class SdpGroupAttributeList : public SdpAttribute {
   }
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpGroupAttributeList>(*this);
+    return MakeUnique<SdpGroupAttributeList>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -764,7 +764,7 @@ class SdpImageattrAttributeList : public SdpAttribute {
   };
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpImageattrAttributeList>(*this);
+    return MakeUnique<SdpImageattrAttributeList>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -797,7 +797,7 @@ class SdpMsidAttributeList : public SdpAttribute {
   }
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpMsidAttributeList>(*this);
+    return MakeUnique<SdpMsidAttributeList>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -828,7 +828,7 @@ class SdpMsidSemanticAttributeList : public SdpAttribute {
   }
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpMsidSemanticAttributeList>(*this);
+    return MakeUnique<SdpMsidSemanticAttributeList>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -855,7 +855,7 @@ class SdpRemoteCandidatesAttribute : public SdpAttribute {
       : SdpAttribute(kRemoteCandidatesAttribute), mCandidates(candidates) {}
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpRemoteCandidatesAttribute>(*this);
+    return MakeUnique<SdpRemoteCandidatesAttribute>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -945,7 +945,7 @@ class SdpRidAttributeList : public SdpAttribute {
   };
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpRidAttributeList>(*this);
+    return MakeUnique<SdpRidAttributeList>(*this);
   }
 
   static bool CheckRidValidity(const std::string& aRid, std::string* aError);
@@ -990,7 +990,7 @@ class SdpRtcpAttribute : public SdpAttribute {
   }
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpRtcpAttribute>(*this);
+    return MakeUnique<SdpRtcpAttribute>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -1068,7 +1068,7 @@ class SdpRtcpFbAttributeList : public SdpAttribute {
   }
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpRtcpFbAttributeList>(*this);
+    return MakeUnique<SdpRtcpFbAttributeList>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -1152,7 +1152,7 @@ class SdpRtpmapAttributeList : public SdpAttribute {
   }
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpRtpmapAttributeList>(*this);
+    return MakeUnique<SdpRtpmapAttributeList>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -1262,7 +1262,7 @@ class SdpFmtpAttributeList : public SdpAttribute {
     RedParameters() : Parameters(SdpRtpmapAttributeList::kRed) {}
 
     virtual UniquePtr<Parameters> Clone() const override {
-      return std::make_unique<RedParameters>(*this);
+      return MakeUnique<RedParameters>(*this);
     }
 
     virtual void Serialize(std::ostream& os) const override {
@@ -1296,7 +1296,7 @@ class SdpFmtpAttributeList : public SdpAttribute {
     virtual ~Av1Parameters() = default;
 
     virtual UniquePtr<Parameters> Clone() const override {
-      return std::make_unique<Av1Parameters>(*this);
+      return MakeUnique<Av1Parameters>(*this);
     }
 
     // Returns the profile parameter if set, or the spec mandated default of 0.
@@ -1349,7 +1349,7 @@ class SdpFmtpAttributeList : public SdpAttribute {
     virtual ~RtxParameters() = default;
 
     virtual UniquePtr<Parameters> Clone() const override {
-      return std::make_unique<RtxParameters>(*this);
+      return MakeUnique<RtxParameters>(*this);
     }
 
     virtual void Serialize(std::ostream& os) const override {
@@ -1387,7 +1387,7 @@ class SdpFmtpAttributeList : public SdpAttribute {
     }
 
     virtual UniquePtr<Parameters> Clone() const override {
-      return std::make_unique<H264Parameters>(*this);
+      return MakeUnique<H264Parameters>(*this);
     }
 
     virtual void Serialize(std::ostream& os) const override {
@@ -1458,7 +1458,7 @@ class SdpFmtpAttributeList : public SdpAttribute {
         : Parameters(type), max_fs(0), max_fr(0) {}
 
     virtual UniquePtr<Parameters> Clone() const override {
-      return std::make_unique<VP8Parameters>(*this);
+      return MakeUnique<VP8Parameters>(*this);
     }
 
     virtual void Serialize(std::ostream& os) const override {
@@ -1504,7 +1504,7 @@ class SdpFmtpAttributeList : public SdpAttribute {
           useCbr(kDefaultUseCbr) {}
 
     UniquePtr<Parameters> Clone() const override {
-      return std::make_unique<OpusParameters>(*this);
+      return MakeUnique<OpusParameters>(*this);
     }
 
     void Serialize(std::ostream& os) const override {
@@ -1571,7 +1571,7 @@ class SdpFmtpAttributeList : public SdpAttribute {
           dtmfTones("0-15") {}
 
     virtual UniquePtr<Parameters> Clone() const override {
-      return std::make_unique<TelephoneEventParameters>(*this);
+      return MakeUnique<TelephoneEventParameters>(*this);
     }
 
     void Serialize(std::ostream& os) const override { os << dtmfTones; }
@@ -1618,7 +1618,7 @@ class SdpFmtpAttributeList : public SdpAttribute {
   bool operator==(const SdpFmtpAttributeList& other) const;
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpFmtpAttributeList>(*this);
+    return MakeUnique<SdpFmtpAttributeList>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -1659,7 +1659,7 @@ class SdpSctpmapAttributeList : public SdpAttribute {
   }
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpSctpmapAttributeList>(*this);
+    return MakeUnique<SdpSctpmapAttributeList>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -1691,7 +1691,7 @@ class SdpSetupAttribute : public SdpAttribute {
       : SdpAttribute(kSetupAttribute), mRole(role) {}
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpSetupAttribute>(*this);
+    return MakeUnique<SdpSetupAttribute>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -1749,7 +1749,7 @@ class SdpSimulcastAttribute : public SdpAttribute {
   SdpSimulcastAttribute() : SdpAttribute(kSimulcastAttribute) {}
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpSimulcastAttribute>(*this);
+    return MakeUnique<SdpSimulcastAttribute>(*this);
   }
 
   void Serialize(std::ostream& os) const override;
@@ -1826,7 +1826,7 @@ class SdpSsrcAttributeList : public SdpAttribute {
   }
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpSsrcAttributeList>(*this);
+    return MakeUnique<SdpSsrcAttributeList>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -1866,7 +1866,7 @@ class SdpSsrcGroupAttributeList : public SdpAttribute {
   }
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpSsrcGroupAttributeList>(*this);
+    return MakeUnique<SdpSsrcGroupAttributeList>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -1908,7 +1908,7 @@ class SdpMultiStringAttribute : public SdpAttribute {
   void PushEntry(const std::string& entry) { mValues.push_back(entry); }
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpMultiStringAttribute>(*this);
+    return MakeUnique<SdpMultiStringAttribute>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -1928,7 +1928,7 @@ class SdpOptionsAttribute : public SdpAttribute {
   void Load(const std::string& value);
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpOptionsAttribute>(*this);
+    return MakeUnique<SdpOptionsAttribute>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -1942,7 +1942,7 @@ class SdpFlagAttribute : public SdpAttribute {
   explicit SdpFlagAttribute(const AttributeType type) : SdpAttribute(type) {}
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpFlagAttribute>(*this);
+    return MakeUnique<SdpFlagAttribute>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -1955,7 +1955,7 @@ class SdpStringAttribute : public SdpAttribute {
       : SdpAttribute(type), mValue(value) {}
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpStringAttribute>(*this);
+    return MakeUnique<SdpStringAttribute>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;
@@ -1971,7 +1971,7 @@ class SdpNumberAttribute : public SdpAttribute {
       : SdpAttribute(type), mValue(value) {}
 
   UniquePtr<SdpAttribute> Clone() const override {
-    return std::make_unique<SdpNumberAttribute>(*this);
+    return MakeUnique<SdpNumberAttribute>(*this);
   }
 
   virtual void Serialize(std::ostream& os) const override;

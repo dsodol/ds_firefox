@@ -293,9 +293,7 @@ export class SidebarTreeView {
     // If we're on a nested card header, move up one level.
     if (container.localName === "moz-card") {
       if (container.classList.contains("nested-card")) {
-        this.#focusElement(
-          container.parentElement.closest("moz-card").summaryEl
-        );
+        this.#focusElement(container.parentElement.summaryEl);
       }
       return;
     }

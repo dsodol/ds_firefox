@@ -203,7 +203,6 @@ include = [
   "LineHeight",
   "NonNegativeLengthPercentageOrAuto",
   "NonNegativeLengthPercentageOrNormal",
-  "FitTolerance",
   "LengthOrAuto",
   "NonNegativeLengthOrAuto",
   "TextBoxEdge",

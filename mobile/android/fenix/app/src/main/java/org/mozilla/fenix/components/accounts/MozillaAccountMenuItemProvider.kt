@@ -23,7 +23,6 @@ import kotlinx.coroutines.launch
 import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.menu.data.MenuItem
 import mozilla.components.compose.menu.data.MenuItemSummary
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.store.MenuEvent
 import mozilla.components.compose.menu.ui.MenuItemIcon
@@ -33,6 +32,7 @@ import mozilla.components.compose.menu.ui.MenuItemIconRes
 import mozilla.components.compose.menu.ui.MenuItemState
 import mozilla.components.concept.fetch.Client
 import mozilla.components.service.fxa.manager.AccountState.Authenticated
+import mozilla.components.service.fxa.manager.AccountState.Authenticating
 import mozilla.components.service.fxa.manager.AccountState.AuthenticationProblem
 import mozilla.components.service.fxa.manager.AccountState.NotAuthenticated
 import mozilla.components.service.fxa.manager.AccountState.Unknown
@@ -45,7 +45,6 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.components.menu.MenuAccessPoint
 import org.mozilla.fenix.components.menu.MenuHost
 import org.mozilla.fenix.components.menu.MenuItemProvider
-import org.mozilla.fenix.components.menu.MenuTarget
 import org.mozilla.fenix.components.menu.store.MenuAction
 import org.mozilla.fenix.components.menu.toFenixFxAEntryPoint
 import org.mozilla.fenix.ext.bitmapForUrl
@@ -58,7 +57,6 @@ class MozillaAccountMenuItemProvider(
     private val httpClient: Client,
     context: Context,
     private val accessPoint: MenuAccessPoint,
-    target: MenuTarget,
     scope: CoroutineScope,
 ) : MenuItemProvider {
     private val avatarSize = AVATAR_SIZE_DP.dpToPx(context.resources.displayMetrics)
@@ -69,31 +67,22 @@ class MozillaAccountMenuItemProvider(
             )
             ?.let(::MenuItemIconDrawable)
             ?: MenuItemIconRes(iconsR.drawable.mozac_ic_avatar_warning_circle_fill_multicolor_24)
-    private val mutableItems: MutableStateFlow<List<MenuItem>>? =
-        if (target == MenuTarget.CustomizeMenu) {
-            null
-        } else {
-            MutableStateFlow(listOf(syncStore.state.toMenuItem()))
-        }
+    private val mutableItem = MutableStateFlow(syncStore.state.toMenuItem())
 
-    override val itemsFlow: StateFlow<List<MenuItem>> =
-        mutableItems?.asStateFlow() ?: MutableStateFlow(listOf(DEFAULT_MENU_ITEM)).asStateFlow()
+    override val itemFlow: StateFlow<MenuItem?> = mutableItem.asStateFlow()
 
     init {
-        if (target != MenuTarget.CustomizeMenu) {
-            scope.launch {
-                syncStore.stateFlow
-                    .distinctUntilChangedBy { it.account to it.accountState }
-                    .collectLatest { state ->
-                        updateMenuItem(state)
-                    }
-            }
+        scope.launch {
+            syncStore.stateFlow
+                .distinctUntilChangedBy { it.account to it.accountState }
+                .collectLatest { state ->
+                    updateMenuItem(state)
+                }
         }
     }
 
     private suspend fun updateMenuItem(state: SyncState) {
-        val items = mutableItems ?: return
-        items.value = listOf(state.toMenuItem())
+        mutableItem.value = state.toMenuItem()
 
         if (state.accountState == AuthenticationProblem) {
             return
@@ -102,12 +91,16 @@ class MozillaAccountMenuItemProvider(
         val avatarUrl = state.account?.avatar?.url ?: return
         val avatar = httpClient.bitmapForUrl(avatarUrl, avatarSize, avatarSize)?.toCircularBitmap() ?: return
 
-        items.value = listOf(state.toMenuItem(icon = MenuItemIconBitmap(avatar)))
+        mutableItem.value = state.toMenuItem(icon = MenuItemIconBitmap(avatar))
     }
 
-    private fun SyncState.toMenuItem(icon: MenuItemIcon = defaultIcon): MenuItem =
-        StandardMenuItem(
-            title = MenuItemTitle(title),
+    private fun SyncState.toMenuItem(icon: MenuItemIcon = defaultIcon): MenuItem? {
+        // Currently while authenticating there is not menu item title or summary to show
+        // so it's better to not show the menu item at all.
+        val title = title ?: return null
+
+        return StandardMenuItem(
+            title = title,
             summary = summary,
             icon = icon,
             onClickEvent =
@@ -116,6 +109,7 @@ class MozillaAccountMenuItemProvider(
                     accesspoint = accessPoint,
                 ),
         )
+    }
 
     private val SyncState.defaultIcon: MenuItemIcon
         get() =
@@ -136,29 +130,17 @@ class MozillaAccountMenuItemProvider(
                     NavGraphDirections.actionGlobalAccountProblemFragment(
                         entrypoint = event.accesspoint.toFenixFxAEntryPoint()
                     )
+                is Authenticating,
                 NotAuthenticated,
                 Unknown ->
                     NavGraphDirections.actionGlobalTurnOnSync(entrypoint = event.accesspoint.toFenixFxAEntryPoint())
             }
         )
     }
-
-    companion object {
-        private val DEFAULT_MENU_ITEM =
-            StandardMenuItem(
-                title = MenuItemTitle(Text.Resource(R.string.browser_menu_sign_in)),
-                summary =
-                    MenuItemSummary(
-                        text = Text.Resource(R.string.browser_menu_sign_in_caption_3),
-                        maxLines = 2,
-                    ),
-                icon = MenuItemIconRes(iconsR.drawable.mozac_ic_avatar_circle_24),
-            )
-    }
 }
 
-/** What to call the account. */
-private val SyncState.title: Text
+/** What to call the account, or `null` while there is nothing to say about it yet. */
+private val SyncState.title: Text?
     get() =
         when (accountState) {
             NotAuthenticated,
@@ -173,9 +155,11 @@ private val SyncState.title: Text
                 account?.displayName?.let(Text::String)
                     ?: account?.email?.let(Text::String)
                     ?: Text.Resource(R.string.browser_menu_account_settings)
+
+            is Authenticating -> null
         }
 
-private val SyncState.summary: MenuItemSummary
+private val SyncState.summary: MenuItemSummary?
     get() =
         when (accountState) {
             NotAuthenticated,
@@ -197,6 +181,7 @@ private val SyncState.summary: MenuItemSummary
                     text = Text.Resource(R.string.browser_menu_signed_in_caption),
                     maxLines = 2,
                 )
+            is Authenticating -> null
         }
 
 private fun Bitmap.toCircularBitmap(): Bitmap {

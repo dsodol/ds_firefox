@@ -11,6 +11,4 @@ firefox-appdir = "browser"
 
 ["test_DownloadsCommon_isFileOfType.js"]
 
-["test_DownloadsViewUI_getCommandNamesFrom.js"]
-
 ["test_DownloadsViewableInternally.js"]

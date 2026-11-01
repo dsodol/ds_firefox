@@ -7,6 +7,12 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
 
+ChromeUtils.defineLazyGetter(lazy, "gNavigatorBundle", function () {
+  return Services.strings.createBundle(
+    "chrome://browser/locale/browser.properties"
+  );
+});
+
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "DEBUG_LOG",
@@ -24,27 +30,39 @@ export class DecoderDoctorParent extends JSWindowActorParent {
   getLabelForNotificationBox({ type, decoderDoctorReportId }) {
     if (type == "platform-decoder-not-found") {
       if (decoderDoctorReportId == "MediaWMFNeeded") {
-        return { "l10n-id": "decoder-doctor-no-hw-acceleration-message" };
+        return lazy.gNavigatorBundle.GetStringFromName(
+          "decoder.noHWAcceleration.message"
+        );
       }
       // Although this name seems generic, this is actually for not being able
       // to find libavcodec on Linux.
       if (decoderDoctorReportId == "MediaPlatformDecoderNotFound") {
-        return { "l10n-id": "decoder-doctor-no-codecs-linux-message" };
+        return lazy.gNavigatorBundle.GetStringFromName(
+          "decoder.noCodecsLinux.message"
+        );
       }
     }
     if (type == "cannot-initialize-pulseaudio") {
-      return { "l10n-id": "decoder-doctor-no-pulse-audio-message" };
+      return lazy.gNavigatorBundle.GetStringFromName(
+        "decoder.noPulseAudio.message"
+      );
     }
     if (type == "unsupported-libavcodec" && AppConstants.platform == "linux") {
-      return { "l10n-id": "decoder-doctor-unsupported-libavcodec-message" };
+      return lazy.gNavigatorBundle.GetStringFromName(
+        "decoder.unsupportedLibavcodec.message"
+      );
     }
     if (type == "decode-error") {
-      return { "l10n-id": "decoder-doctor-decode-error-message" };
+      return lazy.gNavigatorBundle.GetStringFromName(
+        "decoder.decodeError.message"
+      );
     }
     if (type == "decode-warning") {
-      return { "l10n-id": "decoder-doctor-decode-warning-message" };
+      return lazy.gNavigatorBundle.GetStringFromName(
+        "decoder.decodeWarning.message"
+      );
     }
-    return null;
+    return "";
   }
 
   getSumoForLearnHowButton({ type, decoderDoctorReportId }) {
@@ -182,7 +200,9 @@ export class DecoderDoctorParent extends JSWindowActorParent {
       if (sumo) {
         LOG_DD(`sumo=${sumo}`);
         buttons.push({
-          "l10n-id": "decoder-doctor-learn-how-link",
+          label: lazy.gNavigatorBundle.GetStringFromName(
+            "decoder.noCodecs.button"
+          ),
           supportPage: sumo,
           callback() {
             let clickedInPref = Services.prefs.getBoolPref(
@@ -199,7 +219,12 @@ export class DecoderDoctorParent extends JSWindowActorParent {
       if (endpoint) {
         LOG_DD(`endpoint=${endpoint}`);
         buttons.push({
-          "l10n-id": "decoder-doctor-report-issue-button",
+          label: lazy.gNavigatorBundle.GetStringFromName(
+            "decoder.decodeError.button"
+          ),
+          accessKey: lazy.gNavigatorBundle.GetStringFromName(
+            "decoder.decodeError.accesskey"
+          ),
           callback() {
             let clickedInPref = Services.prefs.getBoolPref(
               buttonClickedPref,

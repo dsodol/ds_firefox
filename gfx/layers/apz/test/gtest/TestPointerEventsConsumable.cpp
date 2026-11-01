@@ -23,8 +23,7 @@ class APZCArePointerEventsConsumable : public APZCTreeManagerTester {
     CreateScrollData(treeShape, layerVisibleRect);
     SetScrollableFrameMetrics(root, START_SCROLL_ID, CSSRect(0, 0, 500, 500));
 
-    registration =
-        std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+    registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
 
     UpdateHitTestingTree();
 
@@ -40,8 +39,7 @@ class APZCArePointerEventsConsumable : public APZCTreeManagerTester {
     SetScrollableFrameMetrics(layers[1], START_SCROLL_ID + 1,
                               CSSRect(0, 0, 200, 200));
     SetScrollHandoff(layers[1], root);
-    registration =
-        std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+    registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
     UpdateHitTestingTree();
 
     ApzcOf(root)->GetFrameMetrics().SetIsRootContent(true);

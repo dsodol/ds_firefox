@@ -48,7 +48,7 @@ We will run the remote debugging smoke tests twice. Once to exercise backward co
 
 You can use either desktop or mobile versions of Firefox as the server. Mobile is preferable as some codepaths are specific to Firefox mobile, but if you don't have access to an Android device, using a Desktop server is a decent alternative.
 
-- [Instructions](/devtools-user/about_colon_debugging/index.md#connecting-to-a-remote-device) to setup remote debugging for Firefox mobile.
+- [Instructions](https://firefox-source-docs.mozilla.org/devtools-user/about_colon_debugging/index.html#connecting-to-a-remote-device) to setup remote debugging for Firefox mobile.
 - [Instructions](https://gist.github.com/juliandescottes/b0d3d83154d9ea8a84db5d32aa35d2c1) to setup remote debugging for Firefox desktop.
 
 #### Backward compatibility test
@@ -145,8 +145,6 @@ Follow the [upgrade documentation](https://searchfox.org/firefox-main/source/dev
 ## Check xpcshell debugging
 
 Check that xpcshell tests can be debugged using the `--jsdebugger` option.
-
-This check is automated by `browser_backward_compat_xpcshell.js`, which runs in the daily `DTbc(same)` job (see [Remote debugging backward compatibility tests](./tests/backward-compat-tests.md)). If this job is green, you can skip the manual steps below.
 
 1. Run Firefox from `mozilla-central` using `./mach run`
 1. Open an `about:debugging` tab

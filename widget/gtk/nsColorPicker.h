@@ -9,7 +9,6 @@
 
 #include "nsBaseColorPicker.h"
 #include "nsCOMPtr.h"
-#include "nsColor.h"
 #include "nsString.h"
 
 // Enable Gtk3 system color picker.

@@ -97,19 +97,13 @@ add_task(async function urlbar_newtab() {
 // A handoff session searches in engine search mode, which excludes Suggest
 // results, so it can never record a disable event.
 add_task(async function handoff() {
-  const historyInSearchMode = UrlbarPrefs.get(
-    "unifiedSearchButton.historyInSearchMode"
-  );
   await doHandoffTest({
     input: SUGGEST_KEYWORD,
     trigger: async win => {
-      if (!historyInSearchMode) {
-        await assertNoSuggestResult(UrlbarTestUtils, win);
-      }
+      await assertNoSuggestResult(UrlbarTestUtils, win);
       await doBlurAndDisableSuggest(win, "handoff");
     },
-    assert: () =>
-      assertDisableTelemetry(historyInSearchMode ? [{ sap: "handoff" }] : []),
+    assert: () => assertDisableTelemetry([]),
   });
 });
 

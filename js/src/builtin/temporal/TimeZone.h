@@ -260,7 +260,6 @@ class PossibleEpochNanoseconds final {
 
 struct ParsedTimeZone;
 enum class TemporalDisambiguation;
-class ZonedDateTime;
 
 /**
  * Create a new |TimeZoneObject| whose identifier is |identifier| and whose
@@ -324,12 +323,6 @@ bool GetISODateTimeFor(JSContext* cx, JS::Handle<TimeZoneValue> timeZone,
                        const EpochNanoseconds& epochNs, ISODateTime* result);
 
 /**
- * GetISODateTimeFor ( timeZone, epochNs )
- */
-bool GetISODateTimeFor(JSContext* cx, JS::Handle<ZonedDateTime> zonedDateTime,
-                       ISODateTime* result);
-
-/**
  * GetEpochNanosecondsFor ( timeZone, isoDateTime, disambiguation )
  */
 bool GetEpochNanosecondsFor(JSContext* cx, JS::Handle<TimeZoneValue> timeZone,
@@ -342,13 +335,6 @@ bool GetEpochNanosecondsFor(JSContext* cx, JS::Handle<TimeZoneValue> timeZone,
  */
 bool GetOffsetNanosecondsFor(JSContext* cx, JS::Handle<TimeZoneValue> timeZone,
                              const EpochNanoseconds& epochNs,
-                             int64_t* offsetNanoseconds);
-
-/**
- * GetOffsetNanosecondsFor ( timeZone, epochNs )
- */
-bool GetOffsetNanosecondsFor(JSContext* cx,
-                             JS::Handle<ZonedDateTime> zonedDateTime,
                              int64_t* offsetNanoseconds);
 
 /**

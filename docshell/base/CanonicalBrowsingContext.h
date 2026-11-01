@@ -57,7 +57,6 @@ struct LoadURIOptions;
 class MediaController;
 enum class AudioFocusInterruptAction : uint8_t;
 struct LoadingSessionHistoryInfo;
-class SessionHistoryInfo;
 class SSCacheCopy;
 class WindowGlobalParent;
 class SessionStoreFormData;
@@ -370,10 +369,7 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   MOZ_CAN_RUN_SCRIPT
   void HistoryCommitIndexAndLength();
 
-  void DeactivateDocuments(
-      const SessionHistoryInfo* aPageSwapTargetInfo = nullptr,
-      NavigationType aNavigationType = NavigationType::Push,
-      bool aForUnload = false);
+  void DeactivateDocuments();
 
   MOZ_CAN_RUN_SCRIPT
   void ReactivateDocuments(SessionHistoryEntry* aEntry,

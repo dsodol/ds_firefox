@@ -361,8 +361,6 @@ SPHINX_TREES["jsloader"] = "docs/jsloader"
 
 SPHINX_TREES["ai-agent-tools"] = "docs/ai-agent-tools"
 
-SPHINX_TREES["ai-agent-tools/skills"] = ".agents/skills"
-
 include("build/templates.mozbuild")
 
 if CONFIG["MOZ_GENERATE_SBOM"]:

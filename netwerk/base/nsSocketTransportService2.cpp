@@ -444,8 +444,12 @@ nsSocketTransportService::AttachSocket(PRFileDesc* fd,
       ("nsSocketTransportService::AttachSocket [handler=%p]\n", handler));
 
 #ifdef XP_UNIX
-  // On Darwin this is the FD_SETSIZE from config/external/nspr/pr/moz.build.
+#  ifdef XP_DARWIN
+  // See the Darwin case in config/external/nspr/pr/moz.build
+  static constexpr PROsfd kFDs = 4096;
+#  else
   static constexpr PROsfd kFDs = 65536;
+#  endif
   PROsfd osfd = PR_FileDesc2NativeHandle(fd);
   // If the native fd exceeds what PR_Poll can handle, PR_Poll will treat it as
   // invalid (POLLNVAL) and networking degrades into hard-to-debug failures.

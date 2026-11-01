@@ -126,9 +126,7 @@ class RtpReceiverInternal : public RtpReceiverInterface {
 class RtpReceiverBase : public RtpReceiverInternal {
  public:
   RTCErrorOr<scoped_refptr<SframeDecryptorInterface>>
-  CreateSframeDecryptorOrError(
-      SframeCipherSuite cipher_suite,
-      SframeDecryptErrorCallback error_callback) override;
+  CreateSframeDecryptorOrError(SframeCipherSuite cipher_suite) override;
 
   std::optional<uint32_t> ssrc() const override;
   std::optional<uint32_t> ssrc_s() const override;

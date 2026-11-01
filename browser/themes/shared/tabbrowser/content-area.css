@@ -823,15 +823,6 @@ split-view-footer {
     -moz-window-shadow: none;
   }
 
-  &[copy-fading] {
-    opacity: 0;
-    transition: opacity 240ms ease-out;
-
-    @media (prefers-reduced-motion: reduce) {
-      transition: none;
-    }
-  }
-
   moz-button {
     --button-min-height: 34px;
     --button-size-icon: 34px;
@@ -841,14 +832,6 @@ split-view-footer {
     @media -moz-pref("browser.nova.enabled") {
       --button-border-radius: var(--border-radius-xlarge);
     }
-  }
-
-  .more-actions-separator {
-    align-self: center;
-    width: 1px;
-    height: 18px;
-    margin-inline: var(--space-xsmall);
-    background-color: var(--border-color);
   }
 
   #ai-action-button::part(button) {
@@ -870,76 +853,6 @@ split-view-footer {
     background-repeat: no-repeat;
     -moz-context-properties: fill;
     fill: var(--button-icon-fill);
-  }
-
-  .copy-action-confirmation {
-    display: flex;
-    align-items: center;
-    flex: none;
-    block-size: var(--icon-size-xlarge);
-    margin-block: 2px;
-    white-space: nowrap;
-
-    &[copied] {
-      margin-inline-end: 2px;
-      padding-inline-end: var(--space-medium);
-      border-radius: var(--border-radius-circle);
-      background-color: var(--color-accent-primary);
-      color: var(--button-text-color-primary);
-      font-size: var(--font-size-root);
-      font-weight: var(--font-weight-semibold);
-    }
-  }
-
-  .copy-action-confirmation-icon {
-    display: none;
-    flex: none;
-    inline-size: var(--icon-size-xlarge);
-    block-size: var(--icon-size-xlarge);
-    background-image: url("chrome://global/skin/icons/check.svg");
-    background-size: var(--icon-size-default);
-    background-position: center;
-    background-repeat: no-repeat;
-    -moz-context-properties: fill;
-    fill: currentColor;
-  }
-
-  .copy-action-confirmation[copied] .copy-action-confirmation-icon {
-    display: block;
-  }
-
-  &[copied] {
-    #more-actions-button,
-    #more-actions-separator {
-      display: none;
-    }
-  }
-}
-
-#selection-more-actions-panel > .panel-subview-body {
-  gap: var(--space-medium);
-}
-
-.more-actions-notice {
-  /* Wrap the notice instead of letting it stretch the panel to one long line. */
-  max-width: 260px;
-  margin: 0;
-  color: var(--text-color-deemphasized);
-}
-
-.more-actions-notice-chevron {
-  display: inline-block;
-  inline-size: var(--icon-size-xsmall);
-  block-size: var(--icon-size-xsmall);
-  vertical-align: middle;
-  background-color: currentColor;
-  mask-image: url("chrome://global/skin/icons/arrow-right-12.svg");
-  mask-size: contain;
-  mask-repeat: no-repeat;
-  mask-position: center;
-
-  &:dir(rtl) {
-    scale: -1 1;
   }
 }
 
@@ -1016,7 +929,7 @@ split-view-footer {
   display: flex;
   padding: 0;
   overflow-x: auto;
-  outline: 0.5px solid var(--dialog-border-color);
+  outline: 0.5px solid var(--card-border-color);
 
   /* Ensure that dialog boxes are pixel-snapped, to keep their internal layout
    * consistent, regardless of whether the surrounding layout places them at a
@@ -1026,9 +939,8 @@ split-view-footer {
   will-change: transform;
 
   &:not(.spotlightBox) {
-    box-shadow: var(--dialog-box-shadow);
-    border-radius: var(--dialog-border-radius);
-    background-color: var(--dialog-background-color);
+    box-shadow: var(--popup-box-shadow);
+    border-radius: var(--border-radius-medium);
   }
 
   /*

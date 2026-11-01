@@ -415,7 +415,10 @@ uint32_t nsAccUtils::TextLength(Accessible* aAccessible) {
     return remoteAcc->GetCachedTextLength();
   }
 
-  // For any other accessible which computes its own text; e.g. <br>.
+  // For list bullets (or anything other accessible which would compute its own
+  // text. They don't have their own frame.
+  // XXX In the future, list bullets may have frame and anon content, so
+  // we should be able to remove this at that point
   nsAutoString text;
   aAccessible->AppendTextTo(text);  // Get all the text
   return text.Length();

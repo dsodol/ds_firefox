@@ -229,15 +229,15 @@ void SVGPathElement::GetMarkPoints(nsTArray<SVGMark>* aMarks) {
   mD.GetAnimValue().GetMarkerPositioningData(1.0f, aMarks);
 }
 
-void SVGPathElement::GetAsSimpleShape(SimpleShape* aShape) {
-  aShape->Reset();
+void SVGPathElement::GetAsSimplePath(SimplePath* aSimplePath) {
+  aSimplePath->Reset();
   auto callback = [&](const ComputedStyle* s) {
     const nsStyleSVGReset* styleSVGReset = s->StyleSVGReset();
     if (styleSVGReset->mD.IsPath()) {
       if (auto maybeRect = SVGPathSegUtils::SVGPathToAxisAlignedRect(
               styleSVGReset->mD.AsPath()._0.AsSpan())) {
         maybeRect->Scale(s->EffectiveZoom().ToFloat());
-        aShape->SetRoundedRect(CSSRect::FromUnknownRect(*maybeRect), CSSSize());
+        aSimplePath->SetRect(*maybeRect);
       }
     }
   };

@@ -20,9 +20,6 @@ import org.robolectric.annotation.Config
 
 private const val CHROME_HEIGHT = 100
 private const val NAV_BAR_HEIGHT = 60
-private const val KEYBOARD_HEIGHT = 800
-private const val WINDOW_WIDTH = 500
-private const val WINDOW_HEIGHT = 2000
 
 @RunWith(RobolectricTestRunner::class)
 class PdfOverlayBehaviorTest {
@@ -44,36 +41,23 @@ class PdfOverlayBehaviorTest {
         View(container.context).apply {
             this.id = id
             this.isVisible = isVisible
-            container.addView(this, CoordinatorLayout.LayoutParams(WINDOW_WIDTH, height))
-            // Robolectric does not measure the container, so the height is measured directly.
-            measure(
-                View.MeasureSpec.makeMeasureSpec(WINDOW_WIDTH, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),
-            )
+            container.addView(this)
+            // Robolectric does not lay out the container, so the height is applied directly.
+            layout(0, 0, 500, height)
         }
-
-    private fun PdfOverlayBehavior.measureTools() =
-        onMeasureChild(
-            container,
-            tools,
-            View.MeasureSpec.makeMeasureSpec(WINDOW_WIDTH, View.MeasureSpec.EXACTLY),
-            0,
-            View.MeasureSpec.makeMeasureSpec(WINDOW_HEIGHT, View.MeasureSpec.EXACTLY),
-            0,
-        )
 
     @Test
     @Config(qualifiers = "sw400dp")
     fun `GIVEN a phone window with the address bar at the bottom WHEN the overlays are laid out THEN both are inset from the bottom chrome`() {
         addChrome(R.id.navigation_bar)
 
-        pdfToolsBehavior(isAddressBarAtBottom = true).measureTools()
+        pdfToolsBehavior(isAddressBarAtBottom = true).onLayoutChild(container, tools, View.LAYOUT_DIRECTION_LTR)
 
         assertEquals(Gravity.BOTTOM, layoutParams.gravity)
         assertEquals(CHROME_HEIGHT, layoutParams.bottomMargin)
         assertEquals(0, layoutParams.topMargin)
 
-        signatureDialogBehavior(isAddressBarAtBottom = true).measureTools()
+        signatureDialogBehavior(isAddressBarAtBottom = true).onLayoutChild(container, tools, View.LAYOUT_DIRECTION_LTR)
 
         assertEquals(Gravity.BOTTOM, layoutParams.gravity)
         assertEquals(CHROME_HEIGHT, layoutParams.bottomMargin)
@@ -86,13 +70,13 @@ class PdfOverlayBehaviorTest {
         addChrome(R.id.composable_toolbar)
         addChrome(R.id.navigation_bar, height = NAV_BAR_HEIGHT)
 
-        pdfToolsBehavior(isAddressBarAtBottom = false).measureTools()
+        pdfToolsBehavior(isAddressBarAtBottom = false).onLayoutChild(container, tools, View.LAYOUT_DIRECTION_LTR)
 
         assertEquals(Gravity.TOP, layoutParams.gravity)
         assertEquals(CHROME_HEIGHT, layoutParams.topMargin)
         assertEquals(0, layoutParams.bottomMargin)
 
-        signatureDialogBehavior(isAddressBarAtBottom = false).measureTools()
+        signatureDialogBehavior(isAddressBarAtBottom = false).onLayoutChild(container, tools, View.LAYOUT_DIRECTION_LTR)
 
         assertEquals(Gravity.BOTTOM, layoutParams.gravity)
         assertEquals(NAV_BAR_HEIGHT, layoutParams.bottomMargin)
@@ -105,36 +89,9 @@ class PdfOverlayBehaviorTest {
         addChrome(R.id.composable_toolbar)
         addChrome(R.id.navigation_bar, height = NAV_BAR_HEIGHT)
 
-        pdfToolsBehavior(isAddressBarAtBottom = true).measureTools()
+        pdfToolsBehavior(isAddressBarAtBottom = true).onLayoutChild(container, tools, View.LAYOUT_DIRECTION_LTR)
 
         assertEquals(CHROME_HEIGHT + NAV_BAR_HEIGHT, layoutParams.bottomMargin)
-    }
-
-    @Test
-    @Config(qualifiers = "sw400dp")
-    fun `GIVEN a phone window with the address bar at the bottom WHEN it is raised above the keyboard THEN the dialog stays on top of it`() {
-        val addressBar = addChrome(R.id.composable_toolbar)
-        (addressBar.layoutParams as CoordinatorLayout.LayoutParams).bottomMargin = KEYBOARD_HEIGHT
-
-        signatureDialogBehavior(isAddressBarAtBottom = true).measureTools()
-
-        assertEquals(CHROME_HEIGHT + KEYBOARD_HEIGHT, layoutParams.bottomMargin)
-    }
-
-    @Test
-    @Config(qualifiers = "sw400dp")
-    fun `GIVEN a dialog raised above the keyboard WHEN the browser shrinks for the keyboard THEN the dialog is measured with all the space above the address bar`() {
-        addChrome(R.id.composable_toolbar)
-        layoutParams.behavior = signatureDialogBehavior(isAddressBarAtBottom = true)
-        layoutParams.bottomMargin = CHROME_HEIGHT + KEYBOARD_HEIGHT
-        container.addView(tools)
-
-        container.measure(
-            View.MeasureSpec.makeMeasureSpec(WINDOW_WIDTH, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(WINDOW_HEIGHT - KEYBOARD_HEIGHT, View.MeasureSpec.EXACTLY),
-        )
-
-        assertEquals(WINDOW_HEIGHT - KEYBOARD_HEIGHT - CHROME_HEIGHT, tools.measuredHeight)
     }
 
     @Test
@@ -143,7 +100,7 @@ class PdfOverlayBehaviorTest {
         addChrome(R.id.composable_toolbar)
         addChrome(R.id.navigation_bar, height = NAV_BAR_HEIGHT)
 
-        pdfToolsBehavior(isAddressBarAtBottom = false).measureTools()
+        pdfToolsBehavior(isAddressBarAtBottom = false).onLayoutChild(container, tools, View.LAYOUT_DIRECTION_LTR)
 
         assertEquals(NAV_BAR_HEIGHT, layoutParams.bottomMargin)
     }
@@ -154,12 +111,12 @@ class PdfOverlayBehaviorTest {
         addChrome(R.id.composable_toolbar)
         addChrome(R.id.navigation_bar, height = NAV_BAR_HEIGHT)
 
-        pdfToolsBehavior(isAddressBarAtBottom = true).measureTools()
+        pdfToolsBehavior(isAddressBarAtBottom = true).onLayoutChild(container, tools, View.LAYOUT_DIRECTION_LTR)
 
         assertEquals(Gravity.TOP, layoutParams.gravity)
         assertEquals(0, layoutParams.topMargin)
 
-        signatureDialogBehavior(isAddressBarAtBottom = true).measureTools()
+        signatureDialogBehavior(isAddressBarAtBottom = true).onLayoutChild(container, tools, View.LAYOUT_DIRECTION_LTR)
 
         assertEquals(Gravity.BOTTOM, layoutParams.gravity)
         assertEquals(CHROME_HEIGHT + NAV_BAR_HEIGHT, layoutParams.bottomMargin)
@@ -170,7 +127,7 @@ class PdfOverlayBehaviorTest {
     fun `GIVEN a phone window with hidden bottom chrome WHEN the tools are laid out THEN they are not inset from it`() {
         addChrome(R.id.navigation_bar, isVisible = false)
 
-        pdfToolsBehavior(isAddressBarAtBottom = true).measureTools()
+        pdfToolsBehavior(isAddressBarAtBottom = true).onLayoutChild(container, tools, View.LAYOUT_DIRECTION_LTR)
 
         assertEquals(0, layoutParams.bottomMargin)
     }

@@ -1,5 +1,5 @@
 try {
-    enableTrackAllocations();
+    enableShellAllocationMetadataBuilder();
     gczeal(11);
     gczeal(22);
     grayRoot() = 0;

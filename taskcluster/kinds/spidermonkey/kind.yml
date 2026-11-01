@@ -16,6 +16,7 @@ transforms:
     - gecko_taskgraph.transforms.task:transforms
 
 task-defaults:
+    run-on-repo-type: [hg]
     attributes:
         retrigger: true
     treeherder:
@@ -25,6 +26,7 @@ task-defaults:
         product: firefox
     worker-type: b-linux
     run:
+        clone-with: hg
         using: spidermonkey
     when:
         files-changed:

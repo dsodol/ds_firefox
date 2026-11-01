@@ -6,16 +6,15 @@ import {
   UrlbarProvider,
   UrlbarUtils,
 } from "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs";
-import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const lazy = XPCOMUtils.declareLazy({
+const lazy = {};
+
+ChromeUtils.defineESModuleGetters(lazy, {
   ContentRelevancyManager:
     "resource://gre/modules/ContentRelevancyManager.sys.mjs",
   QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
   SearchUtils: "moz-src:///toolkit/components/search/SearchUtils.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
-  UrlbarProviderTopSites:
-    "moz-src:///browser/components/urlbar/UrlbarProviderTopSites.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
   UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
   UrlbarSearchUtils:
@@ -75,22 +74,17 @@ export class UrlbarProviderQuickSuggest extends UrlbarProvider {
 
     // Trim only the start of the search string because a trailing space can
     // affect the suggestions.
-    this._trimmedSearchString = queryContext.searchString.trimStart();
-    return true;
-  }
+    let trimmedSearchString = queryContext.searchString.trimStart();
 
-  /**
-   * Uses the same priority as `UrlbarProviderTopSites` in the zero prefix view
-   * so that Suggest features can show results there.
-   *
-   * @param {UrlbarQueryContext} queryContext
-   * @returns {number}
-   */
-  getPriority(queryContext) {
-    if (!queryContext.searchString && !queryContext.restrictSource) {
-      return lazy.UrlbarProviderTopSites.PRIORITY;
+    // Per product requirements, at least two characters must be typed to
+    // trigger a Suggest suggestion. Suggestion keywords should always be at
+    // least two characters long, but we check here anyway to be safe. Note we
+    // called `trimStart()` above, so we only call `trimEnd()` here.
+    if (trimmedSearchString.trimEnd().length < 2) {
+      return false;
     }
-    return 0;
+    this._trimmedSearchString = trimmedSearchString;
+    return true;
   }
 
   /**
@@ -305,7 +299,7 @@ export class UrlbarProviderQuickSuggest extends UrlbarProvider {
    * @returns {object} An object of view template.
    */
   getViewTemplate(result) {
-    return lazy.QuickSuggest.getFeatureByResult(result)?.getViewTemplate(
+    return lazy.QuickSuggest.getFeatureByResult(result)?.getViewTemplate?.(
       result
     );
   }
@@ -318,7 +312,7 @@ export class UrlbarProviderQuickSuggest extends UrlbarProvider {
    * @returns {object}
    */
   getViewUpdate(result, controller) {
-    return lazy.QuickSuggest.getFeatureByResult(result)?.getViewUpdate(
+    return lazy.QuickSuggest.getFeatureByResult(result)?.getViewUpdate?.(
       result,
       controller
     );
@@ -432,8 +426,8 @@ export class UrlbarProviderQuickSuggest extends UrlbarProvider {
     }
 
     // Set the appropriate suggested index and related properties unless the
-    // feature did it already or assigned the result to a group.
-    if (!result.hasSuggestedIndex && !result.group) {
+    // feature did it already.
+    if (!result.hasSuggestedIndex) {
       if (result.isBestMatch) {
         result.isRichSuggestion = true;
         result.richSuggestionIconSize ||= 52;

@@ -12,10 +12,7 @@ struct CursivePos
   protected:
   union {
   struct { HBUINT16 v; } format;        /* Format identifier */
-  CursivePosFormat1_2<SmallTypes> format1;
-#ifndef HB_NO_BEYOND_64K
-  CursivePosFormat1_2<MediumTypes> format2;
-#endif
+  CursivePosFormat1     format1;
   } u;
 
   public:
@@ -26,9 +23,6 @@ struct CursivePos
     TRACE_DISPATCH (this, u.format.v);
     switch (u.format.v) {
     case 1: hb_barrier (); return_trace (c->dispatch (u.format1, std::forward<Ts> (ds)...));
-#ifndef HB_NO_BEYOND_64K
-    case 2: hb_barrier (); return_trace (c->dispatch (u.format2, std::forward<Ts> (ds)...));
-#endif
     default:return_trace (c->default_return_value ());
     }
   }

@@ -21,10 +21,6 @@ SOURCES += [
     "nsShellService.cpp",
 ]
 
-SOURCE_HEADERS += [
-    "nsShellService.h",
-]
-
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
     XPIDL_SOURCES += [
         "nsIMacShellService.idl",
@@ -32,10 +28,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
 
     SOURCES += [
         "nsMacShellService.mm",
-    ]
-
-    SOURCE_HEADERS += [
-        "nsMacShellService.h",
     ]
 
     LOCAL_INCLUDES += [
@@ -59,9 +51,6 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "gtk":
     SOURCES += [
         "nsGNOMEShellService.cpp",
     ]
-    SOURCE_HEADERS += [
-        "nsGNOMEShellService.h",
-    ]
     LOCAL_INCLUDES += [
         "/widget",
         "/widget/gtk",  # for nsWindow
@@ -71,12 +60,7 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "gtk":
             "nsGNOMEShellDBusHelper.cpp",
             "nsGNOMEShellSearchProvider.cpp",
         ]
-        SOURCE_HEADERS += [
-            "nsGNOMEShellDBusHelper.h",
-            "nsGNOMEShellSearchProvider.h",
-        ]
         include("/ipc/chromium/chromium-config.mozbuild")
-
 
 elif CONFIG["OS_ARCH"] == "WINNT":
     XPIDL_SOURCES += [
@@ -118,15 +102,6 @@ elif CONFIG["OS_ARCH"] == "WINNT":
 
     XPCOM_MANIFESTS += [
         "components.conf",
-    ]
-
-    SOURCE_HEADERS += [
-        "nsWindowsShellService.h",
-        "nsWindowsShellServiceInternal.h",
-        "WindowsDefaultBrowser.h",
-        "WindowsUIElement.h",
-        "WindowsUIOverlayImage.h",
-        "WindowsUserChoice.h",
     ]
 
 XPIDL_MODULE = "shellservice"

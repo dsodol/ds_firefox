@@ -19,7 +19,6 @@ import tempfile
 import mozpack.path as mozpath
 
 from .logs import log
-from .servers import XpcshellHarness
 from .session import provisioned_server
 
 TEST_PATH = "devtools/client/aboutdebugging/test/browser/browser_backward_compat"
@@ -32,7 +31,6 @@ def run(
     server: str = "local",
     headless: bool = True,
     extra_args: list[str] | None = None,
-    xpcshell_harness: XpcshellHarness | None = None,
 ) -> int:
     log_dir = tempfile.mkdtemp(prefix="devtools-compat-")
     log(f"Logs and configuration in {log_dir}")
@@ -43,7 +41,6 @@ def run(
         log_dir=log_dir,
         server=server,
         headless=headless,
-        xpcshell_harness=xpcshell_harness,
     ) as compat_server_env:
         env = os.environ.copy()
         env.update(compat_server_env)

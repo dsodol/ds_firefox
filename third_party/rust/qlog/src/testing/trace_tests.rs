@@ -37,57 +37,63 @@ use crate::TraceSeq;
 #[test]
 fn trace_no_events() {
     let log_string = r#"{
-  "title": "Quiche qlog trace",
-  "description": "Quiche qlog trace description",
   "vantage_point": {
     "type": "server"
   },
-  "event_schemas": [],
+  "title": "Quiche qlog trace",
+  "description": "Quiche qlog trace description",
+  "configuration": {
+    "time_offset": 0.0
+  },
   "events": []
 }"#;
 
     let trace = make_trace();
 
     let serialized = serde_json::to_string_pretty(&trace).unwrap();
-    pretty_assertions::assert_eq!(serialized, log_string);
+    assert_eq!(serialized, log_string);
 
     let deserialized: Trace = serde_json::from_str(&serialized).unwrap();
-    pretty_assertions::assert_eq!(deserialized, trace);
+    assert_eq!(deserialized, trace);
 }
 
 #[test]
 fn trace_seq_no_events() {
     let log_string = r#"{
-  "title": "Quiche qlog trace",
-  "description": "Quiche qlog trace description",
   "vantage_point": {
     "type": "server"
   },
-  "event_schemas": []
+  "title": "Quiche qlog trace",
+  "description": "Quiche qlog trace description",
+  "configuration": {
+    "time_offset": 0.0
+  }
 }"#;
 
     let trace = make_trace_seq();
 
     let serialized = serde_json::to_string_pretty(&trace).unwrap();
-    pretty_assertions::assert_eq!(serialized, log_string);
+    assert_eq!(serialized, log_string);
 
     let deserialized: TraceSeq = serde_json::from_str(&serialized).unwrap();
-    pretty_assertions::assert_eq!(deserialized, trace);
+    assert_eq!(deserialized, trace);
 }
 
 #[test]
 fn trace_single_transport_event() {
     let log_string = r#"{
-  "title": "Quiche qlog trace",
-  "description": "Quiche qlog trace description",
   "vantage_point": {
     "type": "server"
   },
-  "event_schemas": [],
+  "title": "Quiche qlog trace",
+  "description": "Quiche qlog trace description",
+  "configuration": {
+    "time_offset": 0.0
+  },
   "events": [
     {
       "time": 0.0,
-      "name": "quic:packet_sent",
+      "name": "transport:packet_sent",
       "data": {
         "header": {
           "packet_type": "initial",
@@ -107,10 +113,8 @@ fn trace_single_transport_event() {
             "frame_type": "stream",
             "stream_id": 0,
             "offset": 0,
-            "fin": true,
-            "raw": {
-              "payload_length": 100
-            }
+            "length": 100,
+            "fin": true
           }
         ]
       }
@@ -124,17 +128,14 @@ fn trace_single_transport_event() {
 
     let frames = vec![QuicFrame::Stream {
         stream_id: 0,
-        offset: Some(0),
+        offset: 0,
+        length: 100,
         fin: Some(true),
-        raw: Some(Box::new(RawInfo {
-            length: None,
-            payload_length: Some(100),
-            data: None,
-        })),
+        raw: None,
     }];
-    let event_data = EventData::QuicPacketSent(PacketSent {
+    let event_data = EventData::PacketSent(PacketSent {
         header: pkt_hdr,
-        frames: Some(frames),
+        frames: Some(frames.into()),
         raw: Some(RawInfo {
             length: Some(1251),
             payload_length: Some(1224),
@@ -148,8 +149,8 @@ fn trace_single_transport_event() {
     trace.push_event(ev);
 
     let serialized = serde_json::to_string_pretty(&trace).unwrap();
-    pretty_assertions::assert_eq!(serialized, log_string);
+    assert_eq!(serialized, log_string);
 
     let deserialized: Trace = serde_json::from_str(&serialized).unwrap();
-    pretty_assertions::assert_eq!(deserialized, trace);
+    assert_eq!(deserialized, trace);
 }

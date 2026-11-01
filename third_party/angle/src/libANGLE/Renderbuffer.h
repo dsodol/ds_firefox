@@ -51,17 +51,17 @@ class RenderbufferState final : angle::NonCopyable
         return mEGLImageSourceAttributes;
     }
 
-    OwnerImageIndex toOwnerIndex(const ImageIndex &index) const
+    SourceImageIndex toSourceIndex(const OwnImageIndex &index) const
     {
-        return mEGLImageSourceAttributes.toOwnerIndex(index);
+        return mEGLImageSourceAttributes.toSourceIndex(index);
     }
-    OwnerLevel toOwnerLevel(LevelIndex level) const
+    SourceLevel toSourceLevel(OwnLevel level) const
     {
-        return mEGLImageSourceAttributes.toOwnerLevel(level);
+        return mEGLImageSourceAttributes.toSourceLevel(level);
     }
-    OwnerLayer toOwnerLayer(LayerIndex layer) const
+    SourceLayer toSourceLayer(OwnLayer layer) const
     {
-        return mEGLImageSourceAttributes.toOwnerLayer(layer);
+        return mEGLImageSourceAttributes.toSourceLayer(layer);
     }
 
   private:

@@ -27,7 +27,6 @@ from mozharness.base.script import (
     PostScriptAction,
     PostScriptRun,
     PreScriptAction,
-    PreScriptRun,
     ScriptMixin,
 )
 
@@ -114,7 +113,7 @@ virtualenv_config_options = [
         {
             "action": "extend",
             "dest": "find_links",
-            "default": [],
+            "default": ["https://pypi.pub.build.mozilla.org/pub/"],
             "help": "URL to look for packages at",
         },
     ],
@@ -122,9 +121,9 @@ virtualenv_config_options = [
         ["--pip-index"],
         {
             "action": "store_true",
-            "default": True,
+            "default": False,
             "dest": "pip_index",
-            "help": "Use pip indexes (default)",
+            "help": "Use pip indexes",
         },
     ],
     [
@@ -132,7 +131,7 @@ virtualenv_config_options = [
         {
             "action": "store_false",
             "dest": "pip_index",
-            "help": "Don't use pip indexes",
+            "help": "Don't use pip indexes (default)",
         },
     ],
 ]
@@ -233,7 +232,7 @@ class VirtualenvMixin:
             pip_list_command = pip_command(
                 python_executable=self.query_python_path(),
                 subcommand="list",
-                args=["--format", "freeze"],
+                args=["--format", "freeze", "--no-index"],
             )
             pip_freeze_output = self.get_output_from_command(
                 pip_list_command,
@@ -274,9 +273,6 @@ class VirtualenvMixin:
         package_versions = self.package_versions(error_level=error_level)
         return package_name.lower() in [package.lower() for package in package_versions]
 
-    def query_python_constraints(self):
-        return []
-
     def install_module(
         self,
         module=None,
@@ -316,10 +312,6 @@ class VirtualenvMixin:
             if not module_url and not requirements:
                 self.fatal("Must specify module and/or requirements")
             pip_command_args = []
-            for constraint in self.query_python_constraints():
-                pip_command_args += ["--constraint", constraint]
-            if not c.get("pip_index", True):
-                pip_command_args.append("--no-index")
             pip_command_non_uv_args = []
             if c.get("verbose_pip"):
                 pip_command_args += ["-v"]
@@ -333,6 +325,8 @@ class VirtualenvMixin:
             pip_command_non_uv_args += ["--timeout", str(c.get("pip_timeout", 120))]
             for requirement in requirements:
                 pip_command_args += ["-r", requirement]
+            if c.get("find_links") and not c["pip_index"]:
+                pip_command_args += ["--no-index"]
             for opt in global_options:
                 pip_command_args += ["--global-option", opt]
         else:
@@ -399,7 +393,7 @@ class VirtualenvMixin:
                 self.warning("find_links: not a valid path nor URL %s" % link)
 
         # TODO: make this fatal if we always see failures after this
-        if find_links_added == 0 and not c.get("pip_index", True):
+        if find_links_added == 0:
             self.warning(
                 "find_links: no find_links added. pip installation will probably fail!"
             )
@@ -802,8 +796,7 @@ class ResourceMonitoringMixin(PerfherderResourceOptionsMixin):
     While we would like to record resource usage for the entirety of a script,
     since we require an external package, we can only record resource usage
     after that package is installed (as part of creating the virtualenv).
-    When forwarding to a monitor in a parent process, psutil isn't needed, so
-    recording starts before the first action if mozsystemmonitor is available.
+    That's just the way things have to be.
     """
 
     def __init__(self, *args, **kwargs):
@@ -818,29 +811,9 @@ class ResourceMonitoringMixin(PerfherderResourceOptionsMixin):
         # Perfherder metrics to be reported.
         self.resource_monitor_perfherder_id = None
 
-    @PreScriptRun
-    def _start_forwarding_resource_monitor(self):
-        try:
-            from mozsystemmonitor.resourcemonitor import (
-                FORWARD_ENV,
-                SystemResourceMonitor,
-            )
-        except ImportError:
-            return
-
-        if FORWARD_ENV not in os.environ:
-            return
-
-        self.info("Starting resource monitoring, forwarding to parent monitor.")
-        self._resource_monitor = SystemResourceMonitor()
-        self._resource_monitor.start()
-
     @PostScriptAction("create-virtualenv")
     def _start_resource_monitoring(self, action, success=None):
         self.activate_virtualenv()
-
-        if self._resource_monitor:
-            return
 
         try:
             from mozsystemmonitor.resourcemonitor import SystemResourceMonitor
@@ -900,20 +873,6 @@ class ResourceMonitoringMixin(PerfherderResourceOptionsMixin):
 
         # Get upload directory to pass to stop() for artifact markers
         upload_dir = self.query_abs_dirs()["abs_blob_upload_dir"]
-
-        if self._resource_monitor.forwarding:
-            # The parent monitor records resource usage and reports it.
-            if self.resource_monitor_perfherder_id:
-                perfherder_name, perfherder_options = (
-                    self.resource_monitor_perfherder_id
-                )
-                self._resource_monitor.forward_perfherder(
-                    perfherder_name,
-                    perfherder_options + self.perfherder_resource_options(),
-                    upload_dir if "MOZ_AUTOMATION" in os.environ else None,
-                )
-            self._resource_monitor.stop(upload_dir=upload_dir)
-            return
 
         self._resource_monitor.stop(upload_dir=upload_dir)
         self._log_resource_usage()
@@ -995,10 +954,56 @@ class ResourceMonitoringMixin(PerfherderResourceOptionsMixin):
         # Write out Perfherder data if configured.
         if self.resource_monitor_perfherder_id:
             perfherder_name, perfherder_options = self.resource_monitor_perfherder_id
-            data = rm.perfherder_data(
-                perfherder_name,
-                perfherder_options + self.perfherder_resource_options(),
-            )
+
+            suites = []
+            overall = []
+
+            if cpu_percent:
+                overall.append({
+                    "name": "cpu_percent",
+                    "value": cpu_percent,
+                })
+
+            overall.extend([
+                {"name": "io_write_bytes", "value": io.write_bytes},
+                {"name": "io.read_bytes", "value": io.read_bytes},
+                {"name": "io_write_time", "value": io.write_time},
+                {"name": "io_read_time", "value": io.read_time},
+            ])
+
+            suites.append({
+                "name": "%s.overall" % perfherder_name,
+                "extraOptions": perfherder_options + self.perfherder_resource_options(),
+                "subtests": overall,
+            })
+
+            for phase in rm.phases.keys():
+                phase_duration = rm.phases[phase][1] - rm.phases[phase][0]
+                subtests = [
+                    {
+                        "name": "time",
+                        "value": phase_duration,
+                    }
+                ]
+                cpu_percent = rm.aggregate_cpu_percent(phase=phase, per_cpu=False)
+                if cpu_percent is not None:
+                    subtests.append({
+                        "name": "cpu_percent",
+                        "value": rm.aggregate_cpu_percent(phase=phase, per_cpu=False),
+                    })
+
+                # We don't report I/O during each step because measured I/O
+                # is system I/O and that I/O can be delayed (e.g. writes will
+                # buffer before being flushed and recorded in our metrics).
+                suites.append({
+                    "name": "%s.%s" % (perfherder_name, phase),
+                    "subtests": subtests,
+                })
+
+            data = {
+                "framework": {"name": "job_resource_usage"},
+                "suites": suites,
+            }
 
             schema_path = perfherder_schema_path()
             with open(schema_path, "rb") as fh:

@@ -192,6 +192,11 @@ add_task(async function test_getHistogramById() {
   Assert.equal(s.histogram_type, Telemetry.HISTOGRAM_EXPONENTIAL);
 });
 
+add_task(async function test_getSlowSQL() {
+  var slow = Telemetry.slowSQL;
+  Assert.ok("mainThread" in slow && "otherThreads" in slow);
+});
+
 // Check that telemetry doesn't record in private mode
 add_task(async function test_privateMode() {
   var h = Telemetry.getHistogramById("TELEMETRY_TEST_BOOLEAN");

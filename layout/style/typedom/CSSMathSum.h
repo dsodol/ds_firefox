@@ -13,7 +13,6 @@
 #include "mozilla/dom/CSSNumericValueBindingFwd.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsISupportsImpl.h"
-#include "nsTArrayForwardDeclare.h"
 
 template <class T>
 class nsCOMPtr;
@@ -39,10 +38,6 @@ class CSSMathSum final : public CSSMathValue {
   CSSMathSum(nsCOMPtr<nsISupports> aParent,
              MovingNotNull<UniquePtr<StyleNumericType>> aNumericType,
              RefPtr<CSSNumericArray> aValues);
-
-  static RefPtr<CSSMathSum> Create(nsCOMPtr<nsISupports> aParent,
-                                   UniquePtr<StyleNumericType> aNumericType,
-                                   nsTArray<RefPtr<CSSNumericValue>> aValues);
 
   static RefPtr<CSSMathSum> Create(nsCOMPtr<nsISupports> aParent,
                                    const StyleMathSum& aMathSum);

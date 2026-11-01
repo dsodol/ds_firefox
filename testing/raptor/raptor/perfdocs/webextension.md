@@ -323,15 +323,13 @@ Raptor test results will be found locally in \<your-repo>/testing/mozharness/bui
 To run Raptor locally on Google Chrome, make sure you already have a local version of Google Chrome installed, and then from within your mozilla-repo run:
 
 ```
-$ ./mach raptor --test <raptor-test-name> --app=chrome
+$ ./mach raptor --test <raptor-test-name> --app=chrome --binary="<path to google chrome binary>"
 ```
-
-Raptor uses Chrome from its default install location. If Chrome is installed elsewhere, pass its path with `--binary`.
 
 For example, to run the speedometer3 benchmark on Google Chrome use:
 
 ```
-$ ./mach raptor --test speedometer3 --app=chrome
+$ ./mach raptor --test speedometer3 --app=chrome --binary="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 ```
 
 Raptor test results will be found locally in \<your-repo>/testing/mozharness/build/raptor.json.

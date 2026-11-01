@@ -215,8 +215,6 @@ struct hb_subset_plan_t
 
   bool in_error () const { return !successful; }
 
-  HB_INTERNAL float layout_variation_delta (unsigned var_idx);
-
   bool check_success(bool success)
   {
     successful = (successful && success);

@@ -29,7 +29,8 @@ using namespace mozilla;
 
 nsIFrame* NS_NewMathMLmunderoverFrame(PresShell* aPresShell,
                                       ComputedStyle* aStyle) {
-  return new nsMathMLmunderoverFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      nsMathMLmunderoverFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMathMLmunderoverFrame)

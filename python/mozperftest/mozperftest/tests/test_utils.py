@@ -302,6 +302,9 @@ def test_install_requirements_file():
             "install",
             "-r",
             "foo",
+            "--no-index",
+            "--find-links",
+            "https://pypi.pub.build.mozilla.org/pub/",
         ])
 
 

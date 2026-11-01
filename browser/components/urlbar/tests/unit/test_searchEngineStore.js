@@ -38,7 +38,7 @@ function createEngineStore(isPrivate) {
   let childController = UrlbarTestUtils.mockChildController({
     input: {
       isPrivate,
-      browserWindow: {
+      window: {
         location: {
           href: AppConstants.BROWSER_CHROME_URL,
         },

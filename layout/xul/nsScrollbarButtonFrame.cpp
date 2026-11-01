@@ -34,7 +34,8 @@ using namespace mozilla;
 //
 nsIFrame* NS_NewScrollbarButtonFrame(PresShell* aPresShell,
                                      ComputedStyle* aStyle) {
-  return new nsScrollbarButtonFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      nsScrollbarButtonFrame(aStyle, aPresShell->GetPresContext());
 }
 NS_IMPL_FRAMEARENA_HELPERS(nsScrollbarButtonFrame)
 

@@ -20,7 +20,3 @@ DEFINES["MAR_NSS"] = True
 
 if CONFIG["OS_ARCH"] == "WINNT":
     USE_STATIC_MSVCRT = True
-
-SOURCE_HEADERS += [
-    "nss_secutil.h",
-]

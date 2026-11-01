@@ -17,11 +17,8 @@ from marionette_harness import MarionetteTestCase
  as part of the test.
 """
 QM_TESTING_PREF = "dom.quotaManager.testing"
-SQLITE_ENCRYPTION_PREF = "security.storage.encryption.sqlite.enabled"
 
 EXPECTED_CACHEDIR_SIZE_AFTER_CLEANUP = 128 * 1024  # 128KB
-# Encryption roughly doubles the size of caches.sqlite, 196k instead of 98k.
-ENCRYPTED_CACHEDIR_SIZE_AFTER_CLEANUP = 2 * EXPECTED_CACHEDIR_SIZE_AFTER_CLEANUP
 CACHE_ID = "data"
 
 
@@ -112,11 +109,6 @@ class CachesDeleteCleanupAtShutdownTestCase(MarionetteTestCase):
                 )
         return bodyCount
 
-    def expectedSizeAfterCleanup(self):
-        if self.marionette.get_pref(SQLITE_ENCRYPTION_PREF):
-            return ENCRYPTED_CACHEDIR_SIZE_AFTER_CLEANUP
-        return EXPECTED_CACHEDIR_SIZE_AFTER_CLEANUP
-
     def countBodies(self):
         profile = self.marionette.instance.profile.profile
         originDir = (
@@ -179,7 +171,7 @@ class CachesDeleteCleanupAtShutdownTestCase(MarionetteTestCase):
         )
 
         print(f"Usage = {usage} and number of orphaned bodies = {self.countBodies()}")
-        return usage < self.expectedSizeAfterCleanup()
+        return usage < EXPECTED_CACHEDIR_SIZE_AFTER_CLEANUP
 
     # The freed database pages are only vacuumed when the Cache connection
     # closes, which happens once the Cache object from openCache is collected.
@@ -204,7 +196,8 @@ class CachesDeleteCleanupAtShutdownTestCase(MarionetteTestCase):
             )
 
             return (
-                abs(beforeUsage - self.getUsage()) <= self.expectedSizeAfterCleanup()
+                abs(beforeUsage - self.getUsage())
+                <= EXPECTED_CACHEDIR_SIZE_AFTER_CLEANUP
                 and self.ensureCleanDirectory()
             )
 
@@ -233,7 +226,8 @@ class CachesDeleteCleanupAtShutdownTestCase(MarionetteTestCase):
             )
 
             return (
-                abs(beforeUsage - self.getUsage()) <= self.expectedSizeAfterCleanup()
+                abs(beforeUsage - self.getUsage())
+                <= EXPECTED_CACHEDIR_SIZE_AFTER_CLEANUP
                 and self.ensureCleanDirectory()
             )
 

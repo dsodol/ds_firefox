@@ -362,7 +362,10 @@ already_AddRefed<Promise> WebTaskScheduler::PostTask(
   // scheduler’s relevant global object, "scheduler-postTask", delay, and the
   // following steps...
   if (delay > 0) {
-    nsresult rv = SetTimeoutForDelayedTask(task, delay);
+    nsresult rv = SetTimeoutForDelayedTask(
+        task, delay,
+        GetEventQueuePriority(finalPrioritySource->Priority(),
+                              false /* aIsContinuation */));
     if (NS_FAILED(rv)) {
       promise->MaybeRejectWithUnknownError(
           "Failed to setup timeout for delayed task");

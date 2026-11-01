@@ -9,7 +9,7 @@ registerCleanupFunction(function () {
 
 add_task(async function () {
   let prefs = await openPermissionsPane({ leaveOpen: true });
-  let expectedPane = "panePermissionsData";
+  let expectedPane = SRD_PREF_VALUE ? "panePermissionsData" : "panePrivacy";
   is(prefs.selectedPane, expectedPane, `${expectedPane} pane was selected`);
 
   let doc = gBrowser.contentDocument;

@@ -22,11 +22,10 @@ export class ActionsProvider {
    * with this provider, to save on resources.
    *
    * @param {UrlbarQueryContext} _queryContext The query context object.
-   * @param {UrlbarParentController} _controller The current controller.
    * @returns {boolean} Whether this provider should be invoked for the search.
    * @abstract
    */
-  isActive(_queryContext, _controller) {
+  isActive(_queryContext) {
     throw new Error("Not implemented.");
   }
 
@@ -34,11 +33,10 @@ export class ActionsProvider {
    * Query for actions based on the current users input.
    *
    * @param {UrlbarQueryContext} _queryContext The query context object.
-   * @param {UrlbarParentController} _controller The current controller.
    * @returns {Promise<ActionsResult[]>}
    * @abstract
    */
-  async queryActions(_queryContext, _controller) {
+  async queryActions(_queryContext) {
     throw new Error("Not implemented.");
   }
 

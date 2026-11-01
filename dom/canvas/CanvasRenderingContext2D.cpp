@@ -10,7 +10,6 @@
 #include "CanvasImageCache.h"
 #include "CanvasUtils.h"
 #include "GeckoBindings.h"
-#include "ImageData.h"
 #include "ImageEncoder.h"
 #include "ImageRegion.h"
 #include "LayerUserData.h"
@@ -58,7 +57,6 @@
 #include "mozilla/dom/CanvasPath.h"
 #include "mozilla/dom/CanvasPattern.h"
 #include "mozilla/dom/CanvasRenderingContext2DBinding.h"
-#include "mozilla/dom/CanvasRenderingContextHelper.h"
 #include "mozilla/dom/DOMMatrix.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/FontFaceSet.h"
@@ -77,6 +75,7 @@
 #include "mozilla/dom/VideoFrame.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/gfx/2D.h"
+#include "mozilla/gfx/CanvasShutdownManager.h"
 #include "mozilla/gfx/DataSurfaceHelpers.h"
 #include "mozilla/gfx/Filters.h"
 #include "mozilla/gfx/Helpers.h"
@@ -119,7 +118,6 @@
 #include "nsTArray.h"
 #include "nsWrapperCacheInlines.h"
 #include "nsXULElement.h"
-#include "qcms.h"
 
 #undef free  // apparently defined by some windows header, clashing with a
              // free() method in SkTypes.h
@@ -150,40 +148,6 @@ const size_t MAX_STYLE_STACK_SIZE = 1024;
 
 /* Memory reporter stuff */
 static Atomic<int64_t> gCanvasAzureMemoryUsed(0);
-
-static PredefinedColorSpace GetColorSpaceFromImageDataSettings(
-    const ImageDataSettings& aSettings, PredefinedColorSpace aColorSpace) {
-  return aSettings.mColorSpace.WasPassed() ? aSettings.mColorSpace.Value()
-                                           : aColorSpace;
-}
-// basically a wrapper over qcms_transform for now
-class ColorSpaceConverter {
- public:
-  explicit ColorSpaceConverter(NotNull<qcms_transform*> aTransform)
-      : mTransform(aTransform) {}
-
-  void ConvertColorspace(uint8_t* src, uint8_t* dst, size_t len) const {
-    qcms_transform_data(mTransform, src, dst, len);
-  }
-
- private:
-  NotNull<qcms_transform*> mTransform;
-};
-
-static Maybe<ColorSpaceConverter> GetColorSpaceConverter(
-    PredefinedColorSpace aSrc, PredefinedColorSpace aDst) {
-  qcms_transform* rawTransform = nullptr;
-
-  if (!StaticPrefs::gfx_canvas_colorspace_enabled() || aSrc == aDst) {
-    return Nothing();
-  }
-
-  rawTransform = aDst == PredefinedColorSpace::Display_p3
-                     ? gfxPlatform::GetCMSRGBP3Transform()
-                     : gfxPlatform::GetCMSP3RGBTransform();
-
-  return Some(ColorSpaceConverter(WrapNotNull(rawTransform)));
-}
 
 // Adds Save() / Restore() calls to the scope.
 class MOZ_RAII AutoSaveRestore {
@@ -784,7 +748,7 @@ class AdjustedTarget {
           return;
         }
       }
-      mShadowTarget = std::make_unique<AdjustedTargetForShadow>(
+      mShadowTarget = MakeUnique<AdjustedTargetForShadow>(
           aCtx, aCtx->mTarget, boundsAfterFilter, mUsedOperation);
       mTarget = mShadowTarget->DT();
       offsetToFinalDT = mShadowTarget->OffsetToFinalDT();
@@ -814,7 +778,7 @@ class AdjustedTarget {
         mOptimizeFilter = true;
       }
 
-      mFilterTarget = std::make_unique<AdjustedTargetForFilter>(
+      mFilterTarget = MakeUnique<AdjustedTargetForFilter>(
           aCtx, mTarget, offsetToFinalDT, intBounds,
           gfx::RoundedToInt(boundsAfterFilter), mUsedOperation,
           mOptimizeFilter);
@@ -1175,7 +1139,6 @@ CanvasRenderingContext2D::ContextState::ContextState(const ContextState& aOther)
       filter(aOther.filter),
       filterAdditionalImages(aOther.filterAdditionalImages.Clone()),
       filterSourceGraphicTainted(aOther.filterSourceGraphicTainted),
-      filterDescriptionUpToDate(aOther.filterDescriptionUpToDate),
       imageSmoothingEnabled(aOther.imageSmoothingEnabled),
       explicitLang(aOther.explicitLang) {
   if (aOther.autoSVGFiltersObserver) {
@@ -1261,7 +1224,6 @@ CanvasRenderingContext2D::CanvasRenderingContext2D(
     :  // these are the default values from the Canvas spec
       mWidth(0),
       mHeight(0),
-      mColorSpace(PredefinedColorSpace::Srgb),
       mZero(false),
       mOpaqueAttrValue(false),
       mContextAttributesHasAlpha(true),
@@ -1295,7 +1257,6 @@ CanvasRenderingContext2D::~CanvasRenderingContext2D() {
 
 nsresult CanvasRenderingContext2D::Initialize() {
   if (NS_WARN_IF(!AddShutdownObserver())) {
-    mHasShutdown = true;
     return NS_ERROR_FAILURE;
   }
 
@@ -1314,10 +1275,9 @@ void CanvasRenderingContext2D::GetContextAttributes(
   aSettings.mAlpha = mContextAttributesHasAlpha;
   aSettings.mWillReadFrequently = mWillReadFrequently;
   aSettings.mForceSoftwareRendering = mForceSoftwareRendering;
-  aSettings.mColorSpace = mColorSpace;
 
-  // We don't support the 'desynchronized' attribute
-  // so just keep its default value.
+  // We don't support the 'desynchronized' and 'colorSpace' attributes, so
+  // those just keep their default values.
 }
 
 void CanvasRenderingContext2D::GetDebugInfo(
@@ -1435,6 +1395,26 @@ void CanvasRenderingContext2D::OnShutdown() {
   mHasShutdown = true;
 }
 
+bool CanvasRenderingContext2D::AddShutdownObserver() {
+  auto* const canvasManager = CanvasShutdownManager::Get();
+  if (NS_WARN_IF(!canvasManager)) {
+    mHasShutdown = true;
+    return false;
+  }
+
+  canvasManager->AddShutdownObserver(this);
+  return true;
+}
+
+void CanvasRenderingContext2D::RemoveShutdownObserver() {
+  auto* const canvasManager = CanvasShutdownManager::MaybeGet();
+  if (!canvasManager) {
+    return;
+  }
+
+  canvasManager->RemoveShutdownObserver(this);
+}
+
 void CanvasRenderingContext2D::OnRemoteCanvasLost() {
   // We only lose context / data if we are using remote canvas, which is only
   // for accelerated targets.
@@ -1498,23 +1478,6 @@ void CanvasRenderingContext2D::OnRemoteCanvasRestored() {
           gfxCriticalNote << gfx::hexa(self.get()) << " accel canvas restored";
         }
       }));
-}
-
-void CanvasRenderingContext2D::OnRemoteCanvasReset(
-    const nsTArray<layers::RemoteTextureOwnerId>& aOwnerIds) {
-  auto* bufferProvider = GetBufferProvider();
-  if (!bufferProvider) {
-    return;
-  }
-
-  Maybe<layers::RemoteTextureOwnerId> ownerId =
-      bufferProvider->GetRemoteTextureOwnerId();
-  if (!ownerId || !aOwnerIds.Contains(*ownerId)) {
-    return;
-  }
-
-  OnRemoteCanvasLost();
-  OnRemoteCanvasRestored();
 }
 
 void CanvasRenderingContext2D::SetStyleFromString(const nsACString& aStr,
@@ -2260,7 +2223,6 @@ NS_IMETHODIMP
 CanvasRenderingContext2D::InitializeWithDrawTarget(
     nsIDocShell* aShell, NotNull<gfx::DrawTarget*> aTarget) {
   if (NS_WARN_IF(!AddShutdownObserver())) {
-    mHasShutdown = true;
     return NS_ERROR_FAILURE;
   }
 
@@ -2293,26 +2255,28 @@ void CanvasRenderingContext2D::UpdateIsOpaque() {
 }
 
 NS_IMETHODIMP
-CanvasRenderingContext2D::SetContextOptions(
-    const CanvasRenderingContextOptions& aOptions) {
+CanvasRenderingContext2D::SetContextOptions(JSContext* aCx,
+                                            JS::Handle<JS::Value> aOptions,
+                                            ErrorResult& aRvForDictionaryInit) {
+  if (aOptions.isNullOrUndefined()) {
+    return NS_OK;
+  }
+
   // This shouldn't be called before drawing starts, so there should be no
   // drawtarget yet
   MOZ_ASSERT(!mTarget);
 
-  if (!aOptions.is<CanvasRenderingContext2DSettings>()) {
+  CanvasRenderingContext2DSettings attributes;
+  if (!attributes.Init(aCx, aOptions)) {
+    aRvForDictionaryInit.Throw(NS_ERROR_UNEXPECTED);
     return NS_ERROR_UNEXPECTED;
   }
-  const auto& attributes = aOptions.as<CanvasRenderingContext2DSettings>();
 
   mWillReadFrequently = attributes.mWillReadFrequently;
   mForceSoftwareRendering = attributes.mForceSoftwareRendering;
 
   mContextAttributesHasAlpha = attributes.mAlpha;
   UpdateIsOpaque();
-
-  if (StaticPrefs::gfx_canvas_colorspace_enabled()) {
-    mColorSpace = attributes.mColorSpace;
-  }
 
   return NS_OK;
 }
@@ -2969,48 +2933,28 @@ CreateFilterDeclarationForServo(const nsACString& aFilter,
   return CreateDeclarationForServo(eCSSProperty_filter, aFilter, aDocument);
 }
 
-static bool ResolveFilterStyleForServo(
+static already_AddRefed<const ComputedStyle> ResolveFilterStyleForServo(
     const nsACString& aFilterString, const ComputedStyle* aParentStyle,
-    PresShell* aPresShell, StyleOwnedSlice<StyleFilter>& aFilterChain,
-    ErrorResult& aError) {
-  // Try to parse an absolute filter first without having to go through the
-  // declaration path.
-  if (aParentStyle->EffectiveZoom() == StyleZoom::ONE &&
-      Servo_ParseFilters(&aFilterString, StyleFilterUrlHandling::Reject,
-                         aPresShell->GetDocument()->DefaultStyleAttrURLData(),
-                         &aFilterChain)) {
-    return true;
-  }
-
+    PresShell* aPresShell, ErrorResult& aError) {
   RefPtr<StyleLockedDeclarationBlock> declarations =
       CreateFilterDeclarationForServo(aFilterString, aPresShell->GetDocument());
   if (!declarations) {
     // Refuse to accept the filter, but do not throw an error.
-    return false;
+    return nullptr;
   }
 
   // In addition to unparseable values, the spec says we need to reject
   // 'inherit' and 'initial'.
   if (Servo_DeclarationBlock_HasCSSWideKeyword(declarations,
                                                eCSSProperty_filter)) {
-    return false;
+    return nullptr;
   }
 
   ServoStyleSet* styleSet = aPresShell->StyleSet();
-  RefPtr<const ComputedStyle> style =
+  RefPtr<const ComputedStyle> computedValues =
       styleSet->ResolveForDeclarations(aParentStyle, declarations);
 
-  aFilterChain = std::move(style->StyleEffects()->mFilters);
-  return true;
-}
-
-static bool FiltersHaveUrl(Span<const StyleFilter> aFilters) {
-  for (const auto& filter : aFilters) {
-    if (filter.IsUrl()) {
-      return true;
-    }
-  }
-  return false;
+  return computedValues.forget();
 }
 
 bool CanvasRenderingContext2D::ParseFilter(
@@ -3033,8 +2977,12 @@ bool CanvasRenderingContext2D::ParseFilter(
       return false;
     }
 
-    return Servo_ParseFilters(&aString, StyleFilterUrlHandling::Ignore,
-                              urlExtraData, &aFilterChain);
+    if (NS_WARN_IF(!Servo_ParseFilters(&aString, /* aIgnoreUrls */ true,
+                                       urlExtraData, &aFilterChain))) {
+      return false;
+    }
+
+    return true;
   }
 
   const ComputedStyle* parentStyle = GetCurrentFontComputedStyle();
@@ -3042,40 +2990,32 @@ bool CanvasRenderingContext2D::ParseFilter(
     return false;
   }
 
-  return ResolveFilterStyleForServo(aString, parentStyle, presShell,
-                                    aFilterChain, aError);
+  RefPtr<const ComputedStyle> style =
+      ResolveFilterStyleForServo(aString, parentStyle, presShell, aError);
+  if (!style) {
+    return false;
+  }
+
+  aFilterChain = style->StyleEffects()->mFilters;
+  return true;
 }
 
 void CanvasRenderingContext2D::SetFilter(const nsACString& aFilter,
                                          ErrorResult& aError) {
   StyleOwnedSlice<StyleFilter> filterChain;
-  if (!ParseFilter(aFilter, filterChain, aError)) {
-    return;
+  if (ParseFilter(aFilter, filterChain, aError)) {
+    CurrentState().filterString = aFilter;
+    CurrentState().filterChain = std::move(filterChain);
+    if (mCanvasElement) {
+      if (CurrentState().autoSVGFiltersObserver) {
+        CurrentState().autoSVGFiltersObserver->SetIsActive(false);
+      }
+      CurrentState().autoSVGFiltersObserver =
+          SVGObserverUtils::ObserveFiltersForCanvasContext(
+              this, mCanvasElement, CurrentState().filterChain.AsSpan());
+    }
+    UpdateFilter(/* aFlushIfNeeded = */ true);
   }
-
-  ContextState& state = CurrentState();
-  state.filterString = aFilter;
-  state.filterChain = std::move(filterChain);
-  if (state.autoSVGFiltersObserver) {
-    state.autoSVGFiltersObserver->SetIsActive(false);
-    state.autoSVGFiltersObserver = nullptr;
-  }
-
-  // Drop the description built for the old chain.
-  state.filter = FilterDescription();
-  state.filterAdditionalImages.Clear();
-  state.filterDescriptionUpToDate = false;
-
-  if (!FiltersHaveUrl(state.filterChain.AsSpan())) {
-    return;
-  }
-
-  if (mCanvasElement) {
-    state.autoSVGFiltersObserver =
-        SVGObserverUtils::ObserveFiltersForCanvasContext(
-            this, mCanvasElement, state.filterChain.AsSpan());
-  }
-  UpdateFilter(/* aFlushIfNeeded = */ true);
 }
 
 static already_AddRefed<const ComputedStyle> ResolveStyleForServo(
@@ -3316,6 +3256,18 @@ class CanvasUserSpaceMetrics final : public UserSpaceMetricsWithSize {
   nsPresContext* mPresContext;
 };
 
+// The filter might reference an SVG filter that is declared inside this
+// document. Flush frames so that we'll have a SVGFilterFrame to work
+// with.
+static bool FiltersNeedFrameFlush(Span<const StyleFilter> aFilters) {
+  for (const auto& filter : aFilters) {
+    if (filter.IsUrl()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void CanvasRenderingContext2D::UpdateFilter(bool aFlushIfNeeded) {
   const bool writeOnly = IsWriteOnly() ||
                          (mCanvasElement && mCanvasElement->IsWriteOnly()) ||
@@ -3327,7 +3279,6 @@ void CanvasRenderingContext2D::UpdateFilter(bool aFlushIfNeeded) {
     // reflect the current "taint" status of the canvas
     CurrentState().filter = FilterDescription();
     CurrentState().filterSourceGraphicTainted = writeOnly;
-    CurrentState().filterDescriptionUpToDate = false;
     return;
   }
 
@@ -3335,15 +3286,12 @@ void CanvasRenderingContext2D::UpdateFilter(bool aFlushIfNeeded) {
   // be used on worker threads.
   nsPresContext* presContext = nullptr;
   if (presShell) {
-    // The filter might reference an SVG filter that is declared inside this
-    // document. Flush frames so that we'll have a SVGFilterFrame to work
-    // with.
-    if (aFlushIfNeeded && FiltersHaveUrl(CurrentState().filterChain.AsSpan())) {
+    if (aFlushIfNeeded &&
+        FiltersNeedFrameFlush(CurrentState().filterChain.AsSpan())) {
       presShell->FlushPendingNotifications(FlushType::Frames);
     }
 
     if (presShell->IsDestroying()) [[unlikely]] {
-      CurrentState().filterDescriptionUpToDate = false;
       return;
     }
 
@@ -3375,7 +3323,6 @@ void CanvasRenderingContext2D::UpdateFilter(bool aFlushIfNeeded) {
                              explicitLanguage, canvasStyle, presContext),
       gfxRect(0, 0, mWidth, mHeight), state.filterAdditionalImages);
   state.filterSourceGraphicTainted = writeOnly;
-  state.filterDescriptionUpToDate = true;
 }
 
 //
@@ -4331,7 +4278,7 @@ bool CanvasRenderingContext2D::SetFontInternal(const nsACString& aFont,
   }
 
   if (!mFontStyleCache) {
-    mFontStyleCache = std::make_unique<FontStyleCache>();
+    mFontStyleCache = MakeUnique<FontStyleCache>();
   }
 
   nsPresContext* c = presShell->GetPresContext();
@@ -4574,7 +4521,7 @@ bool CanvasRenderingContext2D::SetFontInternalDisconnected(
 
   // Do we have a cached fontgroup that corresponds to this `font` value?
   if (!mFontGroupCache) {
-    mFontGroupCache = std::make_unique<FontGroupCache>();
+    mFontGroupCache = MakeUnique<FontGroupCache>();
   }
 
   FontGroupCacheKey key(
@@ -4858,7 +4805,7 @@ struct MOZ_STACK_CLASS CanvasBidiProcessor final
   explicit CanvasBidiProcessor(gfx::FontPaletteValueSet* aPaletteValueSet)
       : mPaletteValueSet(aPaletteValueSet) {
     if (StaticPrefs::gfx_missing_fonts_notify()) {
-      mMissingFonts = std::make_unique<gfxMissingFontRecorder>();
+      mMissingFonts = MakeUnique<gfxMissingFontRecorder>();
     }
   }
 
@@ -5285,8 +5232,8 @@ UniquePtr<TextMetrics> CanvasRenderingContext2D::DrawOrMeasureText(
   if (currentFontStyle->GetStyle()->size == 0.0F) {
     aError = NS_OK;
     if (aOp == TextDrawOperation::MEASURE) {
-      return std::make_unique<TextMetrics>(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                           0.0, 0.0, 0.0, 0.0, 0.0);
+      return MakeUnique<TextMetrics>(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                     0.0, 0.0, 0.0, 0.0);
     }
     return nullptr;
   }
@@ -5296,8 +5243,8 @@ UniquePtr<TextMetrics> CanvasRenderingContext2D::DrawOrMeasureText(
     // This may not be correct - what should TextMetrics contain in the case of
     // infinite width or height?
     if (aOp == TextDrawOperation::MEASURE) {
-      return std::make_unique<TextMetrics>(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                           0.0, 0.0, 0.0, 0.0, 0.0);
+      return MakeUnique<TextMetrics>(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                     0.0, 0.0, 0.0, 0.0);
     }
     return nullptr;
   }
@@ -5458,7 +5405,7 @@ UniquePtr<TextMetrics> CanvasRenderingContext2D::DrawOrMeasureText(
         -processor.mBoundingBox.Y() - baselineAnchor;
     double actualBoundingBoxDescent =
         processor.mBoundingBox.YMost() + baselineAnchor;
-    return std::make_unique<TextMetrics>(
+    return MakeUnique<TextMetrics>(
         totalWidth, actualBoundingBoxLeft, actualBoundingBoxRight,
         fontMetrics.maxAscent - baselineAnchor,   // fontBBAscent
         fontMetrics.maxDescent + baselineAnchor,  // fontBBDescent
@@ -6777,8 +6724,7 @@ void CanvasRenderingContext2D::DrawWindow(nsGlobalWindowInner& aWindow,
 
 already_AddRefed<ImageData> CanvasRenderingContext2D::GetImageData(
     JSContext* aCx, int32_t aSx, int32_t aSy, int32_t aSw, int32_t aSh,
-    const ImageDataSettings& aSettings, nsIPrincipal& aSubjectPrincipal,
-    ErrorResult& aError) {
+    nsIPrincipal& aSubjectPrincipal, ErrorResult& aError) {
   if (!mCanvasElement && !mDocShell && !mOffscreenCanvas) {
     NS_ERROR("No canvas element and no docshell in GetImageData!!!");
     aError.Throw(NS_ERROR_DOM_SECURITY_ERR);
@@ -6800,11 +6746,6 @@ already_AddRefed<ImageData> CanvasRenderingContext2D::GetImageData(
     aError.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
     return nullptr;
   }
-
-  // Pass the colorspace info into the image data
-  // if none is available, choose the one defined for this context
-  PredefinedColorSpace colorSpace =
-      GetColorSpaceFromImageDataSettings(aSettings, mColorSpace);
 
   // Handle negative width and height by flipping the rectangle over in the
   // relevant direction.
@@ -6832,14 +6773,13 @@ already_AddRefed<ImageData> CanvasRenderingContext2D::GetImageData(
   RecordCanvasUsage(CanvasExtractionAPI::GetImageData, CSSIntSize(w, h));
 
   JS::Rooted<JSObject*> array(aCx);
-  aError = GetImageDataArray(aCx, aSx, aSy, w, h, colorSpace, aSubjectPrincipal,
+  aError = GetImageDataArray(aCx, aSx, aSy, w, h, aSubjectPrincipal,
                              array.address());
   if (aError.Failed()) {
     return nullptr;
   }
   MOZ_ASSERT(array);
-
-  return do_AddRef(new ImageData(GetParentObject(), w, h, colorSpace, array));
+  return do_AddRef(new ImageData(GetParentObject(), w, h, array));
 }
 
 static IntRect ClipImageDataTransfer(IntRect& aSrc, const IntPoint& aDestOffset,
@@ -6854,8 +6794,7 @@ static IntRect ClipImageDataTransfer(IntRect& aSrc, const IntPoint& aDestOffset,
 
 nsresult CanvasRenderingContext2D::GetImageDataArray(
     JSContext* aCx, int32_t aX, int32_t aY, uint32_t aWidth, uint32_t aHeight,
-    PredefinedColorSpace aColorSpace, nsIPrincipal& aSubjectPrincipal,
-    JSObject** aRetval) {
+    nsIPrincipal& aSubjectPrincipal, JSObject** aRetval) {
   MOZ_ASSERT(aWidth && aHeight);
 
   // Restrict the typed array length to INT32_MAX because that's all we support.
@@ -6929,9 +6868,6 @@ nsresult CanvasRenderingContext2D::GetImageDataArray(
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
-  // instantiate a colorspace converter if needed
-  auto csConverter = GetColorSpaceConverter(mColorSpace, aColorSpace);
-
   do {
     uint8_t* randomData;
     const IntSize size = readback->GetSize();
@@ -6978,24 +6914,6 @@ nsresult CanvasRenderingContext2D::GetImageDataArray(
                         aWidth * 4, SurfaceFormat::R8G8B8A8,
                         dstWriteRect.Size());
     }
-    // transform it from the local colorspace if distinct from own canvas
-    // colorspace
-    if (csConverter) {
-      const int32_t dstStride = aWidth * 4;
-      const int32_t rowBytes = dstWriteRect.width * 4;
-      if (dstWriteRect.x == 0 && rowBytes == dstStride) {
-        csConverter->ConvertColorspace(
-            dst, dst,
-            AssertedCast<size_t>(dstWriteRect.width) *
-                AssertedCast<size_t>(dstWriteRect.height));
-      } else {
-        for (int32_t row = 0; row < dstWriteRect.height; ++row) {
-          uint8_t* rowData = dst + row * dstStride;
-          csConverter->ConvertColorspace(
-              rowData, rowData, AssertedCast<size_t>(dstWriteRect.width));
-        }
-      }
-    }
   } while (false);
 
   readback->Unmap();
@@ -7019,8 +6937,7 @@ void CanvasRenderingContext2D::EnsureErrorTarget() {
 void CanvasRenderingContext2D::PutImageData(ImageData& aImageData, int32_t aDx,
                                             int32_t aDy, ErrorResult& aRv) {
   RootedSpiderMonkeyInterface<Uint8ClampedArray> arr(RootingCx());
-  PutImageData_explicit(aDx, aDy, aImageData, false, 0, 0, 0, 0,
-                        aImageData.ColorSpace(), aRv);
+  PutImageData_explicit(aDx, aDy, aImageData, false, 0, 0, 0, 0, aRv);
 }
 
 void CanvasRenderingContext2D::PutImageData(ImageData& aImageData, int32_t aDx,
@@ -7030,14 +6947,13 @@ void CanvasRenderingContext2D::PutImageData(ImageData& aImageData, int32_t aDx,
                                             int32_t aDirtyHeight,
                                             ErrorResult& aRv) {
   PutImageData_explicit(aDx, aDy, aImageData, true, aDirtyX, aDirtyY,
-                        aDirtyWidth, aDirtyHeight, aImageData.ColorSpace(),
-                        aRv);
+                        aDirtyWidth, aDirtyHeight, aRv);
 }
 
 void CanvasRenderingContext2D::PutImageData_explicit(
     int32_t aX, int32_t aY, ImageData& aImageData, bool aHasDirtyRect,
     int32_t aDirtyX, int32_t aDirtyY, int32_t aDirtyWidth, int32_t aDirtyHeight,
-    PredefinedColorSpace aColorSpace, ErrorResult& aRv) {
+    ErrorResult& aRv) {
   RootedSpiderMonkeyInterface<Uint8ClampedArray> arr(RootingCx());
   if (!arr.Init(aImageData.GetDataObject())) {
     return aRv.ThrowInvalidStateError(
@@ -7149,42 +7065,23 @@ void CanvasRenderingContext2D::PutImageData_explicit(
     dstFormat = sourceSurface->GetFormat();
   }
 
-  auto csConverter = GetColorSpaceConverter(aColorSpace, mColorSpace);
-
-  arr.ProcessData([&](const Span<uint8_t>& aData,
-                      JS::AutoCheckCannotGC&& nogc) {
-    // Verify that the length hasn't changed.
-    if (aData.Length() != width * height * 4) {
-      // FIXME Should this call ReleaseBits/Unmap?
-      return aRv.ThrowInvalidStateError("Invalid width or height");
-    }
-
-    int32_t srcStride = width * 4;
-    uint8_t* srcData = aData.Elements() + srcRect.y * srcStride + srcRect.x * 4;
-    const SurfaceFormat premulFormat = mOpaque ? SurfaceFormat::X8R8G8B8_UINT32
-                                               : SurfaceFormat::A8R8G8B8_UINT32;
-    if (csConverter) {
-      const int32_t rowBytes = dirtyRect.width * 4;
-      if (srcRect.x == 0 && rowBytes == srcStride && rowBytes == dstStride) {
-        csConverter->ConvertColorspace(
-            srcData, dstData,
-            AssertedCast<size_t>(dirtyRect.width) *
-                AssertedCast<size_t>(dirtyRect.height));
-      } else {
-        for (int32_t row = 0; row < dirtyRect.height; ++row) {
-          csConverter->ConvertColorspace(srcData + row * srcStride,
-                                         dstData + row * dstStride,
-                                         AssertedCast<size_t>(dirtyRect.width));
+  arr.ProcessData(
+      [&](const Span<uint8_t>& aData, JS::AutoCheckCannotGC&& nogc) {
+        // Verify that the length hasn't changed.
+        if (aData.Length() != width * height * 4) {
+          // FIXME Should this call ReleaseBits/Unmap?
+          return aRv.ThrowInvalidStateError("Invalid width or height");
         }
-      }
-      // dstData has the converted in-place pixels, premultiply in place
-      PremultiplyData(dstData, dstStride, SurfaceFormat::R8G8B8A8, dstData,
-                      dstStride, premulFormat, dirtyRect.Size());
-    } else {
-      PremultiplyData(srcData, srcStride, SurfaceFormat::R8G8B8A8, dstData,
-                      dstStride, premulFormat, dirtyRect.Size());
-    }
-  });
+
+        uint8_t* srcData =
+            aData.Elements() + srcRect.y * (width * 4) + srcRect.x * 4;
+
+        PremultiplyData(srcData, width * 4, SurfaceFormat::R8G8B8A8, dstData,
+                        dstStride,
+                        mOpaque ? SurfaceFormat::X8R8G8B8_UINT32
+                                : SurfaceFormat::A8R8G8B8_UINT32,
+                        dirtyRect.Size());
+      });
 
   // Ensure surfaces unmapped before potential error exit.
   if (lockedBits) {
@@ -7208,7 +7105,7 @@ void CanvasRenderingContext2D::PutImageData_explicit(
 
 static already_AddRefed<ImageData> CreateImageData(
     JSContext* aCx, CanvasRenderingContext2D* aContext, uint32_t aW,
-    uint32_t aH, const ImageDataSettings& aSettings, ErrorResult& aError) {
+    uint32_t aH, ErrorResult& aError) {
   if (aW == 0) aW = 1;
   if (aH == 0) aH = 1;
 
@@ -7227,16 +7124,11 @@ static already_AddRefed<ImageData> CreateImageData(
     return nullptr;
   }
 
-  PredefinedColorSpace colorSpace =
-      GetColorSpaceFromImageDataSettings(aSettings, aContext->GetColorSpace());
-
-  return do_AddRef(
-      new ImageData(aContext->GetParentObject(), aW, aH, colorSpace, darray));
+  return do_AddRef(new ImageData(aContext->GetParentObject(), aW, aH, darray));
 }
 
 already_AddRefed<ImageData> CanvasRenderingContext2D::CreateImageData(
-    JSContext* aCx, int32_t aSw, int32_t aSh,
-    const ImageDataSettings& aSettings, ErrorResult& aError) {
+    JSContext* aCx, int32_t aSw, int32_t aSh, ErrorResult& aError) {
   if (!aSw || !aSh) {
     aError.ThrowIndexSizeError("Invalid width or height");
     return nullptr;
@@ -7244,19 +7136,13 @@ already_AddRefed<ImageData> CanvasRenderingContext2D::CreateImageData(
 
   uint32_t w = Abs(aSw);
   uint32_t h = Abs(aSh);
-
-  return dom::CreateImageData(aCx, this, w, h, aSettings, aError);
+  return dom::CreateImageData(aCx, this, w, h, aError);
 }
 
 already_AddRefed<ImageData> CanvasRenderingContext2D::CreateImageData(
     JSContext* aCx, ImageData& aImagedata, ErrorResult& aError) {
-  // pass over the colorSpace if enabled
-  ImageDataSettings settings;
-  if (StaticPrefs::gfx_canvas_colorspace_enabled()) {
-    settings.mColorSpace.Construct(aImagedata.ColorSpace());
-  }
   return dom::CreateImageData(aCx, this, aImagedata.Width(),
-                              aImagedata.Height(), settings, aError);
+                              aImagedata.Height(), aError);
 }
 
 void CanvasRenderingContext2D::OnMemoryPressure() {

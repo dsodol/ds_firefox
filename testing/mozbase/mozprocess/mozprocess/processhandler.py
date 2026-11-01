@@ -249,7 +249,7 @@ class ProcessHandlerMixin:
 
         def kill(self, sig=None, timeout=None):
             self.send_signal(sig)
-            self.wait(timeout)
+            self.returncode = self.wait(timeout)
             self._cleanup()
             return self.returncode
 
@@ -272,7 +272,7 @@ class ProcessHandlerMixin:
             Returns the main process's exit code
             """
             # This call will be different for each OS
-            self._custom_wait(timeout=timeout)
+            self.returncode = self._custom_wait(timeout=timeout)
             if self.returncode is not None:
                 self._cleanup()
             return self.returncode
@@ -596,22 +596,6 @@ falling back to not using job objects for managing child processes""",
                             self.debug("We got a message %s" % msgid.value)
                             pass
 
-            def _update_returncode(self, exited=False):
-                """Set returncode if the process has exited. Returns False if
-                its handle has already been closed by _cleanup (possibly on
-                another thread).
-
-                - exited: the caller knows the process has exited, so an exit
-                  code equal to STILL_ACTIVE is the real exit code.
-                """
-                with self._cleanup_lock:
-                    if not self._handle:
-                        return False
-                    returncode = winprocess.GetExitCodeProcess(self._handle)
-                    if exited or returncode != winprocess.STILL_ACTIVE:
-                        self.returncode = returncode
-                    return True
-
             def _custom_wait(self, timeout=None):
                 """Custom implementation of wait.
 
@@ -619,7 +603,11 @@ falling back to not using job objects for managing child processes""",
                   will wait indefinitely.
                 """
                 # First, check to see if the process is still running
-                if not self._update_returncode():
+                if self._handle:
+                    returncode = winprocess.GetExitCodeProcess(self._handle)
+                    if returncode != winprocess.STILL_ACTIVE:
+                        self.returncode = returncode
+                else:
                     # Dude, the process is like totally dead!
                     return self.returncode
 
@@ -662,7 +650,10 @@ falling back to not using job objects for managing child processes""",
                             "IO Completion Port failed to signal process shutdown"
                         )
                     finally:
-                        self._update_returncode()
+                        if self._handle:
+                            returncode = winprocess.GetExitCodeProcess(self._handle)
+                            if returncode != winprocess.STILL_ACTIVE:
+                                self.returncode = returncode
 
                 else:
                     # Not managing with job objects, so all we can reasonably do
@@ -695,7 +686,7 @@ falling back to not using job objects for managing child processes""",
                     elif rc == winprocess.WAIT_OBJECT_0:
                         # We caught WAIT_OBJECT_0, which indicates all is well
                         self.debug("Single process terminated successfully")
-                        self._update_returncode(exited=True)
+                        self.returncode = winprocess.GetExitCodeProcess(self._handle)
                     else:
                         # An error occured we should probably throw
                         rc = winprocess.GetLastError()
@@ -959,7 +950,7 @@ falling back to not using job objects for managing child processes""",
         # processed.
         elif not self._ignore_children and self.reader.is_alive():
             return None
-        elif getattr(self, "returncode", None) is not None:
+        elif hasattr(self, "returncode"):
             return self.returncode
         else:
             return self.proc.poll()
@@ -1188,10 +1179,8 @@ class ProcessReader:
             queue_timeout = None
             if timeout:
                 queue_timeout = timeout - time.time()
-                if queue_timeout <= 0:
-                    raise Empty
             if output_timeout:
-                if queue_timeout is not None:
+                if queue_timeout:
                     queue_timeout = min(queue_timeout, output_timeout)
                 else:
                     queue_timeout = output_timeout

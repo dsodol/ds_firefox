@@ -33,10 +33,7 @@ class LogModule extends Module {
       payload.source.userContext =
         lazy.UserContextManager.getIdByBrowsingContext(browsingContext);
 
-      payload = lazy.processExtraData(
-        this.messageHandler.internalSessionId,
-        payload
-      );
+      payload = lazy.processExtraData(this.messageHandler.sessionId, payload);
     }
 
     return payload;

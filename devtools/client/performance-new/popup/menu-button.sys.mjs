@@ -292,7 +292,7 @@ function initialize(toggleProfilerKeyShortcuts) {
           "profiler-popup-button-recording"
         );
         buttonElement.classList.toggle("profiler-active", true);
-        buttonElement.toggleAttribute("disabled", false);
+        buttonElement.classList.toggle("profiler-paused", false);
       }
       function setButtonPaused() {
         document.l10n.setAttributes(
@@ -300,7 +300,7 @@ function initialize(toggleProfilerKeyShortcuts) {
           "profiler-popup-button-capturing"
         );
         buttonElement.classList.toggle("profiler-active", false);
-        buttonElement.toggleAttribute("disabled", true);
+        buttonElement.classList.toggle("profiler-paused", true);
       }
       function setButtonInactive() {
         document.l10n.setAttributes(
@@ -308,7 +308,7 @@ function initialize(toggleProfilerKeyShortcuts) {
           "profiler-popup-button-idle"
         );
         buttonElement.classList.toggle("profiler-active", false);
-        buttonElement.toggleAttribute("disabled", false);
+        buttonElement.classList.toggle("profiler-paused", false);
       }
 
       if (Services.profiler.IsPaused()) {

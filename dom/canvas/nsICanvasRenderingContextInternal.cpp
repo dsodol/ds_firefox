@@ -12,7 +12,6 @@
 #include "mozilla/dom/WorkerCommon.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRunnable.h"
-#include "mozilla/gfx/CanvasShutdownManager.h"
 #include "mozilla/gfx/DrawTargetRecording.h"
 #include "nsContentUtils.h"
 #include "nsPIDOMWindow.h"
@@ -28,25 +27,6 @@ nsICanvasRenderingContextInternal::nsICanvasRenderingContextInternal() =
 
 nsICanvasRenderingContextInternal::~nsICanvasRenderingContextInternal() =
     default;
-
-bool nsICanvasRenderingContextInternal::AddShutdownObserver() {
-  auto* const canvasManager = mozilla::gfx::CanvasShutdownManager::Get();
-  if (NS_WARN_IF(!canvasManager)) {
-    return false;
-  }
-
-  canvasManager->AddShutdownObserver(this);
-  return true;
-}
-
-void nsICanvasRenderingContextInternal::RemoveShutdownObserver() {
-  auto* const canvasManager = mozilla::gfx::CanvasShutdownManager::MaybeGet();
-  if (!canvasManager) {
-    return;
-  }
-
-  canvasManager->RemoveShutdownObserver(this);
-}
 
 mozilla::PresShell* nsICanvasRenderingContextInternal::GetPresShell() {
   if (mCanvasElement) {

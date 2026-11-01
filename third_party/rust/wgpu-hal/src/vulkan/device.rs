@@ -409,24 +409,6 @@ impl super::Device {
                 vk::ImageCreateFlags::MUTABLE_FORMAT | vk::ImageCreateFlags::EXTENDED_USAGE;
         }
 
-        let mut usage = conv::map_texture_usage(desc.usage);
-        // wgpu allows views of textures that are only ever copied to or from, but Vulkan
-        // requires a viewable image to carry at least one of `VIEWABLE_IMAGE_USAGES`. Add a
-        // usage the format supports so that such views stay valid. Images backed by external
-        // memory are left alone: their usage has to match the resource being imported.
-        if !usage.intersects(conv::VIEWABLE_IMAGE_USAGES)
-            && external_memory_image_create_info.is_none()
-            && super::adapter::supports_format(
-                &self.shared.instance.raw,
-                self.shared.physical_device,
-                original_format,
-                tiling,
-                vk::FormatFeatureFlags::SAMPLED_IMAGE,
-            )
-        {
-            usage |= vk::ImageUsageFlags::SAMPLED;
-        }
-
         let mut vk_info = vk::ImageCreateInfo::default()
             .flags(raw_flags)
             .image_type(conv::map_texture_dimension(desc.dimension))
@@ -436,7 +418,7 @@ impl super::Device {
             .array_layers(desc.array_layer_count())
             .samples(vk::SampleCountFlags::from_raw(desc.sample_count))
             .tiling(tiling)
-            .usage(usage)
+            .usage(conv::map_texture_usage(desc.usage))
             .sharing_mode(vk::SharingMode::EXCLUSIVE)
             .initial_layout(vk::ImageLayout::UNDEFINED);
 
@@ -491,8 +473,8 @@ impl super::Device {
     ) -> Result<super::Texture, crate::DeviceError> {
         if !self
             .shared
-            .enabled_extensions
-            .contains(&ash::khr::external_memory_win32::NAME)
+            .features
+            .contains(wgt::Features::VULKAN_EXTERNAL_MEMORY_WIN32)
         {
             log::error!("Vulkan driver does not support VK_KHR_external_memory_win32");
             return Err(crate::DeviceError::Unexpected);
@@ -549,8 +531,8 @@ impl super::Device {
     ///
     /// # Safety
     ///
-    /// - Requires the VK_KHR_external_memory_fd, VK_EXT_external_memory_dma_buf, and
-    ///   VK_EXT_image_drm_format_modifier extensions
+    /// - Requires `VULKAN_EXTERNAL_MEMORY_DMA_BUF` feature (implies VK_EXT_external_memory_dma_buf
+    ///   and VK_EXT_image_drm_format_modifier)
     /// - The `fd` must be a valid DMA-buf file descriptor matching `desc`
     /// - On success, Vulkan takes ownership of the file descriptor. On failure,
     ///   the file descriptor is closed.
@@ -566,9 +548,10 @@ impl super::Device {
     ) -> Result<super::Texture, crate::DeviceError> {
         use std::os::unix::io::IntoRawFd;
 
-        let enabled_extensions = &self.shared.enabled_extensions;
-        if !enabled_extensions.contains(&ext::external_memory_dma_buf::NAME)
-            || !enabled_extensions.contains(&ext::image_drm_format_modifier::NAME)
+        if !self
+            .shared
+            .features
+            .contains(wgt::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF)
         {
             log::error!(
                 "Vulkan driver does not support VK_EXT_external_memory_dma_buf \
@@ -1014,7 +997,7 @@ impl crate::Device for super::Device {
     unsafe fn create_buffer(
         &self,
         desc: &crate::BufferDescriptor,
-    ) -> Result<(super::Buffer, wgt::BufferAddress), crate::DeviceError> {
+    ) -> Result<super::Buffer, crate::DeviceError> {
         let vk_info = vk::BufferCreateInfo::default()
             .size(desc.size)
             .usage(conv::map_buffer_usage(desc.usage))
@@ -1058,20 +1041,17 @@ impl crate::Device for super::Device {
 
         let allocation = self
             .mem_allocator
-            .allocate(
-                super::MemoryPool::from_memory_flags(desc.memory_flags),
-                &gpu_allocator::vulkan::AllocationCreateDesc {
-                    name,
-                    requirements: vk::MemoryRequirements {
-                        memory_type_bits: requirements.memory_type_bits
-                            & self.valid_ash_memory_types,
-                        ..requirements
-                    },
-                    location,
-                    linear: true, // Buffers are always linear
-                    allocation_scheme: gpu_allocator::vulkan::AllocationScheme::GpuAllocatorManaged,
+            .lock()
+            .allocate(&gpu_allocator::vulkan::AllocationCreateDesc {
+                name,
+                requirements: vk::MemoryRequirements {
+                    memory_type_bits: requirements.memory_type_bits & self.valid_ash_memory_types,
+                    ..requirements
                 },
-            )
+                location,
+                linear: true, // Buffers are always linear
+                allocation_scheme: gpu_allocator::vulkan::AllocationScheme::GpuAllocatorManaged,
+            })
             .inspect_err(|_| {
                 unsafe { self.shared.raw.destroy_buffer(raw, None) };
             })?;
@@ -1093,15 +1073,12 @@ impl crate::Device for super::Device {
         self.counters.buffer_memory.add(allocation.size() as isize);
         self.counters.buffers.add(1);
 
-        Ok((
-            super::Buffer {
-                raw,
-                ownership: super::BufferOwnership::Managed(Mutex::new(
-                    super::BufferMemoryBacking::Managed(allocation),
-                )),
-            },
-            desc.size,
-        ))
+        Ok(super::Buffer {
+            raw,
+            ownership: super::BufferOwnership::Managed(Mutex::new(
+                super::BufferMemoryBacking::Managed(allocation),
+            )),
+        })
     }
     unsafe fn destroy_buffer(&self, buffer: super::Buffer) {
         match buffer.ownership {
@@ -1111,7 +1088,7 @@ impl crate::Device for super::Device {
                 self.counters.buffer_memory.sub(allocation.size() as isize);
                 match allocation {
                     super::BufferMemoryBacking::Managed(allocation) => {
-                        let result = self.mem_allocator.free(allocation);
+                        let result = self.mem_allocator.lock().free(allocation);
                         if let Err(err) = result {
                             log::warn!("Failed to free buffer allocation: {err}");
                         }
@@ -1224,20 +1201,18 @@ impl crate::Device for super::Device {
 
         let allocation = self
             .mem_allocator
-            .allocate(
-                super::MemoryPool::from_memory_flags(desc.memory_flags),
-                &gpu_allocator::vulkan::AllocationCreateDesc {
-                    name,
-                    requirements: vk::MemoryRequirements {
-                        memory_type_bits: image.requirements.memory_type_bits
-                            & self.valid_ash_memory_types,
-                        ..image.requirements
-                    },
-                    location: gpu_allocator::MemoryLocation::GpuOnly,
-                    linear: false,
-                    allocation_scheme: gpu_allocator::vulkan::AllocationScheme::GpuAllocatorManaged,
+            .lock()
+            .allocate(&gpu_allocator::vulkan::AllocationCreateDesc {
+                name,
+                requirements: vk::MemoryRequirements {
+                    memory_type_bits: image.requirements.memory_type_bits
+                        & self.valid_ash_memory_types,
+                    ..image.requirements
                 },
-            )
+                location: gpu_allocator::MemoryLocation::GpuOnly,
+                linear: false,
+                allocation_scheme: gpu_allocator::vulkan::AllocationScheme::GpuAllocatorManaged,
+            })
             .inspect_err(|_| {
                 unsafe { self.shared.raw.destroy_image(image.raw, None) };
             })?;
@@ -1273,7 +1248,7 @@ impl crate::Device for super::Device {
         match texture.memory {
             super::TextureMemory::Allocation(allocation) => {
                 self.counters.texture_memory.sub(allocation.size() as isize);
-                let result = self.mem_allocator.free(allocation);
+                let result = self.mem_allocator.lock().free(allocation);
                 if let Err(err) = result {
                     log::warn!("Failed to free texture allocation: {err}");
                 }
@@ -1851,7 +1826,9 @@ impl crate::Device for super::Device {
                                 vk::DescriptorBufferInfo::default()
                                     .buffer(binding.buffer.raw)
                                     .offset(binding.offset)
-                                    .range(binding.size.get())
+                                    .range(
+                                        binding.size.map_or(vk::WHOLE_SIZE, wgt::BufferSize::get),
+                                    )
                             },
                         ));
                     writes.push(
@@ -2907,24 +2884,16 @@ impl crate::Device for super::Device {
                 .label
                 .unwrap_or("Unlabeled acceleration structure buffer");
 
-            let pool = if desc.allow_compaction {
-                super::MemoryPool::Transient
-            } else {
-                super::MemoryPool::General
-            };
             let allocation = self
                 .mem_allocator
-                .allocate(
-                    pool,
-                    &gpu_allocator::vulkan::AllocationCreateDesc {
-                        name,
-                        requirements,
-                        location: gpu_allocator::MemoryLocation::GpuOnly,
-                        linear: true, // Buffers are always linear
-                        allocation_scheme:
-                            gpu_allocator::vulkan::AllocationScheme::GpuAllocatorManaged,
-                    },
-                )
+                .lock()
+                .allocate(&gpu_allocator::vulkan::AllocationCreateDesc {
+                    name,
+                    requirements,
+                    location: gpu_allocator::MemoryLocation::GpuOnly,
+                    linear: true, // Buffers are always linear
+                    allocation_scheme: gpu_allocator::vulkan::AllocationScheme::GpuAllocatorManaged,
+                })
                 .inspect_err(|_| {
                     self.shared.raw.destroy_buffer(raw_buffer, None);
                 })?;
@@ -3008,7 +2977,10 @@ impl crate::Device for super::Device {
             self.shared
                 .raw
                 .destroy_buffer(acceleration_structure.buffer, None);
-            let result = self.mem_allocator.free(acceleration_structure.allocation);
+            let result = self
+                .mem_allocator
+                .lock()
+                .free(acceleration_structure.allocation);
             if let Err(err) = result {
                 log::warn!("Failed to free buffer acceleration structure: {err}");
             }
@@ -3027,7 +2999,36 @@ impl crate::Device for super::Device {
     }
 
     fn generate_allocator_report(&self) -> Option<wgt::AllocatorReport> {
-        Some(self.mem_allocator.generate_report())
+        let gpu_allocator::AllocatorReport {
+            allocations,
+            blocks,
+            total_allocated_bytes,
+            total_capacity_bytes,
+        } = self.mem_allocator.lock().generate_report();
+
+        let allocations = allocations
+            .into_iter()
+            .map(|alloc| wgt::AllocationReport {
+                name: alloc.name,
+                offset: alloc.offset,
+                size: alloc.size,
+            })
+            .collect();
+
+        let blocks = blocks
+            .into_iter()
+            .map(|block| wgt::MemoryBlockReport {
+                size: block.size,
+                allocations: block.allocations.clone(),
+            })
+            .collect();
+
+        Some(wgt::AllocatorReport {
+            allocations,
+            blocks,
+            total_allocated_bytes,
+            total_reserved_bytes: total_capacity_bytes,
+        })
     }
 
     fn tlas_instance_to_bytes(&self, instance: TlasInstance, to_extend: &mut Vec<u8>) {

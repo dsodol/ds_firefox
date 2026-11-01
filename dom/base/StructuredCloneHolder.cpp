@@ -254,7 +254,6 @@ void AssertTagValues() {
                     SCTAG_DOM_DOMMATRIX == 0xffff8013 &&
                     SCTAG_DOM_URLSEARCHPARAMS == 0xffff8014 &&
                     SCTAG_DOM_DOMMATRIXREADONLY == 0xffff8015 &&
-                    SCTAG_DOM_QUOTAEXCEEDEDERROR == 0xffff8017 &&
                     SCTAG_DOM_STRUCTUREDCLONETESTER == 0xffff8018 &&
                     SCTAG_DOM_FILESYSTEMHANDLE == 0xffff8019 &&
                     SCTAG_DOM_FILESYSTEMFILEHANDLE == 0xffff801a &&
@@ -316,7 +315,7 @@ void StructuredCloneHolderBase::Write(
 
   aRv.MightThrowJSException();
 
-  mBuffer = std::make_unique<JSAutoStructuredCloneBuffer>(
+  mBuffer = MakeUnique<JSAutoStructuredCloneBuffer>(
       mStructuredCloneScope, &StructuredCloneHolder::sCallbacks, this);
 
   if (!mBuffer->write(aCx, aValue, aTransfer, aCloneDataPolicy,
@@ -361,7 +360,7 @@ void StructuredCloneHolderBase::Adopt(JSStructuredCloneData&& aData,
   MOZ_ASSERT(!mBuffer, "Double Adopt is not allowed");
   MOZ_ASSERT(!mClearCalled, "This method cannot be called after Clear.");
 
-  mBuffer = std::make_unique<JSAutoStructuredCloneBuffer>(
+  mBuffer = MakeUnique<JSAutoStructuredCloneBuffer>(
       mStructuredCloneScope, &StructuredCloneHolder::sCallbacks, this);
   mBuffer->adopt(std::move(aData), aVersion, &StructuredCloneHolder::sCallbacks,
                  this);

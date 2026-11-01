@@ -23,11 +23,11 @@ namespace egl
 
 namespace
 {
-gl::OwnerImageIndex GetImageIndex(EGLenum eglTarget, const egl::AttributeMap &attribs)
+gl::ImageIndex GetImageIndex(EGLenum eglTarget, const egl::AttributeMap &attribs)
 {
     if (!IsTextureTarget(eglTarget))
     {
-        return gl::OwnerImageIndex::MakeInvalid();
+        return gl::ImageIndex();
     }
 
     gl::TextureTarget target = egl_gl::EGLImageTargetToTextureTarget(eglTarget);
@@ -36,16 +36,16 @@ gl::OwnerImageIndex GetImageIndex(EGLenum eglTarget, const egl::AttributeMap &at
 
     if (target == gl::TextureTarget::_3D)
     {
-        return gl::OwnerImageIndex::Make3D(gl::OwnerLevel(mip), gl::OwnerLayer(layer));
+        return gl::ImageIndex::Make3D(mip, layer);
     }
     else if (gl::IsCubeMapFaceTarget(target))
     {
-        return gl::OwnerImageIndex::MakeCubeMapFace(target, gl::OwnerLevel(mip));
+        return gl::ImageIndex::MakeCubeMapFace(target, mip);
     }
     else
     {
         ASSERT(layer == 0);
-        return gl::OwnerImageIndex::MakeFromTarget(target, gl::OwnerLevel(mip), 1);
+        return gl::ImageIndex::MakeFromTarget(target, mip, 1);
     }
 }
 
@@ -57,43 +57,44 @@ const Display *DisplayFromContext(const gl::Context *context)
 angle::SubjectIndex kExternalImageImplSubjectIndex = 0;
 }  // anonymous namespace
 
-gl::OwnerImageIndex ImageSourceAttributes::toOwnerIndex(const gl::ImageIndex &ownIndex) const
+gl::SourceImageIndex ImageSourceAttributes::toSourceIndex(const gl::OwnImageIndex &ownIndex) const
 {
     // If this is not an EGL image target, the offsets are 0 and image index is unchanged.
     if (type == gl::TextureType::InvalidEnum)
     {
         ASSERT(level == 0 && zoffset == 0);
-        return gl::OwnerImageIndex(ownIndex);
+        return gl::SourceImageIndex(ownIndex.getUntranslated());
     }
 
     // If this is an EGL image target, it must be a renderbuffer or 2D texture, in which case it's
     // level and layer are both 0.
-    ASSERT((!ownIndex.hasLayer() || ownIndex.getLayerIndex() == 0) &&
-           ownIndex.getLevelIndex() == 0);
-    return gl::OwnerImageIndex(gl::ImageIndex::MakeFromType(type, level, zoffset));
+    ASSERT((!ownIndex.getUntranslated().hasLayer() ||
+            ownIndex.getUntranslated().getLayerIndex() == 0) &&
+           ownIndex.getUntranslated().getLevelIndex() == 0);
+    return gl::SourceImageIndex(gl::ImageIndex::MakeFromType(type, level, zoffset));
 }
 
-gl::OwnerLevel ImageSourceAttributes::toOwnerLevel(gl::LevelIndex ownLevel) const
+gl::SourceLevel ImageSourceAttributes::toSourceLevel(gl::OwnLevel ownLevel) const
 {
     // Either this is not an EGL image target, in which case the offset is 0, or it is and the
     // texture level is 0 (because EGL image target textures can only have one level).
-    ASSERT(ownLevel.get() == 0 || level == 0);
-    return gl::OwnerLevel(ownLevel.get() + level);
+    ASSERT(ownLevel.getUntranslated().get() == 0 || level == 0);
+    return gl::SourceLevel(ownLevel.getUntranslated() + level);
 }
 
-gl::OwnerLayer ImageSourceAttributes::toOwnerLayer(gl::LayerIndex ownLayer) const
+gl::SourceLayer ImageSourceAttributes::toSourceLayer(gl::OwnLayer ownLayer) const
 {
     // Either this is not an EGL image target, in which case the offset is 0, or it is and the
     // texture layer is 0 (because EGL image target textures can only have one layer).
-    ASSERT(ownLayer.get() == 0 || zoffset == 0);
-    return gl::OwnerLayer(ownLayer.get() + zoffset);
+    ASSERT(ownLayer.getUntranslated() == 0 || zoffset == 0);
+    return gl::SourceLayer(ownLayer.getUntranslated() + zoffset);
 }
 
-gl::OwnerLayer ImageSourceAttributes::toOwnerDepth(const gl::Offset &offset) const
+gl::SourceLayer ImageSourceAttributes::toSourceDepth(const gl::Offset &offset) const
 {
     // zoffset only applies to 3D textures
-    return type == gl::TextureType::_3D ? toOwnerLayer(gl::LayerIndex(offset.z))
-                                        : gl::OwnerLayer(offset.z);
+    return type == gl::TextureType::_3D ? toSourceLayer(gl::OwnLayer(offset.z))
+                                        : gl::SourceLayer(offset.z);
 }
 
 ImageSibling::ImageSibling() : FramebufferAttachmentObject(), mSourcesOf(), mTargetOf() {}
@@ -116,9 +117,9 @@ void ImageSibling::setTargetImage(const gl::Context *context,
     imageTarget->addTargetSibling(this);
 
     attributesOut->type    = imageTarget->getSourceImageIndex().getType();
-    attributesOut->level   = imageTarget->getSourceImageIndex().getLevelIndex().get();
+    attributesOut->level   = imageTarget->getSourceImageIndex().getLevelIndex();
     attributesOut->zoffset = imageTarget->getSourceImageIndex().hasLayer()
-                                 ? imageTarget->getSourceImageIndex().getLayerIndex().get()
+                                 ? imageTarget->getSourceImageIndex().getLayerIndex()
                                  : 0;
 }
 
@@ -127,26 +128,24 @@ angle::Result ImageSibling::orphanImages(const gl::Context *context,
 {
     ASSERT(outReleaseImage != nullptr);
 
-    angle::ResultAccumulator result = angle::Result::Continue;
-
     if (mTargetOf.get() != nullptr)
     {
         // Can't be a target and have sources.
         ASSERT(mSourcesOf.empty());
 
-        result           = mTargetOf->orphanSibling(context, this);
+        ANGLE_TRY(mTargetOf->orphanSibling(context, this));
         *outReleaseImage = mTargetOf.set(DisplayFromContext(context), nullptr);
     }
     else
     {
         for (Image *sourceImage : mSourcesOf)
         {
-            result = sourceImage->orphanSibling(context, this);
+            ANGLE_TRY(sourceImage->orphanSibling(context, this));
         }
         mSourcesOf.clear();
     }
 
-    return result;
+    return angle::Result::Continue;
 }
 
 void ImageSibling::addImageSource(egl::Image *imageSource)
@@ -456,7 +455,8 @@ angle::Result Image::orphanSibling(const gl::Context *context, ImageSibling *sib
 {
     ASSERT(sibling != nullptr);
 
-    angle::Result result = mImplementation->orphan(context, sibling);
+    // notify impl
+    ANGLE_TRY(mImplementation->orphan(context, sibling));
 
     if (mState.source == sibling)
     {
@@ -470,7 +470,7 @@ angle::Result Image::orphanSibling(const gl::Context *context, ImageSibling *sib
         }());
         mState.source = nullptr;
         mOrphanedAndNeedsInit =
-            (sibling->initState(GL_NONE, mState.imageIndex.get()) == gl::InitState::MayNeedInit);
+            (sibling->initState(GL_NONE, mState.imageIndex) == gl::InitState::MayNeedInit);
     }
     else
     {
@@ -478,7 +478,7 @@ angle::Result Image::orphanSibling(const gl::Context *context, ImageSibling *sib
         mState.targets.erase(sibling);
     }
 
-    return result;
+    return angle::Result::Continue;
 }
 
 const gl::Format &Image::getFormat() const
@@ -583,7 +583,7 @@ Error Image::initialize(const Display *display, const gl::Context *context)
         mState.yuv = externalSibling->isYUV();
     }
 
-    mState.format = mState.source->getAttachmentFormat(GL_NONE, mState.imageIndex.get());
+    mState.format = mState.source->getAttachmentFormat(GL_NONE, mState.imageIndex);
 
     if (mState.colorspace != EGL_GL_COLORSPACE_DEFAULT_EXT)
     {
@@ -603,8 +603,8 @@ Error Image::initialize(const Display *display, const gl::Context *context)
         mState.yuv = gl::IsYuvFormat(mState.format.info->sizedInternalFormat);
     }
 
-    mState.size    = mState.source->getAttachmentSize(mState.imageIndex.get());
-    mState.samples = mState.source->getAttachmentSamples(mState.imageIndex.get());
+    mState.size    = mState.source->getAttachmentSize(mState.imageIndex);
+    mState.samples = mState.source->getAttachmentSamples(mState.imageIndex);
 
     if (IsTextureTarget(mState.target))
     {
@@ -656,7 +656,7 @@ gl::InitState Image::sourceInitState() const
         return mOrphanedAndNeedsInit ? gl::InitState::MayNeedInit : gl::InitState::Initialized;
     }
 
-    return mState.source->initState(GL_NONE, mState.imageIndex.get());
+    return mState.source->initState(GL_NONE, mState.imageIndex);
 }
 
 void Image::setInitState(gl::InitState initState)
@@ -666,7 +666,7 @@ void Image::setInitState(gl::InitState initState)
         mOrphanedAndNeedsInit = false;
     }
 
-    return mState.source->setInitState(GL_NONE, mState.imageIndex.get(), initState);
+    return mState.source->setInitState(GL_NONE, mState.imageIndex, initState);
 }
 
 Error Image::exportVkImage(void *vkImage, void *vkImageCreateInfo)

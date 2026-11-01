@@ -61,8 +61,6 @@
 #     - `string` -> `string`
 #     - `u32`/`u64`/`usize` -> `quantity`
 #     - `string` -> `string_list`
-#   - expires: The Glean metric `expires` value. Defaults to `never`. This only
-#     expires the metric: the annotation itself is still recorded.
 
 AbortMessage:
   description: >
@@ -466,7 +464,6 @@ CrashTime:
     metric: crash.time
     type: datetime
     time_unit: second
-    custom_convert: unix_timestamp
 
 CycleCollector:
   description: >
@@ -871,24 +868,6 @@ JavaStackTrace:
   type: string
   scope: report
 
-JumpListShellCallStart:
-  description: >
-    Time, in seconds since the Epoch, at which the Windows Shell call currently
-    running on the Jump List thread was started. It is cleared when the call
-    returns, so its presence in a crash report means the call never returned,
-    and CrashTime minus this value is how long it had been blocked. If calls
-    from the normal and private-browsing builders overlap, which in practice
-    only happens at startup, this reflects the most recent one.
-  type: string
-  scope: ping
-  bugs:
-    - 2073787
-  glean:
-    type: datetime
-    time_unit: second
-    custom_convert: unix_timestamp
-    expires: 165
-
 JSActorMessage:
   description: >
     If an actor is currently treating a message, this is the name of the message.
@@ -931,13 +910,13 @@ JSOutOfMemory:
   glean:
     metric: memory
 
+
 LastInteractionDuration:
   description: >
     How long the user had been inactive in seconds if the user was inactive
     at crash.  The value is not set if the user state was active.
   type: u64
   scope: ping
-  skip_if: "0"
   glean:
     type: timespan
     time_unit: second
@@ -995,18 +974,6 @@ MacAvailableMemorySysctl:
     Expected to be a percentage integer value.
   type: u32
   scope: report
-
-MacStartupRunLoop:
-  description: >
-    Names of the app delegate and run loop events seen while InitializeMacApp()
-    spins the native run loop during startup, in order, followed by the number
-    of run loop wake-ups and the milliseconds since the loop started at the last
-    one. Only present if the process crashed or hung inside that loop. macOS
-    only, early beta or earlier.
-  type: string
-  scope: report
-  bugs:
-    - 1610213
 
 Marionette:
   description: >
@@ -1066,14 +1033,6 @@ MainThreadRunnableName:
     Name of the currently executing nsIRunnable on the main thread.
   type: string
   scope: ping
-
-MinidumpRemoteExecutorForTesting:
-  description: >
-    Set to 1 when the minidump was written using the remote executor. Only for
-    testing purposes.
-  type: boolean
-  bugs:
-    - 2071467
 
 MinidumpSha256Hash:
   description: >

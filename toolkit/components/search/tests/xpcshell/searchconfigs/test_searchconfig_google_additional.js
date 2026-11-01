@@ -56,34 +56,18 @@ add_task(
   async function test_searchConfig_google_with_nimbus() {
     let sandbox = sinon.createSandbox();
     // Test a couple of configurations with a preference parameter set up.
-    let TEST_DATA;
-    if (SearchUtils.configV3FeatureGate) {
-      TEST_DATA = [
-        {
-          locale: "en-US",
-          region: "US",
-          expected: "nimbus_param",
-        },
-        {
-          locale: "en-US",
-          region: "GB",
-          expected: "nimbus_param",
-        },
-      ];
-    } else {
-      TEST_DATA = [
-        {
-          locale: "en-US",
-          region: "US",
-          expected: "nimbus_us_param",
-        },
-        {
-          locale: "en-US",
-          region: "GB",
-          expected: "nimbus_row_param",
-        },
-      ];
-    }
+    const TEST_DATA = [
+      {
+        locale: "en-US",
+        region: "US",
+        expected: "nimbus_us_param",
+      },
+      {
+        locale: "en-US",
+        region: "GB",
+        expected: "nimbus_row_param",
+      },
+    ];
 
     // Call this once to cause ConfigSearchEngine to initialise `ParamPreferenceCache`.
     await getEngines(engineSelector, "default", "default");
@@ -93,16 +77,10 @@ add_task(
       "Should register an update listener for Nimbus experiments"
     );
     // Stub getVariable to populate the cache with our expected data
-    if (SearchUtils.configV3FeatureGate) {
-      sandbox
-        .stub(NimbusFeatures.searchConfiguration, "getVariable")
-        .returns([{ key: "google_channel", value: "nimbus_param" }]);
-    } else {
-      sandbox.stub(NimbusFeatures.searchConfiguration, "getVariable").returns([
-        { key: "google_channel_us", value: "nimbus_us_param" },
-        { key: "google_channel_row", value: "nimbus_row_param" },
-      ]);
-    }
+    sandbox.stub(NimbusFeatures.searchConfiguration, "getVariable").returns([
+      { key: "google_channel_us", value: "nimbus_us_param" },
+      { key: "google_channel_row", value: "nimbus_row_param" },
+    ]);
     // Set the pref cache with Nimbus values
     NimbusFeatures.searchConfiguration.onUpdate.firstCall.args[0]();
 
@@ -122,14 +100,14 @@ add_task(
         "Should wait for Nimbus to get ready"
       );
       Assert.ok(
-        NimbusFeatures.searchConfiguration.getVariable.called,
+        NimbusFeatures.searchConfiguration.getVariable,
         "Should call NimbusFeatures.searchConfiguration.getVariable to populate the cache"
       );
       Assert.ok(
         submission.uri.query
           .split("&")
           .includes("channel=" + testData.expected),
-        `Should be including the correct preference parameter for the engine in ${submission.uri.query}`
+        "Should be including the correct preference parameter for the engine"
       );
     }
 
@@ -175,7 +153,7 @@ async function assertEnterpriseParameter(useEmptyPolicy) {
     const submission = engines[0].getSubmission("test", URLTYPE_SEARCH_HTML);
     Assert.ok(
       submission.uri.query.split("&").includes("channel=entpr"),
-      `Should be including the correct preference parameter for the engine in ${submission.uri.query}`
+      "Should be including the correct preference parameter for the engine"
     );
   }
 }

@@ -14,8 +14,8 @@ const { MockEngineManager } = ChromeUtils.importESModule(
 add_setup(async function () {
   const mockEngineManager = new MockEngineManager();
 
-  registerCleanupFunction(async () => {
-    await mockEngineManager.rejectAllRequests();
+  registerCleanupFunction(() => {
+    mockEngineManager.rejectAllRequests();
     mockEngineManager.cleanupMocks();
   });
 });

@@ -91,5 +91,6 @@ nsresult SVGStopFrame::AttributeChanged(int32_t aNameSpaceID,
 
 nsIFrame* NS_NewSVGStopFrame(mozilla::PresShell* aPresShell,
                              mozilla::ComputedStyle* aStyle) {
-  return new mozilla::SVGStopFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      mozilla::SVGStopFrame(aStyle, aPresShell->GetPresContext());
 }

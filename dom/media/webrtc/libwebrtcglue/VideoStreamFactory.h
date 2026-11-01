@@ -36,7 +36,7 @@ class VideoStreamFactory
                      int aStartBitrate, int aPrefMaxBitrate,
                      int aNegotiatedMaxBitrate)
       : mMaxFramerateForAllStreams(std::numeric_limits<unsigned int>::max()),
-        mCodecConfig(std::move(aConfig)),
+        mCodecConfig(std::forward<VideoCodecConfig>(aConfig)),
         mMinBitrate(aMinBitrate),
         mStartBitrate(aStartBitrate),
         mPrefMaxBitrate(aPrefMaxBitrate),

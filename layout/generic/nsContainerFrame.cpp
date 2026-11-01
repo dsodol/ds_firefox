@@ -181,7 +181,7 @@ void nsContainerFrame::SafelyDestroyFrameListProp(
       frame->Destroy(aContext);
     } else {
       (void)TakeProperty(aProp);
-      frameList->Delete();
+      frameList->Delete(aPresShell);
       return;
     }
   }
@@ -1037,7 +1037,7 @@ bool nsContainerFrame::TryRemoveFrame(FrameListPropertyDescriptor aProp,
     // aChildToRemove *may* have been removed from this list.
     if (list->IsEmpty()) {
       (void)TakeProperty(aProp);
-      list->Delete();
+      list->Delete(PresShell());
     }
     return true;
   }
@@ -1368,7 +1368,7 @@ void nsContainerFrame::NormalizeChildLists() {
   auto* prevInFlow = static_cast<nsContainerFrame*>(GetPrevInFlow());
   // Merge overflow frames from our prev-in-flow into our principal child list.
   if (prevInFlow) {
-    AutoFrameListPtr overflow(prevInFlow->StealOverflowFrames());
+    AutoFrameListPtr overflow(PresContext(), prevInFlow->StealOverflowFrames());
     if (overflow) {
       ReparentFrames(*overflow, prevInFlow, this);
       MergeSortedFrameLists(mFrames, *overflow, GetContent());
@@ -1583,7 +1583,8 @@ bool nsContainerFrame::MoveOverflowToChildList() {
   // Check for an overflow list with our prev-in-flow
   nsContainerFrame* prevInFlow = (nsContainerFrame*)GetPrevInFlow();
   if (nullptr != prevInFlow) {
-    AutoFrameListPtr prevOverflowFrames(prevInFlow->StealOverflowFrames());
+    AutoFrameListPtr prevOverflowFrames(PresContext(),
+                                        prevInFlow->StealOverflowFrames());
     if (prevOverflowFrames) {
       // Tables are special; they can have repeated header/footer
       // frames on mFrames at this point.
@@ -1729,7 +1730,8 @@ bool nsContainerFrame::MoveInlineOverflowToChildList(nsIFrame* aLineContainer) {
 
   // Check for an overflow list with our prev-in-flow
   if (auto prevInFlow = static_cast<nsContainerFrame*>(GetPrevInFlow())) {
-    AutoFrameListPtr prevOverflowFrames(prevInFlow->StealOverflowFrames());
+    AutoFrameListPtr prevOverflowFrames(PresContext(),
+                                        prevInFlow->StealOverflowFrames());
     if (prevOverflowFrames) {
       // We may need to reparent floats from prev-in-flow to our line
       // container if the container has prev continuation.
@@ -1748,7 +1750,7 @@ bool nsContainerFrame::MoveInlineOverflowToChildList(nsIFrame* aLineContainer) {
 }
 
 bool nsContainerFrame::DrainSelfOverflowList() {
-  AutoFrameListPtr overflowFrames(StealOverflowFrames());
+  AutoFrameListPtr overflowFrames(PresContext(), StealOverflowFrames());
   if (overflowFrames) {
     mFrames.AppendFrames(nullptr, std::move(*overflowFrames));
     return true;
@@ -1765,7 +1767,7 @@ bool nsContainerFrame::DrainAndMergeSelfOverflowList() {
   // content order.
   // NOTE: nsContainerFrame::AppendFrames/InsertFrames calls this method and
   // there are also direct calls from the fctor (FindAppendPrevSibling).
-  AutoFrameListPtr overflowFrames(StealOverflowFrames());
+  AutoFrameListPtr overflowFrames(PresContext(), StealOverflowFrames());
   if (overflowFrames) {
     MergeSortedFrameLists(mFrames, *overflowFrames, GetContent());
     // We set a frame bit to push them again in Reflow() to avoid creating
@@ -1784,7 +1786,8 @@ nsFrameList* nsContainerFrame::DrainExcessOverflowContainersList(
 
   // Drain excess overflow containers from our prev-in-flow.
   if (auto* prev = static_cast<nsContainerFrame*>(GetPrevInFlow())) {
-    AutoFrameListPtr excessFrames(prev->StealExcessOverflowContainers());
+    AutoFrameListPtr excessFrames(PresContext(),
+                                  prev->StealExcessOverflowContainers());
     if (excessFrames) {
       excessFrames->ApplySetParent(this);
       if (overflowContainers) {
@@ -1802,7 +1805,8 @@ nsFrameList* nsContainerFrame::DrainExcessOverflowContainersList(
   // present if our next-in-flow hasn't been reflown yet.  Move any children
   // from it that don't have a continuation in this frame to the
   // OverflowContainers list.
-  AutoFrameListPtr selfExcessOCFrames(StealExcessOverflowContainers());
+  AutoFrameListPtr selfExcessOCFrames(PresContext(),
+                                      StealExcessOverflowContainers());
   if (selfExcessOCFrames) {
     nsFrameList toMove;
     auto child = selfExcessOCFrames->FirstChild();
@@ -2612,6 +2616,7 @@ nsresult nsOverflowContinuationTracker::Insert(nsIFrame* aOverflowCont,
 
   nsresult rv = NS_OK;
   bool reparented = false;
+  nsPresContext* presContext = aOverflowCont->PresContext();
   bool addToList = !mSentry || aOverflowCont != mSentry->GetNextInFlow();
 
   // If we have a list and aOverflowCont is already in it then don't try to
@@ -2640,7 +2645,7 @@ nsresult nsOverflowContinuationTracker::Insert(nsIFrame* aOverflowCont,
       // ExcessOverflowContainersProperty() because we are going to insert
       // aOverflowCont to mOverflowContList below, which guarantees an nonempty
       // list in ExcessOverflowContainersProperty().
-      mOverflowContList = new nsFrameList();
+      mOverflowContList = new (presContext->PresShell()) nsFrameList();
       mParent->SetProperty(nsContainerFrame::ExcessOverflowContainersProperty(),
                            mOverflowContList);
       SetUpListWalker();

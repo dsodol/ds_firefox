@@ -33,6 +33,7 @@
 namespace {
 
 using namespace mozilla::dom;
+using mozilla::MakeUnique;
 using mozilla::udev_device;
 using mozilla::udev_enumerate;
 using mozilla::udev_lib;
@@ -139,7 +140,7 @@ void LinuxGamepadService::AddDevice(struct udev_device* dev) {
     }
   }
 
-  auto gamepad = std::make_unique<Gamepad>();
+  auto gamepad = MakeUnique<Gamepad>();
   snprintf(gamepad->devpath, sizeof(gamepad->devpath), "%s", devpath);
   GIOChannel* channel = g_io_channel_new_file(devpath, "r", nullptr);
   if (!channel) {

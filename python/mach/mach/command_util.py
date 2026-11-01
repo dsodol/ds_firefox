@@ -11,6 +11,7 @@ import errno
 import importlib.metadata
 import shlex
 import sys
+import types
 import uuid
 from collections.abc import Iterable
 from pathlib import Path
@@ -498,7 +499,9 @@ def load_commands_from_file(path: Union[str, Path], module_name=None):
     if module_name is None:
         # Ensure parent module is present otherwise we'll (likely) get
         # an error due to unknown parent.
-        importlib.import_module("mach.commands")
+        if "mach.commands" not in sys.modules:
+            mod = types.ModuleType("mach.commands")
+            sys.modules["mach.commands"] = mod
 
         module_name = f"mach.commands.{uuid.uuid4().hex}"
 

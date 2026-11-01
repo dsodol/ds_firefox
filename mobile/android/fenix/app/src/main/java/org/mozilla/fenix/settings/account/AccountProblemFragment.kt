@@ -15,7 +15,6 @@ import kotlinx.coroutines.launch
 import mozilla.components.concept.sync.AccountObserver
 import mozilla.components.concept.sync.AuthType
 import mozilla.components.concept.sync.OAuthAccount
-import mozilla.components.service.fxa.FxaService
 import mozilla.components.service.fxa.manager.SCOPE_PROFILE
 import mozilla.components.service.fxa.manager.SCOPE_SYNC
 import mozilla.telemetry.glean.private.NoExtras
@@ -33,10 +32,9 @@ class AccountProblemFragment : PreferenceFragmentCompat(), AccountObserver, Syst
 
     private val signInClickListener = Preference.OnPreferenceClickListener {
         requireComponents.services.accountsAuthFeature.beginAuthentication(
-            context = requireContext(),
-            entrypoint = args.entrypoint,
-            service = FxaService.Sync.identifier,
-            scopes = setOf(SCOPE_PROFILE, SCOPE_SYNC),
+            requireContext(),
+            args.entrypoint,
+            setOf(SCOPE_PROFILE, SCOPE_SYNC),
         )
         SyncAuth.useEmailProblem.record(NoExtras())
         // TODO The sign-in web content populates session history,

@@ -64,7 +64,7 @@ nsTableCellMap::nsTableCellMap(nsTableFrame& aTableFrame, bool aBorderCollapse)
     prior = rgFrame;
   }
   if (aBorderCollapse) {
-    mBCInfo = std::make_unique<BCInfo>();
+    mBCInfo = MakeUnique<BCInfo>();
   }
 }
 
@@ -2418,25 +2418,27 @@ void nsCellMap::DestroyCellData(CellData* aData) {
   if (mIsBC) {
     BCCellData* bcData = static_cast<BCCellData*>(aData);
     bcData->~BCCellData();
-    FrameArena::Free(eArenaObjectID_BCCellData, bcData);
+    mPresContext->PresShell()->FreeByObjectID(eArenaObjectID_BCCellData,
+                                              bcData);
   } else {
     aData->~CellData();
-    FrameArena::Free(eArenaObjectID_CellData, aData);
+    mPresContext->PresShell()->FreeByObjectID(eArenaObjectID_CellData, aData);
   }
 }
 
 CellData* nsCellMap::AllocCellData(nsTableCellFrame* aOrigCell) {
   if (mIsBC) {
-    BCCellData* data = (BCCellData*)FrameArena::Allocate(
-        eArenaObjectID_BCCellData, sizeof(BCCellData));
+    BCCellData* data =
+        (BCCellData*)mPresContext->PresShell()->AllocateByObjectID(
+            eArenaObjectID_BCCellData, sizeof(BCCellData));
     if (data) {
       new (data) BCCellData(aOrigCell);
     }
     return data;
   }
 
-  CellData* data = (CellData*)FrameArena::Allocate(eArenaObjectID_CellData,
-                                                   sizeof(CellData));
+  CellData* data = (CellData*)mPresContext->PresShell()->AllocateByObjectID(
+      eArenaObjectID_CellData, sizeof(CellData));
   if (data) {
     new (data) CellData(aOrigCell);
   }

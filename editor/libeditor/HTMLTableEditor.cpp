@@ -247,9 +247,8 @@ nsresult HTMLEditor::InsertCell(Element* aCell, int32_t aRowSpan,
     // Note: Do NOT use editor transaction for this
     nsAutoString newRowSpan;
     newRowSpan.AppendInt(aRowSpan, 10);
-    DebugOnly<nsresult> rvIgnored =
-        newCell->SetAttr(kNameSpaceID_None, nsGkAtoms::rowspan, newRowSpan,
-                         true, IsKnownNewAttr::No);
+    DebugOnly<nsresult> rvIgnored = newCell->SetAttr(
+        kNameSpaceID_None, nsGkAtoms::rowspan, newRowSpan, true);
     NS_WARNING_ASSERTION(
         NS_SUCCEEDED(rvIgnored),
         "Element::SetAttr(nsGkAtoms::rawspan) failed, but ignored");
@@ -258,9 +257,8 @@ nsresult HTMLEditor::InsertCell(Element* aCell, int32_t aRowSpan,
     // Note: Do NOT use editor transaction for this
     nsAutoString newColSpan;
     newColSpan.AppendInt(aColSpan, 10);
-    DebugOnly<nsresult> rvIgnored =
-        newCell->SetAttr(kNameSpaceID_None, nsGkAtoms::colspan, newColSpan,
-                         true, IsKnownNewAttr::No);
+    DebugOnly<nsresult> rvIgnored = newCell->SetAttr(
+        kNameSpaceID_None, nsGkAtoms::colspan, newColSpan, true);
     NS_WARNING_ASSERTION(
         NS_SUCCEEDED(rvIgnored),
         "Element::SetAttr(nsGkAtoms::colspan) failed, but ignored");

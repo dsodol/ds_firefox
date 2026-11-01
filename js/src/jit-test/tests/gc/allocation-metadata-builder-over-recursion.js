@@ -7,7 +7,7 @@
 // or crash with unhandlable OOM inside allocation metadata builder.
 
 const g = newGlobal();
-g.enableTrackAllocations();
+g.enableShellAllocationMetadataBuilder();
 function run() {
     const g_load = g.load;
     g_load.toString = run;

@@ -203,9 +203,8 @@ HTMLEditor::AutoDeleteRangesHandler::FallbackToDeleteRangesWithTransaction(
       }
     }
   }
-  aRangesToDelete.RemoveCollapsedRanges(
-      AutoClonedRangeArray::PreservePrimaryRangeIfAllRangesCollapsed::Yes);
-  if (aRangesToDelete.IsCollapsed()) [[unlikely]] {
+  aRangesToDelete.RemoveCollapsedRanges();
+  if (MOZ_UNLIKELY(aRangesToDelete.IsCollapsed())) {
     return CaretPoint(
         EditorDOMPoint(aRangesToDelete.FirstRangeRef()->StartRef()));
   }
@@ -1111,10 +1110,6 @@ nsresult HTMLEditor::AutoDeleteRangesHandler::ComputeRangesToDelete(
     }
   }
 
-  if (selectionWasCollapsed == SelectionWasCollapsed::No) {
-    aRangesToDelete.MaybeExtendAnchorFocusRangeToDeleteAdjacentWhiteSpace(
-        aHTMLEditor);
-  }
   nsresult rv = ComputeRangesToDeleteNonCollapsedRanges(
       aHTMLEditor, aDirectionAndAmount, aRangesToDelete, selectionWasCollapsed,
       aEditingHost);
@@ -1390,10 +1385,6 @@ Result<EditActionResult, nsresult> HTMLEditor::AutoDeleteRangesHandler::Run(
     }
   }
 
-  if (selectionWasCollapsed == SelectionWasCollapsed::No) {
-    aRangesToDelete.MaybeExtendAnchorFocusRangeToDeleteAdjacentWhiteSpace(
-        aHTMLEditor);
-  }
   Result<EditActionResult, nsresult> result = HandleDeleteNonCollapsedRanges(
       aHTMLEditor, aDirectionAndAmount, aStripWrappers, aRangesToDelete,
       selectionWasCollapsed, aEditingHost);
@@ -1921,7 +1912,7 @@ HTMLEditor::AutoDeleteRangesHandler::HandleDeleteTextAroundCollapsedRanges(
     // ignored line break?
     return HTMLEditUtils::
         ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak(
-               rangeToDelete.EndRef(), TreatAsUnnecessaryLineBreak{},
+               rangeToDelete.EndRef(), PaddingForEmptyBlock::Significant,
                aEditingHost)
             .ReachedBlockBoundary();
   }();
@@ -2510,7 +2501,7 @@ Result<EditActionResult, nsresult> HTMLEditor::AutoDeleteRangesHandler::
   // compatibility with the other browsers.
   const WSScanResult nextThingOfCaretPoint =
       HTMLEditUtils::ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak(
-          newCaretPosition, TreatAsUnnecessaryLineBreak{}, aEditingHost);
+          newCaretPosition, PaddingForEmptyBlock::Significant, aEditingHost);
   if (nextThingOfCaretPoint.ReachedBlockBoundary()) {
     AutoTrackDOMPoint trackNewCaretPosition(aHTMLEditor.RangeUpdaterRef(),
                                             &newCaretPosition);
@@ -3415,9 +3406,8 @@ HTMLEditor::AutoDeleteRangesHandler::HandleDeleteNonCollapsedRanges(
         }
       }
     }
-    aRangesToDelete.RemoveCollapsedRanges(
-        AutoClonedRangeArray::PreservePrimaryRangeIfAllRangesCollapsed::No);
-    if (aRangesToDelete.IsCollapsed()) [[unlikely]] {
+    aRangesToDelete.RemoveCollapsedRanges();
+    if (MOZ_UNLIKELY(aRangesToDelete.IsCollapsed())) {
       return EditActionResult::HandledResult();
     }
     if (NS_WARN_IF(!aRangesToDelete.FirstRangeRef()->IsPositioned()) ||
@@ -3967,8 +3957,8 @@ Result<EditActionResult, nsresult> HTMLEditor::AutoDeleteRangesHandler::
     const WSScanResult nextThing =
         HTMLEditUtils::ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak(
             EditorRawDOMPoint(rangeToDelete->EndRef()),
-            TreatAsUnnecessaryLineBreak{LineBreakFor::PaddingForEmptyBlock},
-            aEditingHost, mRightContent->AsElement());
+            PaddingForEmptyBlock::Unnecessary, aEditingHost,
+            mRightContent->AsElement());
     if (nextThing.ReachedCurrentBlockBoundary()) {
       EditorRawDOMPoint atFollowingBlockBoundary =
           nextThing.PointAtReachedBlockBoundaryOrEditingHostBoundary<
@@ -5224,9 +5214,8 @@ HTMLEditor::AutoDeleteRangesHandler::DeleteParentBlocksWithTransactionIfEmpty(
   // Next, check there is visible contents after the point in current block.
   const WSScanResult nextVisibleThing =
       HTMLEditUtils::ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak(
-          aPoint,
-          TreatAsUnnecessaryLineBreak{LineBreakFor::PaddingForEmptyBlock},
-          aEditingHost, &aEditingHost);
+          aPoint, PaddingForEmptyBlock::Unnecessary, aEditingHost,
+          &aEditingHost);
   if (MOZ_UNLIKELY(nextVisibleThing.Failed())) {
     NS_WARNING(
         "HTMLEditUtils::ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak("
@@ -8012,7 +8001,7 @@ HTMLEditor::AutoDeleteRangesHandler::ExtendOrShrinkRangeToDelete(
     for (;;) {
       const WSScanResult nextThingAfterEndBoundary =
           HTMLEditUtils::ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak(
-              rangeToDelete.EndRef(), TreatAsUnnecessaryLineBreak{},
+              rangeToDelete.EndRef(), PaddingForEmptyBlock::Significant,
               aEditingHost, closestBlockAncestorOrInlineEditingHost);
       if (nextThingAfterEndBoundary.ReachedLineBreak()) {
         break;

@@ -53,9 +53,6 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
             nativeShareSheetEnabled = settings.nativeShareSheetEnabled,
             showVoiceSearchInDisplayToolbar = settings.showVoiceSearchInDisplayToolbar,
             isHomepageTrendingRecentSearchEnabled = settings.enableHomepageTrendingRecentSearch,
-            isGoogleLensIntegrationEnabled = settings.googleLensIntegrationEnabled,
-            isGoogleLensIntegrationUserEnabled = settings.googleLensIntegrationUserEnabled,
-            isFxSuggestEnabled = settings.enableFxSuggest,
             showAddressBarInFocusMode = settings.showAddressBarInFocusMode,
             crashReportOption = settings.crashReportOption(),
         )
@@ -90,9 +87,6 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
     override var showVoiceSearchInDisplayToolbar: Boolean by updatedFeatureFlags::showVoiceSearchInDisplayToolbar
     override var isHomepageTrendingRecentSearchEnabled: Boolean by
         updatedFeatureFlags::isHomepageTrendingRecentSearchEnabled
-    override var isGoogleLensIntegrationEnabled: Boolean by updatedFeatureFlags::isGoogleLensIntegrationEnabled
-    override var isGoogleLensIntegrationUserEnabled: Boolean by updatedFeatureFlags::isGoogleLensIntegrationUserEnabled
-    override var isFxSuggestEnabled: Boolean by updatedFeatureFlags::isFxSuggestEnabled
     override var showAddressBarInFocusMode: Boolean by updatedFeatureFlags::showAddressBarInFocusMode
     override var crashReportOption: CrashReportOption by updatedFeatureFlags::crashReportOption
 
@@ -138,9 +132,6 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
         settings.enableHomepageTrendingRecentSearch = featureFlags.isHomepageTrendingRecentSearchEnabled
         settings.showAddressBarInFocusMode = featureFlags.showAddressBarInFocusMode
         settings.crashReportChoice = featureFlags.crashReportOption.label
-        settings.googleLensIntegrationEnabled = featureFlags.isGoogleLensIntegrationEnabled
-        settings.googleLensIntegrationUserEnabled = featureFlags.isGoogleLensIntegrationUserEnabled
-        settings.enableFxSuggest = featureFlags.isFxSuggestEnabled
     }
 }
 
@@ -172,9 +163,6 @@ private data class FeatureFlags(
     var isHomepageTrendingRecentSearchEnabled: Boolean,
     var showAddressBarInFocusMode: Boolean,
     var crashReportOption: CrashReportOption,
-    var isGoogleLensIntegrationEnabled: Boolean,
-    var isGoogleLensIntegrationUserEnabled: Boolean,
-    var isFxSuggestEnabled: Boolean,
 )
 
 internal fun getETPPolicy(settings: Settings): ETPPolicy {

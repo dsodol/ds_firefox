@@ -20,7 +20,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   MigrationUtils:
     "moz-src:///browser/components/migration/MigrationUtils.sys.mjs",
   UIState: "resource://services-sync/UIState.sys.mjs",
-  Weave: "resource://services-sync/main.sys.mjs",
   FxAccounts: "resource://gre/modules/FxAccounts.sys.mjs",
   ChangePasswordURLs:
     "moz-src:///browser/components/aboutlogins/ChangePasswordURLs.sys.mjs",
@@ -853,7 +852,6 @@ class AboutLoginsInternal {
       avatarURL: state.avatarURL,
       fxAccountsEnabled: lazy.FXA_ENABLED,
       passwordSyncEnabled,
-      perDeviceSyncEnabled: lazy.Weave.perDeviceEngineChoices,
       accountURL,
     };
   }

@@ -40,7 +40,6 @@ import mozilla.components.lib.state.Middleware
 import mozilla.components.lib.state.State
 import mozilla.components.lib.state.Store
 import mozilla.components.lib.state.ext.flow
-import mozilla.components.support.ktx.util.URLStringUtils
 import mozilla.components.support.utils.ClipboardHandler
 import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.GleanMetrics.BookmarksManagement
@@ -201,14 +200,7 @@ class FenixSearchMiddleware(
                 action.suggestion.editSuggestion?.let {
                     toolbarStore.dispatch(
                         BrowserEditToolbarAction.SearchQueryUpdated(
-                            query =
-                                BrowserToolbarQuery(
-                                    if (action.suggestion.flags.any { flag -> flag in URL_SUGGESTION_FLAGS }) {
-                                        URLStringUtils.toLosslessEditableUrl(it)
-                                    } else {
-                                        it
-                                    }
-                                ),
+                            query = BrowserToolbarQuery(it),
                             isQueryPrefilled = true,
                         )
                     )
@@ -291,7 +283,7 @@ class FenixSearchMiddleware(
             }
         val shouldShowSearchSuggestions =
             with(store.state) {
-                !isCurrentUrl(query, currentTabData?.url) && query.isNotBlank()
+                currentTabData?.url != query && query.isNotBlank()
             }
         val shouldShowCurrentWebsiteDetails =
             settings.showAddressBarInFocusMode &&
@@ -308,7 +300,7 @@ class FenixSearchMiddleware(
                     browsingModeManager.mode.isPrivate &&
                     !isSearchSuggestionsFeatureEnabled() &&
                     query.isNotBlank() &&
-                    !isCurrentUrl(query, currentTabData?.url)
+                    currentTabData?.url != query
             }
 
         store.dispatch(SearchFragmentAction.AllowSearchSuggestionsInPrivateModePrompt(showPrivatePrompt))
@@ -614,7 +606,7 @@ class FenixSearchMiddleware(
         val searchTerms = session.content.searchTerms
         val currentInput =
             when (searchTerms.isEmpty()) {
-                true -> session.getUrl()?.let(URLStringUtils::toLosslessEditableUrl)
+                true -> session.getUrl()
                 else -> searchTerms
             }
 
@@ -625,15 +617,4 @@ class FenixSearchMiddleware(
 
     private val sessionSearchWasStartedFor
         get() = browserStore.state.findTab(appStore.state.searchState.sourceTabId ?: "")
-
-    private companion object {
-        // Suggestions whose edit text is a browser-owned URL.
-        val URL_SUGGESTION_FLAGS =
-            setOf(
-                AwesomeBar.Suggestion.Flag.BOOKMARK,
-                AwesomeBar.Suggestion.Flag.HISTORY,
-                AwesomeBar.Suggestion.Flag.OPEN_TAB,
-                AwesomeBar.Suggestion.Flag.SYNC_TAB,
-            )
-    }
 }

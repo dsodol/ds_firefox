@@ -3,9 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/Attributes.h"
-#include "mozilla/CheckedInt.h"
 #include "mozilla/DebugOnly.h"
-#include "mozilla/FloatingPoint.h"
 #include "mozilla/MemoryReporting.h"
 
 #include "mozilla/dom/ContentChild.h"
@@ -38,6 +36,7 @@
 #include "nsIXULRuntime.h"
 #include "nsContentUtils.h"  // for nsAutoScriptBlocker
 #include "nsJSUtils.h"
+#include "nsStandardURL.h"
 #include "mozilla/ipc/URIUtils.h"
 #include "nsPrintfCString.h"
 #include "nsTHashtable.h"
@@ -93,8 +92,7 @@ struct VisitData {
         source(nsINavHistoryService::VISIT_SOURCE_ORGANIC),
         triggeringPlaceId(0),
         triggeringSponsoredURLVisitTimeMS(0),
-        bookmarked(false),
-        userContextId(0) {
+        bookmarked(false) {
     guid.SetIsVoid(true);
     title.SetIsVoid(true);
     baseDomain.SetIsVoid(true);
@@ -121,8 +119,7 @@ struct VisitData {
         source(nsINavHistoryService::VISIT_SOURCE_ORGANIC),
         triggeringPlaceId(0),
         triggeringSponsoredURLVisitTimeMS(0),
-        bookmarked(false),
-        userContextId(0) {
+        bookmarked(false) {
     MOZ_ASSERT(aURI);
     if (aURI) {
       (void)aURI->GetSpec(spec);
@@ -194,7 +191,6 @@ struct VisitData {
   nsCString triggeringSponsoredURLBaseDomain;
   int64_t triggeringSponsoredURLVisitTimeMS;
   bool bookmarked;
-  uint32_t userContextId;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -360,12 +356,12 @@ nsresult GetIntFromJSObject(JSContext* aCtx, JS::Handle<JSObject*> aObject,
   NS_ENSURE_ARG(value.isPrimitive());
   NS_ENSURE_ARG(value.isNumber());
 
-  int64_t num;
-  NS_ENSURE_ARG(mozilla::NumberEqualsInt64(value.toNumber(), &num));
-  CheckedInt<IntType> checked(num);
-  NS_ENSURE_ARG(checked.isValid());
+  double num;
+  rc = JS::ToNumber(aCtx, value, &num);
+  NS_ENSURE_TRUE(rc, NS_ERROR_UNEXPECTED);
+  NS_ENSURE_ARG(IntType(num) == num);
 
-  *_int = checked.value();
+  *_int = IntType(num);
   return NS_OK;
 }
 
@@ -593,7 +589,6 @@ class NotifyManyVisitsObservers : public Runnable {
     visitEvent->mVisitCount = aPlace.visitCount + 1;  // Add current visit
     visitEvent->mTypedCount = static_cast<uint32_t>(aPlace.typed);
     visitEvent->mLastKnownTitle.Assign(aPlace.title);
-    visitEvent->mUserContextId = aPlace.userContextId;
 
     bool success = !!aEvents.AppendElement(visitEvent.forget(), fallible);
     MOZ_RELEASE_ASSERT(success);
@@ -1187,9 +1182,9 @@ class InsertVisitedURIs final : public Runnable {
     stmt = mHistory->GetStatement(
         "INSERT INTO moz_historyvisits "
         "(from_visit, place_id, visit_date, visit_type, session, source, "
-        "triggeringPlaceId, userContextId) "
+        "triggeringPlaceId) "
         "VALUES (:from_visit, :page_id, :visit_date, :visit_type, 0, :source, "
-        ":triggeringPlaceId, :userContextId) ");
+        ":triggeringPlaceId) ");
     NS_ENSURE_STATE(stmt);
     mozStorageStatementScoper scoper(stmt);
 
@@ -1213,8 +1208,6 @@ class InsertVisitedURIs final : public Runnable {
     } else {
       rv = stmt->BindNullByName("triggeringPlaceId"_ns);
     }
-    NS_ENSURE_SUCCESS(rv, rv);
-    rv = stmt->BindInt64ByName("userContextId"_ns, _place.userContextId);
     NS_ENSURE_SUCCESS(rv, rv);
 
     rv = stmt->Execute();
@@ -1933,8 +1926,7 @@ void History::AppendToRecentlyVisitedURIs(nsIURI* aURI, bool aHidden) {
 
 NS_IMETHODIMP
 History::VisitURI(nsIWidget* aWidget, nsIURI* aURI, nsIURI* aLastVisitedURI,
-                  uint32_t aFlags, uint64_t aBrowserId,
-                  uint32_t aUserContextId) {
+                  uint32_t aFlags, uint64_t aBrowserId) {
   MOZ_ASSERT(NS_IsMainThread());
   NS_ENSURE_ARG(aURI);
 
@@ -2043,7 +2035,6 @@ History::VisitURI(nsIWidget* aWidget, nsIURI* aURI, nsIURI* aLastVisitedURI,
   place.visitTime = PR_Now();
   place.SetTransitionType(transitionType);
   place.hidden = isHidden;
-  place.userContextId = aUserContextId;
 
   if (isRedirect) {
     place.useFrecencyRedirectBonus =
@@ -2117,21 +2108,21 @@ History::VisitURI(nsIWidget* aWidget, nsIURI* aURI, nsIURI* aLastVisitedURI,
             triggeringSponsoredURLVisitTimeMS.ToInteger64(&rv);
         NS_ENSURE_SUCCESS(rv, rv);
 
+        // Get base domain. We need to get it here since nsIEffectiveTLDService
+        // referred in DomainNameFromURI should access on main thread.
+        nsCOMPtr<nsIURI> currentURL;
+        rv = NS_MutateURI(new net::nsStandardURL::Mutator())
+                 .SetSpec(place.spec)
+                 .Finalize(currentURL);
+        NS_ENSURE_SUCCESS(rv, rv);
         nsCOMPtr<nsIURI> sponsoredURL;
-        rv = NS_NewURI(getter_AddRefs(sponsoredURL),
-                       place.triggeringSponsoredURL);
-        bool sameDomain = false;
-        if (!NS_WARN_IF(NS_FAILED(rv))) {
-          // Get base domains here since nsIEffectiveTLDService referred in
-          // DomainNameFromURI should access on main thread.
-          nsCString visitedBaseDomain, sponsoredBaseDomain;
-          navHistory->DomainNameFromURI(visitedURI, visitedBaseDomain);
-          navHistory->DomainNameFromURI(sponsoredURL, sponsoredBaseDomain);
-          sameDomain = visitedBaseDomain.Equals(sponsoredBaseDomain);
-        }
-        if (!sameDomain) {
-          place.triggeringSponsoredURL.Truncate();
-        }
+        rv = NS_MutateURI(new net::nsStandardURL::Mutator())
+                 .SetSpec(place.triggeringSponsoredURL)
+                 .Finalize(sponsoredURL);
+        NS_ENSURE_SUCCESS(rv, rv);
+        navHistory->DomainNameFromURI(currentURL, place.baseDomain);
+        navHistory->DomainNameFromURI(sponsoredURL,
+                                      place.triggeringSponsoredURLBaseDomain);
       }
     }
   }
@@ -2329,16 +2320,6 @@ History::UpdatePlaces(JS::Handle<JS::Value> aPlaceInfos,
           GetURIFromJSObject(aCtx, visit, "referrerURI");
       if (referrer) {
         (void)referrer->GetSpec(data.referrerSpec);
-      }
-
-      JS::Rooted<JS::Value> userContextIdVal(aCtx);
-      if (!JS_GetProperty(aCtx, visit, "userContextId", &userContextIdVal)) {
-        return NS_ERROR_UNEXPECTED;
-      }
-      if (!userContextIdVal.isUndefined()) {
-        rv = GetIntFromJSObject(aCtx, visit, "userContextId",
-                                &data.userContextId);
-        NS_ENSURE_SUCCESS(rv, rv);
       }
     }
   }

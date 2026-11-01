@@ -24,8 +24,6 @@ enum class PrefetchState : uint8_t {
   Ongoing,
   Completed,
   Canceled,
-  // Candidate recorded but never fetched; experiment control branch.
-  DryRun,
 };
 
 // Spec:

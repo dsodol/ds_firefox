@@ -6,8 +6,6 @@ package org.mozilla.fenix.ui.efficiency.selectors
 
 import mozilla.components.compose.browser.toolbar.concept.BrowserToolbarTestTags.ADDRESSBAR_URL_BOX
 import mozilla.components.compose.browser.toolbar.concept.BrowserToolbarTestTags.TABS_COUNTER
-import mozilla.components.feature.summarize.R as summarizeR
-import mozilla.components.ui.tabcounter.R as tabcounterR
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.toolbar.BrowserToolbarTestTags.SITE_INFO_INSECURE_CONNECTION
 import org.mozilla.fenix.components.toolbar.BrowserToolbarTestTags.SITE_INFO_SECURE
@@ -26,8 +24,6 @@ object ToolbarSelectors : SelectorContainer {
         EXPANDED_TOOLBAR_IN_LANDSCAPE_ITEM,
         HOME_SCREEN_TOOLBAR,
         BROWSER_VIEW_TOOLBAR_ITEMS,
-        TAB_COUNTER_SHORTCUT_MENU,
-        SIMPLE_TOOLBAR_NONE_SHORTCUT_ITEMS,
     }
 
     val TOOLBAR =
@@ -44,15 +40,6 @@ object ToolbarSelectors : SelectorContainer {
             value = TABS_COUNTER,
             description = "Tab counter button",
             readiness = PageReadinessProfiles.READY_CONTENT,
-            groups = setOf(Group.SIMPLE_TOOLBAR_NONE_SHORTCUT_ITEMS),
-        )
-
-    val MAIN_MENU_BUTTON =
-        Selector(
-            strategy = SelectorStrategy.UIAUTOMATOR_WITH_DESCRIPTION_CONTAINS,
-            value = getStringResource(R.string.content_description_menu),
-            description = "Three dot menu button",
-            groups = setOf(Group.SIMPLE_TOOLBAR_NONE_SHORTCUT_ITEMS),
         )
 
     val TOOLBAR_URL_BOX =
@@ -112,39 +99,6 @@ object ToolbarSelectors : SelectorContainer {
             description = "New private tab button",
         )
 
-    // Items in the shortcut menu raised by long-pressing the tab counter: Compose text nodes, distinct
-    // from the NEW_TAB_BUTTON / NEW_PRIVATE_TAB_BUTTON toolbar buttons matched by content-description.
-    val TAB_COUNTER_SHORTCUT_NEW_TAB =
-        Selector(
-            strategy = SelectorStrategy.COMPOSE_BY_TEXT,
-            value = getStringResource(tabcounterR.string.mozac_browser_menu_new_tab),
-            description = "Tab counter shortcut menu 'New tab' item",
-            groups = setOf(Group.TAB_COUNTER_SHORTCUT_MENU),
-        )
-
-    val TAB_COUNTER_SHORTCUT_NEW_PRIVATE_TAB =
-        Selector(
-            strategy = SelectorStrategy.COMPOSE_BY_TEXT,
-            value = getStringResource(tabcounterR.string.mozac_browser_menu_new_private_tab),
-            description = "Tab counter shortcut menu 'New private tab' item",
-            groups = setOf(Group.TAB_COUNTER_SHORTCUT_MENU),
-        )
-
-    val TAB_COUNTER_SHORTCUT_CLOSE_TAB =
-        Selector(
-            strategy = SelectorStrategy.COMPOSE_BY_TEXT,
-            value = getStringResource(tabcounterR.string.mozac_close_tab),
-            description = "Tab counter shortcut menu 'Close tab' item",
-            groups = setOf(Group.TAB_COUNTER_SHORTCUT_MENU),
-        )
-
-    val EXPANDED_TOOLBAR_HOMEPAGE_BUTTON =
-        Selector(
-            strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
-            value = "Homepage",
-            description = "Simple toolbar homepage button",
-        )
-
     val EXPANDED_TOOLBAR_ADD_BOOKMARK_BUTTON =
         Selector(
             strategy = SelectorStrategy.UIAUTOMATOR_WITH_DESCRIPTION_CONTAINS,
@@ -191,34 +145,6 @@ object ToolbarSelectors : SelectorContainer {
             value = getStringResource(R.string.browser_menu_refresh),
             description = "Expanded toolbar refresh button",
             groups = setOf(Group.EXPANDED_TOOLBAR_IN_LANDSCAPE_ITEM),
-        )
-
-    val SIMPLE_TOOLBAR_SHARE_BUTTON =
-        Selector(
-            strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
-            value = "Share",
-            description = "Simple toolbar share button",
-        )
-
-    val SIMPLE_TOOLBAR_HOMEPAGE_BUTTON =
-        Selector(
-            strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
-            value = "Homepage",
-            description = "Simple toolbar homepage button",
-        )
-
-    val SIMPLE_TOOLBAR_BACK_BUTTON =
-        Selector(
-            strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
-            value = "Back",
-            description = "Simple toolbar back button",
-        )
-
-    val SIMPLE_TOOLBAR_SUMMARIZE_PAGES_BUTTON =
-        Selector(
-            strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
-            value = getStringResource(summarizeR.string.mozac_summarize_settings_summarize_pages),
-            description = "Simple toolbar summarize pages button",
         )
 
     val SITE_INFO_BUTTON =

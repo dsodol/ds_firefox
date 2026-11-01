@@ -18,7 +18,7 @@ using namespace sh;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-constexpr std::array<AddressSpace, 3> kAddressSpaces = {
+constexpr AddressSpace kAddressSpaces[] = {
     AddressSpace::Constant,
     AddressSpace::Device,
     AddressSpace::Thread,
@@ -449,7 +449,7 @@ const AddressSpace *SymbolEnv::isSpace(VarField x,
     }
     const AddressSpace space = iter->second;
     const auto index         = static_cast<std::underlying_type_t<AddressSpace>>(space);
-    return &kAddressSpaces[index];
+    return ANGLE_UNSAFE_TODO(&kAddressSpaces[index]);
 }
 
 void SymbolEnv::markAsPointer(VarField x, AddressSpace space)

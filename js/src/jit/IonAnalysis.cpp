@@ -1567,7 +1567,7 @@ static bool CanonicalizeNaNFor(MIRGraph& graph, PhiList& philist,
         firstUseBlock->insertAfter(def->toInstruction(), canonical);
       } else {
         // Otherwise add to the start of the block.
-        firstUseBlock->insertBefore(firstUseBlock->safeInsertTop(), canonical);
+        firstUseBlock->insertBefore(*firstUseBlock->begin(), canonical);
       }
 
       // Replace the producer with the canonicalized NaN.
@@ -2042,7 +2042,7 @@ bool LinearSum::add(MDefinition* term, int32_t scale) {
   }
 
   AutoEnterOOMUnsafeRegion oomUnsafe;
-  if (!terms_.emplaceBack(term, scale)) {
+  if (!terms_.append(LinearTerm(term, scale))) {
     oomUnsafe.crash("LinearSum::add");
   }
 

@@ -1010,7 +1010,11 @@ impl<'a, W: Write> Writer<'a, W> {
                 "_immediates_binding_{}",
                 shader_stage_to_str(self.entry_point.stage)
             )?,
-            (&None, _) => write!(self.out, "{}", self.names[&NameKey::GlobalVariable(handle)])?,
+            (&None, _) => write!(
+                self.out,
+                "{}",
+                &self.names[&NameKey::GlobalVariable(handle)]
+            )?,
         }
 
         Ok(())
@@ -1314,7 +1318,7 @@ impl<'a, W: Write> Writer<'a, W> {
 
             // Write the argument name
             // The leading space is important
-            write!(this.out, " {}", this.names[&ctx.argument_key(i as u32)])?;
+            write!(this.out, " {}", &this.names[&ctx.argument_key(i as u32)])?;
 
             // Write array size
             match this.module.types[arg.ty].inner {
@@ -1570,7 +1574,7 @@ impl<'a, W: Write> Writer<'a, W> {
                     write!(
                         self.out,
                         " {}",
-                        self.names[&NameKey::StructMember(handle, idx as u32)]
+                        &self.names[&NameKey::StructMember(handle, idx as u32)]
                     )?;
                     // Write [size]
                     self.write_array_size(base, size)?;
@@ -1588,7 +1592,7 @@ impl<'a, W: Write> Writer<'a, W> {
                     writeln!(
                         self.out,
                         " {};",
-                        self.names[&NameKey::StructMember(handle, idx as u32)]
+                        &self.names[&NameKey::StructMember(handle, idx as u32)]
                     )?;
                 }
             }
@@ -1901,8 +1905,9 @@ impl<'a, W: Write> Writer<'a, W> {
                                             let return_struct = "_tmp_return";
                                             write!(
                                                 self.out,
-                                                "{ty} {return_struct} = ",
-                                                ty = self.names[&NameKey::Type(result.ty)],
+                                                "{} {} = ",
+                                                &self.names[&NameKey::Type(result.ty)],
+                                                return_struct
                                             )?;
                                             self.write_expr(value, ctx)?;
                                             writeln!(self.out, ";")?;
@@ -1940,7 +1945,7 @@ impl<'a, W: Write> Writer<'a, W> {
                                         writeln!(
                                             self.out,
                                             ".{};",
-                                            self.names
+                                            &self.names
                                                 [&NameKey::StructMember(result.ty, index as u32)]
                                         )?;
                                         write!(self.out, "{level}")?;
@@ -2063,7 +2068,7 @@ impl<'a, W: Write> Writer<'a, W> {
                     write!(self.out, " = ")?;
                     self.named_expressions.insert(expr, name);
                 }
-                write!(self.out, "{}(", self.names[&NameKey::Function(function)])?;
+                write!(self.out, "{}(", &self.names[&NameKey::Function(function)])?;
                 let arguments: Vec<_> = arguments
                     .iter()
                     .enumerate()
@@ -2282,7 +2287,6 @@ impl<'a, W: Write> Writer<'a, W> {
             }
             Statement::CooperativeStore { .. } => unimplemented!(),
             Statement::RayPipelineFunction(_) => unimplemented!(),
-            Statement::DebugPrintf { .. } => unimplemented!(),
         }
 
         Ok(())
@@ -2487,7 +2491,7 @@ impl<'a, W: Write> Writer<'a, W> {
                         write!(
                             self.out,
                             ".{}",
-                            self.names[&NameKey::StructMember(ty, index)]
+                            &self.names[&NameKey::StructMember(ty, index)]
                         )?
                     }
                     ref other => return Err(Error::Custom(format!("Cannot index {other:?}"))),
@@ -2507,7 +2511,7 @@ impl<'a, W: Write> Writer<'a, W> {
             }
             // Function arguments are written as the argument name
             Expression::FunctionArgument(pos) => {
-                write!(self.out, "{}", self.names[&ctx.argument_key(pos)])?
+                write!(self.out, "{}", &self.names[&ctx.argument_key(pos)])?
             }
             // Global variables need some special work for their name but
             // `get_global_name` does the work for us

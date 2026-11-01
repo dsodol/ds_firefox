@@ -34,10 +34,8 @@ class WorkerThreadFriendKey {
   friend class workerinternals::RuntimeService;
   friend class WorkerPrivate;
 
-  // NOLINTBEGIN(modernize-use-equals-delete)
   WorkerThreadFriendKey();
   ~WorkerThreadFriendKey();
-  // NOLINTEND(modernize-use-equals-delete)
 };
 
 class WorkerThread final : public nsThread {

@@ -328,7 +328,7 @@ class StorageDBThread final {
 
   virtual void AsyncPreload(LocalStorageCacheBridge* aCache,
                             bool aPriority = false) {
-    InsertDBOp(std::make_unique<DBOperation>(
+    InsertDBOp(MakeUnique<DBOperation>(
         aPriority ? DBOperation::opPreloadUrgent : DBOperation::opPreload,
         aCache));
   }
@@ -337,46 +337,45 @@ class StorageDBThread final {
                            bool aForce = false);
 
   virtual void AsyncGetUsage(StorageUsageBridge* aUsage) {
-    InsertDBOp(std::make_unique<DBOperation>(DBOperation::opGetUsage, aUsage));
+    InsertDBOp(MakeUnique<DBOperation>(DBOperation::opGetUsage, aUsage));
   }
 
   virtual nsresult AsyncAddItem(LocalStorageCacheBridge* aCache,
                                 const nsAString& aKey,
                                 const nsAString& aValue) {
-    return InsertDBOp(std::make_unique<DBOperation>(DBOperation::opAddItem,
-                                                    aCache, aKey, aValue));
+    return InsertDBOp(
+        MakeUnique<DBOperation>(DBOperation::opAddItem, aCache, aKey, aValue));
   }
 
   virtual nsresult AsyncUpdateItem(LocalStorageCacheBridge* aCache,
                                    const nsAString& aKey,
                                    const nsAString& aValue) {
-    return InsertDBOp(std::make_unique<DBOperation>(DBOperation::opUpdateItem,
-                                                    aCache, aKey, aValue));
+    return InsertDBOp(MakeUnique<DBOperation>(DBOperation::opUpdateItem, aCache,
+                                              aKey, aValue));
   }
 
   virtual nsresult AsyncRemoveItem(LocalStorageCacheBridge* aCache,
                                    const nsAString& aKey) {
     return InsertDBOp(
-        std::make_unique<DBOperation>(DBOperation::opRemoveItem, aCache, aKey));
+        MakeUnique<DBOperation>(DBOperation::opRemoveItem, aCache, aKey));
   }
 
   virtual nsresult AsyncClear(LocalStorageCacheBridge* aCache) {
-    return InsertDBOp(
-        std::make_unique<DBOperation>(DBOperation::opClear, aCache));
+    return InsertDBOp(MakeUnique<DBOperation>(DBOperation::opClear, aCache));
   }
 
   virtual void AsyncClearAll() {
-    InsertDBOp(std::make_unique<DBOperation>(DBOperation::opClearAll));
+    InsertDBOp(MakeUnique<DBOperation>(DBOperation::opClearAll));
   }
 
   virtual void AsyncClearMatchingOrigin(const nsACString& aOriginNoSuffix) {
-    InsertDBOp(std::make_unique<DBOperation>(DBOperation::opClearMatchingOrigin,
-                                             aOriginNoSuffix));
+    InsertDBOp(MakeUnique<DBOperation>(DBOperation::opClearMatchingOrigin,
+                                       aOriginNoSuffix));
   }
 
   virtual void AsyncClearMatchingOriginAttributes(
       const OriginAttributesPattern& aPattern) {
-    InsertDBOp(std::make_unique<DBOperation>(
+    InsertDBOp(MakeUnique<DBOperation>(
         DBOperation::opClearMatchingOriginAttributes, aPattern));
   }
 

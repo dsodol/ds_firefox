@@ -23,7 +23,7 @@ HeadlessClipboard::HeadlessClipboard()
           true /* supportsFindClipboard */,
           true /* supportsSelectionCache */)) {
   for (auto& clipboard : mClipboards) {
-    clipboard = std::make_unique<HeadlessClipboardData>();
+    clipboard = MakeUnique<HeadlessClipboardData>();
   }
 }
 

@@ -32,8 +32,7 @@ class OriginScope {
     Origin(const Origin& aOther)
         : mPrincipalMetadata(aOther.mPrincipalMetadata),
           mOriginNoSuffix(aOther.mOriginNoSuffix),
-          mAttributes(std::make_unique<OriginAttributes>(*aOther.mAttributes)) {
-    }
+          mAttributes(MakeUnique<OriginAttributes>(*aOther.mAttributes)) {}
 
     Origin(Origin&& aOther) = default;
 
@@ -57,7 +56,7 @@ class OriginScope {
 
    private:
     void InitMembers() {
-      mAttributes = std::make_unique<OriginAttributes>();
+      mAttributes = MakeUnique<OriginAttributes>();
 
       MOZ_ALWAYS_TRUE(mAttributes->PopulateFromOrigin(
           mPrincipalMetadata.mOrigin, mOriginNoSuffix));
@@ -90,8 +89,7 @@ class OriginScope {
     Group(const Group& aOther)
         : mGroup(aOther.mGroup),
           mGroupNoSuffix(aOther.mGroupNoSuffix),
-          mAttributes(std::make_unique<OriginAttributes>(*aOther.mAttributes)) {
-    }
+          mAttributes(MakeUnique<OriginAttributes>(*aOther.mAttributes)) {}
 
     Group(Group&& aOther) = default;
 
@@ -107,7 +105,7 @@ class OriginScope {
 
    private:
     void InitMembers() {
-      mAttributes = std::make_unique<OriginAttributes>();
+      mAttributes = MakeUnique<OriginAttributes>();
 
       MOZ_ALWAYS_TRUE(mAttributes->PopulateFromOrigin(mGroup, mGroupNoSuffix));
     }
@@ -118,16 +116,15 @@ class OriginScope {
 
    public:
     explicit Pattern(const OriginAttributesPattern& aPattern)
-        : mPattern(std::make_unique<OriginAttributesPattern>(aPattern)) {}
+        : mPattern(MakeUnique<OriginAttributesPattern>(aPattern)) {}
 
     explicit Pattern(const nsAString& aJSONPattern)
-        : mPattern(std::make_unique<OriginAttributesPattern>()) {
+        : mPattern(MakeUnique<OriginAttributesPattern>()) {
       MOZ_ALWAYS_TRUE(mPattern->Init(aJSONPattern));
     }
 
     Pattern(const Pattern& aOther)
-        : mPattern(
-              std::make_unique<OriginAttributesPattern>(*aOther.mPattern)) {}
+        : mPattern(MakeUnique<OriginAttributesPattern>(*aOther.mPattern)) {}
 
     Pattern(Pattern&& aOther) = default;
 

@@ -511,15 +511,8 @@ void WritableStreamDefaultControllerError(
   // ! WritableStreamDefaultControllerClearAlgorithms(controller).
   aController->ClearAlgorithms();
 
-  JS::Rooted<JS::Value> error(aCx, aError);
-  if (!JS_WrapValue(aCx, &error)) {
-    aRv.MightThrowJSException();
-    aRv.StealExceptionFromJSContext(aCx);
-    return;
-  }
-
   // Step 4.Perform ! WritableStreamStartErroring(stream, error).
-  stream->StartErroring(aCx, error, aRv);
+  stream->StartErroring(aCx, aError, aRv);
 }
 
 // https://streams.spec.whatwg.org/#writable-stream-default-controller-error-if-needed

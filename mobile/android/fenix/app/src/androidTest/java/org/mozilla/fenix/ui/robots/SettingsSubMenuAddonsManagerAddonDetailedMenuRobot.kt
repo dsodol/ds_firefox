@@ -20,7 +20,6 @@ import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.helpers.AppAndSystemHelper.registerAndCleanupIdlingResources
 import org.mozilla.fenix.helpers.Constants.TAG
-import org.mozilla.fenix.helpers.MatcherHelper.assertUIObjectIsGone
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithResId
 import org.mozilla.fenix.helpers.TestHelper.packageName
 import org.mozilla.fenix.helpers.ViewVisibilityIdlingResource
@@ -71,10 +70,6 @@ class SettingsSubMenuAddonsManagerAddonDetailedMenuRobot {
                 removeAddonButton().click()
                 Log.i(TAG, "removeAddon: Clicked the remove add-on button")
             }
-
-            Log.i(TAG, "removeAddon: Waiting for the add-on detail screen to be dismissed")
-            assertUIObjectIsGone(itemWithResId("$packageName:id/remove_add_on"))
-            Log.i(TAG, "removeAddon: Add-on detail screen dismissed")
 
             SettingsSubMenuAddonsManagerRobot(composeTestRule).interact()
             return SettingsSubMenuAddonsManagerRobot.Transition(composeTestRule)

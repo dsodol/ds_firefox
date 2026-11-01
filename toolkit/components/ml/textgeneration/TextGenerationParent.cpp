@@ -94,10 +94,8 @@ ipc::IPCResult TextGenerationParent::RecvReady(const LoadResult& aResult) {
 
 ipc::IPCResult TextGenerationParent::RecvDelta(const nsCString& aText) {
   LOGD("[{} - {}]", fmt::ptr(this), __func__);
-  // Keep the callable alive while it's being used.
-  const DeltaHandler handler = mDeltaHandler;
-  if (handler) {
-    handler(aText);
+  if (mDeltaHandler) {
+    mDeltaHandler(aText);
   }
   return IPC_OK();
 }

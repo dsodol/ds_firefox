@@ -26,10 +26,7 @@
  * method for the nsAppShell class.
  */
 
-#include "nsAppShell.h"
 #include "nsXULAppAPI.h"
-
-class nsIAppShell;
 
 static nsIAppShell* sAppShell;
 
@@ -53,7 +50,6 @@ static nsresult nsAppShellInit() {
 
 static void nsAppShellShutdown() { NS_RELEASE(sAppShell); }
 
-// NOLINTNEXTLINE(misc-definitions-in-headers)
 nsresult nsAppShellConstructor(const nsIID& iid, void** result) {
   NS_ENSURE_TRUE(sAppShell, NS_ERROR_NOT_INITIALIZED);
 

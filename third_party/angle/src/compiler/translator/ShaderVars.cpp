@@ -487,7 +487,6 @@ bool ShaderVariable::isSameNameAtLinkTime(const ShaderVariable &other) const
 InterfaceBlock::InterfaceBlock()
     : arraySize(0),
       layout(BLOCKLAYOUT_PACKED),
-      isRowMajorLayout(false),
       binding(-1),
       staticUse(false),
       active(false),
@@ -504,7 +503,6 @@ InterfaceBlock::InterfaceBlock(const InterfaceBlock &other)
       instanceName(other.instanceName),
       arraySize(other.arraySize),
       layout(other.layout),
-      isRowMajorLayout(other.isRowMajorLayout),
       binding(other.binding),
       staticUse(other.staticUse),
       active(other.active),
@@ -521,7 +519,6 @@ InterfaceBlock &InterfaceBlock::operator=(const InterfaceBlock &other)
     instanceName     = other.instanceName;
     arraySize        = other.arraySize;
     layout           = other.layout;
-    isRowMajorLayout = other.isRowMajorLayout;
     binding          = other.binding;
     staticUse        = other.staticUse;
     active           = other.active;
@@ -545,8 +542,7 @@ std::string InterfaceBlock::fieldMappedPrefix() const
 bool InterfaceBlock::isSameInterfaceBlockAtLinkTime(const InterfaceBlock &other) const
 {
     if (name != other.name || mappedName != other.mappedName || arraySize != other.arraySize ||
-        layout != other.layout || isRowMajorLayout != other.isRowMajorLayout ||
-        binding != other.binding || blockType != other.blockType ||
+        layout != other.layout || binding != other.binding || blockType != other.blockType ||
         fields.size() != other.fields.size())
     {
         return false;
@@ -607,9 +603,12 @@ bool WorkGroupSize::isWorkGroupSizeMatching(const WorkGroupSize &right) const
 {
     for (size_t i = 0u; i < size(); ++i)
     {
-        bool result = (localSizeQualifiers[i] == right.localSizeQualifiers[i] ||
-                       (localSizeQualifiers[i] == 1 && right.localSizeQualifiers[i] == -1) ||
-                       (localSizeQualifiers[i] == -1 && right.localSizeQualifiers[i] == 1));
+        bool result = (ANGLE_UNSAFE_TODO(localSizeQualifiers[i]) ==
+                           ANGLE_UNSAFE_TODO(right.localSizeQualifiers[i]) ||
+                       (ANGLE_UNSAFE_TODO(localSizeQualifiers[i]) == 1 &&
+                        ANGLE_UNSAFE_TODO(right.localSizeQualifiers[i]) == -1) ||
+                       (ANGLE_UNSAFE_TODO(localSizeQualifiers[i]) == -1 &&
+                        ANGLE_UNSAFE_TODO(right.localSizeQualifiers[i]) == 1));
         if (!result)
         {
             return false;
@@ -621,13 +620,13 @@ bool WorkGroupSize::isWorkGroupSizeMatching(const WorkGroupSize &right) const
 int &WorkGroupSize::operator[](size_t index)
 {
     ASSERT(index < size());
-    return localSizeQualifiers[index];
+    return ANGLE_UNSAFE_TODO(localSizeQualifiers[index]);
 }
 
 int WorkGroupSize::operator[](size_t index) const
 {
     ASSERT(index < size());
-    return localSizeQualifiers[index];
+    return ANGLE_UNSAFE_TODO(localSizeQualifiers[index]);
 }
 
 size_t WorkGroupSize::size() const

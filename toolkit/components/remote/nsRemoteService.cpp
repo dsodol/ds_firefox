@@ -194,14 +194,14 @@ nsresult nsRemoteService::SendCommandLine(const nsACString& aProfile,
   UniquePtr<nsRemoteClient> client;
 #ifdef MOZ_WIDGET_GTK
 #  if defined(MOZ_ENABLE_DBUS)
-  client = std::make_unique<nsDBusRemoteClient>(mStartupToken);
+  client = MakeUnique<nsDBusRemoteClient>(mStartupToken);
 #  else
-  client = std::make_unique<nsXRemoteClient>(mStartupToken);
+  client = MakeUnique<nsXRemoteClient>(mStartupToken);
 #  endif
 #elif defined(XP_WIN)
-  client = std::make_unique<nsWinRemoteClient>();
+  client = MakeUnique<nsWinRemoteClient>();
 #elif defined(XP_DARWIN)
-  client = std::make_unique<nsMacRemoteClient>();
+  client = MakeUnique<nsMacRemoteClient>();
 #else
   return NS_ERROR_NOT_AVAILABLE;
 #endif
@@ -256,14 +256,14 @@ void nsRemoteService::StartupServer() {
 
 #ifdef MOZ_WIDGET_GTK
 #  if defined(MOZ_ENABLE_DBUS)
-  mRemoteServer = std::make_unique<nsDBusRemoteServer>();
+  mRemoteServer = MakeUnique<nsDBusRemoteServer>();
 #  else
-  mRemoteServer = std::make_unique<nsGTKRemoteServer>();
+  mRemoteServer = MakeUnique<nsGTKRemoteServer>();
 #  endif
 #elif defined(XP_WIN)
-  mRemoteServer = std::make_unique<nsWinRemoteServer>();
+  mRemoteServer = MakeUnique<nsWinRemoteServer>();
 #elif defined(XP_DARWIN)
-  mRemoteServer = std::make_unique<nsMacRemoteServer>();
+  mRemoteServer = MakeUnique<nsMacRemoteServer>();
 #else
   return;
 #endif
@@ -292,8 +292,8 @@ void nsRemoteService::ShutdownServer() { mRemoteServer = nullptr; }
 nsRemoteService::~nsRemoteService() { ShutdownServer(); }
 
 NS_IMETHODIMP
-nsRemoteService::Observe(nsISupports* /*aSubject*/, const char* /*aTopic*/,
-                         const char16_t* /*aData*/) {
+nsRemoteService::Observe(nsISupports* aSubject, const char* aTopic,
+                         const char16_t* aData) {
   // This can be xpcom-shutdown or quit-application, but it's the same either
   // way.
   ShutdownServer();

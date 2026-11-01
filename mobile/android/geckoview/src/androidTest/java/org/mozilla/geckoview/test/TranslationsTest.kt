@@ -79,9 +79,13 @@ class TranslationsTest : BaseSessionTest() {
         mainSession.loadTestPath(TRANSLATIONS_ES)
         mainSession.waitForPageStop()
 
+        val handled = GeckoResult<Void>()
         sessionRule.delegateUntilTestEnd(
             object : Delegate {
-                @AssertCalled(count = 1) override fun onExpectedTranslate(session: GeckoSession) {}
+                @AssertCalled(count = 1)
+                override fun onExpectedTranslate(session: GeckoSession) {
+                    handled.complete(null)
+                }
             }
         )
         val expectedTranslateEvent =
@@ -106,7 +110,7 @@ class TranslationsTest : BaseSessionTest() {
                     .trimIndent()
             )
         mainSession.triggerLanguageStateChange(expectedTranslateEvent)
-        mainSession.waitUntilCalled(Delegate::class, "onExpectedTranslate")
+        sessionRule.waitForResult(handled)
     }
 
     @Test
@@ -114,14 +118,18 @@ class TranslationsTest : BaseSessionTest() {
         mainSession.loadTestPath(TRANSLATIONS_ES)
         mainSession.waitForPageStop()
 
+        val handled = GeckoResult<Void>()
         sessionRule.delegateUntilTestEnd(
             object : Delegate {
-                @AssertCalled(count = 1) override fun onOfferTranslate(session: GeckoSession) {}
+                @AssertCalled(count = 1)
+                override fun onOfferTranslate(session: GeckoSession) {
+                    handled.complete(null)
+                }
             }
         )
 
         mainSession.triggerTranslationsOffer()
-        mainSession.waitUntilCalled(Delegate::class, "onOfferTranslate")
+        sessionRule.waitForResult(handled)
     }
 
     @Test
@@ -340,6 +348,7 @@ class TranslationsTest : BaseSessionTest() {
         var delegateCalled = 0
         sessionRule.delegateUntilTestEnd(
             object : Delegate {
+                @AssertCalled(count = 4)
                 override fun onTranslationStateChange(
                     session: GeckoSession,
                     translationState: TranslationState?,
@@ -394,11 +403,6 @@ class TranslationsTest : BaseSessionTest() {
                 assertTrue("Expect an exception while translating in automation.", true)
             }
         }
-        assertEquals(
-            "onTranslationStateChange should be called the expected number of times.",
-            if (sessionRule.env.isAutomation) 2 else 4,
-            delegateCalled,
-        )
     }
 
     @Test
@@ -860,6 +864,7 @@ class TranslationsTest : BaseSessionTest() {
         mainSession.loadTestPath(TRANSLATIONS_ES)
         mainSession.waitForPageStop()
 
+        val handled = GeckoResult<Void>()
         var delegateCalled = 0
         sessionRule.delegateUntilTestEnd(
             object : Delegate {
@@ -879,6 +884,7 @@ class TranslationsTest : BaseSessionTest() {
                             "After a translation, the DOM should be visibly changed.",
                             translationState!!.hasVisibleChange,
                         )
+                        handled.complete(null)
                     }
                 }
             }
@@ -928,15 +934,7 @@ class TranslationsTest : BaseSessionTest() {
                     .trimIndent()
             )
         mainSession.triggerLanguageStateChange(translated)
-        mainSession.waitUntilCalled(
-            object : Delegate {
-                @AssertCalled(count = 2)
-                override fun onTranslationStateChange(
-                    session: GeckoSession,
-                    translationState: TranslationState?,
-                ) {}
-            }
-        )
+        sessionRule.waitForResult(handled)
     }
 
     @Test
@@ -1001,6 +999,7 @@ class TranslationsTest : BaseSessionTest() {
         mainSession.loadTestPath(TRANSLATIONS_ES)
         mainSession.waitForPageStop()
 
+        val handled = GeckoResult<Void>()
         sessionRule.delegateUntilTestEnd(
             object : Delegate {
                 @AssertCalled(count = 1)
@@ -1046,6 +1045,7 @@ class TranslationsTest : BaseSessionTest() {
                         true,
                         translationState.isEngineReady,
                     )
+                    handled.complete(null)
                 }
             }
         )
@@ -1072,6 +1072,6 @@ class TranslationsTest : BaseSessionTest() {
                     .trimIndent()
             )
         mainSession.triggerLanguageStateChange(translated)
-        mainSession.waitUntilCalled(Delegate::class, "onTranslationStateChange")
+        sessionRule.waitForResult(handled)
     }
 }

@@ -266,7 +266,7 @@ class SheetLoadData final
     MOZ_ASSERT(mIsBeingParsed);
     mIsBeingParsed = false;
     if (!mPendingChildren) {
-      mLoader->SheetComplete(*this, NS_OK, Loader::TriggeringPendingLoad::No);
+      mLoader->SheetComplete(*this, NS_OK);
     }
   }
 

@@ -101,50 +101,6 @@ return handleRustResult(
 )
 }
 
-/**
- * Similar to create_static_key_manager above, create a
- * ManagedEncryptorDecryptor by passing in a KeyManager
- * @param {KeyManager} keyManager
- * @returns {EncryptorDecryptor}
- */
-export function createManagedEncdec(
-    keyManager) {
-   
-FfiConverterTypeKeyManager.checkType(keyManager);
-const result = UniFFIScaffolding.callSync(
-    6, // uniffi_db_crypto_fn_func_create_managed_encdec
-    FfiConverterTypeKeyManager.lower(keyManager),
-)
-return handleRustResult(
-    result,
-    FfiConverterTypeEncryptorDecryptor.lift.bind(FfiConverterTypeEncryptorDecryptor),
-    null,
-)
-}
-
-/**
- * Utility function to create a StaticKeyManager to be used for the time
- * being until support lands for [trait implementation of an UniFFI
- * interface](https://mozilla.github.io/uniffi-rs/next/proc_macro/index.html#structs-implementing-traits)
- * in UniFFI.
- * @param {string} key
- * @returns {KeyManager}
- */
-export function createStaticKeyManager(
-    key) {
-   
-FfiConverterString.checkType(key);
-const result = UniFFIScaffolding.callSync(
-    7, // uniffi_db_crypto_fn_func_create_static_key_manager
-    FfiConverterString.lower(key),
-)
-return handleRustResult(
-    result,
-    FfiConverterTypeKeyManager.lift.bind(FfiConverterTypeKeyManager),
-    null,
-)
-}
-
 
 
 
@@ -520,7 +476,7 @@ export class EncryptorDecryptorImpl extends EncryptorDecryptor {
        
         FfiConverterBytes.checkType(ciphertext);
         const result = UniFFIScaffolding.callSync(
-            124, // uniffi_db_crypto_fn_method_encryptordecryptor_decrypt
+            111, // uniffi_db_crypto_fn_method_encryptordecryptor_decrypt
             FfiConverterTypeEncryptorDecryptor.lowerReceiver(this),
             FfiConverterBytes.lower(ciphertext),
         )
@@ -541,7 +497,7 @@ export class EncryptorDecryptorImpl extends EncryptorDecryptor {
        
         FfiConverterBytes.checkType(cleartext);
         const result = UniFFIScaffolding.callSync(
-            125, // uniffi_db_crypto_fn_method_encryptordecryptor_encrypt
+            112, // uniffi_db_crypto_fn_method_encryptordecryptor_encrypt
             FfiConverterTypeEncryptorDecryptor.lowerReceiver(this),
             FfiConverterBytes.lower(cleartext),
         )
@@ -596,13 +552,13 @@ export class FfiConverterTypeEncryptorDecryptor extends FfiConverter {
     }
 
     static read(dataStream) {
-        return this.lift(dataStream.readHandleOrPointer(7))
+        return this.lift(dataStream.readHandleOrPointer(6))
     }
 
     static write(dataStream, value) {
         if (value[uniffiObjectPtr] instanceof UniFFIPointer) {
           // Rust-implemented interface, return the ptr.
-          dataStream.writePointer(7, this.lower(value));
+          dataStream.writePointer(6, this.lower(value));
         } else {
           dataStream.writeInt64(this.lower(value))
         }
@@ -688,7 +644,7 @@ export class KeyManagerImpl extends KeyManager {
     getKey() {
        
         const result = UniFFIScaffolding.callSync(
-            126, // uniffi_db_crypto_fn_method_keymanager_get_key
+            113, // uniffi_db_crypto_fn_method_keymanager_get_key
             FfiConverterTypeKeyManager.lowerReceiver(this),
         )
         return handleRustResult(
@@ -742,13 +698,13 @@ export class FfiConverterTypeKeyManager extends FfiConverter {
     }
 
     static read(dataStream) {
-        return this.lift(dataStream.readHandleOrPointer(8))
+        return this.lift(dataStream.readHandleOrPointer(7))
     }
 
     static write(dataStream, value) {
         if (value[uniffiObjectPtr] instanceof UniFFIPointer) {
           // Rust-implemented interface, return the ptr.
-          dataStream.writePointer(8, this.lower(value));
+          dataStream.writePointer(7, this.lower(value));
         } else {
           dataStream.writeInt64(this.lower(value))
         }
@@ -815,7 +771,7 @@ export class ManagedEncryptorDecryptor extends ManagedEncryptorDecryptorInterfac
        
         FfiConverterTypeKeyManager.checkType(keyManager);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            127, // uniffi_db_crypto_fn_constructor_managedencryptordecryptor_new
+            114, // uniffi_db_crypto_fn_constructor_managedencryptordecryptor_new
             FfiConverterTypeKeyManager.lower(keyManager),
         )
         return handleRustResult(
@@ -849,11 +805,11 @@ export class FfiConverterTypeManagedEncryptorDecryptor extends FfiConverter {
     }
 
     static read(dataStream) {
-        return this.lift(dataStream.readPointer(9));
+        return this.lift(dataStream.readPointer(8));
     }
 
     static write(dataStream, value) {
-        dataStream.writePointer(9, this.lower(value));
+        dataStream.writePointer(8, this.lower(value));
     }
 
     static computeSize(value) {
@@ -992,7 +948,7 @@ export class NssKeyManager extends NssKeyManagerInterface {
         FfiConverterString.checkType(keyName);
         FfiConverterTypePrimaryPasswordAuthenticator.checkType(primaryPasswordAuthenticator);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            128, // uniffi_db_crypto_fn_constructor_nsskeymanager_new
+            115, // uniffi_db_crypto_fn_constructor_nsskeymanager_new
             FfiConverterString.lower(keyName),
             FfiConverterTypePrimaryPasswordAuthenticator.lower(primaryPasswordAuthenticator),
         )
@@ -1010,7 +966,7 @@ export class NssKeyManager extends NssKeyManagerInterface {
     async intoDynKeyManager() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            129, // uniffi_db_crypto_fn_method_nsskeymanager_into_dyn_key_manager
+            116, // uniffi_db_crypto_fn_method_nsskeymanager_into_dyn_key_manager
             FfiConverterTypeNSSKeyManager.lowerReceiver(this),
         )
         return handleRustResult(
@@ -1044,11 +1000,11 @@ export class FfiConverterTypeNSSKeyManager extends FfiConverter {
     }
 
     static read(dataStream) {
-        return this.lift(dataStream.readPointer(10));
+        return this.lift(dataStream.readPointer(9));
     }
 
     static write(dataStream, value) {
-        dataStream.writePointer(10, this.lower(value));
+        dataStream.writePointer(9, this.lower(value));
     }
 
     static computeSize(value) {
@@ -1112,7 +1068,7 @@ export class PrimaryPasswordAuthenticatorImpl extends PrimaryPasswordAuthenticat
     async getPrimaryPassword() {
        
         const result = await UniFFIScaffolding.callAsync(
-            130, // uniffi_db_crypto_fn_method_primarypasswordauthenticator_get_primary_password
+            117, // uniffi_db_crypto_fn_method_primarypasswordauthenticator_get_primary_password
             FfiConverterTypePrimaryPasswordAuthenticator.lowerReceiver(this),
         )
         return handleRustResult(
@@ -1128,7 +1084,7 @@ export class PrimaryPasswordAuthenticatorImpl extends PrimaryPasswordAuthenticat
     async onAuthenticationSuccess() {
        
         const result = await UniFFIScaffolding.callAsync(
-            131, // uniffi_db_crypto_fn_method_primarypasswordauthenticator_on_authentication_success
+            118, // uniffi_db_crypto_fn_method_primarypasswordauthenticator_on_authentication_success
             FfiConverterTypePrimaryPasswordAuthenticator.lowerReceiver(this),
         )
         return handleRustResult(
@@ -1144,7 +1100,7 @@ export class PrimaryPasswordAuthenticatorImpl extends PrimaryPasswordAuthenticat
     async onAuthenticationFailure() {
        
         const result = await UniFFIScaffolding.callAsync(
-            132, // uniffi_db_crypto_fn_method_primarypasswordauthenticator_on_authentication_failure
+            119, // uniffi_db_crypto_fn_method_primarypasswordauthenticator_on_authentication_failure
             FfiConverterTypePrimaryPasswordAuthenticator.lowerReceiver(this),
         )
         return handleRustResult(
@@ -1198,13 +1154,13 @@ export class FfiConverterTypePrimaryPasswordAuthenticator extends FfiConverter {
     }
 
     static read(dataStream) {
-        return this.lift(dataStream.readHandleOrPointer(11))
+        return this.lift(dataStream.readHandleOrPointer(10))
     }
 
     static write(dataStream, value) {
         if (value[uniffiObjectPtr] instanceof UniFFIPointer) {
           // Rust-implemented interface, return the ptr.
-          dataStream.writePointer(11, this.lower(value));
+          dataStream.writePointer(10, this.lower(value));
         } else {
           dataStream.writeInt64(this.lower(value))
         }
@@ -1295,7 +1251,7 @@ export class StaticKeyManager extends StaticKeyManagerInterface {
        
         FfiConverterString.checkType(key);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            133, // uniffi_db_crypto_fn_constructor_statickeymanager_new
+            120, // uniffi_db_crypto_fn_constructor_statickeymanager_new
             FfiConverterString.lower(key),
         )
         return handleRustResult(
@@ -1329,11 +1285,11 @@ export class FfiConverterTypeStaticKeyManager extends FfiConverter {
     }
 
     static read(dataStream) {
-        return this.lift(dataStream.readPointer(12));
+        return this.lift(dataStream.readPointer(11));
     }
 
     static write(dataStream, value) {
-        dataStream.writePointer(12, this.lower(value));
+        dataStream.writePointer(11, this.lower(value));
     }
 
     static computeSize(value) {

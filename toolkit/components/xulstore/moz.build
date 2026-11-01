@@ -21,7 +21,3 @@ XPCOM_MANIFESTS += [
 EXTRA_JS_MODULES += [
     "XULStore.sys.mjs",
 ]
-
-SOURCE_HEADERS += [
-    "XULStore.h",
-]

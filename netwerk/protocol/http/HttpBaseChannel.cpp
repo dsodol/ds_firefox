@@ -6,7 +6,6 @@
 #include "mozilla/net/HttpBaseChannel.h"
 
 #include <algorithm>
-#include <memory>
 #include <utility>
 
 #include "HttpBaseChannel.h"
@@ -770,7 +769,7 @@ NS_IMETHODIMP
 HttpBaseChannel::SetContentDispositionFilename(
     const nsAString& aContentDispositionFilename) {
   mContentDispositionFilename =
-      std::make_unique<nsString>(aContentDispositionFilename);
+      MakeUnique<nsString>(aContentDispositionFilename);
 
   // For safety reasons ensure the filename doesn't contain null characters and
   // replace them with underscores. We may later pass the extension to system
@@ -2395,7 +2394,7 @@ HttpBaseChannel::RedirectTo(nsIURI* targetURI) {
   // We may want to rewrite origin allowance, hence we need an
   // artificial response head.
   if (!mResponseHead) {
-    mResponseHead = std::make_unique<nsHttpResponseHead>();
+    mResponseHead.reset(new nsHttpResponseHead());
   }
   return NS_OK;
 }
@@ -5323,14 +5322,6 @@ nsresult HttpBaseChannel::SetupReplacementChannel(nsIURI* newURI,
 
   newChannel->SetLoadGroup(mLoadGroup);
   newChannel->SetNotificationCallbacks(mCallbacks);
-
-  // Console reports that could not be flushed yet, because the document being
-  // loaded does not exist, must follow the load to the redirected channel.
-  nsCOMPtr<nsIConsoleReportCollector> reporter = do_QueryInterface(newChannel);
-  if (reporter) {
-    FlushConsoleReports(reporter);
-  }
-
   // TODO: create tests for cross-origin redirect in bug 1662896.
   if (sameOriginWithOriginalUri) {
     newChannel->SetContentDisposition(mContentDispositionHint);
@@ -6175,14 +6166,6 @@ IMPL_TIMING_ATTR(TransactionPending)
 
 #undef IMPL_TIMING_ATTR
 
-void HttpBaseChannel::MaybeReportTimingDataForRedirect(
-    nsISupports* aNewChannel) {
-  nsCOMPtr<nsITimedChannel> newTimedChannel = do_QueryInterface(aNewChannel);
-  if (!newTimedChannel) {
-    MaybeReportTimingData();
-  }
-}
-
 void HttpBaseChannel::MaybeReportTimingData() {
   // There is no point in continuing, since the performance object in the parent
   // isn't the same as the one in the child which will be reporting resource
@@ -6782,7 +6765,7 @@ HttpBaseChannel::MaybeCloneResponseHeadForCachedResource() {
     return nullptr;
   }
 
-  return std::make_unique<nsHttpResponseHead>(*mResponseHead);
+  return MakeUnique<nsHttpResponseHead>(*mResponseHead);
 }
 
 void HttpBaseChannel::SetDummyChannelForCachedResource(
@@ -6791,9 +6774,9 @@ void HttpBaseChannel::SetDummyChannelForCachedResource(
   MOZ_ASSERT(!mResponseHead,
              "SetDummyChannelForCachedResource should only be called once");
   if (aMaybeResponseHead) {
-    mResponseHead = std::make_unique<nsHttpResponseHead>(*aMaybeResponseHead);
+    mResponseHead = MakeUnique<nsHttpResponseHead>(*aMaybeResponseHead);
   } else {
-    mResponseHead = std::make_unique<nsHttpResponseHead>();
+    mResponseHead = MakeUnique<nsHttpResponseHead>();
   }
 }
 

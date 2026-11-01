@@ -9,7 +9,6 @@ import org.mozilla.fenix.tabstray.navigation.TabManagerNavDestination
 import org.mozilla.fenix.tabstray.redux.action.TabGroupAction
 import org.mozilla.fenix.tabstray.redux.action.TabSearchAction
 import org.mozilla.fenix.tabstray.redux.action.TabsTrayAction
-import org.mozilla.fenix.tabstray.redux.ext.withStorageUpdate
 import org.mozilla.fenix.tabstray.redux.state.TabSearchState
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState.DragProcessingState
@@ -231,7 +230,24 @@ internal object TabsTrayReducer {
     private fun handleTabUpdates(state: TabsTrayState, action: TabsTrayAction): TabsTrayState {
         return when (action) {
             is TabsTrayAction.UpdateSelectedTabId -> state.copy(selectedTabId = action.tabId)
-            is TabsTrayAction.TabDataUpdateReceived -> state.withStorageUpdate(storageUpdate = action.tabStorageUpdate)
+            is TabsTrayAction.TabDataUpdateReceived ->
+                state.copy(
+                    selectedTabId = action.tabStorageUpdate.selectedTabId,
+                    normalTabsState =
+                        state.normalTabsState.copy(
+                            items = action.tabStorageUpdate.normalItems,
+                            selectedItemIndex = action.tabStorageUpdate.selectedNormalItemIndex,
+                            tabCount = action.tabStorageUpdate.normalTabCount,
+                        ),
+                    inactiveTabs = state.inactiveTabs.copy(tabs = action.tabStorageUpdate.inactiveTabs),
+                    privateBrowsing =
+                        state.privateBrowsing.copy(
+                            tabs = action.tabStorageUpdate.privateTabs,
+                            selectedItemIndex = action.tabStorageUpdate.selectedPrivateItemIndex,
+                        ),
+                    tabGroupState = state.tabGroupState.copy(groups = action.tabStorageUpdate.tabGroups),
+                    hasTabDataLoaded = true,
+                )
             is TabsTrayAction.PersistedUiStateUpdateReceived ->
                 state.copy(
                     tabGroupState =

@@ -257,7 +257,6 @@ def build_one_stage(
             "-DLLVM_ENABLE_ASSERTIONS=%s" % ("ON" if assertions else "OFF"),
             "-DLLVM_ENABLE_BINDINGS=OFF",
             "-DLLVM_ENABLE_CURL=OFF",
-            "-DCLANG_ENABLE_CIR=OFF",
             # Don't autodetect the system libzstd: it's absent from the sysroots
             # we link against.
             "-DLLVM_ENABLE_ZSTD=OFF",

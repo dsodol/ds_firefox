@@ -8,6 +8,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -16,7 +17,6 @@ import mozilla.components.browser.state.state.ReaderState
 import mozilla.components.browser.state.state.createTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.text.Text
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.ui.MenuItemIconRes
 import mozilla.components.ui.icons.R as iconsR
@@ -37,7 +37,7 @@ class ReaderViewMenuItemProviderTest {
     fun `GIVEN reader view is not active WHEN building the menu item THEN return null`() = runTest {
         val provider = provider(browserStore(isReaderViewActive = false))
 
-        assertTrue(provider.itemsFlow.value.isEmpty())
+        assertNull(provider.itemFlow.value)
     }
 
     @Test
@@ -46,11 +46,11 @@ class ReaderViewMenuItemProviderTest {
 
         assertEquals(
             StandardMenuItem(
-                title = MenuItemTitle(Text.Resource(R.string.browser_menu_customize_reader_view_2)),
+                title = Text.Resource(R.string.browser_menu_customize_reader_view_2),
                 icon = MenuItemIconRes(iconsR.drawable.mozac_ic_tool_24),
                 onClickEvent = MenuAction.CustomizeReaderView,
             ),
-            provider.itemsFlow.value.single(),
+            provider.itemFlow.value,
         )
     }
 
@@ -58,7 +58,7 @@ class ReaderViewMenuItemProviderTest {
     fun `GIVEN there is no selected tab WHEN building the menu item THEN return null`() = runTest {
         val provider = provider(BrowserStore())
 
-        assertTrue(provider.itemsFlow.value.isEmpty())
+        assertNull(provider.itemFlow.value)
     }
 
     @Test
@@ -75,7 +75,7 @@ class ReaderViewMenuItemProviderTest {
     fun `WHEN building the item THEN handle all events it can dispatch and no others`() = runTest {
         val provider = provider(browserStore(isReaderViewActive = true))
 
-        val events = provider.itemsFlow.value.single().reachableEvents()
+        val events = requireNotNull(provider.itemFlow.value).reachableEvents()
 
         assertTrue(events.all { provider.handles(it) }, "Not all of $events are handled")
         assertFalse(provider.handles(MenuAction.FindInPage))

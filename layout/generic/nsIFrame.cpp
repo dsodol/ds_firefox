@@ -470,7 +470,7 @@ WeakFrame& WeakFrame::operator=(WeakFrame&& aOther) {
 }
 
 nsIFrame* NS_NewEmptyFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
-  return new nsIFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell) nsIFrame(aStyle, aPresShell->GetPresContext());
 }
 
 nsIFrame::~nsIFrame() {
@@ -1108,8 +1108,8 @@ void nsIFrame::Destroy(DestroyContext& aContext) {
 #endif
 
   // Now that we're totally cleaned out, we need to add ourselves to
-  // the frame arena.
-  FrameArena::Free(id, this);
+  // the presshell's recycler.
+  ps->FreeFrame(id, this);
 }
 
 std::pair<int32_t, int32_t> nsIFrame::GetOffsets() const {
@@ -2104,24 +2104,6 @@ nscoord nsIFrame::GetLogicalBaseline(
   return result;
 }
 
-nscoord nsIFrame::GetCaretBaseline() const {
-  const WritingMode wm = GetWritingMode();
-  const BaselineSharingGroup group = GetDefaultBaselineSharingGroup();
-  const nscoord result =
-      GetNaturalBaselineBOffset(wm, group, BaselineExportContext::LineLayout)
-          .valueOrFrom([this, wm, group]() {
-            // The synthesized caret baseline is placed at the frame's edge
-            // at the default baseline for the writing mode.
-            return Baseline::SynthesizeBOffsetFromMarginBox(
-                this, wm, group,
-                Baseline::DefaultAlignmentBaselineForWritingMode(wm));
-          });
-  if (group == BaselineSharingGroup::Last) {
-    return BSize(wm) - result;
-  }
-  return result;
-}
-
 const nsFrameList& nsIFrame::GetChildList(ChildListID aListID) const {
   if (IsAbsoluteContainer()) {
     if (aListID == FrameChildListID::Absolute) {
@@ -3088,17 +3070,6 @@ static void WrapSeparatorTransform(nsDisplayListBuilder* aBuilder,
   aParticipants->AppendToTop(item);
 }
 
-static bool HitTestsCapturedElementsAtLivePosition(nsPresContext* aPc) {
-  switch (StaticPrefs::dom_viewTransitions_hit_testing()) {
-    case 0:
-      return false;
-    case 1:
-      return true;
-    default:
-      return aPc->IsChrome();
-  }
-}
-
 // Try to compute a clip rect to bound the contents of the mask item
 // that will be built for |aMaskedFrame|. If we're not able to compute
 // one, return an empty Maybe.
@@ -3313,13 +3284,7 @@ void nsIFrame::BuildDisplayListForStackingContext(
   // the building of the display list for these frames, and then these APIs,
   // e.g. elementFromPoint(), will skip these frames as well.
   // https://drafts.csswg.org/css-view-transitions-1/#view-transition-stacking-layer
-  //
-  // dom.viewTransitions.hit-testing can make us hit-test them at their live
-  // position instead, which chrome documents do by default so the browser UI
-  // stays interactive while it animates. See
-  // https://github.com/w3c/csswg-drafts/issues/10930
-  if (capturedByViewTransition && aBuilder->IsForEventDelivery() &&
-      !HitTestsCapturedElementsAtLivePosition(PresContext())) {
+  if (capturedByViewTransition && aBuilder->IsForEventDelivery()) {
     return;
   }
 
@@ -3355,8 +3320,7 @@ void nsIFrame::BuildDisplayListForStackingContext(
     // Start a new preserves3d context to keep informations on
     // nsDisplayListBuilder.
     autoPreserves3DContext =
-        std::make_unique<nsDisplayListBuilder::AutoPreserves3DContext>(
-            aBuilder);
+        MakeUnique<nsDisplayListBuilder::AutoPreserves3DContext>(aBuilder);
     // Save dirty rect on the builder to avoid being distorted for
     // multiple transforms along the chain.
     aBuilder->SavePreserves3DRect();
@@ -3470,7 +3434,7 @@ void nsIFrame::BuildDisplayListForStackingContext(
   const bool usingSVGEffects = usingFilter || usingMask;
 
   const nsRect visibleRectOutsideSVGEffects = visibleRect;
-  nsDisplayList hoistedScrollInfoItemsStorage;
+  nsDisplayList hoistedScrollInfoItemsStorage(aBuilder);
   if (usingSVGEffects) {
     dirtyRect =
         SVGIntegrationUtils::GetRequiredSourceForInvalidArea(this, dirtyRect);
@@ -3748,7 +3712,7 @@ void nsIFrame::BuildDisplayListForStackingContext(
     content = PresContext()->Document()->GetRootElement();
   }
 
-  nsDisplayList resultList;
+  nsDisplayList resultList(aBuilder);
   set.SerializeWithCorrectZOrder(&resultList, content);
 
   // Get the ASR to use for the container items that we create here.
@@ -3937,8 +3901,8 @@ void nsIFrame::BuildDisplayListForStackingContext(
     if (extend3DContext) {
       // Install dummy nsDisplayTransform as a leaf containing
       // descendants not participating this 3D rendering context.
-      nsDisplayList nonparticipants;
-      nsDisplayList participants;
+      nsDisplayList nonparticipants(aBuilder);
+      nsDisplayList participants(aBuilder);
       int index = 1;
 
       nsDisplayItem* separator = nullptr;
@@ -4152,7 +4116,7 @@ void nsIFrame::BuildDisplayListForStackingContext(
           nsDisplayItem::ContainerASRType::AncestorOfContained, &resultList);
     } else {
       MOZ_ASSERT(resultList.Length() == 1);
-      resultList.RemoveBottom();
+      resultList.Clear();
     }
 
     // Mark the outermost display item as reusable. These display items and
@@ -4193,7 +4157,7 @@ static nsDisplayItem* WrapInWrapList(nsDisplayListBuilder* aBuilder,
   // we can skip adding one.
   if (aBuiltContainerItem || (!aBuilder->IsPartialUpdate() && !needsWrapList)) {
     MOZ_ASSERT(aList->Length() == 1);
-    aList->RemoveBottom();
+    aList->Clear();
     return item;
   }
 
@@ -4211,7 +4175,7 @@ static nsDisplayItem* WrapInWrapList(nsDisplayListBuilder* aBuilder,
       DiscardOldItems(aFrame);
     } else {
       MOZ_ASSERT(aList->Length() == 1);
-      aList->RemoveBottom();
+      aList->Clear();
       return item;
     }
   }
@@ -4433,18 +4397,19 @@ void nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder* aBuilder,
   // frames that correspond to HTML link elements so that we can have active
   // links in saved PDF output. Note that the state of "within a link" is
   // set on the display-list builder, such that all descendants of the link
-  // element will generate display-list links, except for descendants entirely
-  // covered by the link element's frame, since those would add nothing useful
-  // to the final PDF.
+  // element will generate display-list links.
+  // TODO: we should be able to optimize this so as to avoid creating links
+  // for the same destination that entirely overlap each other, which adds
+  // nothing useful to the final PDF.
   Maybe<nsDisplayListBuilder::Linkifier> linkifier;
   if (aBuilder->IsForPrinting()) {
-#ifdef ACCESSIBILITY
-    MaybeAddAccId(childOrOutOfFlow, aBuilder, aLists);
-#endif
     if (StaticPrefs::print_save_as_pdf_links_enabled()) {
       linkifier.emplace(aBuilder, childOrOutOfFlow, aLists.Content());
       linkifier->MaybeAppendLink(aBuilder, childOrOutOfFlow);
     }
+#ifdef ACCESSIBILITY
+    MaybeAddAccId(childOrOutOfFlow, aBuilder, aLists);
+#endif
   }
 
   nsIFrame* parent = childOrOutOfFlow->GetParent();
@@ -4669,8 +4634,8 @@ void nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder* aBuilder,
     awayFromCommonPath = true;
   }
 
-  nsDisplayList list;
-  nsDisplayList extraPositionedDescendants;
+  nsDisplayList list(aBuilder);
+  nsDisplayList extraPositionedDescendants(aBuilder);
   const ActiveScrolledRoot* wrapListASR;
   bool builtContainerItem = false;
   if (isStackingContext) {
@@ -8891,34 +8856,6 @@ OverflowAreas nsIFrame::GetOverflowAreasRelativeToParent() const {
 
 OverflowAreas nsIFrame::GetActualAndNormalOverflowAreasRelativeToParent()
     const {
-  if (MOZ_UNLIKELY(IsAbsolutelyPositioned())) {
-    const auto* referenceData = GetProperty(AnchorPosReferences());
-    if (!referenceData || !referenceData->mRememberedScrollOffset ||
-        referenceData->mDefaultScrollShift == nsPoint()) {
-      return GetOverflowAreasRelativeToParent();
-    }
-    // Including the default scroll shift in the scrollable overflow would
-    // change the scroll range that produced it. So, like sticky positioned
-    // frames below, use the position without the default scroll shift for both
-    // overflow areas, and add the current position only to the ink overflow,
-    // which is where we paint.
-    //
-    // Per spec, "after layout has been performed for abspos, it is additionally
-    // shifted by the default scroll shift, as if affected by a transform". We
-    // store the shifts the other way around. UpdateScrollShift() moves the
-    // frame by subtracting the scroll shift from the frame's current position,
-    // and stores it back, so GetPosition() is the final position with the
-    // default scroll shift applied. To get the unshifted position, we undo the
-    // default scroll shift by adding it back.
-    // https://drafts.csswg.org/css-anchor-position-1/#default-scroll-shift
-    const nsPoint unshiftedPosition =
-        GetPosition() + referenceData->mDefaultScrollShift;
-    const OverflowAreas overflows = GetOverflowAreas();
-    OverflowAreas result(overflows.InkOverflow() + GetPosition(), nsRect());
-    result.UnionWith(overflows + unshiftedPosition);
-    return result;
-  }
-
   if (MOZ_LIKELY(!IsRelativelyOrStickyPositioned())) {
     return GetOverflowAreasRelativeToParent();
   }
@@ -12418,12 +12355,6 @@ gfx::Matrix nsIFrame::ComputeWidgetTransform() const {
   gfx::Matrix4x4 matrix = nsStyleTransformMatrix::ReadTransforms(
       uiReset->mMozWindowTransform, refBox, float(appUnitsPerDevPixel),
       nsStyleTransformMatrix::Zoomed::Yes);
-
-  // Apply the transform-origin translation to the matrix.
-  const StyleTransformOrigin& origin = StyleDisplay()->mTransformOrigin;
-  Point transformOrigin = nsStyleTransformMatrix::Convert2DPosition(
-      origin.horizontal, origin.vertical, refBox, appUnitsPerDevPixel);
-  matrix.ChangeBasis(Point3D(transformOrigin.x, transformOrigin.y, 0));
 
   gfx::Matrix result2d;
   if (!matrix.CanDraw2D(&result2d)) {

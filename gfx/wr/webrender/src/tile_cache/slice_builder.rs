@@ -267,17 +267,12 @@ impl TileCacheBuilder {
     }
 
     /// Add a primitive, either to the current tile cache, or a new one, depending on various conditions.
-    /// A non-atomic slice picks the tile cache by `placement_node_index`, which
-    /// is the primitive's spatial node except for a backdrop-filter chain: that
-    /// is in its backdrop root's space, only known once the slice is built, so
-    /// it is placed by the backdrop-filter element's spatial node.
     pub fn add_prim(
         &mut self,
         prim_instance: PrimitiveInstance,
         prim_rect: LayoutRect,
         prim_local_clip_rect: LayoutRect,
         spatial_node_index: SpatialNodeIndex,
-        placement_node_index: SpatialNodeIndex,
         prim_flags: PrimitiveFlags,
         spatial_tree: &SceneSpatialTree,
         quality_settings: &QualitySettings,
@@ -298,11 +293,11 @@ impl TileCacheBuilder {
                 );
             }
             SliceKind::Default { ref mut secondary_slices } => {
-                assert_ne!(placement_node_index, SpatialNodeIndex::UNKNOWN);
+                assert_ne!(spatial_node_index, SpatialNodeIndex::UNKNOWN);
 
                 // Check if we want to create a new slice based on the current / next scroll root
                 let scroll_root = find_scroll_root(
-                    placement_node_index,
+                    spatial_node_index,
                     &mut self.prev_scroll_root_cache,
                     spatial_tree,
                     // Allow sticky frames as scroll roots, unless our quality settings prefer
@@ -481,23 +476,6 @@ fn find_scroll_root(
     scroll_root
 }
 
-/// Returns true if every non-zero corner radius has the same value. Native
-/// compositors such as CoreAnimation can only apply a single corner radius,
-/// selecting which corners it applies to.
-fn has_single_corner_radius(radius: &BorderRadius) -> bool {
-    let mut single = None;
-    for corner in [radius.top_left, radius.top_right, radius.bottom_left, radius.bottom_right] {
-        if corner.width > 0.0 || corner.height > 0.0 {
-            match single {
-                None => single = Some(corner),
-                Some(r) if r != corner => return false,
-                Some(_) => {}
-            }
-        }
-    }
-    true
-}
-
 /// Given a PrimitiveList and scroll root, construct a tile cache primitive instance
 /// that wraps the primitive list.
 fn create_tile_cache(
@@ -579,7 +557,6 @@ fn create_tile_cache(
         let node_valid = if is_rcs {
             match clip_node_data.key.kind {
                 ClipItemKeyKind::ImageMask(..) |
-                ClipItemKeyKind::Path(..) |
                 ClipItemKeyKind::Rectangle(ClipMode::ClipOut) |
                 ClipItemKeyKind::RoundedRectangle(_, _, ClipMode::ClipOut) => {
                     // Has an image-mask or clip-out clip, we can't handle this as a shared clip
@@ -590,8 +567,7 @@ fn create_tile_cache(
                     // as uniform radii to be able to apply the clip during compositing.
                     let br = clamped_radius(&BorderRadius::from(radius), node.unsnapped_clip_rect.size());
                     if !debug_flags.contains(DebugFlags::DISABLE_COMPOSITOR_CLIPS) &&
-                       br.can_use_fast_path_in(&node.unsnapped_clip_rect) &&
-                       has_single_corner_radius(&br) {
+                       br.can_use_fast_path_in(&node.unsnapped_clip_rect) {
                         rounded_rect_count += 1;
 
                         if accumulated_rounded_rect.is_none() {
@@ -632,7 +608,6 @@ fn create_tile_cache(
                             acc_rect, acc_radius,
                             node.unsnapped_clip_rect, radius,
                         )
-                        .filter(|(_, combined_radius)| has_single_corner_radius(combined_radius))
                     }
                     _ => None,
                 };
@@ -744,7 +719,7 @@ impl Default for PictureCacheDebugInfo {
 }
 
 /// Debug information about the compositor clip applied to a picture cache slice
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 pub struct CompositorClipDebugInfo {
@@ -757,30 +732,22 @@ pub struct CompositorClipDebugInfo {
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 pub struct SliceDebugInfo {
-    /// Tile state by offset, for each sub-slice.
-    pub sub_slices: Vec<FastHashMap<TileOffset, TileDebugInfo>>,
+    pub tiles: FastHashMap<TileOffset, TileDebugInfo>,
     pub compositor_clip: Option<CompositorClipDebugInfo>,
 }
 
 impl SliceDebugInfo {
     pub fn new() -> Self {
         SliceDebugInfo {
-            sub_slices: Vec::new(),
+            tiles: FastHashMap::default(),
             compositor_clip: None,
         }
     }
 
-    pub fn add_tile(&mut self, sub_slice_index: usize, offset: TileOffset, info: TileDebugInfo) {
-        if self.sub_slices.len() <= sub_slice_index {
-            self.sub_slices.resize_with(sub_slice_index + 1, FastHashMap::default);
-        }
-        self.sub_slices[sub_slice_index].insert(offset, info);
-    }
-
-    /// Convenience method to retrieve a given tile of the primary sub-slice.
-    /// Deliberately panics if the tile isn't present.
+    /// Convenience method to retrieve a given tile. Deliberately panics
+    /// if the tile isn't present.
     pub fn tile(&self, x: i32, y: i32) -> &TileDebugInfo {
-        &self.sub_slices[0][&TileOffset::new(x, y)]
+        &self.tiles[&TileOffset::new(x, y)]
     }
 }
 

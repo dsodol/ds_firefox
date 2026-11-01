@@ -7,7 +7,6 @@
 
 #include "mozilla/HashFunctions.h"
 #include "mozilla/Result.h"
-#include "mozilla/ResultVariant.h"
 #include "nsString.h"
 
 namespace mozilla {

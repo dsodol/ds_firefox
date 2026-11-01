@@ -639,8 +639,7 @@ ASSERT ARCH_X86_32
     paddw         m0, [PIC_sym(pw_2)]
     paddw         m0, m0
     paddw         m0, m2                        ; E
-    mova          m7, [bdmulq]
-    REPX {pmullw x, m7}, m0, m1, m2
+    REPX {pmullw x, [bdmulq]}, m0, m1, m2
 %if ARCH_X86_32
 %undef l_strideq
     lea    stride3q, [strideq*3]

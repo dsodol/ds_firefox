@@ -225,7 +225,7 @@ void TrackBuffersManager::ProcessTasks() {
         newBuffer->AppendElements(*task->As<AppendBufferTask>()->mBuffer);
         mInputBuffer = Some(MediaSpan(newBuffer));
       }
-      mSourceBufferAttributes = std::make_unique<SourceBufferAttributes>(
+      mSourceBufferAttributes = MakeUnique<SourceBufferAttributes>(
           task->As<AppendBufferTask>()->mAttributes);
       mAppendWindow =
           Interval<double>(mSourceBufferAttributes->GetAppendWindowStart(),

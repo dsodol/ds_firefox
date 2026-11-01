@@ -222,7 +222,7 @@ nsTArray<RefPtr<dom::RTCStatsPromise>> RTCRtpSender::GetStatsInternal(
     promises.AppendElement(InvokeAsync(
         mPipeline->mCallThread, __func__,
         [conduit = mPipeline->mConduit, trackName]() mutable {
-          auto report = std::make_unique<dom::RTCStatsCollection>();
+          auto report = MakeUnique<dom::RTCStatsCollection>();
           Maybe<webrtc::Call::Stats> stats = conduit->GetCallStats();
           stats.apply([&](const auto aStats) {
             dom::RTCBandwidthEstimationInternal bw;
@@ -251,7 +251,7 @@ nsTArray<RefPtr<dom::RTCStatsPromise>> RTCRtpSender::GetStatsInternal(
        transportId = std::move(transportId),
        videoSsrcToRidMap = std::move(videoSsrcToRidMap), isSending,
        audioCodec = mAudioCodec.Ref()] {
-        auto report = std::make_unique<dom::RTCStatsCollection>();
+        auto report = MakeUnique<dom::RTCStatsCollection>();
         auto asAudio = pipeline->mConduit->AsAudioSessionConduit();
         auto asVideo = pipeline->mConduit->AsVideoSessionConduit();
 
@@ -407,10 +407,6 @@ nsTArray<RefPtr<dom::RTCStatsPromise>> RTCRtpSender::GetStatsInternal(
                   audioStats->retransmitted_packets_sent);
               local.mRetransmittedBytesSent.Construct(
                   audioStats->retransmitted_bytes_sent);
-              if (audioStats->target_bitrate_bps > 0) {
-                local.mTargetBitrate.Construct(
-                    static_cast<double>(audioStats->target_bitrate_bps));
-              }
             } else {
               local.mPacketsSent.Construct(0);
               local.mBytesSent.Construct(0);
@@ -419,6 +415,13 @@ nsTArray<RefPtr<dom::RTCStatsPromise>> RTCRtpSender::GetStatsInternal(
               local.mRetransmittedPacketsSent.Construct(0);
               local.mRetransmittedBytesSent.Construct(0);
             }
+            /*
+             * Potential new stats that are now available upstream.
+             * Note: when we last tried exposing this we were getting
+             * targetBitrate for audio was ending up as 0. We did not
+             * investigate why.
+            local.mTargetBitrate.Construct(audioStats->target_bitrate_bps);
+             */
             if (!report->mOutboundRtpStreamStats.AppendElement(std::move(local),
                                                                fallible)) {
               mozalloc_handle_oom(0);
@@ -522,6 +525,8 @@ nsTArray<RefPtr<dom::RTCStatsPromise>> RTCRtpSender::GetStatsInternal(
                   streamStats->rtp_stats.retransmitted.packets);
               local.mRetransmittedBytesSent.Construct(
                   streamStats->rtp_stats.retransmitted.payload_bytes);
+              local.mTotalEncodedBytesTarget.Construct(
+                  videoStats->total_encoded_bytes_target);
               local.mFrameWidth.Construct(streamStats->width);
               local.mFrameHeight.Construct(streamStats->height);
               local.mFramesPerSecond.Construct(streamStats->encode_frame_rate);
@@ -529,10 +534,6 @@ nsTArray<RefPtr<dom::RTCStatsPromise>> RTCRtpSender::GetStatsInternal(
               local.mHugeFramesSent.Construct(streamStats->huge_frames_sent);
               local.mTotalEncodeTime.Construct(
                   double(streamStats->total_encode_time_ms) / 1000.);
-              if (streamStats->target_bitrate) {
-                local.mTargetBitrate.Construct(
-                    streamStats->target_bitrate->bps<double>());
-              }
             } else {
               local.mPacketsSent.Construct(0);
               local.mBytesSent.Construct(0);
@@ -544,12 +545,17 @@ nsTArray<RefPtr<dom::RTCStatsPromise>> RTCRtpSender::GetStatsInternal(
               local.mHeaderBytesSent.Construct(0);
               local.mRetransmittedPacketsSent.Construct(0);
               local.mRetransmittedBytesSent.Construct(0);
+              local.mTotalEncodedBytesTarget.Construct(0);
               local.mFramesSent.Construct(0);
               local.mHugeFramesSent.Construct(0);
               local.mTotalEncodeTime.Construct(0);
             }
             aConduit->GetAssociatedLocalRtxSSRC(ssrc).apply(
                 [&](const auto rtxSsrc) { local.mRtxSsrc.Construct(rtxSsrc); });
+            /*
+             * Potential new stats that are now available upstream.
+            local.mTargetBitrate.Construct(videoStats->target_media_bitrate_bps);
+             */
             if (!report->mOutboundRtpStreamStats.AppendElement(std::move(local),
                                                                fallible)) {
               mozalloc_handle_oom(0);
@@ -611,9 +617,7 @@ nsCString RTCRtpSender::GetEffectiveTLDPlus1() const {
 }
 
 already_AddRefed<Promise> RTCRtpSender::SetParameters(
-    const dom::RTCRtpSendParameters& aParameters,
-    const dom::RTCSetParameterOptions& aSetParameterOptions,
-    ErrorResult& aError) {
+    const dom::RTCRtpSendParameters& aParameters, ErrorResult& aError) {
   dom::RTCRtpSendParameters paramsCopy(aParameters);
   // When the setParameters method is called, the user agent MUST run the
   // following steps:
@@ -909,23 +913,6 @@ already_AddRefed<Promise> RTCRtpSender::SetParameters(
     return p.forget();
   }
 
-  // https://w3c.github.io/webrtc-extensions/#rtcrtpsender-setparameters-keyframe
-  // If the transceiver kind of the associated transceiver is "audio", set
-  // setParameterOptions.encodingOptions to the empty list.
-  const auto& encodingOptions = aSetParameterOptions.mEncodingOptions;
-  const bool useEncodingOptions =
-      mTransceiver->IsVideo() && !encodingOptions.IsEmpty();
-  // If setParameterOptions.encodingOptions is not empty and
-  // setParameterOptions.encodingOptions.length is different from
-  // parameters.encodings.length, return a promise rejected with a newly
-  // created InvalidModificationError.
-  if (useEncodingOptions &&
-      encodingOptions.Length() != paramsCopy.mEncodings.Length()) {
-    p->MaybeRejectWithInvalidModificationError(
-        "encodingOptions must have the same length as encodings");
-    return p.forget();
-  }
-
   // If transceiver kind is "video", then for each encoding in encodings that
   // doesn't contain a scaleResolutionDownBy member, add a
   // scaleResolutionDownBy member with the value 1.0.
@@ -974,39 +961,11 @@ already_AddRefed<Promise> RTCRtpSender::SetParameters(
     mVideoDegradationPreference = webrtc::DegradationPreference::DISABLED;
   }
 
-  // For each setParameterOptions.encodingOptions indexed by i, if
-  // setParameterOptions.encodingOptions[i].keyFrame is set to true, request
-  // that the encoder associated with parameters.encodings[i] generates a key
-  // frame.
-  Maybe<std::vector<std::string>> keyFrameRids;
-  if (useEncodingOptions) {
-    for (size_t i = 0; i < encodingOptions.Length(); ++i) {
-      if (!encodingOptions[i].mKeyFrame) {
-        continue;
-      }
-      if (!keyFrameRids) {
-        keyFrameRids.emplace();
-      }
-      if (paramsCopy.mEncodings[i].mRid.WasPassed()) {
-        keyFrameRids->push_back(
-            NS_ConvertUTF16toUTF8(paramsCopy.mEncodings[i].mRid.Value()).get());
-      }
-    }
-  }
-
   // If the media stack is successfully configured with parameters,
   // queue a task to run the following steps:
   GetMainThreadSerialEventTarget()->Dispatch(NS_NewRunnableFunction(
       __func__,
-      [this, self = RefPtr<RTCRtpSender>(this), p, paramsCopy, serialNumber,
-       keyFrameRids = std::move(keyFrameRids)]() mutable {
-        // Requested here so it reaches the call thread after the new config.
-        if (keyFrameRids && mPipeline) {
-          mPipeline->mConduit->AsVideoSessionConduit().apply(
-              [&](const auto& conduit) {
-                conduit->GenerateKeyFrames(std::move(*keyFrameRids));
-              });
-        }
+      [this, self = RefPtr<RTCRtpSender>(this), p, paramsCopy, serialNumber] {
         // Set sender.[[LastReturnedParameters]] to null.
         mLastReturnedParameters = Nothing();
         // Set sender.[[SendEncodings]] to parameters.encodings.

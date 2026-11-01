@@ -19,7 +19,6 @@
 #include "common/angleutils.h"
 #include "libANGLE/angletypes.h"
 
-#include <array>
 #include <map>
 
 namespace gl
@@ -241,12 +240,12 @@ class VaryingPacking final : angle::NonCopyable
 
     struct Register
     {
-        Register() = default;
+        Register() { data[0] = data[1] = data[2] = data[3] = false; }
 
-        bool &operator[](unsigned int index) { return data[index]; }
-        bool operator[](unsigned int index) const { return data[index]; }
+        bool &operator[](unsigned int index) { return ANGLE_UNSAFE_TODO(data[index]); }
+        bool operator[](unsigned int index) const { return ANGLE_UNSAFE_TODO(data[index]); }
 
-        std::array<bool, 4> data = {};
+        bool data[4];
     };
 
     Register &operator[](unsigned int index) { return mRegisterMap[index]; }

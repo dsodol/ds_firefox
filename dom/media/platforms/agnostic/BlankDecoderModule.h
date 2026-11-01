@@ -49,7 +49,10 @@ class BlankDecoderModule : public PlatformDecoderModule {
  public:
   static already_AddRefed<PlatformDecoderModule> Create();
 
-  RefPtr<CreateDecoderPromise> AsyncCreateDecoder(
+  already_AddRefed<MediaDataDecoder> CreateVideoDecoder(
+      const CreateDecoderParams& aParams) override;
+
+  already_AddRefed<MediaDataDecoder> CreateAudioDecoder(
       const CreateDecoderParams& aParams) override;
 
   media::DecodeSupportSet SupportsMimeType(

@@ -262,8 +262,7 @@ already_AddRefed<Attr> nsDOMAttributeMap::SetNamedItemNS(
   aAttr.SetMap(this);
 
   rv = mContent->SetAttr(ni->NamespaceID(), ni->NameAtom(), ni->GetPrefixAtom(),
-                         *compliantString, nullptr, true,
-                         oldNi ? IsKnownNewAttr::No : IsKnownNewAttr::Yes);
+                         *compliantString, true);
   if (NS_FAILED(rv)) {
     DropAttribute(ni->NamespaceID(), ni->NameAtom());
     aError.Throw(rv);

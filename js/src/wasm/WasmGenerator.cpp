@@ -808,7 +808,7 @@ bool ModuleGenerator::compileFuncDef(uint32_t funcIndex,
   if (compilingTier1()) {
     static_assert(MaxFunctionBytes < UINT32_MAX);
     uint32_t bodyLength = (uint32_t)(end - begin);
-    funcDefRanges_.infallibleEmplaceBack(bytecodeOffset, bodyLength);
+    funcDefRanges_.infallibleAppend(BytecodeRange(bytecodeOffset, bodyLength));
   }
 
   uint32_t threshold;

@@ -463,19 +463,10 @@ bool NativeObject::addDenseElementPure(JSContext* cx, NativeObject* obj) {
   MOZ_ASSERT_IF(obj->is<ArrayObject>(),
                 obj->as<ArrayObject>().lengthIsWritable());
 
-  // We can't call Watchtower::watchFirstDenseElementAdd here because it can pop
-  // fuses, so fall back to the VM. This can only happen until the fuse is
-  // popped, which the VM does when it adds the element, so it's very rare in
-  // practice.
-  uint32_t oldCapacity = obj->getDenseCapacity();
-  if (MOZ_UNLIKELY(oldCapacity == 0 &&
-                   Watchtower::watchesFirstDenseElementAdd(obj))) {
-    return false;
-  }
-
   // growElements will report OOM also if the number of dense elements will
   // exceed MAX_DENSE_ELEMENTS_COUNT. See goodElementsAllocationAmount.
-  if (MOZ_UNLIKELY(!obj->growElementsNoWatchtowerCheck(cx, oldCapacity + 1))) {
+  uint32_t oldCapacity = obj->getDenseCapacity();
+  if (MOZ_UNLIKELY(!obj->growElements(cx, oldCapacity + 1))) {
     cx->recoverFromOutOfMemory();
     return false;
   }
@@ -499,7 +490,7 @@ void NativeObject::shrinkSlots(JSContext* cx, uint32_t oldCapacity,
   uint32_t oldAllocated = ObjectSlots::allocCount(oldCapacity);
 
   if (newCapacity == 0 && uid == 0) {
-    if (gc::IsGCPointerBufferAlloc(oldHeaderSlots)) {
+    if (gc::IsBufferAlloc(oldHeaderSlots)) {
       gc::FreeBuffer(zone(), oldHeaderSlots);
     }
     // dictionarySlotSpan is initialized to the correct value by the callers.
@@ -589,15 +580,15 @@ bool NativeObject::willBeSparseElements(uint32_t requiredCapacity,
 }
 
 /* static */
-bool NativeObject::maybeDensifySparseElements(JSContext* cx,
-                                              Handle<NativeObject*> obj) {
+DenseElementResult NativeObject::maybeDensifySparseElements(
+    JSContext* cx, Handle<NativeObject*> obj) {
   /*
    * Wait until after the object goes into dictionary mode, which must happen
    * when sparsely packing any array with more than MIN_SPARSE_INDEX elements
    * (see PropertyTree::MAX_HEIGHT).
    */
   if (!obj->inDictionaryMode()) {
-    return true;
+    return DenseElementResult::Incomplete;
   }
 
   /*
@@ -606,12 +597,12 @@ bool NativeObject::maybeDensifySparseElements(JSContext* cx,
    */
   uint32_t slotSpan = obj->slotSpan();
   if (slotSpan != RoundUpPow2(slotSpan)) {
-    return true;
+    return DenseElementResult::Incomplete;
   }
 
   /* Watch for conditions under which an object's elements cannot be dense. */
   if (!obj->isExtensible()) {
-    return true;
+    return DenseElementResult::Incomplete;
   }
 
   /*
@@ -629,7 +620,7 @@ bool NativeObject::maybeDensifySparseElements(JSContext* cx,
     if (iter->flags() != PropertyFlags::defaultDataPropFlags) {
       // For simplicity, only densify the object if all indexed properties can
       // be converted to dense elements.
-      return true;
+      return DenseElementResult::Incomplete;
     }
     MOZ_ASSERT(iter->isDataProperty());
     numDenseElements++;
@@ -637,11 +628,11 @@ bool NativeObject::maybeDensifySparseElements(JSContext* cx,
   }
 
   if (numDenseElements * SPARSE_DENSITY_RATIO < newInitializedLength) {
-    return true;
+    return DenseElementResult::Incomplete;
   }
 
   if (newInitializedLength > MAX_DENSE_ELEMENTS_COUNT) {
-    return true;
+    return DenseElementResult::Incomplete;
   }
 
   /*
@@ -651,11 +642,15 @@ bool NativeObject::maybeDensifySparseElements(JSContext* cx,
 
   if (newInitializedLength > obj->getDenseCapacity()) {
     if (!obj->growElements(cx, newInitializedLength)) {
-      return false;
+      return DenseElementResult::Failure;
     }
   }
 
-  return NativeObject::densifySparseElements(cx, obj, newInitializedLength);
+  if (!NativeObject::densifySparseElements(cx, obj, newInitializedLength)) {
+    return DenseElementResult::Failure;
+  }
+
+  return DenseElementResult::Success;
 }
 
 void NativeObject::moveShiftedElements() {
@@ -892,14 +887,6 @@ bool NativeObject::goodElementsAllocationAmount(JSContext* cx,
 }
 
 bool NativeObject::growElements(JSContext* cx, uint32_t reqCapacity) {
-  if (getDenseCapacity() == 0) {
-    Watchtower::watchFirstDenseElementAdd(cx, this);
-  }
-  return growElementsNoWatchtowerCheck(cx, reqCapacity);
-}
-
-bool NativeObject::growElementsNoWatchtowerCheck(JSContext* cx,
-                                                 uint32_t reqCapacity) {
   MOZ_ASSERT(isExtensible());
   MOZ_ASSERT(canHaveNonEmptyElements());
 
@@ -1497,9 +1484,13 @@ static MOZ_ALWAYS_INLINE bool AddOrChangeProperty(
   // until the free list is empty. This means we'd get quadratic behavior by
   // trying to densify for each sparse element we add. See bug 1782487.
   if (id.isInt() && slot == obj->slotSpan() - 1) {
-    if (!NativeObject::maybeDensifySparseElements(cx, obj)) {
+    DenseElementResult edResult =
+        NativeObject::maybeDensifySparseElements(cx, obj);
+    if (edResult == DenseElementResult::Failure) {
       return false;
     }
+    MOZ_ASSERT_IF(edResult == DenseElementResult::Success,
+                  !desc.isAccessorDescriptor());
   }
 
   return true;

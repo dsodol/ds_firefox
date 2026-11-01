@@ -102,8 +102,6 @@ export class WallpaperFeed {
   /**
    * This thin wrapper around global.fetch makes it easier for us to write
    * automated tests that simulate responses from this fetch.
-   *
-   * @param {Parameters<typeof fetch>} args
    */
   fetch(...args) {
     return fetch(...args);
@@ -119,8 +117,6 @@ export class WallpaperFeed {
   /**
    * This thin wrapper around lazy.RemoteSettings makes it easier for us to write
    * automated tests that simulate responses from this fetch.
-   *
-   * @param {Parameters<typeof lazy.RemoteSettings>} args
    */
   RemoteSettings(...args) {
     return lazy.RemoteSettings(...args);
@@ -128,8 +124,6 @@ export class WallpaperFeed {
 
   /**
    * This thin wrapper around IOUtils.write lets tests simulate write failures.
-   *
-   * @param {Parameters<typeof IOUtils.write>} args
    */
   writeFile(...args) {
     return IOUtils.write(...args);
@@ -138,8 +132,6 @@ export class WallpaperFeed {
   /**
    * This thin wrapper around IOUtils.writeJSON lets tests simulate a failure
    * writing an image's details.
-   *
-   * @param {Parameters<typeof IOUtils.writeJSON>} args
    */
   writeJSON(...args) {
     return IOUtils.writeJSON(...args);
@@ -148,8 +140,6 @@ export class WallpaperFeed {
   /**
    * This thin wrapper around IOUtils.remove lets tests interleave with a
    * deletion that is already in flight.
-   *
-   * @param {Parameters<typeof IOUtils.remove>} args
    */
   removeFile(...args) {
     return IOUtils.remove(...args);
@@ -157,8 +147,6 @@ export class WallpaperFeed {
 
   /**
    * Thin wrapper around IOUtils.copy, so tests can make a copy fail.
-   *
-   * @param {Parameters<typeof IOUtils.copy>} args
    */
   copyFile(...args) {
     return IOUtils.copy(...args);

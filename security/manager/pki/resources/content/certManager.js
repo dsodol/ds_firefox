@@ -215,7 +215,7 @@ var clientAuthRememberService;
 var rememberedDecisionsRichList = {
   richlist: undefined,
 
-  async buildRichList() {
+  buildRichList() {
     let rememberedDecisions = clientAuthRememberService.getDecisions();
 
     let oldItems = this.richlist.querySelectorAll("richlistitem");
@@ -225,7 +225,7 @@ var rememberedDecisionsRichList = {
 
     let frag = document.createDocumentFragment();
     for (let decision of rememberedDecisions) {
-      let richlistitem = await this._richBoxAddItem(decision);
+      let richlistitem = this._richBoxAddItem(decision);
       frag.appendChild(richlistitem);
     }
     this.richlist.appendChild(frag);
@@ -233,7 +233,7 @@ var rememberedDecisionsRichList = {
     this.richlist.addEventListener("select", () => this.setButtonState());
   },
 
-  async _richBoxAddItem(item) {
+  _richBoxAddItem(item) {
     let richlistitem = document.createXULElement("richlistitem");
 
     richlistitem.setAttribute("entryKey", item.entryKey);
@@ -251,7 +251,7 @@ var rememberedDecisionsRichList = {
 
       hbox.appendChild(createRichlistItem({ raw: "" }));
     } else {
-      let tmpCert = await certdb.asyncFindCertByDBKey(item.dbKey);
+      let tmpCert = certdb.findCertByDBKey(item.dbKey);
       // The certificate corresponding to this item's dbKey may not be
       // available (for example, if it was stored on a token that's been
       // removed, or if it was deleted).
@@ -273,7 +273,7 @@ var rememberedDecisionsRichList = {
     return richlistitem;
   },
 
-  async deleteSelectedRichListItem() {
+  deleteSelectedRichListItem() {
     let selectedItem = this.richlist.selectedItem;
     let index = this.richlist.selectedIndex;
     if (index < 0) {
@@ -284,11 +284,11 @@ var rememberedDecisionsRichList = {
       selectedItem.attributes.entryKey.value
     );
 
-    await this.buildRichList();
+    this.buildRichList();
     this.setButtonState();
   },
 
-  async viewSelectedRichListItem() {
+  viewSelectedRichListItem() {
     let selectedItem = this.richlist.selectedItem;
     let index = this.richlist.selectedIndex;
     if (index < 0) {
@@ -296,9 +296,7 @@ var rememberedDecisionsRichList = {
     }
 
     if (selectedItem.attributes.dbKey.value != "") {
-      let cert = await certdb.asyncFindCertByDBKey(
-        selectedItem.attributes.dbKey.value
-      );
+      let cert = certdb.findCertByDBKey(selectedItem.attributes.dbKey.value);
       viewCertHelper(window, cert);
     }
   },
@@ -353,7 +351,7 @@ async function LoadCerts() {
     document.getElementById("rememberedList");
   serverRichList.richlist = document.getElementById("serverList");
 
-  await rememberedDecisionsRichList.buildRichList();
+  rememberedDecisionsRichList.buildRichList();
   serverRichList.buildRichList();
 
   rememberedDecisionsRichList.setButtonState();
@@ -362,7 +360,7 @@ async function LoadCerts() {
 
   document
     .getElementById("certmanagertabs")
-    .addEventListener("command", async event => {
+    .addEventListener("command", event => {
       switch (event.target.id) {
         case "mine_viewButton":
           viewCerts();
@@ -380,10 +378,10 @@ async function LoadCerts() {
           deleteCerts();
           break;
         case "remembered_deleteButton":
-          await rememberedDecisionsRichList.deleteSelectedRichListItem();
+          rememberedDecisionsRichList.deleteSelectedRichListItem();
           break;
         case "remembered_viewButton":
-          await rememberedDecisionsRichList.viewSelectedRichListItem();
+          rememberedDecisionsRichList.viewSelectedRichListItem();
           break;
         case "email_viewButton":
           viewCerts();
@@ -883,8 +881,4 @@ async function addEmailCert() {
   });
 }
 
-window.addEventListener("load", () => {
-  LoadCerts().then(() => {
-    Services.obs.notifyObservers(window, "psm:cert-manager-loaded");
-  });
-});
+window.addEventListener("load", LoadCerts);

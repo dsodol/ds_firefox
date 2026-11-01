@@ -12,11 +12,11 @@ ClientWindowState::ClientWindowState(
     mozilla::dom::VisibilityState aVisibilityState,
     const TimeStamp& aLastFocusTime, StorageAccess aStorageAccess,
     bool aFocused)
-    : mData(std::make_unique<IPCClientWindowState>(
-          aVisibilityState, aLastFocusTime, aStorageAccess, aFocused)) {}
+    : mData(MakeUnique<IPCClientWindowState>(aVisibilityState, aLastFocusTime,
+                                             aStorageAccess, aFocused)) {}
 
 ClientWindowState::ClientWindowState(const IPCClientWindowState& aData)
-    : mData(std::make_unique<IPCClientWindowState>(aData)) {}
+    : mData(MakeUnique<IPCClientWindowState>(aData)) {}
 
 ClientWindowState::ClientWindowState(const ClientWindowState& aRight) {
   operator=(aRight);
@@ -28,7 +28,7 @@ ClientWindowState::ClientWindowState(ClientWindowState&& aRight)
 ClientWindowState& ClientWindowState::operator=(
     const ClientWindowState& aRight) {
   mData.reset();
-  mData = std::make_unique<IPCClientWindowState>(*aRight.mData);
+  mData = MakeUnique<IPCClientWindowState>(*aRight.mData);
   return *this;
 }
 
@@ -55,10 +55,10 @@ StorageAccess ClientWindowState::GetStorageAccess() const {
 const IPCClientWindowState& ClientWindowState::ToIPC() const { return *mData; }
 
 ClientWorkerState::ClientWorkerState(StorageAccess aStorageAccess)
-    : mData(std::make_unique<IPCClientWorkerState>(aStorageAccess)) {}
+    : mData(MakeUnique<IPCClientWorkerState>(aStorageAccess)) {}
 
 ClientWorkerState::ClientWorkerState(const IPCClientWorkerState& aData)
-    : mData(std::make_unique<IPCClientWorkerState>(aData)) {}
+    : mData(MakeUnique<IPCClientWorkerState>(aData)) {}
 
 ClientWorkerState::ClientWorkerState(ClientWorkerState&& aRight)
     : mData(std::move(aRight.mData)) {}
@@ -70,7 +70,7 @@ ClientWorkerState::ClientWorkerState(const ClientWorkerState& aRight) {
 ClientWorkerState& ClientWorkerState::operator=(
     const ClientWorkerState& aRight) {
   mData.reset();
-  mData = std::make_unique<IPCClientWorkerState>(*aRight.mData);
+  mData = MakeUnique<IPCClientWorkerState>(*aRight.mData);
   return *this;
 }
 

@@ -9,7 +9,7 @@ exclude = ["/android", "/ios"]
 
 [dependencies]
 suggest = { path = "..", features = ["benchmark_api"] }
-viaduct-backend-rust = { path = "../../support/viaduct-backend-rust" }
+viaduct-hyper = { path = "../../support/viaduct-hyper" }
 tempfile = { version = "3.2.0", optional = true }
 criterion = "0.7"
 

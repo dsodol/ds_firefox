@@ -5,8 +5,6 @@ subsuite = "mozbuild"
 
 ["test_mozconfig.py"]
 
-["test_mozbuild_bin.py"]
-
 ["test_android.py"]
 
 ["test_msrv.py"]

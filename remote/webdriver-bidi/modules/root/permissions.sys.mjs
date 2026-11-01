@@ -11,6 +11,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   error: "chrome://remote/content/shared/webdriver/Errors.sys.mjs",
   permissions: "chrome://remote/content/shared/Permissions.sys.mjs",
   pprint: "chrome://remote/content/shared/Format.sys.mjs",
+  UserContextManager:
+    "chrome://remote/content/shared/UserContextManager.sys.mjs",
 });
 
 class PermissionsModule extends RootBiDiModule {
@@ -86,7 +88,13 @@ class PermissionsModule extends RootBiDiModule {
         lazy.pprint`Expected "userContext" to be a string, got ${userContextId}`
       );
 
-      userContext = this._getUserContextInternalId(userContextId);
+      if (!lazy.UserContextManager.hasUserContextId(userContextId)) {
+        throw new lazy.error.NoSuchUserContextError(
+          `User Context with id ${userContextId} was not found`
+        );
+      }
+
+      userContext = lazy.UserContextManager.getInternalIdById(userContextId);
     }
 
     const activeWindow = Services.wm.getMostRecentBrowserWindow();

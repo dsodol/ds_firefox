@@ -191,7 +191,7 @@ StorageDBChild* StorageDBChild::GetOrCreate(const uint32_t aPrivateBrowsingId) {
 
 nsTHashSet<nsCString>& StorageDBChild::OriginsHavingData() {
   if (!mOriginsHavingData) {
-    mOriginsHavingData = std::make_unique<nsTHashSet<nsCString>>();
+    mOriginsHavingData = MakeUnique<nsTHashSet<nsCString>>();
   }
 
   return *mOriginsHavingData;

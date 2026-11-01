@@ -2386,11 +2386,6 @@ pub enum Statement {
         target: Handle<Expression>,
         data: CooperativeData,
     },
-    /// This corresponds to `debugPrintf` in WGSL when the `wgpu_debug_printf` extension is enabled.
-    DebugPrintf {
-        format: String,
-        arguments: Vec<Handle<Expression>>,
-    },
 }
 
 /// A function argument.

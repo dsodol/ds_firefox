@@ -88,16 +88,14 @@ class ClampIndirectIndicesTraverser : public TIntermTraverser
 
         if (leftType.isArray())
         {
-            const bool isFragData =
-                RemoveCommaLeftHandSize(node->getLeft())->getType().getQualifier() == EvqFragData;
-
             int arraySize = static_cast<int>(leftType.getOutermostArraySize());
-            if (isFragData && mExtDrawBuffers == ExtDrawBuffers::Disabled)
+            if (leftType.getQualifier() == EvqFragData &&
+                mExtDrawBuffers == ExtDrawBuffers::Disabled)
             {
                 // When EXT_draw_buffers is disabled, only element 0 of gl_FragData may be accessed.
                 arraySize = 1;
             }
-            else if (isFragData && mIsSecondaryFragDataUsed)
+            else if (leftType.getQualifier() == EvqFragData && mIsSecondaryFragDataUsed)
             {
                 // When gl_SecondaryFragDataEXT is used, only indices up to MaxDualSourceDrawBuffers
                 // of gl_FragData may be accessed.

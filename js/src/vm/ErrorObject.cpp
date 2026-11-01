@@ -1905,7 +1905,7 @@ JSObject* js::CopyErrorObject(JSContext* cx, Handle<ErrorObject*> err) {
   if (!cx->compartment()->wrap(cx, &stack)) {
     return nullptr;
   }
-  if (stack && !stack->canUnwrapAs<SavedFrame>()) {
+  if (stack && JS_IsDeadWrapper(stack)) {
     // ErrorObject::create expects |stack| to be either nullptr or a (possibly
     // wrapped) SavedFrame instance.
     stack = nullptr;

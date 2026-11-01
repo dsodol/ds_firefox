@@ -5,7 +5,7 @@
 //! An entry point for sending a crash ping.
 
 use crate::std::{env, io::stdin, path::PathBuf};
-use crate::{config::installation_path, glean, logging, net::ping, prefs::Prefs};
+use crate::{glean, logging, net::ping};
 
 pub fn main() {
     logging::init();
@@ -22,7 +22,10 @@ pub fn main() {
         .and_then(|v| v.as_str())
         .map(PathBuf::from);
 
-    let _glean_handle = load_glean(data_path.into(), profile_dir);
+    let _glean_handle = glean::InitOptions::new(data_path.into())
+        .with_profile_dir(profile_dir)
+        .init()
+        .expect("failed to acquire Glean store");
 
     ping::CrashPing {
         extra: &extra,
@@ -42,7 +45,10 @@ pub fn cleanup_main() {
     let data_path = args.next().expect("no data path provided");
     let profile_dir = args.next();
 
-    let _glean_handle = load_glean(data_path.into(), profile_dir.map(|s| s.into()));
+    let _glean_handle = glean::InitOptions::new(data_path.into())
+        .with_profile_dir(profile_dir)
+        .init()
+        .expect("failed to acquire Glean store");
 
     // Sleep for a short period for Glean to do its thing in the background (and so that
     // `glean::shutdown()` won't log a warning about waiting for init to complete).
@@ -50,17 +56,4 @@ pub fn cleanup_main() {
 
     // Glean shutdown will block (for a period) on at least one ping to be sent.
     ::glean::shutdown();
-}
-
-fn load_glean(data_path: PathBuf, profile_dir: Option<PathBuf>) -> crashping::GleanHandle {
-    let mut prefs = Prefs::default();
-    prefs.update_from_app_dir(installation_path());
-    if let Some(dir) = profile_dir {
-        prefs.update_from_profile_dir(dir.as_ref());
-    }
-
-    glean::InitOptions::new(data_path.into())
-        .with_prefs(&prefs)
-        .init()
-        .expect("failed to acquire Glean store")
 }

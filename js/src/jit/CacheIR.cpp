@@ -788,45 +788,28 @@ static void GeneratePrototypeGuards(CacheIRWriter& writer, JSObject* obj,
   }
 }
 
-// Guard that the prototype chain of |obj| has no indexed properties. Prototypes
-// are shape guarded and, if |allowDenseElements| is false, guarded to have no
-// dense elements. If a prototype is covered by one of the no-indexed-properties
-// fuses, we guard on that fuse instead and stop.
-static void GuardProtoChainHasNoIndexedProps(JSContext* cx,
-                                             CacheIRWriter& writer,
-                                             NativeObject* obj,
-                                             ObjOperandId objId,
-                                             bool allowDenseElements) {
-  JSObject* pobj = obj->staticPrototype();
-  while (pobj) {
-    MOZ_ASSERT(pobj->is<NativeObject>());
-
-    auto fuseIndex = MaybeGetHasNoIndexedPropsFuseIndex(cx->global(), pobj);
-    if (fuseIndex.isSome() &&
-        cx->realm()->realmFuses.getFuseByIndex(*fuseIndex)->intact()) {
-      writer.guardFuse(*fuseIndex);
-      return;
-    }
-
-    ObjOperandId protoId = writer.loadProtoObject(pobj, objId);
-    writer.guardShape(protoId, pobj->shape());
-    if (!allowDenseElements) {
-      writer.guardNoDenseElements(protoId);
-    }
-
-    pobj = pobj->staticPrototype();
-  }
-}
-
-static void GeneratePrototypeHoleGuards(JSContext* cx, CacheIRWriter& writer,
+static void GeneratePrototypeHoleGuards(CacheIRWriter& writer,
                                         NativeObject* obj, ObjOperandId objId,
                                         bool alwaysGuardFirstProto) {
   if (alwaysGuardFirstProto) {
     GuardReceiverProto(writer, obj, objId);
   }
 
-  GuardProtoChainHasNoIndexedProps(cx, writer, obj, objId,
-                                   /* allowDenseElements = */ false);
+  JSObject* pobj = obj->staticPrototype();
+  while (pobj) {
+    ObjOperandId protoId = writer.loadObject(pobj);
+
+    // Make sure the shape matches, to ensure the proto is unchanged and to
+    // avoid non-dense elements or anything else that is being checked by
+    // CanAttachDenseElementHole.
+    MOZ_ASSERT(pobj->is<NativeObject>());
+    writer.guardShape(protoId, pobj->shape());
+
+    // Also make sure there are no dense elements.
+    writer.guardNoDenseElements(protoId);
+
+    pobj = pobj->staticPrototype();
+  }
 }
 
 // Similar to |TestMatchingReceiver|, but for the holder object (when it
@@ -2814,30 +2797,18 @@ AttachDecision GetPropIRGenerator::tryAttachStringChar(ValOperandId valId,
     return AttachDecision::NoAction;
   }
 
-  // We can optimize out-of-bounds reads if there are no indexed properties on
-  // String.prototype and idVal_ >= 0. Negative integers aren't array indices
-  // and aren't covered by StringProtoHasNoIndexedPropsFuse.
-  if (attach == AttachStringChar::OutOfBounds &&
-      (idVal_.toInt32() < 0 ||
-       !cx_->realm()->realmFuses.stringProtoHasNoIndexedPropsFuse.intact())) {
+  // Can't attach for out-of-bounds access without guarding that indexed
+  // properties aren't present along the prototype chain of |String.prototype|.
+  if (attach == AttachStringChar::OutOfBounds) {
     return AttachDecision::NoAction;
   }
 
   StringOperandId strId = writer.guardToString(valId);
   Int32OperandId int32IndexId = EmitGuardToInt32Index(writer, idVal_, indexId);
-
-  if (attach == AttachStringChar::OutOfBounds) {
-    writer.guardInt32IsNonNegative(int32IndexId);
-    writer.guardFuse(RealmFuses::FuseIndex::StringProtoHasNoIndexedPropsFuse);
-    // LoadStringAtResult with |handleOOB| requires a linear string.
+  if (attach == AttachStringChar::Linearize) {
     strId = writer.linearizeForCharAccess(strId, int32IndexId);
-    writer.loadStringAtResult(strId, int32IndexId, /* handleOOB = */ true);
-  } else {
-    if (attach == AttachStringChar::Linearize) {
-      strId = writer.linearizeForCharAccess(strId, int32IndexId);
-    }
-    writer.loadStringCharResult(strId, int32IndexId, /* handleOOB = */ false);
   }
+  writer.loadStringCharResult(strId, int32IndexId, /* handleOOB = */ false);
 
   trackAttached("GetProp.StringChar");
   return AttachDecision::Attach;
@@ -2974,7 +2945,7 @@ AttachDecision GetPropIRGenerator::tryAttachArgumentsObjectArgHole(
     writer.guardClass(objId, GuardClassKind::UnmappedArguments);
   }
 
-  GeneratePrototypeHoleGuards(cx_, writer, args, objId,
+  GeneratePrototypeHoleGuards(writer, args, objId,
                               /* alwaysGuardFirstProto = */ true);
 
   writer.loadArgumentsObjectArgHoleResult(objId, indexId);
@@ -3056,7 +3027,7 @@ AttachDecision GetPropIRGenerator::tryAttachDenseElementHole(
 
   // Guard on the shape, to prevent non-dense elements from appearing.
   TestMatchingNativeReceiver(writer, nobj, objId);
-  GeneratePrototypeHoleGuards(cx_, writer, nobj, objId,
+  GeneratePrototypeHoleGuards(writer, nobj, objId,
                               /* alwaysGuardFirstProto = */ false);
   writer.loadDenseElementHoleResult(objId, indexId);
 
@@ -3128,7 +3099,7 @@ AttachDecision GetPropIRGenerator::tryAttachSparseElement(
   // Shape guard the prototype chain to avoid shadowing indexes from appearing.
   // The helper function also ensures that the index does not appear within the
   // dense element set of the prototypes.
-  GeneratePrototypeHoleGuards(cx_, writer, nobj, objId,
+  GeneratePrototypeHoleGuards(writer, nobj, objId,
                               /* alwaysGuardFirstProto = */ true);
 
   // At this point, we are guaranteed that the indexed property will not
@@ -3904,7 +3875,7 @@ AttachDecision HasPropIRGenerator::tryAttachDenseHole(HandleObject obj,
   // Generate prototype guards if needed. This includes monitoring that
   // properties were not added in the chain.
   if (!hasOwn) {
-    GeneratePrototypeHoleGuards(cx_, writer, nobj, objId,
+    GeneratePrototypeHoleGuards(writer, nobj, objId,
                                 /* alwaysGuardFirstProto = */ false);
   }
 
@@ -3938,7 +3909,7 @@ AttachDecision HasPropIRGenerator::tryAttachSparse(HandleObject obj,
   // Generate prototype guards if needed. This includes monitoring that
   // properties were not added in the chain.
   if (!hasOwn) {
-    GeneratePrototypeHoleGuards(cx_, writer, nobj, objId,
+    GeneratePrototypeHoleGuards(writer, nobj, objId,
                                 /* alwaysGuardFirstProto = */ true);
   }
 
@@ -3978,7 +3949,7 @@ AttachDecision HasPropIRGenerator::tryAttachArgumentsObjectArg(
   }
 
   if (!hasOwn) {
-    GeneratePrototypeHoleGuards(cx_, writer, args, objId,
+    GeneratePrototypeHoleGuards(writer, args, objId,
                                 /* alwaysGuardFirstProto = */ true);
   }
 
@@ -4876,24 +4847,6 @@ AttachDecision SetPropIRGenerator::tryAttachSetDenseElement(
   return AttachDecision::Attach;
 }
 
-// Guard that the prototype chain of |obj| doesn't have indexed properties that
-// would affect adding an element to |obj|.
-static void GuardProtoChainForAddElement(JSContext* cx, CacheIRWriter& writer,
-                                         NativeObject* obj,
-                                         ObjOperandId objId) {
-  // Note: unlike GeneratePrototypeHoleGuards, we don't need to guard that the
-  // prototype chain has no dense elements. Only two kinds of properties on a
-  // prototype object can prevent adding an element:
-  //
-  // - Accessor properties: never stored in dense elements.
-  // - Non-writable properties (can't be shadowed through SetElem): only stored
-  //   in dense elements when ObjectFlag::FrozenElements is set.
-  //
-  // See also CanAttachAddElement.
-  GuardProtoChainHasNoIndexedProps(cx, writer, obj, objId,
-                                   /* allowDenseElements = */ true);
-}
-
 static bool CanAttachAddElement(NativeObject* obj, bool isInit,
                                 AllowIndexedReceiver allowIndexedReceiver) {
   MOZ_ASSERT(!obj->is<TypedArrayObject>());
@@ -5017,9 +4970,9 @@ AttachDecision SetPropIRGenerator::tryAttachSetDenseElementHole(
 
   TestMatchingNativeReceiver(writer, nobj, objId);
 
-  // Also guard the proto chain, unless this is an InitElem.
+  // Also shape guard the proto chain, unless this is an InitElem.
   if (IsPropertySetOp(op)) {
-    GuardProtoChainForAddElement(cx_, writer, nobj, objId);
+    ShapeGuardProtoChain(writer, nobj, objId);
   }
 
   writer.storeDenseElementHole(objId, indexId, rhsId, isAdd);
@@ -5108,7 +5061,7 @@ AttachDecision SetPropIRGenerator::tryAttachAddOrUpdateSparseElement(
   // only be data properties, so our specialized Set handler is ok to bind
   // to them.
   if (IsPropertySetOp(op)) {
-    GuardProtoChainForAddElement(cx_, writer, nobj, objId);
+    ShapeGuardProtoChain(writer, nobj, objId);
   }
 
   // Ensure that if we're adding an element to the object, the object's
@@ -6604,16 +6557,12 @@ bool InlinableNativeIRGenerator::hasBoundArguments() const {
   return false;
 }
 
-bool IRGenerator::calleeGuardIsIdentity(JSFunction* callee) const {
+void IRGenerator::emitCalleeGuard(ObjOperandId calleeId, JSFunction* callee) {
   // Guarding on the callee JSFunction* is most efficient, but doesn't work well
   // for lambda clones (multiple functions with the same BaseScript). We guard
   // on the function's BaseScript if the callee is scripted and this isn't the
   // first IC stub.
-  return isFirstStub_ || !FunctionHasStableBaseScript(callee);
-}
-
-void IRGenerator::emitCalleeGuard(ObjOperandId calleeId, JSFunction* callee) {
-  if (calleeGuardIsIdentity(callee)) {
+  if (isFirstStub_ || !FunctionHasStableBaseScript(callee)) {
     writer.guardSpecificFunction(calleeId, callee);
   } else {
     MOZ_ASSERT_IF(callee->isSelfHostedBuiltin(),
@@ -6744,8 +6693,8 @@ AttachDecision InlinableNativeIRGenerator::tryAttachArrayPush() {
   // Guard that the shape matches.
   TestMatchingNativeReceiver(writer, thisarray, thisObjId);
 
-  // Guard the proto chain.
-  GuardProtoChainForAddElement(cx_, writer, thisarray, thisObjId);
+  // Guard proto chain shapes.
+  ShapeGuardProtoChain(writer, thisarray, thisObjId);
 
   // arr.push(x) is equivalent to arr[arr.length] = x for regular arrays.
   ValOperandId argId = loadArgument(calleeId, ArgumentKind::Arg0);
@@ -12460,7 +12409,7 @@ AttachDecision InlinableNativeIRGenerator::tryAttachObjectConstructor() {
 
 #ifdef DEBUG
     writer.assertNoAllocationMetadataBuilder(
-        cx_->realm()->addressOfHasAllocationMetadataBuilder());
+        cx_->realm()->addressOfMetadataBuilder());
 #endif
     writer.newPlainObjectResult(numFixedSlots, numDynamicSlots, allocKind,
                                 shape, site);
@@ -13983,68 +13932,39 @@ void CallIRGenerator::emitCallScriptedGuards(
     emitCalleeGuard(calleeObjId, calleeFunc);
     if (thisShape) {
       // Emit guards to ensure the newTarget's .prototype property is what we
-      // expect. Note that getThisShapeForScripted checked newTarget is a
-      // function with a non-configurable .prototype data property.
-      // If .prototype is also non-writable (which is always the case for class
-      // constructors), then we only have to verify the identity of newTarget.
-      // There are a few cases here.
-      // 1. If .prototype is writable, then we guard the shape of newTarget,
-      //    load newTarget.prototype, and guard its value.
-      // 2. If .prototype is non-writable, and the emitCalleeGuard above guarded
-      //    the identity of callee, and callee == newTarget, then we don't need
-      //    any additional guards. Note that callee == newTarget is guaranteed
-      //    for non-super calls (excluding NewContent which can be used for
-      //    Reflect.construct).
-      // 3. If .prototype is non-writable but we can't rely on emitCalleeGuard,
-      //    then we can simply guard the identity of newTarget directly.
-      JSOp op = JSOp(*pc_);
-      bool newTargetIsCallee =
-          isBoundFunction || op == JSOp::New || op == JSOp::SpreadNew;
-      JSFunction* newTarget = newTargetIsCallee
-                                  ? calleeFunc
-                                  : &newTarget_.toObject().as<JSFunction>();
-      MOZ_ASSERT_IF(!isBoundFunction && newTargetIsCallee,
-                    newTarget_ == ObjectValue(*calleeFunc));
+      // expect. Note that getThisForScripted checked newTarget is a function
+      // with a non-configurable .prototype data property.
 
-      auto getNewTargetObjId = [&]() -> ObjOperandId {
-        if (newTargetIsCallee) {
-          return calleeObjId;
-        }
+      JSFunction* newTarget;
+      ObjOperandId newTargetObjId;
+      if (isBoundFunction) {
+        newTarget = calleeFunc;
+        newTargetObjId = calleeObjId;
+      } else {
+        newTarget = &newTarget_.toObject().as<JSFunction>();
         ValOperandId newTargetValId = writer.loadArgumentDynamicSlot(
             ArgumentKind::NewTarget, argcId, flags);
-        return writer.guardToObject(newTargetValId);
-      };
+        newTargetObjId = writer.guardToObject(newTargetValId);
+      }
 
       Maybe<PropertyInfo> prop = newTarget->lookupPure(cx_->names().prototype);
       MOZ_ASSERT(prop.isSome());
-      MOZ_ASSERT(prop->isDataProperty() && !prop->configurable());
-      if (prop->writable()) {
-        // Case 1: Guard the value of newTarget.prototype
-        ObjOperandId newTargetObjId = getNewTargetObjId();
+      uint32_t slot = prop->slot();
+      MOZ_ASSERT(slot >= newTarget->numFixedSlots(),
+                 "Stub code relies on this");
 
-        uint32_t slot = prop->slot();
-        MOZ_ASSERT(slot >= newTarget->numFixedSlots(),
-                   "Stub code relies on this");
+      writer.guardShape(newTargetObjId, newTarget->shape());
 
-        writer.guardShape(newTargetObjId, newTarget->shape());
+      const Value& value = newTarget->getSlot(slot);
+      if (value.isObject()) {
+        JSObject* prototypeObject = &value.toObject();
 
-        const Value& value = newTarget->getSlot(slot);
-        if (value.isObject()) {
-          JSObject* prototypeObject = &value.toObject();
-
-          ObjOperandId protoId = writer.loadObject(prototypeObject);
-          writer.guardDynamicSlotIsSpecificObject(
-              newTargetObjId, protoId, slot - newTarget->numFixedSlots());
-        } else {
-          writer.guardDynamicSlotIsNotObject(newTargetObjId,
-                                             slot - newTarget->numFixedSlots());
-        }
-      } else if (newTargetIsCallee && calleeGuardIsIdentity(calleeFunc)) {
-        // Case 2: No additional guards required.
+        ObjOperandId protoId = writer.loadObject(prototypeObject);
+        writer.guardDynamicSlotIsSpecificObject(
+            newTargetObjId, protoId, slot - newTarget->numFixedSlots());
       } else {
-        // Case 3: Guard the identity of newTarget.
-        ObjOperandId newTargetObjId = getNewTargetObjId();
-        writer.guardSpecificObject(newTargetObjId, newTarget);
+        writer.guardDynamicSlotIsNotObject(newTargetObjId,
+                                           slot - newTarget->numFixedSlots());
       }
 
       // Call metaCreateThis before emitting the call, so that Warp can use the
@@ -14276,14 +14196,8 @@ AttachDecision CallIRGenerator::tryAttachCallHook(HandleObject calleeObj) {
   // Ensure the callee's class matches the one in this stub.
   writer.guardAnyClass(calleeObjId, calleeObj->getClass());
 
-  if (calleeObj->is<BoundFunctionObject>()) {
-    if (isConstructing) {
-      writer.guardBoundFunctionIsConstructor(calleeObjId);
-    }
-
-    // Bound functions don't have an associated realm in the spec, so we
-    // shouldn't switch realms.
-    flags.setIsSameRealm();
+  if (isConstructing && calleeObj->is<BoundFunctionObject>()) {
+    writer.guardBoundFunctionIsConstructor(calleeObjId);
   }
 
   writer.callClassHook(calleeObjId, argcId, hook, flags, ClampFixedArgc(argc_));
@@ -16991,7 +16905,7 @@ AttachDecision NewArrayIRGenerator::tryAttachArrayObject() {
 
 #ifdef DEBUG
   writer.assertNoAllocationMetadataBuilder(
-      cx_->realm()->addressOfHasAllocationMetadataBuilder());
+      cx_->realm()->addressOfMetadataBuilder());
 #endif
 
   gc::AllocSite* site = maybeCreateAllocSite();
@@ -17070,7 +16984,7 @@ AttachDecision NewObjectIRGenerator::tryAttachPlainObject() {
 
 #ifdef DEBUG
   writer.assertNoAllocationMetadataBuilder(
-      cx_->realm()->addressOfHasAllocationMetadataBuilder());
+      cx_->realm()->addressOfMetadataBuilder());
 #endif
   writer.newPlainObjectResult(numFixedSlots, numDynamicSlots, allocKind, shape,
                               site);
@@ -17122,7 +17036,7 @@ AttachDecision LambdaIRGenerator::tryAttachFunctionClone() {
 
 #ifdef DEBUG
   writer.assertNoAllocationMetadataBuilder(
-      cx_->realm()->addressOfHasAllocationMetadataBuilder());
+      cx_->realm()->addressOfMetadataBuilder());
 #endif
 
   gc::AllocKind allocKind = canonicalFunction_->getAllocKind();

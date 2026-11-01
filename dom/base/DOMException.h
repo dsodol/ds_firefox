@@ -177,11 +177,6 @@ class DOMException : public Exception {
  protected:
   virtual ~DOMException() = default;
 
-  static bool ReadStructuredCloneFields(JSContext* aCx,
-                                        JSStructuredCloneReader* aReader,
-                                        nsresult& aRv, nsCString& aMessage,
-                                        nsCString& aName, uint16_t& aCode);
-
   uint16_t mCode;
 };
 

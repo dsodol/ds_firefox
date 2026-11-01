@@ -38,11 +38,6 @@ std::string JsonReader::ReadString() {
   uint8_t c = take();
   while (c != '"') {
     s.push_back(static_cast<char>(c));
-    // Copy the character after a backslash without checking it, so that an
-    // escaped quote doesn't end the string. The escape is left undecoded.
-    if (c == '\\') {
-      s.push_back(static_cast<char>(take()));
-    }
     c = take();
   }
   return s;
@@ -162,7 +157,9 @@ void JsonReader::SkipValue() {
 
   uint8_t c = peek();
   if (c == '"') {
-    ReadString();
+    next();
+    while (take() != '"') {
+    }
 
   } else if (c >= '0' && c <= '9') {
     do {

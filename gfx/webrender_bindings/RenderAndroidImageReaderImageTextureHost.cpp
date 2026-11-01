@@ -50,7 +50,7 @@ void RenderAndroidImageReaderImageTextureHost::SetReadFenceFd(
 }
 
 bool RenderAndroidImageReaderImageTextureHost::EnsureLockable() {
-  MOZ_RELEASE_ASSERT(mGL);
+  MOZ_ASSERT(mGL);
 
   if (!mAndroidImageConsumer) {
     auto* imageReaderMap = layers::GpuProcessAndroidImageReaderMap::Get();

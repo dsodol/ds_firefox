@@ -5,7 +5,6 @@
 package org.mozilla.fenix.shortcut
 
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -14,7 +13,6 @@ import kotlinx.coroutines.launch
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.menu.data.MenuItem
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.store.MenuEvent
 import mozilla.components.compose.menu.ui.MenuItemIconRes
@@ -48,25 +46,17 @@ class AddToHomeScreenMenuItemProvider(
 ) : MenuItemProvider {
     // Whether the launcher accepts shortcuts at all is a property of the device, so it cannot change while the menu
     // is shown.
-    private val isPinningSupported by lazy(LazyThreadSafetyMode.NONE) { webAppUseCases.isPinningSupported() }
+    private val isPinningSupported = webAppUseCases.isPinningSupported()
 
-    override val itemsFlow: StateFlow<List<MenuItem>> =
-        if (target == MenuTarget.CustomizeMenu) {
-            MutableStateFlow(listOf(DEFAULT_MENU_ITEM))
-        } else {
-            browserStore.stateFlow
-                .map { state ->
-                    listOfNotNull(addToHomeScreenItem(hasPageShown = target.browserSessionFrom(state) != null))
-                }
-                .stateIn(
-                    scope = scope,
-                    started = SharingStarted.Eagerly,
-                    initialValue =
-                        listOfNotNull(
-                            addToHomeScreenItem(hasPageShown = target.browserSessionFrom(browserStore.state) != null)
-                        ),
-                )
-        }
+    override val itemFlow: StateFlow<MenuItem?> =
+        browserStore.stateFlow
+            .map { state -> addToHomeScreenItem(hasPageShown = target.browserSessionFrom(state) != null) }
+            .stateIn(
+                scope = scope,
+                started = SharingStarted.Eagerly,
+                initialValue =
+                    addToHomeScreenItem(hasPageShown = target.browserSessionFrom(browserStore.state) != null),
+            )
 
     /**
      * The item to show, or `null` if there is no page to add or the device cannot show shortcuts.
@@ -76,12 +66,15 @@ class AddToHomeScreenMenuItemProvider(
     private fun addToHomeScreenItem(hasPageShown: Boolean): MenuItem? {
         if (!hasPageShown || !isPinningSupported) return null
 
-        return DEFAULT_MENU_ITEM.copy(
+        return StandardMenuItem(
             title =
-                when (webAppUseCases.isInstallable()) {
-                    true -> MenuItemTitle(Text.Resource(R.string.browser_menu_add_app_to_homescreen))
-                    else -> DEFAULT_MENU_ITEM.title
-                },
+                Text.Resource(
+                    when (webAppUseCases.isInstallable()) {
+                        true -> R.string.browser_menu_add_app_to_homescreen
+                        else -> R.string.browser_menu_add_to_homescreen
+                    }
+                ),
+            icon = MenuItemIconRes(iconsR.drawable.mozac_ic_add_to_homescreen_24),
             onClickEvent = MenuAction.Navigate.AddToHomeScreen,
         )
     }
@@ -105,13 +98,5 @@ class AddToHomeScreenMenuItemProvider(
                 }
             false -> menu.navigate(MenuFragmentDirections.actionMenuFragmentToCreateShortcutFragment())
         }
-    }
-
-    companion object {
-        private val DEFAULT_MENU_ITEM =
-            StandardMenuItem(
-                title = MenuItemTitle(Text.Resource(R.string.browser_menu_add_to_homescreen)),
-                icon = MenuItemIconRes(iconsR.drawable.mozac_ic_add_to_homescreen_24),
-            )
     }
 }

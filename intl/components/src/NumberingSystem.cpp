@@ -23,7 +23,7 @@ Result<UniquePtr<NumberingSystem>, ICUError> NumberingSystem::TryCreate(
     return Err(ToICUError(status));
   }
 
-  return std::make_unique<NumberingSystem>(numbers);
+  return MakeUnique<NumberingSystem>(numbers);
 }
 
 Result<Span<const char>, ICUError> NumberingSystem::GetName() {

@@ -354,13 +354,8 @@ already_AddRefed<nsIDNSAddrRecord> ConnectionEstablisher::AddrRecord() const {
 
 NS_IMETHODIMP
 ConnectionEstablisher::GetInterface(const nsIID& iid, void** result) {
-  nsCOMPtr<nsIInterfaceRequestor> callbacks;
-  {
-    MutexAutoLock lock(mSecurityCallbacksLock);
-    callbacks = mSecurityCallbacks;
-  }
-  if (callbacks) {
-    return callbacks->GetInterface(iid, result);
+  if (mSecurityCallbacks) {
+    return mSecurityCallbacks->GetInterface(iid, result);
   }
   return NS_ERROR_NO_INTERFACE;
 }

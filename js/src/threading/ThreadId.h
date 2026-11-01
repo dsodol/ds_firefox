@@ -5,8 +5,6 @@
 #ifndef threading_ThreadId_h
 #define threading_ThreadId_h
 
-#include "mozilla/Attributes.h"
-
 namespace js {
 
 class ThreadId {

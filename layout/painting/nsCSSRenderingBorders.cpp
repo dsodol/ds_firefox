@@ -15,7 +15,6 @@
 #include "gfxUtils.h"
 #include "mozilla/ProfilerLabels.h"
 #include "mozilla/Range.h"
-#include "mozilla/SVGImageContext.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/Helpers.h"
 #include "mozilla/gfx/PathHelpers.h"
@@ -3589,6 +3588,31 @@ ImgDrawResult nsCSSBorderImageRenderer::CreateWebRenderCommands(
 
       auto rendering =
           wr::ToImageRendering(aItem->Frame()->UsedImageRendering());
+      if (mFill) {
+        float epsilon = 0.0001;
+        bool noVerticalBorders = widths[0] <= epsilon && widths[2] < epsilon;
+        bool noHorizontalBorders = widths[1] <= epsilon && widths[3] < epsilon;
+
+        // Border image with no border. It's a little silly but WebRender
+        // currently does not handle this. We could fall back to a blob image
+        // but there are reftests that are sensible to the test going through a
+        // blob while the reference doesn't.
+        if (noVerticalBorders && noHorizontalBorders) {
+          aBuilder.PushImage(dest, clip, !aItem->BackfaceIsHidden(), false,
+                             rendering, key.value());
+          break;
+        }
+
+        // Fall-back if we want to fill the middle area and opposite edges are
+        // both empty.
+        // TODO(bug 1609893): moving some of the repetition handling code out
+        // of the image shader will make it easier to handle these cases
+        // properly.
+        if (noHorizontalBorders || noVerticalBorders) {
+          return ImgDrawResult::NOT_SUPPORTED;
+        }
+      }
+
       wr::WrBorderImage params{
           wr::ToBorderWidths(widths[0], widths[1], widths[2], widths[3]),
           key.value(),

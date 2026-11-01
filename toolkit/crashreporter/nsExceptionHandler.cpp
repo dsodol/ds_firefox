@@ -101,10 +101,6 @@
 #  error "Not yet implemented for this platform"
 #endif  // defined(XP_WIN)
 
-#ifndef XP_WIN
-#  include <cxxabi.h>
-#  include <typeinfo>
-#endif
 #include <fmt/format.h>
 #include <fstream>
 #include <optional>
@@ -247,10 +243,6 @@ static bool showOSCrashReporter = false;
 static time_t lastCrashTime = 0;
 // The pathname of a file to store the crash time in
 static XP_CHAR lastCrashTimeFilename[XP_PATH_MAX] = {0};
-// The UUID to use for the CrashEventID if a main process crash occurs.
-// We should not generate a UUID in the crash handler because GenerateUUID is
-// not async-signal-safe without rewriting the logic. See bug 2081887.
-static nsID mainProcessCrashEventID;
 
 #if defined(MOZ_WIDGET_ANDROID)
 // on Android 4.2 and above there is a user serial number associated
@@ -265,7 +257,6 @@ static nsCString* notesField = nullptr;
 static bool isGarbageCollecting;
 static uint32_t eventloopNestingLevel = 0;
 static time_t inactiveStateStart = 0;
-static uint64_t inactiveStateDuration = 0;
 
 // Avoid a race during application termination.
 static Mutex* dumpSafetyLock;
@@ -1457,14 +1448,16 @@ static void WriteAnnotationsForMainProcessCrash(PlatformWriter& pw,
 
   WriteSynthesizedAnnotations(writer);
   writer.Write(Annotation::CrashTime, uint64_t(crashTime));
-  // Add a unique identifier for this main process crash event (generated in
-  // SetExceptionHandler). We cannot have reached this point of the exception
-  // handler without this value having already been set (and in the worst-case
-  // scenario, it will be the nil UUID from static zero-initialization).
+  // Add a unique identifier for this crash event.
   {
-    NSID_TrimBracketsASCII uuidString(mainProcessCrashEventID);
+    NSID_TrimBracketsASCII uuidString(nsID::GenerateUUID());
     writer.Write(Annotation::CrashEventID, uuidString.Data(),
                  uuidString.Length());
+  }
+
+  if (inactiveStateStart) {
+    writer.Write(Annotation::LastInteractionDuration,
+                 static_cast<uint64_t>(crashTime - inactiveStateStart));
   }
 
   // ToSeconds preserves the full precision of the TimeDuration. It is assumed
@@ -1790,16 +1783,7 @@ static bool IsCrashingException(EXCEPTION_POINTERS* exinfo) {
 
 #endif  // XP_WIN
 
-// Prepares annotations that require runtime processing at the point of crash.
-// This runs in an exception handler and should be moved out to the crash
-// helper when possible.
-static void PrepareCrashTimeAnnotations() {
-  if (inactiveStateStart) {
-    inactiveStateDuration = GetCurrentTimeForCrashTime() - inactiveStateStart;
-  }
-}
-
-// Do various actions to prepare the process for minidump generation.
+// Do various actions to prepare the child process for minidump generation.
 // This includes disabling the I/O interposer and DLL blocklist which both
 // would get in the way. We also free the resources we have reserved, such as
 // address space on 32-bit Windows builds, so that they're available to the
@@ -1807,7 +1791,6 @@ static void PrepareCrashTimeAnnotations() {
 static void PrepareForMinidump(bool isChildProcess = true) {
   mozilla::IOInterposer::Disable();
   ReleaseResources();
-  PrepareCrashTimeAnnotations();
 
   if (isChildProcess) {
     crash_helper_wait_for_rendezvous();
@@ -1906,20 +1889,7 @@ static bool ShouldReport() {
   return true;
 }
 
-static void TerminateHandler() {
-#ifndef XP_WIN
-  // The Itanium C++ ABI counts a terminate handler reached from a throw as
-  // an exception handler and runs __cxa_begin_catch() before it, so the
-  // in-flight exception's type is still available here. Windows uses the
-  // MSVC ABI, which has no equivalent entry point.
-  if (const std::type_info* type = abi::__cxa_current_exception_type()) {
-    // The name stays mangled: abi::__cxa_demangle() allocates, and this
-    // handler can be reached with the heap already in a bad state.
-    MOZ_CRASH_UNSAFE_PRINTF("Unhandled exception of type %s", type->name());
-  }
-#endif
-  MOZ_CRASH("Unhandled exception");
-}
+static void TerminateHandler() { MOZ_CRASH("Unhandled exception"); }
 
 #if !defined(MOZ_WIDGET_ANDROID)
 
@@ -1977,9 +1947,6 @@ static void RegisterAnnotations() {
   mozannotation_register_bytebuffer(
       static_cast<uint32_t>(Annotation::TextureUsage), &gTexturesSize,
       sizeof(size_t));
-  mozannotation_register_bytebuffer(
-      static_cast<uint32_t>(Annotation::LastInteractionDuration),
-      &inactiveStateDuration, sizeof(uint64_t));
 #if defined(XP_WIN) && defined(HAS_DLL_BLOCKLIST)
   mozannotation_register_bytebuffer(
       static_cast<uint32_t>(Annotation::BlocklistInitFailed),
@@ -2070,9 +2037,6 @@ nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
   dumpSafetyLock = new Mutex("dumpSafetyLock");
   MutexAutoLock lock(*dumpSafetyLock);
   isSafeToDump = true;
-
-  // Set the CrashEventID to use in the event of a main process crash
-  mainProcessCrashEventID = nsID::GenerateUUID();
 
   // now set the exception handler
 #ifdef XP_LINUX
@@ -2626,8 +2590,21 @@ void MergeCrashAnnotations(AnnotationTable& aDst, const AnnotationTable& aSrc) {
   }
 }
 
-// Adds the uptime annotations
+// Adds crash time, uptime, and last interaction duration annotations
 static void AddCommonAnnotations(AnnotationTable& aAnnotations) {
+  const time_t crashTime = time(nullptr);
+  nsAutoCString crashTimeStr;
+  crashTimeStr.AppendInt(static_cast<uint64_t>(crashTime));
+  aAnnotations[Annotation::CrashTime] = std::move(crashTimeStr);
+
+  if (inactiveStateStart) {
+    nsAutoCString inactiveDuration;
+    inactiveDuration.AppendInt(
+        static_cast<uint64_t>(crashTime - inactiveStateStart));
+    aAnnotations[Annotation::LastInteractionDuration] =
+        std::move(inactiveDuration);
+  }
+
   // ToSeconds preserves the full precision of the TimeDuration. It is assumed
   // that visualizations of this value will format/truncate it to their needs.
   double uptimeTS =
@@ -2665,6 +2642,28 @@ nsresult AppendAppNotesToCrashReport(const nsACString& data) {
   MutexAutoLock lock(*notesFieldLock);
   notesField->Append(data);
   return NS_OK;
+}
+
+nsresult RegisterAppMemory(void* ptr, size_t length) {
+  if (!GetEnabled()) return NS_ERROR_NOT_INITIALIZED;
+
+#if defined(XP_LINUX) || defined(XP_WIN)
+  gExceptionHandler->RegisterAppMemory(ptr, length);
+  return NS_OK;
+#else
+  return NS_ERROR_NOT_IMPLEMENTED;
+#endif
+}
+
+nsresult UnregisterAppMemory(void* ptr) {
+  if (!GetEnabled()) return NS_ERROR_NOT_INITIALIZED;
+
+#if defined(XP_LINUX) || defined(XP_WIN)
+  gExceptionHandler->UnregisterAppMemory(ptr);
+  return NS_OK;
+#else
+  return NS_ERROR_NOT_IMPLEMENTED;
+#endif
 }
 
 void SetIncludeContextHeap(bool aValue) {
@@ -3260,16 +3259,14 @@ nsresult OOPInit(nsIFile* aXREDirectory, bool force /*=false*/) {
 #if defined(XP_WIN)
   childCrashNotifyPipe = nsCString("\\\\.\\pipe\\gecko-crash-server-pipe.");
   childCrashNotifyPipe.AppendInt(static_cast<int>(::GetCurrentProcessId()));
-  auto notifyPipeName = NS_ConvertUTF8toUTF16(childCrashNotifyPipe);
-  HANDLE notifyPipe = CrashGenerationServer::CreateReportPipe(
-      (const wchar_t*)notifyPipeName.get());
 
   // TODO: Create the crash server and set include_context_heap based on the
   // value of sIncludeContextHeap. Also pass the release channel so we can set
   // the appropriate type of minidump in the crash helper.
   crashHelperClient = crash_helper_launch(
-      mozilla::BitwiseCast<const BreakpadChar*>(crashHelperPath.c_str()),
-      notifyPipe, mozilla::BitwiseCast<const BreakpadChar*>(tempPath.get()),
+      (const BreakpadChar*)crashHelperPath.c_str(),
+      (const BreakpadChar*)NS_ConvertUTF8toUTF16(childCrashNotifyPipe).getW(),
+      mozilla::BitwiseCast<const BreakpadChar*>(tempPath.get()),
       gToolkitBuildID);
 #elif defined(XP_LINUX)
 #  if !defined(MOZ_WIDGET_ANDROID)

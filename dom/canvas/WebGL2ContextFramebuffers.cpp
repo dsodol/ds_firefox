@@ -5,6 +5,7 @@
 #include "GLContext.h"
 #include "GLScreenBuffer.h"
 #include "WebGL2Context.h"
+#include "WebGLContextUtils.h"
 #include "WebGLFormats.h"
 #include "WebGLFramebuffer.h"
 #include "mozilla/CheckedInt.h"

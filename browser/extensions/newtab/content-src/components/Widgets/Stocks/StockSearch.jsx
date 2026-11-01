@@ -76,9 +76,6 @@ export function StockSearch({
     statusMessageArgs = { query: submittedQuery };
   }
 
-  const isRTL = typeof document !== "undefined" && document.dir === "rtl";
-  const backIconSrc = `chrome://global/skin/icons/arrow-${isRTL ? "right" : "left"}.svg`;
-
   return (
     <div
       className="stocks-search"
@@ -93,7 +90,7 @@ export function StockSearch({
           className="stocks-search-back"
           type="icon ghost"
           size="small"
-          iconSrc={backIconSrc}
+          iconSrc="chrome://global/skin/icons/arrow-left.svg"
           data-l10n-id="newtab-stocks-search-back-button"
           onClick={onClose}
         />

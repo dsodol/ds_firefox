@@ -30,9 +30,7 @@
 #error "This file should only be included from _kiss_fft_guts.h"
 #endif
 
-/* These optimizations assume Q15 coefficients; the generic C code will be used
-   for floating point (float coefficients) or QEXT (Q31 coefficients). */
-#if defined(FIXED_POINT) && !defined(ENABLE_QEXT)
+#ifdef FIXED_POINT
 
 #if __mips == 32 && defined (__mips_dsp)
 
@@ -131,7 +129,7 @@ static inline kiss_fft_cpx C_MULC_fun(kiss_fft_cpx a, kiss_twiddle_cpx b) {
 
 #endif
 
-#endif /* defined(FIXED_POINT) && !defined(ENABLE_QEXT) */
+#endif /* FIXED_POINT */
 
 #if defined(OVERRIDE_kf_bfly5)
 
@@ -215,7 +213,6 @@ static void kf_bfly5(
 
 #endif /* defined(OVERRIDE_kf_bfly5) */
 
-#if defined(FIXED_POINT)
 #define OVERRIDE_fft_downshift
 /* Just unroll tight loop, should be ok for any mips */
 static void fft_downshift(kiss_fft_cpx *x, int N, int *total, int step) {
@@ -270,6 +267,5 @@ static void fft_downshift(kiss_fft_cpx *x, int N, int *total, int step) {
         }
     }
 }
-#endif /* defined(FIXED_POINT) */
 
 #endif /* KISS_FFT_MIPSR1_H */

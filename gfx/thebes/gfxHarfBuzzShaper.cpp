@@ -1216,10 +1216,10 @@ bool gfxHarfBuzzShaper::Initialize() {
     mNumGlyphs = uint16_t(maxp->numGlyphs);
   }
 
-  mCmapCache = std::make_unique<CmapCache>();
+  mCmapCache = MakeUnique<CmapCache>();
 
   if (mUseFontGlyphWidths) {
-    mWidthCache = std::make_unique<WidthCache>();
+    mWidthCache = MakeUnique<WidthCache>();
   } else {
     // If font doesn't implement GetGlyphWidth, we will be reading
     // the metrics table directly, so make sure we can load it.

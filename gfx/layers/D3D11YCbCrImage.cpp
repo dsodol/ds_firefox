@@ -32,9 +32,9 @@ bool DXGIYCbCrTextureAllocationHelper::IsCompatible(
 
   DXGIYCbCrTextureData* dxgiData =
       aTextureClient->GetInternalData()->AsDXGIYCbCrTextureData();
-  const auto sizes = mData.GetPlaneSizes();
-  if (!dxgiData || !sizes || dxgiData->mSize != mData.mPictureRect.Size() ||
-      dxgiData->mSizeY != sizes->mY || dxgiData->mSizeCbCr != sizes->mCbCr ||
+  if (!dxgiData || dxgiData->mSize != mData.mPictureRect.Size() ||
+      dxgiData->mSizeY != mData.YDataSize() ||
+      dxgiData->mSizeCbCr != mData.CbCrDataSize() ||
       dxgiData->mColorDepth != mData.mColorDepth ||
       dxgiData->mYUVColorSpace != mData.mYUVColorSpace) {
     return false;
@@ -53,12 +53,8 @@ bool DXGIYCbCrTextureAllocationHelper::IsCompatible(
 
 already_AddRefed<TextureClient> DXGIYCbCrTextureAllocationHelper::Allocate(
     KnowsCompositor* aAllocator) {
-  const auto sizes = mData.GetPlaneSizes();
-  if (!sizes) {
-    return nullptr;
-  }
-  const auto& ySize = sizes->mY;
-  const auto& cbcrSize = sizes->mCbCr;
+  auto ySize = mData.YDataSize();
+  auto cbcrSize = mData.CbCrDataSize();
   CD3D11_TEXTURE2D_DESC newDesc(mData.mColorDepth == gfx::ColorDepth::COLOR_8
                                     ? DXGI_FORMAT_R8_UNORM
                                     : DXGI_FORMAT_R16_UNORM,

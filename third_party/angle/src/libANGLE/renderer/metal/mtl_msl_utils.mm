@@ -16,7 +16,6 @@
 #include "libANGLE/renderer/metal/ContextMtl.h"
 #include "libANGLE/renderer/metal/ShaderMtl.h"
 #include "libANGLE/renderer/metal/mtl_msl_utils.h"
-#include "libANGLE/renderer/renderer_utils.h"
 
 namespace rx
 {
@@ -24,7 +23,7 @@ namespace
 {
 constexpr char kXfbBindingsMarker[]     = "@@XFB-Bindings@@";
 constexpr char kXfbOutMarker[]          = "ANGLE_@@XFB-OUT@@";
-constexpr char kUserDefinedNamePrefix[] = "_u";  // Defined in GLSLANG/ShaderLang.h
+constexpr char kUserDefinedNamePrefix[] = "_u";  // Default for UserVariableNamePrefix
 constexpr char kAttribBindingsMarker[]  = "@@Attrib-Bindings@@\n";
 
 std::string GetXfbBufferNameMtl(const uint32_t bufferIndex)
@@ -168,21 +167,44 @@ void TranslatedShaderInfo::reset()
 using OriginalSamplerBindingMap =
     std::unordered_map<std::string, std::vector<std::pair<uint32_t, uint32_t>>>;
 
-static std::string MSLGetMappedSamplerName(
-    const std::string &originalName,
-    angle::HashMap<std::string, size_t> *extractedSamplerIndices)
+bool MappedSamplerNameNeedsUserDefinedPrefix(const std::string &originalName)
 {
-    // Remove array elements
-    const std::string samplerName = RemoveArraySubscripts(originalName);
+    return originalName.find('.') == std::string::npos;
+}
+
+static std::string MSLGetMappedSamplerName(const std::string &originalName)
+{
+    std::string samplerName = originalName;
 
     // Samplers in structs are extracted.
-    if (samplerName.find('.') != std::string::npos)
+    std::replace(samplerName.begin(), samplerName.end(), '.', '_');
+
+    // Remove array elements
+    auto out = samplerName.begin();
+    for (auto in = samplerName.begin(); in != samplerName.end(); in++)
     {
-        ASSERT(extractedSamplerIndices != nullptr);
-        return GetExtractedStructSamplerName(samplerName, extractedSamplerIndices);
+        if (*in == '[')
+        {
+            while (*in != ']')
+            {
+                in++;
+                ASSERT(in != samplerName.end());
+            }
+        }
+        else
+        {
+            *out++ = *in;
+        }
     }
 
-    return kUserDefinedNamePrefix + samplerName;
+    samplerName.erase(out, samplerName.end());
+
+    if (MappedSamplerNameNeedsUserDefinedPrefix(originalName))
+    {
+        samplerName = kUserDefinedNamePrefix + samplerName;
+    }
+
+    return samplerName;
 }
 
 void MSLGetShaderSource(const gl::ProgramState &programState,
@@ -210,7 +232,7 @@ void GetAssignedSamplerBindings(const sh::TranslatorMetalReflection *reflection,
         // Assign sequential index for subsequent array elements
         const bool structSampler = structSamplers.find(name) != structSamplers.end();
         const std::string mappedName =
-            structSampler ? name : MSLGetMappedSamplerName(kUserDefinedNamePrefix + name, nullptr);
+            structSampler ? name : MSLGetMappedSamplerName(kUserDefinedNamePrefix + name);
         auto original = originalBindings.find(mappedName);
         if (original != originalBindings.end())
         {
@@ -467,12 +489,11 @@ std::string SubstituteTransformFeedbackMarkers(const std::string &originalSource
     std::string result;
     if (hasBindingsMarker && hasOutMarker)
     {
-        result.append(originalSource, 0, xfbBindingsMarkerStart);
+        result.append(&originalSource[0], &originalSource[xfbBindingsMarkerStart]);
         result.append(xfbBindings);
-        result.append(originalSource, xfbBindingsMarkerEnd,
-                      xfbOutMarkerStart - xfbBindingsMarkerEnd);
+        result.append(&originalSource[xfbBindingsMarkerEnd], &originalSource[xfbOutMarkerStart]);
         result.append(xfbOut);
-        result.append(originalSource, xfbOutMarkerEnd);
+        result.append(&originalSource[xfbOutMarkerEnd], &originalSource[originalSource.size()]);
         return result;
     }
     return originalSource;
@@ -612,7 +633,6 @@ angle::Result MTLGetMSL(const angle::FeaturesMtl &features,
     const std::vector<gl::SamplerBinding> &samplerBindings = executable.getSamplerBindings();
     std::unordered_set<std::string> structSamplers         = {};
 
-    angle::HashMap<std::string, size_t> extractedSamplerIndices;
     for (uint32_t textureIndex = 0; textureIndex < samplerBindings.size(); ++textureIndex)
     {
         const gl::SamplerBinding &samplerBinding = samplerBindings[textureIndex];
@@ -620,13 +640,12 @@ angle::Result MTLGetMSL(const angle::FeaturesMtl &features,
         const std::string &uniformName = executable.getUniformNames()[uniformIndex];
         const std::string &uniformMappedName = executable.getUniformMappedNames()[uniformIndex];
         bool isSamplerInStruct               = uniformName.find('.') != std::string::npos;
-        std::string mappedSamplerName        = MSLGetMappedSamplerName(
-            isSamplerInStruct ? uniformName : uniformMappedName, &extractedSamplerIndices);
+        std::string mappedSamplerName        = isSamplerInStruct
+                                                   ? MSLGetMappedSamplerName(uniformName)
+                                                   : MSLGetMappedSamplerName(uniformMappedName);
         // These need to be prefixed later seperately
         if (isSamplerInStruct)
-        {
             structSamplers.insert(mappedSamplerName);
-        }
         originalSamplerBindings[mappedSamplerName].push_back(
             {textureIndex, static_cast<uint32_t>(samplerBinding.textureUnitsCount)});
     }
@@ -698,6 +717,40 @@ angle::Result MTLGetMSL(const angle::FeaturesMtl &features,
         (*mslShaderInfoOut)[type].hasInvariant    = reflection->hasInvariance;
     }
     return angle::Result::Continue;
+}
+
+uint MslGetShaderShadowCompareMode(GLenum mode, GLenum func)
+{
+    // See SpirvToMslCompiler::emit_header()
+    if (mode == GL_NONE)
+    {
+        return 0;
+    }
+    else
+    {
+        switch (func)
+        {
+            case GL_LESS:
+                return 1;
+            case GL_LEQUAL:
+                return 2;
+            case GL_GREATER:
+                return 3;
+            case GL_GEQUAL:
+                return 4;
+            case GL_NEVER:
+                return 5;
+            case GL_ALWAYS:
+                return 6;
+            case GL_EQUAL:
+                return 7;
+            case GL_NOTEQUAL:
+                return 8;
+            default:
+                UNREACHABLE();
+                return 1;
+        }
+    }
 }
 
 }  // namespace mtl

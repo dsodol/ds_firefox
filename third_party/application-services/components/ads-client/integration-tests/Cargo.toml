@@ -17,4 +17,4 @@ url = "2"
 mockito = { version = "0.31", default-features = false }
 viaduct = { path = "../../../components/viaduct", features = ["ohttp"] }
 viaduct-dev = { path = "../../../components/support/viaduct-dev" }
-viaduct-backend-rust = { path = "../../../components/support/viaduct-backend-rust" }
+viaduct-hyper = { path = "../../../components/support/viaduct-hyper" }

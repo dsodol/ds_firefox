@@ -46,7 +46,5 @@ async def test_beforeunload(
         event,
     )
 
-    # The beforeunload prompt is accepted by default, so the navigation is
-    # expected to proceed. Wait for the navigation command to settle so that
-    # no command is still pending when the tab gets closed during teardown.
-    await wait_for_future_safe(navigation_future)
+    # Cancel the navigation future to avoid pending task failures.
+    navigation_future.cancel()

@@ -29,7 +29,6 @@ struct PrincipalMetadata {
   nsCString mOrigin;
   nsCString mStorageOrigin;
   bool mIsPrivate = false;
-  bool mIsEncrypted = false;
 
   // These explicit constructors exist to prevent accidental aggregate
   // initialization which could for example initialize mSuffix as group and
@@ -37,18 +36,14 @@ struct PrincipalMetadata {
   PrincipalMetadata() = default;
 
   PrincipalMetadata(nsCString aSuffix, nsCString aGroup, nsCString aOrigin,
-                    nsCString aStorageOrigin, bool aIsPrivate,
-                    bool aIsEncrypted = false)
+                    nsCString aStorageOrigin, bool aIsPrivate)
       : mSuffix{std::move(aSuffix)},
         mGroup{std::move(aGroup)},
         mOrigin{std::move(aOrigin)},
         mStorageOrigin{std::move(aStorageOrigin)},
-        mIsPrivate{aIsPrivate},
-        mIsEncrypted{aIsEncrypted} {
+        mIsPrivate{aIsPrivate} {
     AssertInvariants();
   }
-
-  bool ShouldEncrypt() const { return mIsPrivate || mIsEncrypted; }
 
   void AssertInvariants() const {
     MOZ_ASSERT(!StringBeginsWith(mOrigin, kUUIDOriginScheme));
@@ -65,8 +60,7 @@ struct PrincipalMetadata {
     return mSuffix == aOther.mSuffix && mGroup == aOther.mGroup &&
            mOrigin == aOther.mOrigin &&
            mStorageOrigin == aOther.mStorageOrigin &&
-           mIsPrivate == aOther.mIsPrivate &&
-           mIsEncrypted == aOther.mIsEncrypted;
+           mIsPrivate == aOther.mIsPrivate;
   }
 };
 
@@ -77,10 +71,10 @@ struct OriginMetadata : public PrincipalMetadata {
 
   OriginMetadata(nsCString aSuffix, nsCString aGroup, nsCString aOrigin,
                  nsCString aStorageOrigin, bool aIsPrivate,
-                 PersistenceType aPersistenceType, bool aIsEncrypted = false)
+                 PersistenceType aPersistenceType)
       : PrincipalMetadata(std::move(aSuffix), std::move(aGroup),
                           std::move(aOrigin), std::move(aStorageOrigin),
-                          aIsPrivate, aIsEncrypted),
+                          aIsPrivate),
         mPersistenceType(aPersistenceType) {}
 
   OriginMetadata(PrincipalMetadata aPrincipalMetadata,
@@ -131,12 +125,11 @@ struct OriginStateMetadata {
         mPersisted(aPersisted),
         mDirty(aDirty) {}
 
-  uint32_t ToMetadataFlags(bool aIsEncrypted) const {
+  uint32_t ToMetadataFlags() const {
     return DirectoryMetadataFlags::Initialized |
            (mAccessed ? DirectoryMetadataFlags::Accessed : 0u) |
            (mDirty ? DirectoryMetadataFlags::Dirty : 0u) |
-           (mPersisted ? DirectoryMetadataFlags::Persisted : 0u) |
-           (aIsEncrypted ? DirectoryMetadataFlags::Encrypted : 0u);
+           (mPersisted ? DirectoryMetadataFlags::Persisted : 0u);
   }
 
   void FromMetadataFlags(uint32_t aFlags) {
@@ -219,18 +212,6 @@ struct FullOriginMetadata : OriginMetadata, OriginStateMetadata {
                static_cast<const OriginStateMetadata&>(aOther)) &&
            mClientUsages == aOther.mClientUsages &&
            mOriginUsage == aOther.mOriginUsage;
-  }
-
-  // The Encrypted bit lives next to the origin state flags on disk, but the
-  // value belongs to PrincipalMetadata, so these hide the OriginStateMetadata
-  // versions to keep the two in sync.
-  uint32_t ToMetadataFlags() const {
-    return OriginStateMetadata::ToMetadataFlags(mIsEncrypted);
-  }
-
-  void FromMetadataFlags(uint32_t aFlags) {
-    OriginStateMetadata::FromMetadataFlags(aFlags);
-    mIsEncrypted = (aFlags & DirectoryMetadataFlags::Encrypted) != 0;
   }
 
   // Convenient method for duplicating a FullOriginMetadata instance. Creates

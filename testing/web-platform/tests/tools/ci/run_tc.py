@@ -280,8 +280,7 @@ def setup_environment(**kwargs):
         install_chrome(kwargs["channel"])
 
     # These browsers use dbus for various features.
-    if {"chrome", "firefox", "webkitgtk_minibrowser", "wpewebkit_minibrowser"}.intersection(
-            kwargs["browser"]):
+    if any(b in kwargs["browser"] for b in ["chrome", "webkitgtk_minibrowser", "wpewebkit_minibrowser"]):
         start_dbus()
 
     if kwargs["xvfb"]:

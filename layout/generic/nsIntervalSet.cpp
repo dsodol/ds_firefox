@@ -9,11 +9,12 @@
 #include <algorithm>
 #include <new>
 
-#include "nsPresArena.h"
+#include "mozilla/PresShell.h"  // for allocation
 
 using namespace mozilla;
 
-nsIntervalSet::nsIntervalSet() : mList(nullptr) {}
+nsIntervalSet::nsIntervalSet(PresShell* aPresShell)
+    : mList(nullptr), mPresShell(aPresShell) {}
 
 nsIntervalSet::~nsIntervalSet() {
   Interval* current = mList;
@@ -25,15 +26,15 @@ nsIntervalSet::~nsIntervalSet() {
 }
 
 void* nsIntervalSet::AllocateInterval() {
-  return FrameArena::Allocate(eArenaObjectID_nsIntervalSet_Interval,
-                              sizeof(Interval));
+  return mPresShell->AllocateByObjectID(eArenaObjectID_nsIntervalSet_Interval,
+                                        sizeof(Interval));
 }
 
 void nsIntervalSet::FreeInterval(nsIntervalSet::Interval* aInterval) {
   NS_ASSERTION(aInterval, "null interval");
 
   aInterval->Interval::~Interval();
-  FrameArena::Free(eArenaObjectID_nsIntervalSet_Interval, aInterval);
+  mPresShell->FreeByObjectID(eArenaObjectID_nsIntervalSet_Interval, aInterval);
 }
 
 void nsIntervalSet::IncludeInterval(coord_type aBegin, coord_type aEnd) {

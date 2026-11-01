@@ -31,8 +31,6 @@ const SUPPORTED_AUTOFILL_CREDITCARDS_CVV_PREF =
   "extensions.formautofill.creditCards.cvv.supported";
 const ENABLED_AUTOFILL_CREDITCARDS_CVV_PREF =
   "extensions.formautofill.creditCards.cvv.enabled";
-const CREDITCARDS_RUST_STORAGE_ACTIVE_PREF =
-  "extensions.formautofill.creditCards.storage.rust.active";
 const AUTOFILL_ADDRESSES_AUTOCOMPLETE_OFF_PREF =
   "extensions.formautofill.addresses.ignoreAutocompleteOff";
 const ENABLED_AUTOFILL_CAPTURE_ON_FORM_REMOVAL_PREF =
@@ -63,7 +61,6 @@ export const FormAutofill = {
   ENABLED_AUTOFILL_CREDITCARDS_PREF,
   SUPPORTED_AUTOFILL_CREDITCARDS_CVV_PREF,
   ENABLED_AUTOFILL_CREDITCARDS_CVV_PREF,
-  CREDITCARDS_RUST_STORAGE_ACTIVE_PREF,
   ENABLED_AUTOFILL_DETECT_DYNAMIC_FORM_CHANGES_PREF,
   AUTOFILL_CREDITCARDS_OS_AUTH_LOCKED_PREF,
   AUTOFILL_CREDITCARDS_AUTOCOMPLETE_OFF_PREF,
@@ -174,17 +171,12 @@ export const FormAutofill = {
 
   /**
    * Whether the CVV feature has been rolled out to this user. Takes the same
-   * "on"/"off" values as the other supported prefs, and needs the Rust credit
-   * card store to be the one serving: only that store encrypts the security
-   * code, and the JSON store would keep it in the clear.
+   * "on"/"off" values as the other supported prefs.
    *
    * @returns {boolean}
    */
   get isAutofillCreditCardCVVSupported() {
-    return (
-      this._autofillCreditCardCVVSupportedPref == "on" &&
-      this._isCreditCardRustStorageActive
-    );
+    return this._autofillCreditCardCVVSupportedPref == "on";
   },
 
   /**
@@ -298,12 +290,6 @@ XPCOMUtils.defineLazyPreferenceGetter(
   FormAutofill,
   "_isAutofillCreditCardCVVUserEnabled",
   ENABLED_AUTOFILL_CREDITCARDS_CVV_PREF,
-  false
-);
-XPCOMUtils.defineLazyPreferenceGetter(
-  FormAutofill,
-  "_isCreditCardRustStorageActive",
-  CREDITCARDS_RUST_STORAGE_ACTIVE_PREF,
   false
 );
 XPCOMUtils.defineLazyPreferenceGetter(

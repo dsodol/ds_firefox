@@ -1679,38 +1679,14 @@ class MacroAssemblerCompat : public vixl::MacroAssembler {
     // inequalities should use unsigned comparisons (as done by default) in
     // order to keep the same relation order after the sign extension, i.e.
     // using Above or Below which are based on the carry flag.
-    int32_t negTag = negatedSignExtTag(ref);
-    // Check that negTag is encoded as a 12 bits immediate value.
-    MOZ_ASSERT((negTag & ~0xFFF) == 0);
-    cmn32(tag, Imm32(negTag));
-  }
-
-  static int32_t negatedSignExtTag(ImmTag ref) {
     uint32_t hiShift = JSVAL_TAG_SHIFT - 32;
     int32_t seTag = int32_t(ref.value);
     seTag = (seTag << hiShift) >> hiShift;
     MOZ_ASSERT(seTag < 0);
-    return -seTag;
-  }
-
-  // The upper 32 bits of a Value are its tag shifted left by 15. For a type
-  // whose payload fits in 32 bits they equal the shifted tag, so a 32-bit load
-  // of the upper word compares against it without extracting the tag. Like
-  // cmpTag this adds the negated constant with CMN; the negated upper word is a
-  // multiple of 1 << 15 below 1 << 20, which encodes as a 12-bit immediate
-  // shifted by 12.
-  void cmpTagUpperWord(const Address& address, JSValueTag tag) {
-    vixl::UseScratchRegisterScope temps(this);
-    const ARMRegister scratch32 = temps.AcquireW();
-    MOZ_ASSERT(scratch32.asUnsized() != address.base);
-    static_assert(JSVAL_TAG_SHIFT >= 32);
-    uint32_t upperWord = uint32_t(uint64_t(tag) << (JSVAL_TAG_SHIFT - 32));
-    uint32_t negUpperWord = uint32_t(0) - upperWord;
-    MOZ_ASSERT(vixl::Assembler::IsImmAddSub(negUpperWord));
-    Address upperWordAddress(address.base,
-                             address.offset + int32_t(sizeof(uint32_t)));
-    Ldr(scratch32, toMemOperand(upperWordAddress));
-    Cmn(scratch32, Operand(negUpperWord));
+    int32_t negTag = -seTag;
+    // Check thest negTag is encoded on a 12 bits immediate value.
+    MOZ_ASSERT((negTag & ~0xFFF) == 0);
+    cmn32(tag, Imm32(negTag));
   }
 
   // Register-based tests.
@@ -1784,15 +1760,6 @@ class MacroAssemblerCompat : public vixl::MacroAssembler {
   }
   Condition testError(Condition cond, Register tag) {
     return testMagic(cond, tag);
-  }
-  Condition testNullOrUndefined(Condition cond, Register tag) {
-    MOZ_ASSERT(cond == Equal || cond == NotEqual);
-    cmpTag(tag, ImmTag(JSVAL_TAG_NULL));
-    // Compare with the undefined tag unless null matched, keeping Z set then.
-    int32_t negUndefined = negatedSignExtTag(ImmTag(JSVAL_TAG_UNDEFINED));
-    MOZ_ASSERT(vixl::Assembler::IsImmConditionalCompare(negUndefined));
-    Ccmn(ARMRegister(tag, 32), Operand(negUndefined), vixl::ZFlag, NotEqual);
-    return cond;
   }
 
   // ValueOperand-based tests.
@@ -1892,63 +1859,56 @@ class MacroAssemblerCompat : public vixl::MacroAssembler {
   Condition testError(Condition cond, const ValueOperand& value) {
     return testMagic(cond, value);
   }
-  Condition testNullOrUndefined(Condition cond, const ValueOperand& value) {
-    MOZ_ASSERT(cond == Equal || cond == NotEqual);
-    vixl::UseScratchRegisterScope temps(this);
-    const ARMRegister scratch64 = temps.AcquireX();
-    MOZ_ASSERT(scratch64.asUnsized() != value.valueReg());
-    // The bits that null and undefined share sign-extend to a negative
-    // constant that compares with CMN like a sign-extended tag.
-    constexpr unsigned shift = JS::detail::ValueNullOrUndefinedShift;
-    constexpr uint32_t bits = JS::detail::ValueNullOrUndefinedBits;
-    static_assert(bits >> (64 - shift - 1) == 1,
-                  "the shared bits must sign-extend to a negative value");
-    constexpr int32_t negBits = int32_t((uint32_t(1) << (64 - shift)) - bits);
-    MOZ_ASSERT(vixl::Assembler::IsImmAddSub(negBits));
-    Asr(scratch64, ARMRegister(value.valueReg(), 64), shift);
-    Cmn(scratch64.W(), Operand(negBits));
-    return cond;
-  }
 
-  // Address-based tests. Types with a 32-bit payload and the range tests
-  // compare the upper word of the Value (see cmpTagUpperWord); the pointer
-  // types extract the tag because their payload reaches into the upper word.
+  // Address-based tests.
   Condition testGCThing(Condition cond, const Address& address) {
-    MOZ_ASSERT(cond == Equal || cond == NotEqual);
-    cmpTagUpperWord(address, JS::detail::ValueLowerInclGCThingTag);
-    return (cond == Equal) ? AboveOrEqual : Below;
+    vixl::UseScratchRegisterScope temps(this);
+    const Register scratch = temps.AcquireX().asUnsized();
+    MOZ_ASSERT(address.base != scratch);
+    splitSignExtTag(address, scratch);
+    return testGCThing(cond, scratch);
   }
   Condition testMagic(Condition cond, const Address& address) {
-    MOZ_ASSERT(cond == Equal || cond == NotEqual);
-    cmpTagUpperWord(address, JSVAL_TAG_MAGIC);
-    return cond;
+    vixl::UseScratchRegisterScope temps(this);
+    const Register scratch = temps.AcquireX().asUnsized();
+    MOZ_ASSERT(address.base != scratch);
+    splitSignExtTag(address, scratch);
+    return testMagic(cond, scratch);
   }
   Condition testInt32(Condition cond, const Address& address) {
-    MOZ_ASSERT(cond == Equal || cond == NotEqual);
-    cmpTagUpperWord(address, JSVAL_TAG_INT32);
-    return cond;
+    vixl::UseScratchRegisterScope temps(this);
+    const Register scratch = temps.AcquireX().asUnsized();
+    MOZ_ASSERT(address.base != scratch);
+    splitSignExtTag(address, scratch);
+    return testInt32(cond, scratch);
   }
   Condition testDouble(Condition cond, const Address& address) {
-    MOZ_ASSERT(cond == Equal || cond == NotEqual);
-    // Doubles have the lowest tags, so the upper word of a double is below
-    // that of the first non-double tag.
-    cmpTagUpperWord(address, JSValueTag(JSVAL_TAG_MAX_DOUBLE + 1));
-    return (cond == Equal) ? Below : AboveOrEqual;
+    vixl::UseScratchRegisterScope temps(this);
+    const Register scratch = temps.AcquireX().asUnsized();
+    MOZ_ASSERT(address.base != scratch);
+    splitSignExtTag(address, scratch);
+    return testDouble(cond, scratch);
   }
   Condition testBoolean(Condition cond, const Address& address) {
-    MOZ_ASSERT(cond == Equal || cond == NotEqual);
-    cmpTagUpperWord(address, JSVAL_TAG_BOOLEAN);
-    return cond;
+    vixl::UseScratchRegisterScope temps(this);
+    const Register scratch = temps.AcquireX().asUnsized();
+    MOZ_ASSERT(address.base != scratch);
+    splitSignExtTag(address, scratch);
+    return testBoolean(cond, scratch);
   }
   Condition testNull(Condition cond, const Address& address) {
-    MOZ_ASSERT(cond == Equal || cond == NotEqual);
-    cmpTagUpperWord(address, JSVAL_TAG_NULL);
-    return cond;
+    vixl::UseScratchRegisterScope temps(this);
+    const Register scratch = temps.AcquireX().asUnsized();
+    MOZ_ASSERT(address.base != scratch);
+    splitSignExtTag(address, scratch);
+    return testNull(cond, scratch);
   }
   Condition testUndefined(Condition cond, const Address& address) {
-    MOZ_ASSERT(cond == Equal || cond == NotEqual);
-    cmpTagUpperWord(address, JSVAL_TAG_UNDEFINED);
-    return cond;
+    vixl::UseScratchRegisterScope temps(this);
+    const Register scratch = temps.AcquireX().asUnsized();
+    MOZ_ASSERT(address.base != scratch);
+    splitSignExtTag(address, scratch);
+    return testUndefined(cond, scratch);
   }
   Condition testString(Condition cond, const Address& address) {
     vixl::UseScratchRegisterScope temps(this);
@@ -1979,11 +1939,11 @@ class MacroAssemblerCompat : public vixl::MacroAssembler {
     return testObject(cond, scratch);
   }
   Condition testNumber(Condition cond, const Address& address) {
-    MOZ_ASSERT(cond == Equal || cond == NotEqual);
-    // Int32 is the highest number tag and has no payload bits in the upper
-    // word, so the upper word of a number is at most the shifted Int32 tag.
-    cmpTagUpperWord(address, JS::detail::ValueUpperInclNumberTag);
-    return (cond == Equal) ? BelowOrEqual : Above;
+    vixl::UseScratchRegisterScope temps(this);
+    const Register scratch = temps.AcquireX().asUnsized();
+    MOZ_ASSERT(address.base != scratch);
+    splitSignExtTag(address, scratch);
+    return testNumber(cond, scratch);
   }
 
   // BaseIndex-based tests.

@@ -1,8 +1,6 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-const STATE_CHOOSE = "choose";
-
 do_get_profile();
 
 const { ChatConversation, MESSAGE_ROLE, ChatMessage } =
@@ -487,19 +485,6 @@ add_task(function test_ChatConversation_getMostRecentPageVisited() {
   Assert.equal(mostRecentPageVisited, "https://www.espn.com/");
 });
 
-add_task(function test_revisited_ChatConversation_getMostRecentPageVisited() {
-  const conversation = new ChatConversation({});
-
-  const content = "user to assistant msg";
-  conversation.addUserMessage(content, new URL("https://www.mozilla.com"));
-  conversation.addUserMessage(content, new URL("https://www.firefox.com"));
-  conversation.addUserMessage(content, new URL("https://www.mozilla.com"));
-  conversation.addUserMessage(content, new URL("about:aiwindow"));
-
-  const mostRecentPageVisited = conversation.getMostRecentPageVisited();
-  Assert.equal(mostRecentPageVisited, "https://www.mozilla.com/");
-});
-
 add_task(function test_noBrowsing_ChatConversation_getMostRecentPageVisited() {
   const conversation = new ChatConversation({});
 
@@ -768,7 +753,6 @@ add_task(
             feature: "browser-context",
             module: "tab",
             model: "generic",
-            version: "1.0",
             prompts: "TAB: {title} ({url})",
           },
         ]),
@@ -819,7 +803,6 @@ add_task(async function test_injectRealTimeContext_dedupes_when_unchanged() {
           feature: "browser-context",
           module: "tab",
           model: "generic",
-          version: "1.0",
           prompts: "TAB: {title} ({url})",
         },
       ]),
@@ -904,7 +887,7 @@ add_task(function test_renderState_includes_empty_message_with_tool_ui() {
   const message = conversation.addAssistantMessage("text", "");
   conversation.addUIToolToCurrentMessage(
     "aitab-call",
-    { uiType: "aitab", properties: { state: STATE_CHOOSE } },
+    { uiType: "aitab", properties: { state: "creating" } },
     { emitComplete: false }
   );
 
@@ -2032,7 +2015,7 @@ add_task(function test_addUIToolToCurrentMessage_can_defer_completion() {
 
   conversation.addUIToolToCurrentMessage(
     "aitab-call",
-    { uiType: "aitab", properties: { state: STATE_CHOOSE } },
+    { uiType: "aitab", properties: { state: "creating" } },
     { emitComplete: false }
   );
 

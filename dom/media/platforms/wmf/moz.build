@@ -37,10 +37,6 @@ if CONFIG["MOZ_WMF_MEDIA_ENGINE"]:
         "MFMediaEngineVideoStream.cpp",
         "MFMediaSource.cpp",
     ]
-    SOURCE_HEADERS += [
-        "MFMediaEngineExtension.h",
-        "MFMediaEngineNotify.h",
-    ]
 
 if CONFIG["MOZ_WMF_CDM"]:
     EXPORTS += [
@@ -92,7 +88,3 @@ FINAL_LIBRARY = "xul"
 
 # Add libFuzzer configuration directives
 include("/tools/fuzzing/libfuzzer-config.mozbuild")
-
-SOURCE_HEADERS += [
-    "MFTEncoder.h",
-]

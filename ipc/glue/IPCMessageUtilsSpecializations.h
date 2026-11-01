@@ -26,6 +26,7 @@
 #include "gfxPlatform.h"
 #include "NonCustomCSSPropertyId.h"
 #include "nsContentPolicyType.h"
+#include "nsContentPermissionHelper.h"
 #include "nsDebug.h"
 #include "nsIContentPolicy.h"
 #include "nsID.h"
@@ -487,7 +488,7 @@ struct ParamTraits<mozilla::Variant<Ts...>> {
   // a matching tag.
   template <typename dummy>
   struct VariantReader<0, dummy> {
-    static ReadResult<paramType> Read(MessageReader* /*reader*/, Tag /*tag*/) {
+    static ReadResult<paramType> Read(MessageReader* reader, Tag tag) {
       return {};
     }
   };
@@ -640,6 +641,12 @@ struct ParamTraits<nsILoadInfo::IPAddressSpace>
     : public ContiguousEnumSerializer<nsILoadInfo::IPAddressSpace,
                                       nsILoadInfo::IPAddressSpace::Unknown,
                                       nsILoadInfo::IPAddressSpace::Invalid> {};
+
+using PromptResult = mozilla::dom::ContentPermissionRequestBase::PromptResult;
+template <>
+struct ParamTraits<PromptResult>
+    : public ContiguousEnumSerializerInclusive<
+          PromptResult, PromptResult::Granted, PromptResult::Pending> {};
 
 } /* namespace IPC */
 

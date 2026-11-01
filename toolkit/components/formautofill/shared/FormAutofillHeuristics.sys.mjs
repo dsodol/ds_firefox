@@ -32,7 +32,8 @@ const ADDR_TYPE = 2;
 // Regular expression to match a word of text.
 const WORD_RE = /\s*([\p{L}\p{N}]+)/u;
 
-const HINT_PREFIX = "**hint";
+const ADJACENT_BEFORE_PREFIX = "bb";
+const ADJACENT_AFTER_PREFIX = "aa";
 
 // strip_common / strip_frequent apply only to forms with at least this many
 // fields -- below it, a "shared" token is likely coincidental and removing it is
@@ -1097,7 +1098,10 @@ export const FormAutofillHeuristics = {
 
   tokenizeElements(elements) {
     // If ML inference is disabled or not yet ready, revert to heuristics.
-    if (!lazy.FormAutofillUtils.useMLInference) {
+    if (
+      !lazy.FormAutofillUtils.useMLInference ||
+      !lazy.FormAutofillUtils.isMLUsedAlready
+    ) {
       return null;
     }
 
@@ -1106,7 +1110,7 @@ export const FormAutofillHeuristics = {
       let words = [];
       this.tokenizeAttributes(element, words);
 
-      elementDataList.push({ element, words: words.join(" ") });
+      elementDataList.push({ element, words });
     }
 
     // Optionally drop form-wide boilerplate tokens before building neighbor
@@ -1115,58 +1119,28 @@ export const FormAutofillHeuristics = {
 
     let resultsMap = new Map();
 
-    // Each field's tokens plus its immediate neighbors' tokens.
+    // Each field's tokens plus its immediate neighbors' tokens, prefixed "bb"
+    // (previous) and "aa" (next) so the model can tell own vs adjacent context.
     for (let e = 0; e < elementDataList.length; e++) {
-      let words = elementDataList[e].words;
-      let previousWords = e > 0 ? elementDataList[e - 1].words : "";
-      let nextWords =
-        e < elementDataList.length - 1 ? elementDataList[e + 1].words : "";
+      let words = elementDataList[e].words.copyWithin();
 
-      resultsMap.set(elementDataList[e].element, [
-        words,
-        previousWords,
-        nextWords,
-      ]);
+      if (e > 0) {
+        words = words.concat(
+          elementDataList[e - 1].words.map(
+            text => ADJACENT_BEFORE_PREFIX + text
+          )
+        );
+      }
+      if (e < elementDataList.length - 1) {
+        words = words.concat(
+          elementDataList[e + 1].words.map(text => ADJACENT_AFTER_PREFIX + text)
+        );
+      }
+
+      resultsMap.set(elementDataList[e].element, words.join(" "));
     }
 
     return resultsMap;
-  },
-
-  getHintToken(fieldDetail) {
-    const name =
-      lazy.FormAutofillUtils.canUseML(fieldDetail) ||
-      fieldDetail.reason == "autocomplete"
-        ? fieldDetail.fieldName
-        : "";
-
-    if (!name || !FormAutofill.mlHintFields.has(name)) {
-      return HINT_PREFIX + "none";
-    }
-
-    return HINT_PREFIX + name.replaceAll("-", "");
-  },
-
-  addHintTokens(fieldDetail, previousHint, nextHint) {
-    if (!fieldDetail.mlData) {
-      return;
-    }
-
-    const currentHint = this.getHintToken(fieldDetail);
-    previousHint ??= HINT_PREFIX + "none";
-    nextHint ??= HINT_PREFIX + "none";
-
-    // Reassign a fresh array rather than mutating elements in place: mlData can
-    // reach this point as a read-only array (e.g. a frozen/IPC-cloned copy via
-    // the inspectFields path), so `mlData[0] = ...` would throw "0 is read-only".
-    fieldDetail.mlData = [
-      currentHint + " " + fieldDetail.mlData[0],
-      fieldDetail.mlData[1]
-        ? previousHint + " " + fieldDetail.mlData[1]
-        : fieldDetail.mlData[1],
-      fieldDetail.mlData[2]
-        ? nextHint + " " + fieldDetail.mlData[2]
-        : fieldDetail.mlData[2],
-    ];
   },
 
   /**
@@ -1186,36 +1160,11 @@ export const FormAutofillHeuristics = {
       lazy.FormAutofillUtils.isCreditCardOrAddressFieldType(element)
     );
 
-    // The "regex_hint" mlFeature prepends each field's regex-heuristic
-    // recommendation as a "**hint" token.
-    const shouldAddHints = FormAutofill.mlFeatures.has("regex_hint");
-
     // Because we include information about the adjacent fields, it is
     // easier to  perform all of the tokenization at once and insert the
     // results into a map first, keyed by element. The tokens can then be
     // retrieved later within inferFieldInfo.
     let mlTokensMap = this.tokenizeElements(elements);
-
-    // As we iterate, we store details about the previous details and hints,
-    // so that we can update the hints for that and surrounding fields. The
-    // previous detail is used, because by then we know the hints for the
-    // current and next fields
-    let previousDetail = null;
-    let currentHint, previousHint;
-
-    let addHintsToPrevious = fieldDetail => {
-      if (!shouldAddHints) {
-        return;
-      }
-
-      const nextHint = fieldDetail ? this.getHintToken(fieldDetail) : null;
-      if (previousDetail) {
-        this.addHintTokens(previousDetail, previousHint, nextHint);
-      }
-      previousHint = currentHint;
-      currentHint = nextHint;
-      previousDetail = fieldDetail;
-    };
 
     const fieldDetails = [];
     for (let idx = 0; idx < elements.length; idx++) {
@@ -1232,7 +1181,6 @@ export const FormAutofillHeuristics = {
         // keep track of them. This way they will also be cleared on a form clearing action.
         element.autofillState != lazy.FormAutofillUtils.FIELD_STATES.AUTO_FILLED
       ) {
-        addHintsToPrevious(null);
         continue;
       }
 
@@ -1244,24 +1192,16 @@ export const FormAutofillHeuristics = {
 
       const attributes = this.parseAdditionalAttributes(element, fieldName);
 
-      const fieldDetail = lazy.FieldDetail.create(
-        element,
-        formLike,
-        fieldName,
-        {
+      fieldDetails.push(
+        lazy.FieldDetail.create(element, formLike, fieldName, {
           autocompleteInfo: inferInfo.autocompleteInfo,
           fathomConfidence: inferInfo.fathomConfidence,
           isVisible,
           isLookup: attributes.isLookup,
           mlData,
-        }
+        })
       );
-      fieldDetails.push(fieldDetail);
-
-      addHintsToPrevious(fieldDetail);
     }
-
-    addHintsToPrevious(null);
 
     this.parseAndUpdateFieldNamesContent(fieldDetails);
 
@@ -1391,6 +1331,39 @@ export const FormAutofillHeuristics = {
   },
 
   /**
+   * Get the subset of `fieldNames` the regexp-based heuristics should try to
+   * match for an element.
+   *
+   * Without ML the heuristics classify every field type they can. When the ML
+   * model classifies the form, they only run for the field types the model is
+   * not trusted with, so a bad prediction for one field type can be avoided
+   * without giving up ML for the whole form.
+   *
+   * Note that `_findMatchedFieldNames` tries the rules in the order of the
+   * names it is given, so dropping a name also drops the shadowing it did:
+   * with only "tel" left, the broad tel rule claims a field that
+   * "tel-country-code" would otherwise have matched. Related field types
+   * therefore belong on the list together.
+   *
+   * @param {Array<string>} fieldNames
+   *        The field names this element could be, see `_getPossibleFieldNames`.
+   * @param {boolean} useML
+   *        Whether the ML model classifies this element.
+   * @returns {Array<string>}
+   *        The field names to match with the regexp heuristics. Empty means no
+   *        regexp heuristic should run for this element.
+   */
+  _getRegexpHeuristicFieldNames(fieldNames, useML) {
+    if (!useML) {
+      return fieldNames;
+    }
+
+    return fieldNames.filter(fieldName =>
+      lazy.FormAutofillUtils.mlIgnoreFieldTypes.includes(fieldName)
+    );
+  },
+
+  /**
    * Get inferred information about an input element using autocomplete info, fathom and regex-based heuristics.
    *
    * @param {HTMLElement} element - The input element to infer information about.
@@ -1488,26 +1461,43 @@ export const FormAutofillHeuristics = {
       return [passportFieldName, inferredInfo];
     }
 
-    let mlToken = mlTokens?.get(element);
+    const regexpFields = this._getRegexpHeuristicFieldNames(fields, !!mlTokens);
+    if (!regexpFields.length) {
+      // No regexp heuristic runs for this element, leave it to the model.
+      return [matchedFieldNames, inferredInfo, mlTokens?.get(element)];
+    }
+
+    // Whether the checks below should consider `fieldName` for this element.
+    // Only the ML path restricts this, so the regexp-only path keeps
+    // considering every field type it did before.
+    const shouldCheck = fieldName =>
+      !mlTokens || regexpFields.includes(fieldName);
 
     // Check every select for options that
     // match credit card network names in value or label.
     if (HTMLSelectElement.isInstance(element)) {
-      if (this._isExpirationMonthLikely(element)) {
-        return ["cc-exp-month", inferredInfo, mlToken];
-      } else if (this._isExpirationYearLikely(element)) {
-        return ["cc-exp-year", inferredInfo, mlToken];
+      if (
+        shouldCheck("cc-exp-month") &&
+        this._isExpirationMonthLikely(element)
+      ) {
+        return ["cc-exp-month", inferredInfo];
+      } else if (
+        shouldCheck("cc-exp-year") &&
+        this._isExpirationYearLikely(element)
+      ) {
+        return ["cc-exp-year", inferredInfo];
       }
 
       const options = Array.from(element.querySelectorAll("option"));
       if (
+        shouldCheck("cc-type") &&
         options.find(
           option =>
             lazy.CreditCard.getNetworkFromName(option.value) ||
             lazy.CreditCard.getNetworkFromName(option.text)
         )
       ) {
-        return ["cc-type", inferredInfo, mlToken];
+        return ["cc-type", inferredInfo];
       }
 
       // At least two options match the country name, otherwise some state name might
@@ -1515,6 +1505,7 @@ export const FormAutofillHeuristics = {
       // options rather than the first, as selects often start with a non-country display option.
       const countryDisplayNames = Array.from(FormAutofill.countries.values());
       if (
+        (shouldCheck("country") || shouldCheck("tel-country-code")) &&
         options.length >= 2 &&
         options
           .slice(-2)
@@ -1528,28 +1519,46 @@ export const FormAutofillHeuristics = {
         // a telephone country prefix or a separate country field. The check
         // above only tells us the field is one of the two, so make sure the
         // one we settled on is a field name we may match.
-        return this._findMatchedFieldNames(element, ["tel-country-code"])
-          ?.length
-          ? ["tel-country-code", inferredInfo, mlToken]
-          : ["country", inferredInfo, mlToken];
+        const fieldName = this._findMatchedFieldNames(element, [
+          "tel-country-code",
+        ])?.length
+          ? "tel-country-code"
+          : "country";
+        if (shouldCheck(fieldName)) {
+          return [fieldName, inferredInfo];
+        }
       }
     }
 
     // Find a matched field name using regexp-based heuristics
     const heuristicMatchedFieldNames = this._findMatchedFieldNames(
       element,
-      fields,
+      regexpFields,
       fathomFoundType
     );
     matchedFieldNames.push(...heuristicMatchedFieldNames);
 
     // If regular expression based heuristics doesn't find any matched field name,
     // and the input type is "tel", just use "tel" as the field name.
-    if (!matchedFieldNames.length && element.type == "tel") {
+    if (
+      !matchedFieldNames.length &&
+      element.type == "tel" &&
+      shouldCheck("tel")
+    ) {
       return ["tel", inferredInfo];
     }
 
-    return [matchedFieldNames, inferredInfo, mlToken];
+    // Withholding the tokens keeps a field the heuristics classified out of
+    // the model's batch. `#applyResults` would skip it anyway because it has a
+    // name, so this only saves encoding it. Note it asks whether the regexp
+    // heuristics matched rather than whether the field has a name, because
+    // `matchedFieldNames` may hold a name fathom found.
+    const classifiedByRegexp = !!heuristicMatchedFieldNames.length;
+    return [
+      matchedFieldNames,
+      inferredInfo,
+      classifiedByRegexp ? undefined : mlTokens?.get(element),
+    ];
   },
 
   /**

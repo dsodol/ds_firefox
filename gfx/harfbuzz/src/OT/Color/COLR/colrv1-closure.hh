@@ -47,8 +47,7 @@ HB_INTERNAL void PaintColrLayers::closurev1 (hb_colrv1_closure_context_t* c) con
   }
 }
 
-template <typename Types>
-HB_INTERNAL void PaintGlyph<Types>::closurev1 (hb_colrv1_closure_context_t* c) const
+HB_INTERNAL void PaintGlyph::closurev1 (hb_colrv1_closure_context_t* c) const
 {
   c->add_glyph (gid);
   (this+paint).dispatch (c);

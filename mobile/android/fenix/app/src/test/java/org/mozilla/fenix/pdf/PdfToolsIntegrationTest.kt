@@ -181,45 +181,6 @@ class PdfToolsIntegrationTest {
     }
 
     @Test
-    fun `WHEN add is activated again before or after the engine responds THEN the signature is handed over once`() {
-        val engineSession = mockk<EngineSession>()
-        val onResult = slot<() -> Unit>()
-        every { engineSession.addSignatureToPdf(any(), capture(onResult), any()) } returns Unit
-        val integration = integration(store = storeOf(pdfTabWith(engineSession)))
-        integration.handleSignClick()
-        integration.signatureState.signature.setTextAndPlaceCursorAtEnd("Test User")
-
-        integration.handleSignAddClick()
-        integration.handleSignAddClick()
-        onResult.captured()
-        integration.handleSignAddClick()
-
-        verify(exactly = 1) { engineSession.addSignatureToPdf(any(), any(), any()) }
-    }
-
-    @Test
-    fun `GIVEN a signature is being added WHEN the dialog is closed and reopened THEN the signature is kept until the engine responds`() {
-        val engineSession = mockk<EngineSession>()
-        val onResult = slot<() -> Unit>()
-        every { engineSession.addSignatureToPdf(any(), capture(onResult), any()) } returns Unit
-        val integration = integration(store = storeOf(pdfTabWith(engineSession)))
-        integration.handleSignClick()
-        integration.signatureState.signature.setTextAndPlaceCursorAtEnd("Test User")
-        integration.handleSignAddClick()
-
-        integration.handleSignCloseClick()
-        integration.handleSignClick()
-
-        assertTrue(integration.signatureState.isAddingSignature)
-        assertEquals("Test User", integration.signatureState.signature.text.toString())
-
-        onResult.captured()
-
-        assertFalse(integration.signatureState.isSigning)
-        assertEquals("", integration.signatureState.signature.text.toString())
-    }
-
-    @Test
     fun `WHEN download is activated THEN the selected tab is saved as a PDF`() {
         integration().handleDownloadClick()
 
@@ -329,39 +290,21 @@ class PdfToolsIntegrationTest {
     }
 
     @Test
-    fun `GIVEN the address bar is at the top WHEN the feature is started THEN the overlays are traversed between the address bar and the page`() {
+    fun `WHEN the feature is started THEN the overlays are traversed between the address bar and the page`() {
         // Test for Bug 2066197
         val addressBar = View(activity).apply { id = R.id.composable_toolbar }
         val content = View(activity).apply { id = R.id.engineView }
         container.addView(addressBar)
         container.addView(content)
 
-        integration(isAddressBarAtBottom = false).start()
-        shadowOf(Looper.getMainLooper()).idle()
-
-        val tools = container.children.elementAt(2)
-        val dialog = (container.children.elementAt(3) as ViewGroup).getChildAt(0)
-        assertEquals(addressBar.id, tools.accessibilityTraversalAfter)
-        assertEquals(tools.id, dialog.accessibilityTraversalAfter)
-        assertEquals(dialog.id, content.accessibilityTraversalAfter)
-    }
-
-    @Test
-    fun `GIVEN the address bar is at the bottom WHEN the feature is started THEN the overlays are traversed between the page and the address bar`() {
-        // Test for Bug 2085012
-        val addressBar = View(activity).apply { id = R.id.composable_toolbar }
-        val content = View(activity).apply { id = R.id.engineView }
-        container.addView(addressBar)
-        container.addView(content)
-
-        integration(isAddressBarAtBottom = true).start()
+        integration().start()
         shadowOf(Looper.getMainLooper()).idle()
 
         val tools = container.children.elementAt(2)
         val dialog = container.children.elementAt(3)
-        assertEquals(content.id, tools.accessibilityTraversalAfter)
+        assertEquals(addressBar.id, tools.accessibilityTraversalAfter)
         assertEquals(tools.id, dialog.accessibilityTraversalAfter)
-        assertEquals(dialog.id, addressBar.accessibilityTraversalAfter)
+        assertEquals(dialog.id, content.accessibilityTraversalAfter)
     }
 
     /** Stands in for the browser toolbar, which removes the navigation bar as its composition is created. */

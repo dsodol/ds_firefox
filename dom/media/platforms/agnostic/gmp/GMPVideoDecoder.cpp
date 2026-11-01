@@ -26,8 +26,7 @@ GMPVideoDecoderParams::GMPVideoDecoderParams(const CreateDecoderParams& aParams)
       mImageContainer(aParams.mImageContainer),
       mCrashHelper(aParams.mCrashHelper),
       mKnowsCompositor(aParams.mKnowsCompositor),
-      mTrackingId(aParams.mTrackingId),
-      mOptions(aParams.mOptions) {}
+      mTrackingId(aParams.mTrackingId) {}
 
 nsCString GMPVideoDecoder::GetCodecName() const {
   if (MP4Decoder::IsH264(mConfig.mMimeType)) {
@@ -221,9 +220,7 @@ GMPVideoDecoder::GMPVideoDecoder(const GMPVideoDecoderParams& aParams)
       mKnowsCompositor(aParams.mKnowsCompositor),
       mTrackingId(aParams.mTrackingId),
       mCanDecodeBatch(StaticPrefs::media_gmp_decoder_decode_batch()),
-      mReorderFrames(StaticPrefs::media_gmp_decoder_reorder_frames()),
-      mLowLatency(
-          aParams.mOptions.contains(CreateDecoderParams::Option::LowLatency)) {}
+      mReorderFrames(StaticPrefs::media_gmp_decoder_reorder_frames()) {}
 
 void GMPVideoDecoder::InitTags(nsTArray<nsCString>& aTags) {
   if (MP4Decoder::IsH264(mConfig.mMimeType)) {
@@ -312,13 +309,7 @@ void GMPVideoDecoder::GMPInitDone(GMPVideoDecoderProxy* aGMP,
     // OpenH264 expects pseudo-AVCC, but others must be passed
     // AnnexB for H264.
     mConvertToAnnexB = !isOpenH264;
-    // Frames must still be output in presentation order, but when low latency
-    // is requested, we only hold back as many as the stream may reorder.
-    SPSData spsdata;
-    mMaxRefFrames =
-        mLowLatency && H264::DecodeSPSFromExtraData(mConfig.mExtraData, spsdata)
-            ? spsdata.max_num_reorder_frames
-            : H264::ComputeMaxRefFrames(mConfig.mExtraData);
+    mMaxRefFrames = H264::ComputeMaxRefFrames(mConfig.mExtraData);
   } else if (VPXDecoder::IsVP8(mConfig.mMimeType)) {
     codec.mCodecType = kGMPVideoCodecVP8;
   } else if (VPXDecoder::IsVP9(mConfig.mMimeType)) {
@@ -431,7 +422,7 @@ RefPtr<MediaDataDecoder::DecodePromise> GMPVideoDecoder::Decode(
   // requested twice, if the old frame is still outstanding. We will simply drop
   // the extra decoded frame and request more input if the last outstanding.
   mSamples.WithEntryHandle(frameTimestamp, [&](auto entryHandle) {
-    auto sampleData = std::make_unique<SampleMetadata>(sample);
+    auto sampleData = MakeUnique<SampleMetadata>(sample);
     entryHandle.InsertOrUpdate(std::move(sampleData));
   });
 

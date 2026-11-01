@@ -238,8 +238,8 @@ UniquePtr<DCLayerTree> DCLayerTree::Create(gl::GLContext* aGL,
     return nullptr;
   }
 
-  auto layerTree = std::make_unique<DCLayerTree>(aGL, aEGLConfig, aDevice, aCtx,
-                                                 aHwnd, dCompDevice);
+  auto layerTree = MakeUnique<DCLayerTree>(aGL, aEGLConfig, aDevice, aCtx,
+                                           aHwnd, dCompDevice);
   if (!layerTree->Initialize(aHwnd, aError)) {
     return nullptr;
   }
@@ -327,7 +327,7 @@ bool DCLayerTree::Initialize(HWND aHwnd, nsACString& aError) {
   if (gfx::gfxVars::UseWebRenderDCompVideoHwOverlayWin() ||
       gfx::gfxVars::UseWebRenderDCompVideoSwOverlayWin()) {
     if (!InitializeVideoOverlaySupport()) {
-      RenderThread::Get()->NotifyWebRenderError(WebRenderError::VIDEO_OVERLAY);
+      RenderThread::Get()->HandleWebRenderError(WebRenderError::VIDEO_OVERLAY);
     }
   }
   if (!sGpuOverlayInfo) {
@@ -399,7 +399,7 @@ bool DCLayerTree::InitializeVideoOverlaySupport() {
     return true;
   }
 
-  auto info = std::make_unique<GpuOverlayInfo>();
+  UniquePtr<GpuOverlayInfo> info = MakeUnique<GpuOverlayInfo>();
 
   RefPtr<IDXGIDevice> dxgiDevice;
   RefPtr<IDXGIAdapter> adapter;
@@ -758,8 +758,7 @@ void DCLayerTree::CreateSwapChainSurface(wr::NativeSurfaceId aId,
 
   UniquePtr<DCSurface> surface;
   if (UseDCLayerDCompositionTexture()) {
-    surface =
-        std::make_unique<DCLayerDCompositionTexture>(aSize, aIsOpaque, this);
+    surface = MakeUnique<DCLayerDCompositionTexture>(aSize, aIsOpaque, this);
     if (!surface->Initialize()) {
       gfxCriticalNote << "Failed to initialize DCLayerDCompositionTexture: "
                       << wr::AsUint64(aId);
@@ -770,15 +769,14 @@ void DCLayerTree::CreateSwapChainSurface(wr::NativeSurfaceId aId,
       (aNeedsSyncDcompCommit ||
        StaticPrefs::
            gfx_webrender_layer_compositor_force_composition_surface_AtStartup())) {
-    surface =
-        std::make_unique<DCLayerCompositionSurface>(aSize, aIsOpaque, this);
+    surface = MakeUnique<DCLayerCompositionSurface>(aSize, aIsOpaque, this);
     if (!surface->Initialize()) {
       gfxCriticalNote << "Failed to initialize DCLayerSurface: "
                       << wr::AsUint64(aId);
       RenderThread::Get()->HandleWebRenderError(WebRenderError::NEW_SURFACE);
     }
   } else {
-    surface = std::make_unique<DCSwapChain>(aSize, aIsOpaque, this);
+    surface = MakeUnique<DCSwapChain>(aSize, aIsOpaque, this);
     if (!surface->Initialize()) {
       gfxCriticalNote << "Failed to initialize DCSwapChain: "
                       << wr::AsUint64(aId);
@@ -809,7 +807,7 @@ void DCLayerTree::CreateExternalSurface(wr::NativeSurfaceId aId,
   auto it = mDCSurfaces.find(aId);
   MOZ_RELEASE_ASSERT(it == mDCSurfaces.end());
 
-  auto surface = std::make_unique<DCExternalSurfaceWrapper>(aIsOpaque, this);
+  auto surface = MakeUnique<DCExternalSurfaceWrapper>(aIsOpaque, this);
   if (!surface->Initialize()) {
     gfxCriticalNote << "Failed to initialize DCExternalSurfaceWrapper: "
                     << wr::AsUint64(aId);
@@ -1588,7 +1586,7 @@ DCLayerDCompositionTexture::AllocateTexture() {
     return nullptr;
   }
 
-  return std::make_unique<TextureHolder>(texture, dcompTexture, surface);
+  return MakeUnique<TextureHolder>(texture, dcompTexture, surface);
 }
 
 void DCLayerDCompositionTexture::DestroyTexture(

@@ -8,7 +8,6 @@
 #include "mozilla/RemoteLazyInputStreamChild.h"
 #include "nsIEventTarget.h"
 #include "nsIObserver.h"
-#include "nsIThread.h"
 #include "nsTArray.h"
 
 class nsIThread;

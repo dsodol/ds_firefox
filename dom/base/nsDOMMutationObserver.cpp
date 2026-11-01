@@ -145,8 +145,7 @@ void nsMutationReceiver::Disconnect(bool aRemoveFromObserver) {
 
 void nsMutationReceiver::AttributeWillChange(Element* aElement,
                                              int32_t aNameSpaceID,
-                                             nsAtom* aAttribute,
-                                             AttrModType aModType) {
+                                             nsAtom* aAttribute, AttrModType) {
   if (nsAutoMutationBatch::IsBatching() ||
       !ObservesAttr(RegisterTarget(), aElement, aNameSpaceID, aAttribute)) {
     return;
@@ -167,10 +166,7 @@ void nsMutationReceiver::AttributeWillChange(Element* aElement,
     }
   }
 
-  MOZ_ASSERT_IF(aModType == AttrModType::Addition,
-                !aElement->HasAttr(aNameSpaceID, aAttribute));
-  if (AttributeOldValue() && m->mPrevValue.IsVoid() &&
-      aModType != AttrModType::Addition) {
+  if (AttributeOldValue() && m->mPrevValue.IsVoid()) {
     if (!aElement->GetAttr(aNameSpaceID, aAttribute, m->mPrevValue)) {
       m->mPrevValue.SetIsVoid(true);
     }
@@ -307,7 +303,7 @@ void nsMutationReceiver::ContentWillBeRemoved(nsIContent* aChild,
                   aChild,
                   [&isNewEntry] {
                     isNewEntry = true;
-                    return std::make_unique<nsCOMArray<nsMutationReceiver>>();
+                    return MakeUnique<nsCOMArray<nsMutationReceiver>>();
                   })
               .get();
       if (!isNewEntry) {

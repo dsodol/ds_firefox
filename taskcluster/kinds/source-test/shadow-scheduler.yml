@@ -27,9 +27,8 @@ task-defaults:
         tier: 3
     run-on-projects: ['autoland-only']
     run:
-        using: run-task
-        cwd: '{checkout}'
-        command: ./mach taskgraph optimized -v --json -p task-id=$DECISION_TASK_ID --output-file /builds/worker/optimized-tasks.json
+        using: mach
+        mach: taskgraph optimized -v --json -p task-id=$DECISION_TASK_ID --output-file /builds/worker/optimized-tasks.json
         sparse-profile: taskgraph
 
 relevant_tests:
@@ -194,23 +193,8 @@ perf_fixed_batch_10:
         product: source
         job-name: shadow-scheduler-perf_fixed_batch_10
     worker:
-        artifacts: &perf-shadow-scheduler-artifacts
-            - type: file
-              name: public/shadow-scheduler/parameters.yml
-              path: /builds/worker/parameters.yml
         env:
             TASKGRAPH_OPTIMIZE_STRATEGIES: gecko_taskgraph.optimize:experimental.perf_fixed_batch_10
-    run:
-        # Re-run the decision task's scheduling with a target method that
-        # targets every push-based perf task on every push (autoland only
-        # targets those against shippable builds on backstop pushes), so the
-        # strategy under evaluation gets to judge all of them.
-        command: &perf-shadow-scheduler-command >-
-            ./mach python --virtualenv taskgraph taskcluster/scripts/misc/shadow-scheduler-parameters.py
-            --decision-task-id $DECISION_TASK_ID
-            --target-tasks-method autoland_perf_shadow_scheduler_tasks
-            /builds/worker/parameters.yml &&
-            ./mach taskgraph optimized -v --json -p /builds/worker/parameters.yml --output-file /builds/worker/optimized-tasks.json
 
 perf_fixed_batch_20:
     description: Runs all performance tests every 20 pushes instead of the default perf cadence.
@@ -220,11 +204,8 @@ perf_fixed_batch_20:
         product: source
         job-name: shadow-scheduler-perf_fixed_batch_20
     worker:
-        artifacts: *perf-shadow-scheduler-artifacts
         env:
             TASKGRAPH_OPTIMIZE_STRATEGIES: gecko_taskgraph.optimize:experimental.perf_fixed_batch_20
-    run:
-        command: *perf-shadow-scheduler-command
 
 perf_fixed_batch_30:
     description: Runs all performance tests every 30 pushes instead of the default perf cadence.
@@ -234,11 +215,8 @@ perf_fixed_batch_30:
         product: source
         job-name: shadow-scheduler-perf_fixed_batch_30
     worker:
-        artifacts: *perf-shadow-scheduler-artifacts
         env:
             TASKGRAPH_OPTIMIZE_STRATEGIES: gecko_taskgraph.optimize:experimental.perf_fixed_batch_30
-    run:
-        command: *perf-shadow-scheduler-command
 
 perf_fixed_batch_40:
     description: Runs all performance tests every 40 pushes instead of the default perf cadence.
@@ -248,11 +226,8 @@ perf_fixed_batch_40:
         product: source
         job-name: shadow-scheduler-perf_fixed_batch_40
     worker:
-        artifacts: *perf-shadow-scheduler-artifacts
         env:
             TASKGRAPH_OPTIMIZE_STRATEGIES: gecko_taskgraph.optimize:experimental.perf_fixed_batch_40
-    run:
-        command: *perf-shadow-scheduler-command
 
 perf_fixed_batch_50:
     description: Runs all performance tests every 50 pushes instead of the default perf cadence.
@@ -262,11 +237,8 @@ perf_fixed_batch_50:
         product: source
         job-name: shadow-scheduler-perf_fixed_batch_50
     worker:
-        artifacts: *perf-shadow-scheduler-artifacts
         env:
             TASKGRAPH_OPTIMIZE_STRATEGIES: gecko_taskgraph.optimize:experimental.perf_fixed_batch_50
-    run:
-        command: *perf-shadow-scheduler-command
 
 perf_fixed_batch_60:
     description: Runs all performance tests every 60 pushes instead of the default perf cadence.
@@ -276,11 +248,8 @@ perf_fixed_batch_60:
         product: source
         job-name: shadow-scheduler-perf_fixed_batch_60
     worker:
-        artifacts: *perf-shadow-scheduler-artifacts
         env:
             TASKGRAPH_OPTIMIZE_STRATEGIES: gecko_taskgraph.optimize:experimental.perf_fixed_batch_60
-    run:
-        command: *perf-shadow-scheduler-command
 
 perf_time_batch_3h:
     description: Runs all performance tests when 3 hours have passed since the last batch instead of the default perf cadence.
@@ -290,11 +259,8 @@ perf_time_batch_3h:
         product: source
         job-name: shadow-scheduler-perf_time_batch_3h
     worker:
-        artifacts: *perf-shadow-scheduler-artifacts
         env:
             TASKGRAPH_OPTIMIZE_STRATEGIES: gecko_taskgraph.optimize:experimental.perf_time_batch_3h
-    run:
-        command: *perf-shadow-scheduler-command
 
 perf_time_batch_4h:
     description: Runs all performance tests when 4 hours have passed since the last batch instead of the default perf cadence.
@@ -304,11 +270,8 @@ perf_time_batch_4h:
         product: source
         job-name: shadow-scheduler-perf_time_batch_4h
     worker:
-        artifacts: *perf-shadow-scheduler-artifacts
         env:
             TASKGRAPH_OPTIMIZE_STRATEGIES: gecko_taskgraph.optimize:experimental.perf_time_batch_4h
-    run:
-        command: *perf-shadow-scheduler-command
 
 perf_time_batch_5h:
     description: Runs all performance tests when 5 hours have passed since the last batch instead of the default perf cadence.
@@ -318,11 +281,8 @@ perf_time_batch_5h:
         product: source
         job-name: shadow-scheduler-perf_time_batch_5h
     worker:
-        artifacts: *perf-shadow-scheduler-artifacts
         env:
             TASKGRAPH_OPTIMIZE_STRATEGIES: gecko_taskgraph.optimize:experimental.perf_time_batch_5h
-    run:
-        command: *perf-shadow-scheduler-command
 
 perf_time_batch_5_5h:
     description: Runs all performance tests when 5.5 hours have passed since the last batch instead of the default perf cadence.
@@ -332,11 +292,8 @@ perf_time_batch_5_5h:
         product: source
         job-name: shadow-scheduler-perf_time_batch_5_5h
     worker:
-        artifacts: *perf-shadow-scheduler-artifacts
         env:
             TASKGRAPH_OPTIMIZE_STRATEGIES: gecko_taskgraph.optimize:experimental.perf_time_batch_5_5h
-    run:
-        command: *perf-shadow-scheduler-command
 
 perf_time_batch_6h:
     description: Runs all performance tests when 6 hours have passed since the last batch instead of the default perf cadence.
@@ -346,11 +303,8 @@ perf_time_batch_6h:
         product: source
         job-name: shadow-scheduler-perf_time_batch_6h
     worker:
-        artifacts: *perf-shadow-scheduler-artifacts
         env:
             TASKGRAPH_OPTIMIZE_STRATEGIES: gecko_taskgraph.optimize:experimental.perf_time_batch_6h
-    run:
-        command: *perf-shadow-scheduler-command
 
 perf_time_batch_6_5h:
     description: Runs all performance tests when 6.5 hours have passed since the last batch instead of the default perf cadence.
@@ -360,11 +314,8 @@ perf_time_batch_6_5h:
         product: source
         job-name: shadow-scheduler-perf_time_batch_6_5h
     worker:
-        artifacts: *perf-shadow-scheduler-artifacts
         env:
             TASKGRAPH_OPTIMIZE_STRATEGIES: gecko_taskgraph.optimize:experimental.perf_time_batch_6_5h
-    run:
-        command: *perf-shadow-scheduler-command
 
 perf_time_batch_7h:
     description: Runs all performance tests when 7 hours have passed since the last batch instead of the default perf cadence.
@@ -374,8 +325,5 @@ perf_time_batch_7h:
         product: source
         job-name: shadow-scheduler-perf_time_batch_7h
     worker:
-        artifacts: *perf-shadow-scheduler-artifacts
         env:
             TASKGRAPH_OPTIMIZE_STRATEGIES: gecko_taskgraph.optimize:experimental.perf_time_batch_7h
-    run:
-        command: *perf-shadow-scheduler-command

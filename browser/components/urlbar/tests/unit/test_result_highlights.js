@@ -73,7 +73,7 @@ async function doTest({ context, expected }) {
       getSearchSource() {
         return "dummy-search-source";
       },
-      browserWindow: {
+      window: {
         location: {
           href: AppConstants.BROWSER_CHROME_URL,
         },

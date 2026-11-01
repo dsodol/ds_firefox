@@ -6,9 +6,7 @@
 #define nsAuthSSPI_h_
 
 #include "nsAuth.h"
-#include "nsCOMPtr.h"
 #include "nsIAuthModule.h"
-#include "nsIDNSListener.h"
 #include "nsString.h"
 #include "mozilla/UniquePtrExtensions.h"
 
@@ -28,11 +26,10 @@
 // avoided when authenticating over the internet since it may use a lower-grade
 // version of password hashing depending on the version of Windows being used.
 
-class nsAuthSSPI final : public nsIAuthModule, public nsIDNSListener {
+class nsAuthSSPI final : public nsIAuthModule {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIAUTHMODULE
-  NS_DECL_NSIDNSLISTENER
 
   explicit nsAuthSSPI(pType package = PACKAGE_TYPE_NEGOTIATE);
 
@@ -44,7 +41,7 @@ class nsAuthSSPI final : public nsIAuthModule, public nsIDNSListener {
   typedef ::TimeStamp MS_TimeStamp;
 
  private:
-  nsresult CompleteInit();
+  nsresult MakeSN(const nsACString& principal, nsCString& result);
 
   // Builds the SEC_CHANNEL_BINDINGS blob describing the "tls-server-end-point"
   // binding for the server certificate stored in mCertDERData.
@@ -63,10 +60,6 @@ class nsAuthSSPI final : public nsIAuthModule, public nsIDNSListener {
   bool mIsFirst;
   void* mCertDERData;
   uint32_t mCertDERLength;
-
-  // Pending state for async init (Kerberos DNS canonicalization).
-  nsCString mPendingServicePrefix;
-  nsCOMPtr<nsIAuthModuleInitCallback> mInitCallback;
 };
 
 #endif /* nsAuthSSPI_h_ */

@@ -198,7 +198,7 @@ struct ShaderVariable
     std::string structOrBlockName;
     std::string mappedStructOrBlockName;
 
-    // Only applies to interface block fields.
+    // Only applies to interface block fields. Kept here for simplicity.
     bool isRowMajorLayout;
 
     // VariableWithLocation
@@ -289,11 +289,6 @@ struct InterfaceBlock
     unsigned int arraySize;
     BlockLayoutType layout;
 
-    // Only used to validate link, indicates whether the whole block is marked as row_major.
-    // Matrix packing is replicated in the individual fields (if applicable), and that's what must
-    // actually be used.
-    bool isRowMajorLayout;
-
     int binding;
     bool staticUse;
     bool active;
@@ -333,7 +328,7 @@ struct WorkGroupSize
     // Checks whether either all of the values are set, or none of them are.
     bool isLocalSizeValid() const;
 
-    std::array<int, 3> localSizeQualifiers;
+    int localSizeQualifiers[3];
 };
 
 inline constexpr WorkGroupSize::WorkGroupSize(int initialSize)

@@ -33,20 +33,6 @@ load = [
   { type = "file", path = ".claude/skills/firefox-desktop-frontend/SKILL.md" },
 ]
 
-[[rules]]
-name = "Reusable components and design system"
-description = "Component APIs, consumer compatibility, design tokens, CSS, and review evidence for shared widgets and the design system."
-when = { any_file = { include = [
-  "toolkit/content/widgets/**",
-  "toolkit/content/tests/widgets/**",
-  "toolkit/themes/shared/design-tokens-*.css",
-  "toolkit/themes/shared/design-system/**",
-] } }
-load = [
-  { type = "file", path = ".claude/skills/recomp-frontend-review/SKILL.md" },
-  { type = "file", path = ".claude/skills/recomp-frontend-review/references/runsheet.md" },
-]
-
 # Web-standard implementation: native code behind WebIDL interfaces. Triggered
 # when a patch touches both a .webidl file and at least one native (.h/.cpp) file.
 [[rules]]
@@ -78,17 +64,4 @@ when = { any_file = { include = [
 ] } }
 load = [
   { type = "file", path = ".claude/skills/js-review/SKILL.md" },
-]
-
-# WebRender: Triggered when a patch touches WebRender source code.
-[[rules]]
-name = "WebRender"
-description = "Guidance for reviewing WebRender code"
-when = { any_file = { include = [
-  "gfx/wr/**",
-], ext = [
-  ".rs",
-] } }
-load = [
-  { type = "file", path = "gfx/wr/webrender/doc/code-review.md" },
 ]

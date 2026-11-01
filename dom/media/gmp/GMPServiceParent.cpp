@@ -424,8 +424,7 @@ GeckoMediaPluginServiceParent::GetContentParent(
                                                        __func__);
   }
 
-  auto holder =
-      std::make_unique<MozPromiseHolder<GetGMPContentParentPromise>>();
+  auto holder = MakeUnique<MozPromiseHolder<GetGMPContentParentPromise>>();
   RefPtr<GetGMPContentParentPromise> promise = holder->Ensure(__func__);
   EnsureInitialized()->Then(
       thread, __func__,
@@ -1463,7 +1462,7 @@ nsresult GeckoMediaPluginServiceParent::GetNodeId(
         if (NS_WARN_IF(NS_FAILED(rv))) {
           return rv;
         }
-        auto salt = std::make_unique<nsCString>(newSalt);
+        auto salt = MakeUnique<nsCString>(newSalt);
 
         mPersistentStorageAllowed.InsertOrUpdate(*salt, false);
         entry.Insert(std::move(salt));
@@ -1609,7 +1608,8 @@ static bool ExtractHostName(const nsACString& aOrigin, nsACString& aOutData) {
   return true;
 }
 
-constexpr uint32_t kMaxOriginLength = 4096;
+constexpr uint32_t kMaxDomainLength = 253;
+// http://en.wikipedia.org/wiki/Domain_Name_System#Domain_name_syntax
 
 constexpr std::array<nsLiteralCString, 2> kFileNames = {"origin"_ns,
                                                         "topLevelOrigin"_ns};
@@ -1620,7 +1620,7 @@ bool MatchOrigin(nsIFile* aPath, const nsACString& aSite,
   nsCString str;
   nsCString originNoSuffix;
   for (const auto& fileName : kFileNames) {
-    rv = ReadFromFile(aPath, fileName, str, kMaxOriginLength);
+    rv = ReadFromFile(aPath, fileName, str, kMaxDomainLength);
     mozilla::OriginAttributes originAttributes;
     if (NS_FAILED(rv) ||
         !originAttributes.PopulateFromOrigin(str, originNoSuffix)) {
@@ -1641,7 +1641,7 @@ bool MatchBaseDomain(nsIFile* aPath, const nsACString& aBaseDomain) {
   nsCString fileContent;
   nsCString originNoSuffix;
   for (const auto& fileName : kFileNames) {
-    rv = ReadFromFile(aPath, fileName, fileContent, kMaxOriginLength);
+    rv = ReadFromFile(aPath, fileName, fileContent, kMaxDomainLength);
     mozilla::OriginAttributes originAttributes;
     if (NS_FAILED(rv) ||
         !originAttributes.PopulateFromOrigin(fileContent, originNoSuffix)) {

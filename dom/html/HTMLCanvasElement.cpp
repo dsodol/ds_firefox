@@ -589,13 +589,24 @@ HTMLCanvasElement::CreateContext(CanvasContextType aContextType) {
   return ret.forget();
 }
 
-void HTMLCanvasElement::AfterUpdateContext() {
+nsresult HTMLCanvasElement::UpdateContext(
+    JSContext* aCx, JS::Handle<JS::Value> aNewContextOptions,
+    ErrorResult& aRvForDictionaryInit) {
+  nsresult rv = CanvasRenderingContextHelper::UpdateContext(
+      aCx, aNewContextOptions, aRvForDictionaryInit);
+
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
   // If we have a mRequestedFrameRefreshObserver that wasn't fully registered,
   // retry that now.
   if (mRequestedFrameRefreshObserver.get() &&
       !mRequestedFrameRefreshObserver->IsRegisteredAndWatching()) {
     mRequestedFrameRefreshObserver->Register();
   }
+
+  return NS_OK;
 }
 
 CSSIntSize HTMLCanvasElement::GetWidthHeight() {
@@ -644,7 +655,8 @@ void HTMLCanvasElement::AfterMaybeChangeAttr(int32_t aNamespaceID,
   if (mCurrentContext && aNamespaceID == kNameSpaceID_None &&
       (aName == nsGkAtoms::width || aName == nsGkAtoms::height ||
        aName == nsGkAtoms::moz_opaque)) {
-    UpdateContext();
+    ErrorResult dummy;
+    UpdateContext(nullptr, JS::NullHandleValue, dummy);
   }
 }
 
@@ -1186,24 +1198,15 @@ nsresult HTMLCanvasElement::GetContext(const nsAString& aContextId,
 already_AddRefed<nsISupports> HTMLCanvasElement::GetContext(
     JSContext* aCx, const nsAString& aContextId,
     JS::Handle<JS::Value> aContextOptions, ErrorResult& aRv) {
-  CanvasContextType contextType;
-  if (!CanvasUtils::GetCanvasContextType(aContextId, &contextType)) {
-    return nullptr;
-  }
-  CanvasRenderingContextOptions options;
-  if (!options.Init(aCx, contextType, aContextOptions, aRv)) {
-    return nullptr;
-  }
   if (mOffscreenCanvas) {
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
     return nullptr;
   }
+
   mMaybeModified = true;  // For FirstContentfulPaint
-  if (!CanvasRenderingContextHelper::GetOrCreateContext(contextType, options,
-                                                        aRv)) {
-    return nullptr;
-  }
-  return do_AddRef(mCurrentContext);
+  return CanvasRenderingContextHelper::GetOrCreateContext(
+      aCx, aContextId,
+      aContextOptions.isObject() ? aContextOptions : JS::NullHandleValue, aRv);
 }
 
 CSSIntSize HTMLCanvasElement::GetSize() { return GetWidthHeight(); }

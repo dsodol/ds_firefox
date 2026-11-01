@@ -5,9 +5,6 @@
 //
 
 #include "compiler/translator/glsl/OutputGLSL.h"
-
-#include <array>
-
 #include "common/unsafe_buffers.h"
 
 #include "compiler/translator/Compiler.h"
@@ -86,36 +83,23 @@ ImmutableString TOutputGLSL::translateTextureFunction(const ImmutableString &nam
                                                       const ShCompileOptions &option)
 {
     ASSERT(sh::IsGLSL150OrNewer(getShaderOutput()));
-    static constexpr std::array<std::array<const char *, 2>, 20> kLegacyToCoreRename = {{
-
-        {"texture2D", "texture"},
-        {"texture2DProj", "textureProj"},
-        {"texture2DLod", "textureLod"},
-        {"texture2DProjLod", "textureProjLod"},
-        {"texture2DRect", "texture"},
-        {"texture2DRectProj", "textureProj"},
-        {"textureCube", "texture"},
-        {"textureCubeLod", "textureLod"},
+    static const char *legacyToCoreRename[] = {
+        "texture2D", "texture", "texture2DProj", "textureProj", "texture2DLod", "textureLod",
+        "texture2DProjLod", "textureProjLod", "texture2DRect", "texture", "texture2DRectProj",
+        "textureProj", "textureCube", "texture", "textureCubeLod", "textureLod",
         // Extensions
-        {"texture2DLodEXT", "textureLod"},
-        {"texture2DProjLodEXT", "textureProjLod"},
-        {"textureCubeLodEXT", "textureLod"},
-        {"texture2DGradEXT", "textureGrad"},
-        {"texture2DProjGradEXT", "textureProjGrad"},
-        {"textureCubeGradEXT", "textureGrad"},
-        {"texture3D", "texture"},
-        {"texture3DProj", "textureProj"},
-        {"texture3DLod", "textureLod"},
-        {"texture3DProjLod", "textureProjLod"},
-        {"shadow2DEXT", "texture"},
-        {"shadow2DProjEXT", "textureProj"},
-    }};
+        "texture2DLodEXT", "textureLod", "texture2DProjLodEXT", "textureProjLod",
+        "textureCubeLodEXT", "textureLod", "texture2DGradEXT", "textureGrad",
+        "texture2DProjGradEXT", "textureProjGrad", "textureCubeGradEXT", "textureGrad", "texture3D",
+        "texture", "texture3DProj", "textureProj", "texture3DLod", "textureLod", "texture3DProjLod",
+        "textureProjLod", "shadow2DEXT", "texture", "shadow2DProjEXT", "textureProj", nullptr,
+        nullptr};
 
-    for (const auto &rename : kLegacyToCoreRename)
+    for (int i = 0; ANGLE_UNSAFE_TODO(legacyToCoreRename[i]) != nullptr; i += 2)
     {
-        if (name == rename[0])
+        if (name == ANGLE_UNSAFE_TODO(legacyToCoreRename[i]))
         {
-            return ImmutableString(rename[1]);
+            return ImmutableString(ANGLE_UNSAFE_TODO(legacyToCoreRename[i + 1]));
         }
     }
 

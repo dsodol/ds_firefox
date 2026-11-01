@@ -52,10 +52,6 @@ features = [
 ]
 default-features = false
 
-[dependencies.naga-types]
-version = "30.0.0"
-path = "../naga-types"
-
 [dependencies.serde]
 version = "1.0.225"
 default-features = false
@@ -65,9 +61,3 @@ version = "30.0.0"
 path = "../wgpu-types"
 features = ["serde"]
 default-features = false
-
-[lints.clippy]
-ref_as_ptr = "warn"
-
-[lints.rust]
-missing_debug_implementations = "warn"

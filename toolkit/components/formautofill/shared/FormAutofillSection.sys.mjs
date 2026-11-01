@@ -8,7 +8,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   AutofillTelemetry: "resource://gre/modules/shared/AutofillTelemetry.sys.mjs",
   FormAutofillUtils: "resource://gre/modules/shared/FormAutofillUtils.sys.mjs",
   FormAutofill: "resource://autofill/FormAutofill.sys.mjs",
-  formAutofillStorage: "resource://autofill/FormAutofillStorage.sys.mjs",
+  OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
 });
 
 class FormSection {
@@ -704,50 +704,44 @@ export class FormAutofillCreditCardSection extends FormAutofillSection {
    * @override
    */
   async prepareFillingProfile(profile) {
-    const promptMessage = lazy.FormAutofillUtils.reauthOSPromptMessage(
-      "autofill-use-payment-method-os-prompt-macos",
-      "autofill-use-payment-method-os-prompt-windows",
-      "autofill-use-payment-method-os-prompt-other"
-    );
-
-    let decrypted;
-    try {
-      decrypted = await this.getDecryptedString(
-        profile,
-        "cc-number",
-        promptMessage
+    // Prompt the OS login dialog to get the decrypted credit card number.
+    if (profile["cc-number-encrypted"]) {
+      const promptMessage = lazy.FormAutofillUtils.reauthOSPromptMessage(
+        "autofill-use-payment-method-os-prompt-macos",
+        "autofill-use-payment-method-os-prompt-windows",
+        "autofill-use-payment-method-os-prompt-other"
       );
-    } catch (ex) {
-      Glean.formautofill.promptShownOsReauth.record({
-        trigger: "autofill",
-        result:
-          ex.result == Cr.NS_ERROR_ABORT ? "fail_user_canceled" : "fail_error",
-      });
-      return false;
+      let decrypted;
+      let result;
+      try {
+        decrypted = await this.getDecryptedString(
+          profile["cc-number-encrypted"],
+          promptMessage
+        );
+        result = decrypted ? "success" : "fail_user_canceled";
+      } catch (ex) {
+        result = "fail_error";
+      } finally {
+        Glean.formautofill.promptShownOsReauth.record({
+          trigger: "autofill",
+          result,
+        });
+      }
+      if (!decrypted) {
+        // Early return if the decrypted is empty or undefined
+        return false;
+      }
+      profile["cc-number"] = decrypted;
     }
-
-    if (decrypted === null) {
-      // The record holds no encrypted number, so the user was asked nothing
-      // and there is nothing to put in its place.
-      return true;
-    }
-
-    Glean.formautofill.promptShownOsReauth.record({
-      trigger: "autofill",
-      result: "success",
-    });
-    profile["cc-number"] = decrypted;
     return true;
   }
 
-  async getDecryptedString(record, field, reauth) {
+  async getDecryptedString(cipherText, reauth) {
     if (!lazy.FormAutofillUtils.getOSAuthEnabled()) {
       this.log.debug("Reauth is disabled");
       reauth = false;
     }
-    return lazy.formAutofillStorage.creditCards.decryptField(record, field, {
-      reauth,
-    });
+    return await lazy.OSKeyStore.decrypt(cipherText, "formautofill_cc", reauth);
   }
 }
 

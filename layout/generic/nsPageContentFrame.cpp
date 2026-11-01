@@ -22,8 +22,8 @@ using namespace mozilla;
 nsPageContentFrame* NS_NewPageContentFrame(
     PresShell* aPresShell, ComputedStyle* aStyle,
     already_AddRefed<const nsAtom> aPageName) {
-  return new nsPageContentFrame(aStyle, aPresShell->GetPresContext(),
-                                std::move(aPageName));
+  return new (aPresShell) nsPageContentFrame(
+      aStyle, aPresShell->GetPresContext(), std::move(aPageName));
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsPageContentFrame)
@@ -302,7 +302,11 @@ static void PruneDisplayListForExtraPage(nsDisplayListBuilder* aBuilder,
                                          nsPageFrame* aPage,
                                          nsDisplayList* aList) {
   for (nsDisplayItem* i : aList->TakeItems()) {
-    if (nsDisplayList* subList = i->GetSameCoordinateSystemChildren()) {
+    if (!i) {
+      break;
+    }
+    nsDisplayList* subList = i->GetSameCoordinateSystemChildren();
+    if (subList) {
       PruneDisplayListForExtraPage(aBuilder, aPage, subList);
       i->UpdateBounds(aBuilder);
     } else {
@@ -329,7 +333,7 @@ static void BuildDisplayListForExtraPage(nsDisplayListBuilder* aBuilder,
   if (!aExtraPage->HasAnyStateBits(NS_FRAME_FORCE_DISPLAY_LIST_DESCEND_INTO)) {
     return;
   }
-  nsDisplayList list;
+  nsDisplayList list(aBuilder);
   aExtraPage->BuildDisplayListForStackingContext(aBuilder, &list);
   PruneDisplayListForExtraPage(aBuilder, aPage, &list);
   aList->AppendToTop(&list);
@@ -362,7 +366,7 @@ void nsPageContentFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
 
   nsDisplayListCollection set(aBuilder);
 
-  nsDisplayList content;
+  nsDisplayList content(aBuilder);
   {
     nsDisplayListBuilder::AutoPageNumberSetter p(aBuilder,
                                                  pageFrame->GetPageNum());

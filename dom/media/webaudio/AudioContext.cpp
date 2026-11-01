@@ -4,8 +4,6 @@
 
 #include "AudioContext.h"
 
-#include <memory>
-
 #include "AudioBuffer.h"
 #include "AudioBufferSourceNode.h"
 #include "AudioChannelService.h"
@@ -186,8 +184,8 @@ AudioContext::AudioContext(nsPIDOMWindowInner* aWindow, bool aIsOffline,
   // Note: AudioDestinationNode needs an AudioContext that must already be
   // bound to the window.
   const bool allowedToStart = media::AutoplayPolicy::IsAllowedToPlay(*this);
-  mDestination = new AudioDestinationNode(this, aIsOffline, allowedToStart,
-                                          aNumberOfChannels, aLength);
+  mDestination =
+      new AudioDestinationNode(this, aIsOffline, aNumberOfChannels, aLength);
   mDestination->Init();
   // If an AudioContext is not allowed to start, we would postpone its state
   // transition from `suspended` to `running` until sites explicitly call
@@ -685,8 +683,8 @@ already_AddRefed<Promise> AudioContext::DecodeAudioData(
   if (aSuccessCallback.WasPassed()) {
     successCallback = &aSuccessCallback.Value();
   }
-  auto job = std::make_unique<WebAudioDecodeJob>(this, promise, successCallback,
-                                                 failureCallback);
+  UniquePtr<WebAudioDecodeJob> job(
+      new WebAudioDecodeJob(this, promise, successCallback, failureCallback));
   AsyncDecodeWebAudio(contentType.get(), data, length, *job);
   // Transfer the ownership to mDecodeJobs
   mDecodeJobs.AppendElement(std::move(job));
@@ -1018,18 +1016,18 @@ void AudioContext::SuspendFromMediaControl() {
   MEDIA_CONTROL_LOG("AudioContext {} SuspendFromMediaControl", fmt::ptr(this));
   // Track this as an interruption-owned suspend. The shared "stay suspended"
   // reads (ResumeInternal's guard and the autoplay implicit-start guard) test
-  // this flag too, so a media-control suspend sticks until it is resumed, or
-  // handed to the page by TransferSuspendToContent.
+  // this flag too, so a media-control suspend sticks without overloading
+  // mSuspendedByContent, which now means "the page called suspend()" only.
   mSuspendedByMediaControl = true;
   SuspendInternal(nullptr, AudioContextOperationFlags::SendStateChange);
 }
 
-bool AudioContext::ResumeFromMediaControl() {
+void AudioContext::ResumeFromMediaControl() {
   // Offline contexts never register a media-control listener, so this should
   // not be reachable for them.
   MOZ_DIAGNOSTIC_ASSERT(!mIsOffline);
   if (mIsShutDown || mCloseCalled) {
-    return false;
+    return;
   }
   // Only auto-resume a suspend that the interruption itself started. If the
   // page called suspend() (or resume()) while interrupted, it has taken over
@@ -1039,28 +1037,11 @@ bool AudioContext::ResumeFromMediaControl() {
     MEDIA_CONTROL_LOG(
         "AudioContext {} ResumeFromMediaControl skipped: page owns the suspend",
         fmt::ptr(this));
-    return false;
+    return;
   }
   MEDIA_CONTROL_LOG("AudioContext {} ResumeFromMediaControl", fmt::ptr(this));
   mSuspendedByMediaControl = false;
   ResumeInternal();
-  return true;
-}
-
-void AudioContext::TransferSuspendToContent() {
-  MOZ_ASSERT(NS_IsMainThread());
-  MOZ_DIAGNOSTIC_ASSERT(!mIsOffline);
-  if (mIsShutDown || mCloseCalled) {
-    return;
-  }
-  MEDIA_CONTROL_LOG("AudioContext {} TransferSuspendToContent, transfer={}",
-                    fmt::ptr(this), mSuspendedByMediaControl);
-  if (!mSuspendedByMediaControl) {
-    return;
-  }
-  // The page now owns the suspend, so a window thaw does not restart it.
-  mSuspendedByMediaControl = false;
-  mSuspendedByContent = true;
 }
 
 void AudioContext::SuspendInternal(void* aPromise,
@@ -1135,7 +1116,7 @@ already_AddRefed<Promise> AudioContext::Resume(ErrorResult& aRv) {
 
   // IsAllowedToPlay() is false while the platform has interrupted the tab's
   // audio, so a resume() requested during the interruption is not started here;
-  // its promise stays parked above until the context next runs or is closed.
+  // its promise stays parked above and is settled when the interruption ends.
   const bool isAllowedToPlay = media::AutoplayPolicy::IsAllowedToPlay(*this);
   AUTOPLAY_LOG("Trying to resume AudioContext {}, IsAllowedToPlay={}",
                fmt::ptr(this), isAllowedToPlay);

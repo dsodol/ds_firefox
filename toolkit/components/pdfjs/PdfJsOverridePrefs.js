@@ -18,7 +18,6 @@
 // Enabled for testing signatures bug 2061833 will turn it on for release when ready
 #ifdef NIGHTLY_BUILD
   pref("pdfjs.annotationEditorMode", 0);
-  pref("pdfjs.enableSignatureEditor", true);
 #else
   pref("pdfjs.annotationEditorMode", -1);
 #endif
@@ -45,10 +44,6 @@
 #endif
 
 pref("pdfjs.enableOptimizedPartialRendering", true);
-
-#ifdef EARLY_BETA_OR_EARLIER
-  pref("pdfjs.disableWorkerRendering", false);
-#endif
 
 // Off by default until the UX is exercised in Enterprise. Flip via
 // `about:config`, a profile pref, or the `enableSignatureVerification`

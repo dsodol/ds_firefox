@@ -47,6 +47,9 @@ const CASES = [
 ];
 
 add_setup(async function () {
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.settings-redesign.enabled", true]],
+  });
   await setupPolicyEngineWithJson({
     policies: {
       Preferences: {

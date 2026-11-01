@@ -24,8 +24,6 @@ import "chrome://browser/content/ipprotection/ipprotection-status-card.mjs";
 import "chrome://browser/content/ipprotection/ipprotection-status-box.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://global/content/elements/moz-toggle.mjs";
-// eslint-disable-next-line import/no-unassigned-import
-import "chrome://global/content/elements/moz-promo.mjs";
 
 const SITE_RULES_SETTINGS_PANE = "privacy-vpnsiterules";
 
@@ -45,9 +43,6 @@ export default class IPProtectionContentElement extends MozLitElement {
     siteExclusionToggleEl: "#site-exclusion-toggle",
     siteExclusionDescriptionEl: '#site-exclusion-toggle > [slot="description"]',
     siteRulesEl: "#site-rules-control",
-    siteRuleHeadingEl: "#site-rule-heading",
-    siteRuleDescriptionEl: "#site-rule-description",
-    siteInclusionPromptEl: "#site-inclusion-prompt",
     settingsButtonEl: "#vpn-settings-button",
   };
 
@@ -211,19 +206,9 @@ export default class IPProtectionContentElement extends MozLitElement {
   handleClickSiteRulesLink(event) {
     event.preventDefault();
     const win = event.target.documentGlobal;
-    Glean.ipprotection.rulesPageOpened.record({ entrypoint: "panel" });
     win.openPreferences(SITE_RULES_SETTINGS_PANE);
     this.dispatchEvent(
       new CustomEvent("IPProtection:Close", { bubbles: true, composed: true })
-    );
-  }
-
-  handleDismissSiteInclusionPrompt() {
-    this.dispatchEvent(
-      new CustomEvent("IPProtection:DismissSiteInclusionPrompt", {
-        bubbles: true,
-        composed: true,
-      })
     );
   }
 
@@ -253,20 +238,6 @@ export default class IPProtectionContentElement extends MozLitElement {
       this._messageDismissed = false;
     }
     this.#prevBandwidthWarning = !!this.state.bandwidthWarning;
-
-    this.#updateSiteRulesDescription();
-  }
-
-  async #updateSiteRulesDescription() {
-    let siteRulesEl = this.siteRulesEl;
-    if (!siteRulesEl) {
-      return;
-    }
-    await siteRulesEl.updateComplete;
-    let headingEl = this.siteRuleHeadingEl;
-    let descriptionEl = this.siteRuleDescriptionEl;
-    siteRulesEl.buttonEl.ariaDescribedByElements =
-      headingEl && descriptionEl ? [headingEl, descriptionEl] : null;
   }
 
   messageBarTemplate() {
@@ -323,8 +294,7 @@ export default class IPProtectionContentElement extends MozLitElement {
   }
 
   statusCardTemplate() {
-    let hasExclusion =
-      !this.state.isSiteInclusionsEnabled && this.hasSiteExclusion;
+    let hasExclusion = this.hasSiteExclusion;
 
     return html`
       <ipprotection-status-card
@@ -333,6 +303,7 @@ export default class IPProtectionContentElement extends MozLitElement {
         .bandwidthUsage=${ifDefined(this.state.bandwidthUsage)}
         .hasExclusion=${hasExclusion}
         .isActivating=${this.state.isActivating}
+        .showLocationButtonBadge=${this.state.showLocationButtonBadge}
         .isPremium=${ifDefined(this.state.isPremium)}
         .hasUpgraded=${this.state.hasUpgraded}
       ></ipprotection-status-card>
@@ -450,7 +421,6 @@ export default class IPProtectionContentElement extends MozLitElement {
   siteRulesStatusTemplate() {
     if (
       !this.state.isSiteInclusionsEnabled ||
-      !this.state.isActive ||
       !this.state.siteData ||
       this.#hasErrors ||
       !this.hasSiteRule
@@ -468,7 +438,6 @@ export default class IPProtectionContentElement extends MozLitElement {
 
     let dataL10nId;
     let imgSrc;
-    let imgId;
 
     // hasSiteRule can be set without a rule that classifies this site, so the
     // rule type has to be resolved before we commit to rendering anything.
@@ -476,12 +445,10 @@ export default class IPProtectionContentElement extends MozLitElement {
       dataL10nId = "site-rules-description-inclusion";
       imgSrc =
         "chrome://browser/content/ipprotection/assets/states/ipprotection-on.svg";
-      imgId = "ipprotection-on";
     } else if (this.hasSiteExclusion) {
       dataL10nId = "site-rules-description-exclusion";
       imgSrc =
-        "chrome://browser/content/ipprotection/assets/states/ipprotection-excluded.svg";
-      imgId = "ipprotection-excluded";
+        "chrome://browser/content/ipprotection/assets/states/ipprotection-off.svg";
     } else {
       return null;
     }
@@ -495,31 +462,8 @@ export default class IPProtectionContentElement extends MozLitElement {
         ></span>
         <span id="site-rule-description" data-l10n-id=${dataL10nId}></span>
       </div>
-      <img src=${imgSrc} alt="" id=${imgId} />
+      <img src=${imgSrc} alt="" />
     </div>`;
-  }
-
-  siteInclusionPromptTemplate() {
-    if (
-      !this.state.isSiteInclusionsEnabled ||
-      !this.state.showSiteInclusionPrompt ||
-      !this.state.siteData ||
-      this.hasSiteInclusion ||
-      !this.canEnableConnection
-    ) {
-      return null;
-    }
-
-    return html`<moz-promo
-      id="site-inclusion-prompt"
-      type="vibrant"
-      data-l10n-id="site-rules-inclusion-prompt"
-      data-l10n-args=${JSON.stringify({
-        website: this.state.siteData.host,
-      })}
-      dismissable
-      @promo:user-dismissed=${this.handleDismissSiteInclusionPrompt}
-    ></moz-promo>`;
   }
 
   siteRulesSettingsLinkTemplate() {
@@ -535,7 +479,7 @@ export default class IPProtectionContentElement extends MozLitElement {
       id="site-rules-control"
       type="ghost"
       data-l10n-id="site-rules-manage-rules-link-text"
-      iconsrc="chrome://browser/content/ipprotection/assets/vpn-website-rules-icon.svg"
+      iconsrc="chrome://browser/skin/permissions.svg"
       @click=${this.handleClickSiteRulesLink}
     >
     </moz-button>`;
@@ -632,7 +576,6 @@ export default class IPProtectionContentElement extends MozLitElement {
         ${this.statusCardTemplate()}
         <div class="vpn-bottom-content">
           ${this.siteRulesStatusTemplate()}
-          ${this.siteInclusionPromptTemplate()}
           ${this.siteRulesSettingsLinkTemplate()} ${this.footerTemplate()}
         </div>
       `;

@@ -38,7 +38,9 @@ function promise_check_exist(path, shouldExist) {
 function promise_check_contents(path, expect) {
   return (async function () {
     info("Checking whether " + path + " has the right contents");
-    let actual = await IOUtils.readJSON(path, sessionStoreReadOptions());
+    let actual = await IOUtils.readJSON(path, {
+      decompress: true,
+    });
     Assert.deepEqual(
       actual,
       expect,

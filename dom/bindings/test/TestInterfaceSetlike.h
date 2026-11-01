@@ -5,7 +5,6 @@
 #ifndef mozilla_dom_TestInterfaceSetlike_h
 #define mozilla_dom_TestInterfaceSetlike_h
 
-#include "mozilla/dom/ECMACollectionMixin.h"
 #include "nsCOMPtr.h"
 #include "nsWrapperCache.h"
 
@@ -21,9 +20,7 @@ class GlobalObject;
 
 // Implementation of test binding for webidl setlike interfaces, using
 // primitives for key type.
-class TestInterfaceSetlike final : public nsISupports,
-                                   public nsWrapperCache,
-                                   public mozilla::dom::SetlikeMixin<nsString> {
+class TestInterfaceSetlike final : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS_FINAL
   NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(TestInterfaceSetlike)

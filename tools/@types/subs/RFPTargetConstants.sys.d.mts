@@ -79,7 +79,6 @@ export namespace Targets {
     let WebGLVendorConstant: number;
     let WebGLVendorRandomize: number;
     let WebGLRendererConstant: number;
-    let IMEStyle: number;
     let IsAlwaysEnabledForPrecompute: number;
     let AllTargets: number;
 }

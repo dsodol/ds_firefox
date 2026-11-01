@@ -14,8 +14,3 @@ FINAL_LIBRARY = "xul-gtest"
 LOCAL_INCLUDES += [
     "/gfx/webrender_bindings",
 ]
-
-SOURCE_HEADERS += [
-    "MockDrawTarget.h",
-    "MockScaledFont.h",
-]

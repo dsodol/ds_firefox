@@ -49,7 +49,7 @@ class FakeUuidGenerator : public mozilla::JsepUuidGenerator {
   }
 
   mozilla::UniquePtr<mozilla::JsepUuidGenerator> Clone() const {
-    return std::make_unique<FakeUuidGenerator>(*this);
+    return mozilla::MakeUnique<FakeUuidGenerator>(*this);
   }
 
  private:
@@ -72,10 +72,10 @@ class JsepSessionTest : public JsepSessionTestBase,
     Preferences::SetBool("media.webrtc.codec.video.av1.enabled", true);
     Preferences::SetBool("media.navigator.audio.use_fec", false);
 
-    mSessionOff = std::make_unique<JsepSessionImpl>(
-        "Offerer", std::make_unique<FakeUuidGenerator>());
-    mSessionAns = std::make_unique<JsepSessionImpl>(
-        "Answerer", std::make_unique<FakeUuidGenerator>());
+    mSessionOff =
+        MakeUnique<JsepSessionImpl>("Offerer", MakeUnique<FakeUuidGenerator>());
+    mSessionAns = MakeUnique<JsepSessionImpl>("Answerer",
+                                              MakeUnique<FakeUuidGenerator>());
 
     EXPECT_EQ(NS_OK, mSessionOff->Init());
     EXPECT_EQ(NS_OK, mSessionAns->Init());
@@ -108,14 +108,14 @@ class JsepSessionTest : public JsepSessionTestBase,
                                    header.direction);
     }
 
-    mOffererTransport = std::make_unique<TransportData>();
-    mAnswererTransport = std::make_unique<TransportData>();
+    mOffererTransport = MakeUnique<TransportData>();
+    mAnswererTransport = MakeUnique<TransportData>();
 
     AddTransportData(*mSessionOff, *mOffererTransport);
     AddTransportData(*mSessionAns, *mAnswererTransport);
 
-    mOffCandidates = std::make_unique<CandidateSet>();
-    mAnsCandidates = std::make_unique<CandidateSet>();
+    mOffCandidates = MakeUnique<CandidateSet>();
+    mAnsCandidates = MakeUnique<CandidateSet>();
   }
 
   static std::vector<JsepTransceiver>& GetTransceivers(JsepSession& aSession) {
@@ -252,7 +252,7 @@ class JsepSessionTest : public JsepSessionTestBase,
   JsepTrack RemoveTrack(JsepSession& side, size_t index) {
     if (GetTransceivers(side).size() <= index) {
       EXPECT_TRUE(false) << "Index " << index << " out of bounds!";
-      return JsepTrack({.type = SdpMediaSection::kAudio}, sdp::kSend);
+      return JsepTrack(SdpMediaSection::kAudio, sdp::kSend);
     }
 
     JsepTransceiver transceiver(GetTransceivers(side)[index]);
@@ -358,7 +358,7 @@ class JsepSessionTest : public JsepSessionTestBase,
 
       if (!suitableTransceiver) {
         i = GetTransceivers(side).size();
-        side.AddTransceiver(JsepTransceiver({.type = type}, mUuidGen));
+        side.AddTransceiver(JsepTransceiver(type, mUuidGen));
         suitableTransceiver = Some(GetTransceivers(side).back());
         if (magic == ADDTRACK_MAGIC) {
           suitableTransceiver->SetAddTrackMagic();
@@ -509,7 +509,7 @@ class JsepSessionTest : public JsepSessionTestBase,
       return transceiver.mSendTrack;
     }
 
-    return JsepTrack({.type = type}, sdp::kSend);
+    return JsepTrack(type, sdp::kSend);
   }
 
   JsepTrack GetTrackOff(size_t index, SdpMediaSection::MediaType type) {
@@ -991,7 +991,7 @@ class JsepSessionTest : public JsepSessionTestBase,
    public:
     CandidateSet() {}
 
-    void Gather(JsepSession& session, ComponentType /*maxComponent*/ = RTCP) {
+    void Gather(JsepSession& session, ComponentType maxComponent = RTCP) {
       for (const auto& transceiver : GetTransceivers(session)) {
         if (transceiver.HasOwnTransport()) {
           Gather(session, transceiver.mTransport.mTransportId, RTP);
@@ -1804,10 +1804,10 @@ TEST_P(JsepSessionTest, RenegotiationAnswererAddsTrack) {
 
   // We need to add a recvonly m-section to the offer for this to work
   mSessionOff->AddTransceiver(
-      JsepTransceiver({.type = SdpMediaSection::kAudio}, mUuidGen,
+      JsepTransceiver(SdpMediaSection::kAudio, mUuidGen,
                       SdpDirectionAttribute::Direction::kRecvonly));
   mSessionOff->AddTransceiver(
-      JsepTransceiver({.type = SdpMediaSection::kVideo}, mUuidGen,
+      JsepTransceiver(SdpMediaSection::kVideo, mUuidGen,
                       SdpDirectionAttribute::Direction::kRecvonly));
 
   std::string offer = CreateOffer();
@@ -2842,7 +2842,7 @@ TEST_P(JsepSessionTest, SetLocalOfferRejectsChangedFingerprint) {
   UniquePtr<Sdp> munge(Parse(offer));
   SdpMediaSection& mediaSection = munge->GetMediaSection(0);
 
-  auto fingerprints = std::make_unique<SdpFingerprintAttributeList>();
+  auto fingerprints = MakeUnique<SdpFingerprintAttributeList>();
   fingerprints->PushEntry("sha-256", std::vector<uint8_t>(32, 0));
   mediaSection.GetAttributeList().SetAttribute(std::move(fingerprints));
 
@@ -3336,15 +3336,12 @@ INSTANTIATE_TEST_SUITE_P(
 // offerToReceiveXxx variants
 
 TEST_F(JsepSessionTest, OfferAnswerRecvOnlyLines) {
-  mSessionOff->AddTransceiver(
-      JsepTransceiver({.type = SdpMediaSection::kAudio}, mUuidGen,
-                      SdpDirectionAttribute::kRecvonly));
-  mSessionOff->AddTransceiver(
-      JsepTransceiver({.type = SdpMediaSection::kVideo}, mUuidGen,
-                      SdpDirectionAttribute::kRecvonly));
-  mSessionOff->AddTransceiver(
-      JsepTransceiver({.type = SdpMediaSection::kVideo}, mUuidGen,
-                      SdpDirectionAttribute::kRecvonly));
+  mSessionOff->AddTransceiver(JsepTransceiver(
+      SdpMediaSection::kAudio, mUuidGen, SdpDirectionAttribute::kRecvonly));
+  mSessionOff->AddTransceiver(JsepTransceiver(
+      SdpMediaSection::kVideo, mUuidGen, SdpDirectionAttribute::kRecvonly));
+  mSessionOff->AddTransceiver(JsepTransceiver(
+      SdpMediaSection::kVideo, mUuidGen, SdpDirectionAttribute::kRecvonly));
   std::string offer = CreateOffer();
 
   UniquePtr<Sdp> parsedOffer(Parse(offer));
@@ -3468,9 +3465,8 @@ TEST_F(JsepSessionTest, OfferAnswerSendOnlyLines) {
 }
 
 TEST_F(JsepSessionTest, OfferToReceiveAudioNotUsed) {
-  mSessionOff->AddTransceiver(
-      JsepTransceiver({.type = SdpMediaSection::kAudio}, mUuidGen,
-                      SdpDirectionAttribute::kRecvonly));
+  mSessionOff->AddTransceiver(JsepTransceiver(
+      SdpMediaSection::kAudio, mUuidGen, SdpDirectionAttribute::kRecvonly));
 
   OfferAnswer(CHECK_SUCCESS);
 
@@ -3492,9 +3488,8 @@ TEST_F(JsepSessionTest, OfferToReceiveAudioNotUsed) {
 }
 
 TEST_F(JsepSessionTest, OfferToReceiveVideoNotUsed) {
-  mSessionOff->AddTransceiver(
-      JsepTransceiver({.type = SdpMediaSection::kVideo}, mUuidGen,
-                      SdpDirectionAttribute::kRecvonly));
+  mSessionOff->AddTransceiver(JsepTransceiver(
+      SdpMediaSection::kVideo, mUuidGen, SdpDirectionAttribute::kRecvonly));
 
   OfferAnswer(CHECK_SUCCESS);
 
@@ -3516,12 +3511,12 @@ TEST_F(JsepSessionTest, OfferToReceiveVideoNotUsed) {
 }
 
 TEST_F(JsepSessionTest, CreateOfferNoDatachannelDefault) {
-  JsepTransceiver audio({.type = SdpMediaSection::kAudio}, mUuidGen);
+  JsepTransceiver audio(SdpMediaSection::kAudio, mUuidGen);
   audio.mSendTrack.UpdateStreamIds(
       std::vector<std::string>(1, "offerer_stream"));
   mSessionOff->AddTransceiver(audio);
 
-  JsepTransceiver video({.type = SdpMediaSection::kVideo}, mUuidGen);
+  JsepTransceiver video(SdpMediaSection::kVideo, mUuidGen);
   video.mSendTrack.UpdateStreamIds(
       std::vector<std::string>(1, "offerer_stream"));
   mSessionOff->AddTransceiver(video);
@@ -3542,12 +3537,12 @@ TEST_F(JsepSessionTest, ValidateOfferedVideoCodecParams) {
   types.push_back(SdpMediaSection::kAudio);
   types.push_back(SdpMediaSection::kVideo);
 
-  JsepTransceiver audio({.type = SdpMediaSection::kAudio}, mUuidGen);
+  JsepTransceiver audio(SdpMediaSection::kAudio, mUuidGen);
   audio.mSendTrack.UpdateStreamIds(
       std::vector<std::string>(1, "offerer_stream"));
   mSessionOff->AddTransceiver(audio);
 
-  JsepTransceiver video({.type = SdpMediaSection::kVideo}, mUuidGen);
+  JsepTransceiver video(SdpMediaSection::kVideo, mUuidGen);
   video.mSendTrack.UpdateStreamIds(
       std::vector<std::string>(1, "offerer_stream"));
   mSessionOff->AddTransceiver(video);
@@ -3743,13 +3738,13 @@ TEST_F(JsepSessionTest, ValidateOfferedRecvonlyVideoCodecParams) {
   types.push_back(SdpMediaSection::kAudio);
   types.push_back(SdpMediaSection::kVideo);
 
-  JsepTransceiver audio({.type = SdpMediaSection::kAudio}, mUuidGen,
+  JsepTransceiver audio(SdpMediaSection::kAudio, mUuidGen,
                         SdpDirectionAttribute::kRecvonly);
   audio.mSendTrack.UpdateStreamIds(
       std::vector<std::string>(1, "offerer_stream"));
   mSessionOff->AddTransceiver(audio);
 
-  JsepTransceiver video({.type = SdpMediaSection::kVideo}, mUuidGen,
+  JsepTransceiver video(SdpMediaSection::kVideo, mUuidGen,
                         SdpDirectionAttribute::kRecvonly);
   video.mSendTrack.UpdateStreamIds(
       std::vector<std::string>(1, "offerer_stream"));
@@ -3980,12 +3975,12 @@ TEST_F(JsepSessionTest, ValidateOfferedAudioCodecParams) {
   types.push_back(SdpMediaSection::kAudio);
   types.push_back(SdpMediaSection::kVideo);
 
-  JsepTransceiver audio({.type = SdpMediaSection::kAudio}, mUuidGen);
+  JsepTransceiver audio(SdpMediaSection::kAudio, mUuidGen);
   audio.mSendTrack.UpdateStreamIds(
       std::vector<std::string>(1, "offerer_stream"));
   mSessionOff->AddTransceiver(audio);
 
-  JsepTransceiver video({.type = SdpMediaSection::kVideo}, mUuidGen);
+  JsepTransceiver video(SdpMediaSection::kVideo, mUuidGen);
   video.mSendTrack.UpdateStreamIds(
       std::vector<std::string>(1, "offerer_stream"));
   mSessionOff->AddTransceiver(video);
@@ -4365,94 +4360,6 @@ TEST_F(JsepSessionTest, TestH264NegotiationOffererNoFmtp) {
   ASSERT_EQ((uint32_t)0x42000A, answererVideoRecvCodec->mProfileLevelId);
 }
 
-TEST_F(JsepSessionTest, TestH264NegotiationRemoteMaxFsMbpsRaiseLevel) {
-  ForceH264(*mSessionOff, 0x42e01f);
-  ForceH264(*mSessionAns, 0x42e01f);
-
-  AddTracks(*mSessionOff, "video");
-  AddTracks(*mSessionAns, "video");
-
-  std::string offer(CreateOffer());
-  SetLocalOffer(offer, CHECK_SUCCESS);
-  SetRemoteOffer(offer, CHECK_SUCCESS);
-  std::string answer(CreateAnswer());
-
-  // Low profile-level-id (level 2.0) extended by max-fs/max-mbps (RFC 6184
-  // section 8.1), as signaled by some real-world receivers.
-  Replace("profile-level-id=42e01f",
-          "profile-level-id=42c014;max-fs=8192;max-mbps=245760", &answer);
-
-  SetRemoteAnswer(answer, CHECK_SUCCESS);
-  SetLocalAnswer(answer, CHECK_SUCCESS);
-
-  UniquePtr<JsepCodecDescription> offererSendCodec;
-  GetCodec(*mSessionOff, 0, sdp::kSend, 0, 0, &offererSendCodec);
-  ASSERT_TRUE(offererSendCodec);
-  ASSERT_EQ("H264", offererSendCodec->mName);
-  const JsepVideoCodecDescription* offererVideoSendCodec(
-      static_cast<const JsepVideoCodecDescription*>(offererSendCodec.get()));
-  ASSERT_EQ((uint32_t)0x42e014, offererVideoSendCodec->mProfileLevelId);
-  ASSERT_EQ(8192U, offererVideoSendCodec->mConstraints.maxFs);
-  ASSERT_EQ(245760U, offererVideoSendCodec->mConstraints.maxMbps);
-}
-
-class JsepSessionH264FmtpTest : public JsepSessionTest {
- protected:
-  void NegotiateWithAnswerFmtp(const std::string& aAnswerFmtp,
-                               UniquePtr<JsepCodecDescription>* aOut) {
-    ForceH264(*mSessionOff, 0x42e01f);
-    ForceH264(*mSessionAns, 0x42e01f);
-    AddTracks(*mSessionOff, "video");
-    AddTracks(*mSessionAns, "video");
-    std::string offer(CreateOffer());
-    SetLocalOffer(offer, CHECK_SUCCESS);
-    SetRemoteOffer(offer, CHECK_SUCCESS);
-    std::string answer(CreateAnswer());
-    Replace("profile-level-id=42e01f", aAnswerFmtp, &answer);
-    SetRemoteAnswer(answer, CHECK_SUCCESS);
-    SetLocalAnswer(answer, CHECK_SUCCESS);
-    GetCodec(*mSessionOff, 0, sdp::kSend, 0, 0, aOut);
-  }
-};
-
-TEST_F(JsepSessionH264FmtpTest, RemoteMaxFsMbpsClamped) {
-  UniquePtr<JsepCodecDescription> codec;
-  NegotiateWithAnswerFmtp(
-      "profile-level-id=42e014;max-fs=4294967295;max-mbps=4294967295", &codec);
-  ASSERT_TRUE(codec);
-  const auto* video =
-      static_cast<const JsepVideoCodecDescription*>(codec.get());
-  Maybe<H264MacroblockLimits> hard =
-      H264MacroblockLimitsForLevel(H264_LEVEL::H264_LEVEL_5_2);
-  ASSERT_TRUE(hard);
-  ASSERT_EQ(hard->mMaxMacroblocksPerFrame, video->mConstraints.maxFs);
-  ASSERT_EQ(hard->mMaxMacroblocksPerSecond, video->mConstraints.maxMbps);
-}
-
-TEST_F(JsepSessionH264FmtpTest, RemoteMaxFsMbpsLowerThanLevel) {
-  UniquePtr<JsepCodecDescription> codec;
-  NegotiateWithAnswerFmtp("profile-level-id=42e01f;max-fs=100;max-mbps=3000",
-                          &codec);
-  ASSERT_TRUE(codec);
-  const auto* video =
-      static_cast<const JsepVideoCodecDescription*>(codec.get());
-  ASSERT_EQ(100U, video->mConstraints.maxFs);
-  ASSERT_EQ(3000U, video->mConstraints.maxMbps);
-}
-
-TEST_F(JsepSessionH264FmtpTest, RemoteMaxFsOnlyKeepsLevelMbps) {
-  UniquePtr<JsepCodecDescription> codec;
-  NegotiateWithAnswerFmtp("profile-level-id=42e014;max-fs=8192", &codec);
-  ASSERT_TRUE(codec);
-  const auto* video =
-      static_cast<const JsepVideoCodecDescription*>(codec.get());
-  Maybe<H264MacroblockLimits> level2 =
-      H264MacroblockLimitsForLevel(H264_LEVEL::H264_LEVEL_2);
-  ASSERT_TRUE(level2);
-  ASSERT_EQ(8192U, video->mConstraints.maxFs);
-  ASSERT_EQ(level2->mMaxMacroblocksPerSecond, video->mConstraints.maxMbps);
-}
-
 TEST_F(JsepSessionTest, TestAV1NegotiationDefault) {
   ForceAv1Only(*mSessionOff);
   ForceAv1Only(*mSessionAns);
@@ -4800,7 +4707,7 @@ TEST_F(JsepSessionTest, TestIceLite) {
 
   UniquePtr<Sdp> parsedOffer(Parse(offer));
   parsedOffer->GetAttributeList().SetAttribute(
-      std::make_unique<SdpFlagAttribute>(SdpAttribute::kIceLiteAttribute));
+      MakeUnique<SdpFlagAttribute>(SdpAttribute::kIceLiteAttribute));
 
   std::ostringstream os;
   parsedOffer->Serialize(os);
@@ -4963,7 +4870,7 @@ TEST_F(JsepSessionTest, TestAnswererIsControllingWhenRemoteIsIceLite) {
 
   UniquePtr<Sdp> parsedOffer(Parse(offer));
   parsedOffer->GetAttributeList().SetAttribute(
-      std::make_unique<SdpFlagAttribute>(SdpAttribute::kIceLiteAttribute));
+      MakeUnique<SdpFlagAttribute>(SdpAttribute::kIceLiteAttribute));
   std::ostringstream os;
   parsedOffer->Serialize(os);
   std::string iceLiteOffer = os.str();
@@ -4999,7 +4906,7 @@ TEST_F(JsepSessionTest, TestIceRoleUpdatedWhenRemoteSwitchesToIceLite) {
 
   UniquePtr<Sdp> parsedReoffer(Parse(reoffer));
   parsedReoffer->GetAttributeList().SetAttribute(
-      std::make_unique<SdpFlagAttribute>(SdpAttribute::kIceLiteAttribute));
+      MakeUnique<SdpFlagAttribute>(SdpAttribute::kIceLiteAttribute));
   std::ostringstream os;
   parsedReoffer->Serialize(os);
   std::string iceLiteReoffer = os.str();
@@ -5807,7 +5714,7 @@ TEST_F(JsepSessionTest, TestRtcpFbStar) {
   std::string offer = CreateOffer();
 
   UniquePtr<Sdp> parsedOffer(Parse(offer));
-  auto rtcpfbs = std::make_unique<SdpRtcpFbAttributeList>();
+  auto rtcpfbs = MakeUnique<SdpRtcpFbAttributeList>();
   rtcpfbs->PushEntry("*", SdpRtcpFbAttributeList::kNack);
   parsedOffer->GetMediaSection(0).GetAttributeList().SetAttribute(
       std::move(rtcpfbs));
@@ -7822,7 +7729,7 @@ TEST_F(JsepSessionTest, NoAddTrackMagicReplaceTrack) {
   ASSERT_EQ(2U, GetTransceivers(*mSessionAns).size());
   AddTracks(*mSessionOff, "audio");
   mSessionAns->AddTransceiver(
-      JsepTransceiver({.type = SdpMediaSection::MediaType::kAudio}, mUuidGen));
+      JsepTransceiver(SdpMediaSection::MediaType::kAudio, mUuidGen));
 
   GetTransceivers(*mSessionAns)[2].mSendTrack.UpdateStreamIds({"newstream"});
 
@@ -7867,7 +7774,7 @@ TEST_F(JsepSessionTest, AddTrackDoesNotMakeTransceiverMagical) {
   ASSERT_EQ(2U, GetTransceivers(*mSessionAns).size());
   AddTracks(*mSessionOff, "audio");
   mSessionAns->AddTransceiver(
-      JsepTransceiver({.type = SdpMediaSection::MediaType::kAudio}, mUuidGen));
+      JsepTransceiver(SdpMediaSection::MediaType::kAudio, mUuidGen));
 
   ASSERT_EQ(3U, GetTransceivers(*mSessionAns).size());
   ASSERT_EQ(0U, GetTransceivers(*mSessionAns)[0].GetLevel());
@@ -7983,7 +7890,7 @@ TEST_F(JsepSessionTest, ComplicatedRemoteRollback) {
   // Create a fourth audio transceiver. Rollback will leave it alone, since we
   // created it.
   mSessionAns->AddTransceiver(
-      JsepTransceiver({.type = SdpMediaSection::MediaType::kAudio}, mUuidGen,
+      JsepTransceiver(SdpMediaSection::MediaType::kAudio, mUuidGen,
                       SdpDirectionAttribute::Direction::kRecvonly));
 
   ASSERT_FALSE(
@@ -8307,9 +8214,8 @@ TEST_F(JsepSessionTest, TestOneWayRtx) {
 }
 
 TEST_F(JsepSessionTest, TestRtxNoSsrcGroup) {
-  mSessionOff->AddTransceiver(
-      JsepTransceiver({.type = SdpMediaSection::kVideo}, mUuidGen,
-                      SdpDirectionAttribute::kRecvonly));
+  mSessionOff->AddTransceiver(JsepTransceiver(
+      SdpMediaSection::kVideo, mUuidGen, SdpDirectionAttribute::kRecvonly));
 
   OfferAnswer(CHECK_SUCCESS);
 
@@ -8322,9 +8228,8 @@ TEST_F(JsepSessionTest, TestRtxNoSsrcGroup) {
 }
 
 TEST_F(JsepSessionTest, TestRtxSsrcGroupOnlyOffered) {
-  mSessionOff->AddTransceiver(
-      JsepTransceiver({.type = SdpMediaSection::kVideo}, mUuidGen,
-                      SdpDirectionAttribute::kSendonly));
+  mSessionOff->AddTransceiver(JsepTransceiver(
+      SdpMediaSection::kVideo, mUuidGen, SdpDirectionAttribute::kSendonly));
 
   OfferAnswer(CHECK_SUCCESS);
 
@@ -8612,7 +8517,7 @@ TEST_F(JsepSessionTest, TestTransportAttributeValidation) {
   {
     UniquePtr<Sdp> parsed = Parse(sdpTemplate);
     parsed->GetMediaSection(0).GetAttributeList().SetAttribute(
-        std::make_unique<SdpSetupAttribute>(SdpSetupAttribute::kHoldconn));
+        MakeUnique<SdpSetupAttribute>(SdpSetupAttribute::kHoldconn));
     auto sdp = parsed->ToString();
     auto result = mSessionOff->SetRemoteDescription(kJsepSdpOffer, sdp);
     ASSERT_TRUE(result.mError.isSome());
@@ -8674,7 +8579,7 @@ TEST_F(JsepSessionTest, TestTransportAttributeValidation) {
     parsed->GetMediaSection(1).GetAttributeList().RemoveAttribute(
         SdpAttribute::kIceUfragAttribute);
     parsed->GetMediaSection(1).GetAttributeList().SetAttribute(
-        std::make_unique<SdpFlagAttribute>(SdpAttribute::kBundleOnlyAttribute));
+        MakeUnique<SdpFlagAttribute>(SdpAttribute::kBundleOnlyAttribute));
     auto sdp = parsed->ToString();
     auto result = mSessionOff->SetRemoteDescription(kJsepSdpOffer, sdp);
     ASSERT_FALSE(result.mError.isSome());
@@ -8686,7 +8591,7 @@ TEST_F(JsepSessionTest, TestTransportAttributeValidation) {
     parsed->GetMediaSection(1).GetAttributeList().RemoveAttribute(
         SdpAttribute::kIcePwdAttribute);
     parsed->GetMediaSection(1).GetAttributeList().SetAttribute(
-        std::make_unique<SdpFlagAttribute>(SdpAttribute::kBundleOnlyAttribute));
+        MakeUnique<SdpFlagAttribute>(SdpAttribute::kBundleOnlyAttribute));
     auto sdp = parsed->ToString();
     auto result = mSessionOff->SetRemoteDescription(kJsepSdpOffer, sdp);
     ASSERT_FALSE(result.mError.isSome());
@@ -8698,7 +8603,7 @@ TEST_F(JsepSessionTest, TestTransportAttributeValidation) {
     parsed->GetMediaSection(1).GetAttributeList().RemoveAttribute(
         SdpAttribute::kFingerprintAttribute);
     parsed->GetMediaSection(1).GetAttributeList().SetAttribute(
-        std::make_unique<SdpFlagAttribute>(SdpAttribute::kBundleOnlyAttribute));
+        MakeUnique<SdpFlagAttribute>(SdpAttribute::kBundleOnlyAttribute));
     auto sdp = parsed->ToString();
     auto result = mSessionOff->SetRemoteDescription(kJsepSdpOffer, sdp);
     ASSERT_FALSE(result.mError.isSome());
@@ -8730,8 +8635,7 @@ TEST_F(JsepSessionTest, TestBundleSupportWithZeroPort) {
     if (!attrs.HasAttribute(SdpAttribute::kBundleOnlyAttribute) &&
         i < num_m_sections - 1) {
       sdp->GetMediaSection(i).GetAttributeList().SetAttribute(
-          std::make_unique<SdpFlagAttribute>(
-              SdpAttribute::kBundleOnlyAttribute));
+          MakeUnique<SdpFlagAttribute>(SdpAttribute::kBundleOnlyAttribute));
       sdp->GetMediaSection(i).SetPort(0);
     } else {
       // For the last msection setting port to non 0 and removing bundle only if
@@ -8754,7 +8658,7 @@ TEST_F(JsepSessionTest, TestBundleSupportWithZeroPort) {
   }
 }
 
-TEST_F(JsepSessionTest, ExtmapAllowMixedTrueWhenPresentAtSessionLevel) {
+TEST_F(JsepSessionTest, ExtmapAllowMixedTrueWhenPrensentAtSessionLevel) {
   AddTracks(*mSessionOff, "audio,video,datachannel");
   AddTracks(*mSessionAns, "audio,video,datachannel");
   std::string offer;
@@ -8787,7 +8691,7 @@ TEST_F(JsepSessionTest, ExtmapAllowMixedTrueWhenPresentAtSessionLevel) {
   });
 }
 
-TEST_F(JsepSessionTest, ExtmapAllowMixedCheckDefaultToSessionLevel) {
+TEST_F(JsepSessionTest, ExtmapAllowMixedCheckDoNotDefaultToSessionLevel) {
   AddTracks(*mSessionOff, "audio,video,datachannel");
   AddTracks(*mSessionAns, "audio,video,datachannel");
 
@@ -8803,8 +8707,8 @@ TEST_F(JsepSessionTest, ExtmapAllowMixedCheckDefaultToSessionLevel) {
   mSessionOff->SetRemoteDescription(kJsepSdpAnswer, answer);
   mSessionAns->SetLocalDescription(kJsepSdpAnswer, answer);
 
-  ASSERT_TRUE(ExtmapAllowMixed(*mSessionOff));
-  ASSERT_TRUE(ExtmapAllowMixed(*mSessionAns));
+  ASSERT_FALSE(ExtmapAllowMixed(*mSessionOff));
+  ASSERT_FALSE(ExtmapAllowMixed(*mSessionAns));
 }
 
 TEST_F(JsepSessionTest, NoExtmapAllowMixedInDatachannel) {

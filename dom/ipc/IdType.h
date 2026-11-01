@@ -27,8 +27,6 @@ class IdType {
 
   operator uint64_t() const { return mId; }
 
-  friend uint64_t format_as(const IdType& aId) { return aId.mId; }
-
   IdType& operator=(uint64_t aId) {
     mId = aId;
     return *this;

@@ -43,7 +43,6 @@ ViewTransitionTypeSet* ViewTransitionTypeSet::Add(const nsAString& aValue,
   RefPtr atom = NS_AtomizeMainThread(aValue);
   MOZ_ASSERT(!mTransition->GetTypeList().Contains(atom));
   mTransition->GetTypeList().AppendElement(std::move(atom));
-  mTransition->NotifyTypesChanged();
   return this;
 }
 void ViewTransitionTypeSet::Clear(ErrorResult& aRv) {
@@ -52,7 +51,6 @@ void ViewTransitionTypeSet::Clear(ErrorResult& aRv) {
     return;
   }
   mTransition->GetTypeList().Clear();
-  mTransition->NotifyTypesChanged();
 }
 bool ViewTransitionTypeSet::Delete(const nsAString& aValue, ErrorResult& aRv) {
   if (!SetlikeHelpers::Delete(this, aValue, aRv) || aRv.Failed()) {
@@ -61,7 +59,6 @@ bool ViewTransitionTypeSet::Delete(const nsAString& aValue, ErrorResult& aRv) {
   RefPtr atom = NS_AtomizeMainThread(aValue);
   MOZ_ASSERT(mTransition->GetTypeList().Contains(atom));
   mTransition->GetTypeList().RemoveElement(atom);
-  mTransition->NotifyTypesChanged();
   return true;
 }
 

@@ -20,10 +20,6 @@ const { sanitizeUntrustedContent } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/ChatUtils.sys.mjs"
 );
 
-const { AuthProvider } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/aiwindow/models/AuthProvider.sys.mjs"
-);
-
 const {
   openAIEngine,
   MODEL_FEATURES,
@@ -116,7 +112,7 @@ function setupStubs(runResult, existingSb) {
     get: sb.stub().resolves(FAKE_RECORDS),
   });
   sb.stub(openAIEngine, "build").resolves(fakeEngineInstance);
-  sb.stub(AuthProvider, "getToken").resolves(null);
+  sb.stub(openAIEngine, "getFxAccountToken").resolves(null);
 
   return { sb, fakeEngineInstance };
 }

@@ -22,8 +22,6 @@ head = "head_history.js"
 
 ["test_insert_null_title.js"]
 
-["test_insert_userContextId.js"]
-
 ["test_remove.js"]
 
 ["test_removeByFilter.js"]

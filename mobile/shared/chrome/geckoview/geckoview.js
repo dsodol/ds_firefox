@@ -15,8 +15,6 @@ ChromeUtils.defineESModuleGetters(this, {
   Blocklist: "resource://gre/modules/Blocklist.sys.mjs",
   EventDispatcher: "resource://gre/modules/Messaging.sys.mjs",
   GeckoViewActorManager: "resource://gre/modules/GeckoViewActorManager.sys.mjs",
-  GeckoViewPictureInPictureController:
-    "resource://gre/modules/GeckoViewPictureInPicture.sys.mjs",
   GeckoViewSettings: "resource://gre/modules/GeckoViewSettings.sys.mjs",
   GeckoViewUtils: "resource://gre/modules/GeckoViewUtils.sys.mjs",
   InitializationTracker: "resource://gre/modules/GeckoViewTelemetry.sys.mjs",
@@ -437,25 +435,13 @@ function createBrowser(settings) {
   browser.setAttribute("flex", "1");
   browser.setAttribute("maychangeremoteness", "true");
   browser.setAttribute("remote", "true");
-  const pipPlacement = settings.pictureInPictureToken
-    ? GeckoViewPictureInPictureController.consumePlacement(
-        settings.pictureInPictureToken
-      )
-    : null;
-  let remoteType;
-  if (pipPlacement) {
-    browser.setAttribute(
-      "initialBrowsingContextGroupId",
-      pipPlacement.browsingContextGroupId
-    );
-    remoteType = pipPlacement.remoteType;
-  } else {
-    remoteType = ChromeUtils.predictRemoteTypeForURI(null, {
+  browser.setAttribute(
+    "remoteType",
+    ChromeUtils.predictRemoteTypeForURI(null, {
       window,
       geckoViewSessionContextId: settings.sessionContextId ?? undefined,
-    });
-  }
-  browser.setAttribute("remoteType", remoteType);
+    })
+  );
   browser.setAttribute("messagemanagergroup", "browsers");
   browser.setAttribute("manualactiveness", "true");
 
@@ -786,41 +772,6 @@ function startup() {
       name: "GeckoViewPageExtractor",
       onInit: {
         resource: "resource://gre/modules/GeckoViewPageExtractor.sys.mjs",
-      },
-    },
-    {
-      name: "GeckoViewPictureInPicture",
-      onInit: {
-        resource: "resource://gre/modules/GeckoViewPictureInPicture.sys.mjs",
-        actors: {
-          // The session playing the video. Answers which video a request should act on.
-          GeckoViewPictureInPictureSource: {
-            child: {
-              esModuleURI:
-                "resource:///actors/GeckoViewPictureInPictureSourceChild.sys.mjs",
-            },
-            allFrames: true,
-            messageManagerGroups: ["browsers"],
-            safeForUntrustedWebProcess: true,
-          },
-          // The session hosting the cloned video. Registered separately from
-          // GeckoViewPictureInPictureSource so that the player can reuse toolkit's
-          // PictureInPictureChild, which listens to the source video itself
-          // rather than through actor-registered events.
-          GeckoViewPictureInPicturePlayer: {
-            parent: {
-              esModuleURI:
-                "resource:///actors/GeckoViewPictureInPicturePlayerParent.sys.mjs",
-            },
-            child: {
-              esModuleURI:
-                "resource:///actors/GeckoViewPictureInPicturePlayerChild.sys.mjs",
-            },
-            allFrames: true,
-            messageManagerGroups: ["browsers"],
-            safeForUntrustedWebProcess: true,
-          },
-        },
       },
     },
   ]);

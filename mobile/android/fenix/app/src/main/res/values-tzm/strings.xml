@@ -64,11 +64,7 @@
     Title for the settings page
   -->
   <string name="settings">Tisɣal</string>
-  <!--
-    Preferences
-
-    Preference category for general settings
-  -->
+  <!-- Preference category for general settings -->
   <string name="preferences_category_general">Amatay</string>
   <!-- Preference category for all links about Fenix -->
   <string name="preferences_category_about">Ɣef</string>

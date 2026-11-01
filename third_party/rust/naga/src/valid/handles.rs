@@ -880,15 +880,6 @@ impl super::Validator {
                     Ok(())
                 }
             },
-            crate::Statement::DebugPrintf {
-                format: _,
-                ref arguments,
-            } => {
-                for &arg in arguments {
-                    validate_expr(arg)?;
-                }
-                Ok(())
-            }
             crate::Statement::Break
             | crate::Statement::Continue
             | crate::Statement::Kill

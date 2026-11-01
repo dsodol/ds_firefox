@@ -10,7 +10,6 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -41,15 +40,17 @@ class PinnedSiteDaoTest {
     }
 
     @Test
-    fun testAddingTopSite() = runTest {
+    fun testAddingTopSite() {
         val topSite =
             PinnedSiteEntity(
-                title = "Mozilla",
-                url = "https://www.mozilla.org",
-                isDefault = false,
-                createdAt = 200,
-            )
-        topSite.id = pinnedSiteDao.insertPinnedSite(topSite)
+                    title = "Mozilla",
+                    url = "https://www.mozilla.org",
+                    isDefault = false,
+                    createdAt = 200,
+                )
+                .also {
+                    it.id = pinnedSiteDao.insertPinnedSite(it)
+                }
 
         val pinnedSites = pinnedSiteDao.getPinnedSites()
 
@@ -59,15 +60,17 @@ class PinnedSiteDaoTest {
     }
 
     @Test
-    fun testUpdatingTopSite() = runTest {
+    fun testUpdatingTopSite() {
         val topSite =
             PinnedSiteEntity(
-                title = "Mozilla",
-                url = "https://www.mozilla.org",
-                isDefault = false,
-                createdAt = 200,
-            )
-        topSite.id = pinnedSiteDao.insertPinnedSite(topSite)
+                    title = "Mozilla",
+                    url = "https://www.mozilla.org",
+                    isDefault = false,
+                    createdAt = 200,
+                )
+                .also {
+                    it.id = pinnedSiteDao.insertPinnedSite(it)
+                }
 
         topSite.title = "Mozilla (IT)"
         topSite.url = "https://www.mozilla.org/it"
@@ -83,24 +86,28 @@ class PinnedSiteDaoTest {
     }
 
     @Test
-    fun testRemovingTopSite() = runTest {
+    fun testRemovingTopSite() {
         val topSite1 =
             PinnedSiteEntity(
-                title = "Mozilla",
-                url = "https://www.mozilla.org",
-                isDefault = false,
-                createdAt = 200,
-            )
-        topSite1.id = pinnedSiteDao.insertPinnedSite(topSite1)
+                    title = "Mozilla",
+                    url = "https://www.mozilla.org",
+                    isDefault = false,
+                    createdAt = 200,
+                )
+                .also {
+                    it.id = pinnedSiteDao.insertPinnedSite(it)
+                }
 
         val topSite2 =
             PinnedSiteEntity(
-                title = "Firefox",
-                url = "https://www.firefox.com",
-                isDefault = false,
-                createdAt = 100,
-            )
-        topSite2.id = pinnedSiteDao.insertPinnedSite(topSite2)
+                    title = "Firefox",
+                    url = "https://www.firefox.com",
+                    isDefault = false,
+                    createdAt = 100,
+                )
+                .also {
+                    it.id = pinnedSiteDao.insertPinnedSite(it)
+                }
 
         var pinnedSites = pinnedSiteDao.getPinnedSites()
 

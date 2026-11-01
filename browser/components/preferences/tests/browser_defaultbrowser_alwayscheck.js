@@ -7,7 +7,10 @@
  */
 async function setup() {
   await SpecialPowers.pushPrefEnv({
-    set: [["browser.shell.checkDefaultBrowser", false]],
+    set: [
+      ["browser.shell.checkDefaultBrowser", false],
+      ["browser.settings-redesign.enabled", true],
+    ],
   });
   await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences");
 }

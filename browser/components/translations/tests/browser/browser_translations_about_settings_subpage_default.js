@@ -10,7 +10,9 @@
  */
 add_task(
   async function test_translations_subpage_button_and_default_elements() {
-    const { cleanup } = await setupAboutPreferences(LANGUAGE_PAIRS, {});
+    const { cleanup } = await setupAboutPreferences(LANGUAGE_PAIRS, {
+      prefs: [["browser.settings-redesign.enabled", true]],
+    });
 
     const document = gBrowser.selectedBrowser.contentDocument;
 

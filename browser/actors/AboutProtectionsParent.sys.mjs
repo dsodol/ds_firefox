@@ -46,6 +46,16 @@ const MONITOR_API_ENDPOINT = Services.urlFormatter.formatURLPref(
   "browser.contentblocking.report.endpoint_url"
 );
 
+const SCOPE_MONITOR = [
+  "profile:uid",
+  "https://identity.mozilla.com/apps/monitor",
+];
+
+const SCOPE_VPN = "profile https://identity.mozilla.com/account/subscriptions";
+const VPN_ENDPOINT = `${Services.prefs.getStringPref(
+  "identity.fxaccounts.auth.uri"
+)}oauth/subscriptions/active`;
+
 // The ID of the vpn subscription, if we see this ID attached to a user's account then they have subscribed to vpn.
 const VPN_SUB_ID = Services.prefs.getStringPref(
   "browser.contentblocking.report.vpn_sub_id"
@@ -275,7 +285,7 @@ export class AboutProtectionsParent extends JSWindowActorParent {
     let token = null;
 
     try {
-      token = await lazy.fxAccounts.getOAuthToken({ service: "monitor" });
+      token = await lazy.fxAccounts.getOAuthToken({ scope: SCOPE_MONITOR });
     } catch (e) {
       console.error(
         "There was an error fetching the user's token: ",
@@ -292,18 +302,32 @@ export class AboutProtectionsParent extends JSWindowActorParent {
       return gTestOverride.vpnOverrides();
     }
 
-    let subscriptions;
+    let vpnToken;
     try {
-      subscriptions = await lazy.fxAccounts.activeSubscriptions();
+      vpnToken = await lazy.fxAccounts.getOAuthToken({ scope: SCOPE_VPN });
     } catch (e) {
       console.error(
-        "There was an error fetching the user's subscriptions: ",
+        "There was an error fetching the user's token: ",
         e.message
       );
       // there was an error, assume user is not subscribed to VPN
       return false;
     }
-    return subscriptions.some(sub => sub.subscriptionId == VPN_SUB_ID);
+    let headers = new Headers();
+    headers.append("Authorization", `Bearer ${vpnToken}`);
+    const request = new Request(VPN_ENDPOINT, { headers });
+    const res = await fetch(request);
+    if (res.ok) {
+      const result = await res.json();
+      for (let sub of result) {
+        if (sub.subscriptionId == VPN_SUB_ID) {
+          return true;
+        }
+      }
+      return false;
+    }
+    // unknown logic: assume user is not subscribed to VPN
+    return false;
   }
 
   async receiveMessage(aMessage) {

@@ -7,7 +7,6 @@ const lazy = {};
 import {
   classMap,
   html,
-  ifDefined,
   when,
   nothing,
 } from "chrome://global/content/vendor/lit.all.mjs";
@@ -17,8 +16,6 @@ import { SidebarPage } from "./sidebar-page.mjs";
 
 ChromeUtils.defineESModuleGetters(lazy, {
   HistoryController: "resource:///modules/HistoryController.sys.mjs",
-  MigrationUtils:
-    "moz-src:///browser/components/migration/MigrationUtils.sys.mjs",
   Sanitizer: "resource:///modules/Sanitizer.sys.mjs",
   SidebarTreeView:
     "moz-src:///browser/components/sidebar/SidebarTreeView.sys.mjs",
@@ -127,9 +124,6 @@ export class SidebarHistory extends SidebarPage {
       if (isPrivateWindowMenuItem && !lazy.PrivateBrowsingUtils.enabled) {
         shouldHide = true;
       }
-      if (lazy.PlacesUIUtils.shouldHideOpenMenuItem(child)) {
-        shouldHide = true;
-      }
       child.hidden = shouldHide;
     }
   }
@@ -181,9 +175,7 @@ export class SidebarHistory extends SidebarPage {
         this.#changeSortOption(e, "mostvisited");
         break;
       case "sidebar-history-clear": {
-        const button = await lazy.Sanitizer.showUI(this.topWindow, undefined, {
-          entryPoint: lazy.Sanitizer.DIALOG_ENTRY_POINTS.SIDEBAR_HISTORY,
-        });
+        const button = await lazy.Sanitizer.showUI(this.topWindow);
         const outcome = button === "accept" ? "confirmed" : "cancelled";
         Glean.browserUiInteraction.sidebarHistory[
           `clear_history_${outcome}`
@@ -341,19 +333,11 @@ export class SidebarHistory extends SidebarPage {
   }
 
   onKeyDown(e) {
-    if (e.code === "Delete" || e.code === "Backspace") {
-      const row = e
-        .composedPath()
-        .find(el => el.localName === "sidebar-tab-row");
-      if (!row) {
-        return;
-      }
-
+    if (
+      (e.code === "Delete" || e.code === "Backspace") &&
+      e.composedTarget.localName === "sidebar-tab-row"
+    ) {
       e.preventDefault();
-      if (this.isMultipleRowsSelected) {
-        this.#deleteMultipleFromHistory().catch(console.error);
-        return;
-      }
       this.triggerNode = e.composedTarget;
       this.controller.deleteFromHistory().catch(console.error);
     }
@@ -374,36 +358,20 @@ export class SidebarHistory extends SidebarPage {
     return this.#emptyMessageTemplate();
   }
 
-  get #hasAccordionCards() {
-    return (
-      !this.controller.searchResults &&
-      !this.controller.isHistoryPending &&
-      !this.controller.isHistoryEmpty &&
-      ["date", "site", "datesite"].includes(this.controller.sortOption)
-    );
-  }
-
   #historyCardsTemplate() {
     const { historyVisits } = this.controller;
     switch (this.controller.sortOption) {
       case "date":
         return historyVisits.map(({ l10nId, items }, i) =>
-          this.#dateCardTemplate(l10nId, i, items, {
-            setSize: historyVisits.length,
-          })
+          this.#dateCardTemplate(l10nId, i, items)
         );
       case "site":
         return historyVisits.map(({ domain, items }, i) =>
-          this.#siteCardTemplate(domain, i, items, {
-            setSize: historyVisits.length,
-          })
+          this.#siteCardTemplate(domain, i, items)
         );
       case "datesite":
         return historyVisits.map(({ l10nId, items }, i) =>
-          this.#dateCardTemplate(l10nId, i, items, {
-            isDateSite: true,
-            setSize: historyVisits.length,
-          })
+          this.#dateCardTemplate(l10nId, i, items, true)
         );
       case "lastvisited":
       case "mostvisited":
@@ -418,14 +386,10 @@ export class SidebarHistory extends SidebarPage {
     }
   }
 
-  #dateCardTemplate(l10nId, index, items, { isDateSite = false, setSize }) {
+  #dateCardTemplate(l10nId, index, items, isDateSite = false) {
     return html` <moz-card
       type="accordion"
       class="date-card"
-      treeItem
-      aria-level="1"
-      aria-posinset=${index + 1}
-      aria-setsize=${setSize}
       ?expanded=${index < DAYS_EXPANDED_INITIALLY}
       data-l10n-id=${l10nId}
       data-l10n-args=${JSON.stringify({
@@ -435,16 +399,16 @@ export class SidebarHistory extends SidebarPage {
       @toggle=${this.#onCardToggle}
     >
       ${isDateSite
-        ? html`<div role="group">
-            ${items.map(([domain, visits], i) =>
-              this.#siteCardTemplate(domain, i, visits, {
-                isDateSite: true,
-                isLastCard: i == items.length - 1,
-                setSize: items.length,
-              })
-            )}
-          </div>`
-        : this.#tabListTemplate(this.getTabItems(items), { treeLevel: 2 })}
+        ? items.map(([domain, visits], i) =>
+            this.#siteCardTemplate(
+              domain,
+              i,
+              visits,
+              true,
+              i == items.length - 1
+            )
+          )
+        : this.#tabListTemplate(this.getTabItems(items))}
     </moz-card>`;
   }
 
@@ -452,7 +416,8 @@ export class SidebarHistory extends SidebarPage {
     domain,
     index,
     items,
-    { isDateSite = false, isLastCard = false, setSize }
+    isDateSite = false,
+    isLastCard = false
   ) {
     return html` <moz-card
       class=${classMap({
@@ -461,10 +426,6 @@ export class SidebarHistory extends SidebarPage {
         "site-card": true,
       })}
       type="accordion"
-      treeItem
-      aria-level=${isDateSite ? 2 : 1}
-      aria-posinset=${index + 1}
-      aria-setsize=${setSize}
       ?expanded=${!isDateSite}
       heading=${domain}
       @keydown=${this.keydownHandler}
@@ -472,43 +433,12 @@ export class SidebarHistory extends SidebarPage {
       data-l10n-id=${domain ? nothing : "sidebar-history-site-localhost"}
       data-l10n-attrs=${domain ? nothing : "heading"}
     >
-      ${this.#tabListTemplate(this.getTabItems(items), {
-        treeLevel: isDateSite ? 3 : 2,
-      })}
+      ${this.#tabListTemplate(this.getTabItems(items))}
     </moz-card>`;
   }
 
   #onCardToggle() {
     this.dispatchEvent(new CustomEvent("folder-toggle"));
-  }
-
-  #importHistoryPromoTemplate() {
-    return html`<moz-promo
-      class="import-history-promo"
-      type="vibrant"
-      imageSrc="chrome://browser/skin/sidebar/kit-history-import.svg"
-      dismissable
-      data-l10n-id="sidebar-history-import-promo"
-      @promo:user-dismissed=${this.#onImportHistoryPromoDismissed}
-    >
-      <moz-button
-        slot="actions"
-        type="primary"
-        data-l10n-id="sidebar-history-import-promo-button"
-        @click=${this.#openMigrationWizard}
-      ></moz-button>
-    </moz-promo>`;
-  }
-
-  #onImportHistoryPromoDismissed(e) {
-    // Let the pref change re-render without the promo rather than having
-    // moz-promo remove itself from a Lit-managed tree.
-    e.preventDefault();
-    this.controller.dismissImportHistory();
-  }
-
-  #openMigrationWizard() {
-    lazy.MigrationUtils.showMigrationWizard(this.topWindow, {});
   }
 
   #emptyMessageTemplate() {
@@ -586,18 +516,15 @@ export class SidebarHistory extends SidebarPage {
         )}
         ${this.#tabListTemplate(
           this.getTabItems(this.controller.searchResults),
-          { searchQuery: this.controller.searchQuery }
+          this.controller.searchQuery
         )}
       </div>
     </moz-card>`;
   }
 
-  #tabListTemplate(tabItems, { searchQuery, treeLevel = 1 } = {}) {
+  #tabListTemplate(tabItems, searchQuery) {
     return html`<sidebar-tab-list
-      rowsDraggable
       .handleFocusElementToCard=${this.handleFocusElementToCard}
-      inTree
-      .level=${treeLevel}
       maxTabsLength="-1"
       .searchQuery=${searchQuery}
       secondaryActionClass="delete-button"
@@ -607,7 +534,6 @@ export class SidebarHistory extends SidebarPage {
       @fxview-tab-list-secondary-action=${this.onSecondaryAction}
       @fxview-tab-list-middleclick-action=${this.onMiddleClickAction}
       @keydown=${this.onKeyDown}
-      @dragstart=${this.#onDragStart}
     >
     </sidebar-tab-list>`;
   }
@@ -632,21 +558,6 @@ export class SidebarHistory extends SidebarPage {
       : "after_end"; // Sidebar is on the right. Open menu to the left.
     this._menu.openPopup(e.target, menuPos, 0, 0, false, false, e);
     this.menuButton.setAttribute("aria-expanded", true);
-  }
-
-  #onDragStart(e) {
-    const row = e.composedPath().find(el => el.localName === "sidebar-tab-row");
-    if (!row?.url) {
-      e.preventDefault();
-      return;
-    }
-    const { url } = row;
-    const title = row.title || url;
-    e.dataTransfer.clearData();
-    e.dataTransfer.setData(lazy.PlacesUtils.TYPE_X_MOZ_URL, url + "\n" + title);
-    e.dataTransfer.setData(lazy.PlacesUtils.TYPE_PLAINTEXT, url);
-    e.dataTransfer.effectAllowed = "copyLink";
-    e.stopPropagation();
   }
 
   willUpdate() {
@@ -680,32 +591,31 @@ export class SidebarHistory extends SidebarPage {
         href="chrome://browser/content/sidebar/sidebar-history.css"
       />
       <div class="sidebar-panel">
-        <div class="options-container">
-          <moz-input-search
-            data-l10n-id="firefoxview-search-text-box-history"
-            data-l10n-attrs="placeholder"
-            @MozInputSearch:search=${this.onSearchQuery}
-          ></moz-input-search>
-          <moz-button
-            class="menu-button"
-            @click=${this.openMenu}
-            data-l10n-id="sidebar-options-menu-button"
-            aria-haspopup="menu"
-            aria-expanded="false"
-            view=${this.view}
-            type="icon ghost"
-            iconsrc="chrome://global/skin/icons/more.svg"
-          >
-          </moz-button>
-        </div>
-        <div
-          class="sidebar-panel-scrollable-content"
-          role=${ifDefined(this.#hasAccordionCards ? "tree" : undefined)}
-          tabindex="-1"
+        <sidebar-panel-header
+          data-l10n-id="sidebar-menu-history-header"
+          data-l10n-attrs="heading"
+          view="viewHistorySidebar"
         >
-          ${when(this.controller.shouldShowImportBanner, () =>
-            this.#importHistoryPromoTemplate()
-          )}
+          <div class="options-container">
+            <moz-input-search
+              data-l10n-id="firefoxview-search-text-box-history"
+              data-l10n-attrs="placeholder"
+              @MozInputSearch:search=${this.onSearchQuery}
+            ></moz-input-search>
+            <moz-button
+              class="menu-button"
+              @click=${this.openMenu}
+              data-l10n-id="sidebar-options-menu-button"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              view=${this.view}
+              type="icon ghost"
+              iconsrc="chrome://global/skin/icons/more.svg"
+            >
+            </moz-button>
+          </div>
+        </sidebar-panel-header>
+        <div class="sidebar-panel-scrollable-content" tabindex="-1">
           ${this.cardsTemplate}
         </div>
       </div>

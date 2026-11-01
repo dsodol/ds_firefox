@@ -22,12 +22,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
 });
 
-ChromeUtils.defineLazyGetter(
-  lazy,
-  "l10n",
-  () => new Localization(["browser/downloads.ftl"], true)
-);
-
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
   "handlerSvc",
@@ -66,11 +60,7 @@ Integration.downloads.defineESModuleGetter(
 
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 
-function formatValue(id, args) {
-  return lazy.l10n.formatValueSync(id, args);
-}
-
-var gDownloadElementButtons = Object.freeze({
+var gDownloadElementButtons = {
   cancel: {
     commandName: "downloadsCmd_cancel",
     l10nId: "downloads-cmd-cancel",
@@ -117,7 +107,7 @@ var gDownloadElementButtons = Object.freeze({
     panelL10nId: "downloads-cmd-remove-file-panel",
     iconClass: "downloadIconCancel",
   },
-});
+};
 
 /**
  * Associates each document with a pre-built DOM fragment representing the
@@ -134,39 +124,6 @@ export var DownloadsViewUI = {
    */
   isCommandName(name) {
     return name.startsWith("cmd_") || name.startsWith("downloadsCmd_");
-  },
-
-  /**
-   * Returns the command names defined on a subclass of
-   * DownloadsViewUI.DownloadElementShell or a vanilla object, while also
-   * walking up the inheritance chain (if applicable) to include command names
-   * on any parent classes.
-   *
-   * @param {DownloadsViewUI.DownloadElementShell | object} classOrObject
-   * @returns {string[]}
-   */
-  getCommandNamesFrom(classOrObject) {
-    let commandNames = new Set();
-
-    let current;
-    if (typeof classOrObject == "function") {
-      // This is a class
-      current = classOrObject.prototype;
-    } else {
-      // We assume this is an object.
-      current = classOrObject;
-    }
-
-    for (; current; current = Object.getPrototypeOf(current)) {
-      let descriptors = Object.getOwnPropertyDescriptors(current);
-      for (let descriptor in descriptors) {
-        if (DownloadsViewUI.isCommandName(descriptor)) {
-          commandNames.add(descriptor);
-        }
-      }
-    }
-
-    return [...commandNames];
   },
 
   /**
@@ -214,7 +171,7 @@ export var DownloadsViewUI = {
     let [size, unit] = lazy.DownloadUtils.convertByteUnits(
       download.target.size
     );
-    return formatValue("downloads-size-with-units", { size, unit });
+    return lazy.DownloadsCommon.strings.sizeWithUnits(size, unit);
   },
 
   /**
@@ -407,10 +364,6 @@ export var DownloadsViewUI = {
       alwaysOpenSimilarFilesItem.removeAttribute("checked");
     }
   },
-
-  get downloadElementButtons() {
-    return gDownloadElementButtons;
-  },
 };
 
 XPCOMUtils.defineLazyPreferenceGetter(
@@ -439,7 +392,7 @@ DownloadsViewUI.BaseView = class {
 
 /**
  * A download element shell is responsible for handling the commands and the
- * displayed data for a single download.
+ * displayed data for a single element that uses the "download.xml" binding.
  *
  * The information to display is obtained through the associated Download object
  * from the JavaScript API for downloads, and commands are executed using a
@@ -450,11 +403,13 @@ DownloadsViewUI.BaseView = class {
  * HistoryDownloadElementShell and the DownloadsViewItem for the panel. The
  * history view may use a HistoryDownload object in place of a Download object.
  */
-DownloadsViewUI.DownloadElementShell = class {
+DownloadsViewUI.DownloadElementShell = function () {};
+
+DownloadsViewUI.DownloadElementShell.prototype = {
   /**
    * The richlistitem for the download, initialized by the derived object.
    */
-  element = null;
+  element: null,
 
   /**
    * Manages the "active" state of the shell. By default all the shells are
@@ -467,11 +422,10 @@ DownloadsViewUI.DownloadElementShell = class {
       this.connect();
       this.onChanged();
     }
-  }
-
+  },
   get active() {
     return !!this._active;
-  }
+  },
 
   connect() {
     let document = this.element.ownerDocument;
@@ -529,7 +483,7 @@ DownloadsViewUI.DownloadElementShell = class {
     progress.className = "downloadProgress";
     progress.setAttribute("max", "100");
     this._downloadTarget.insertAdjacentElement("afterend", progress);
-  }
+  },
 
   /**
    * URI string for the file type icon displayed in the download element.
@@ -552,13 +506,13 @@ DownloadsViewUI.DownloadElementShell = class {
       "?size=32" +
       (this.download.succeeded ? "&state=normal" : "")
     );
-  }
+  },
 
   get browserWindow() {
     return lazy.BrowserWindowTracker.getTopWindow({
       allowFromInactiveWorkspace: true,
     });
-  }
+  },
 
   /**
    * Updates the display name and icon.
@@ -581,7 +535,7 @@ DownloadsViewUI.DownloadElementShell = class {
       this._downloadTarget.setAttribute("tooltiptext", displayName);
     }
     this._downloadTypeIcon.setAttribute("src", icon);
-  }
+  },
 
   /**
    * Updates the displayed progress bar.
@@ -600,7 +554,7 @@ DownloadsViewUI.DownloadElementShell = class {
       this._downloadProgress.setAttribute("value", value);
     }
     this._downloadProgress.toggleAttribute("paused", !!paused);
-  }
+  },
 
   /**
    * Updates the full status line.
@@ -637,7 +591,7 @@ DownloadsViewUI.DownloadElementShell = class {
       this._downloadDetailsHover.setAttribute("value", hoverStatus);
       this._downloadDetailsHover.setAttribute("tooltiptext", hoverStatus);
     }
-  }
+  },
 
   /**
    * Updates the status line combining the given state label with other labels.
@@ -670,21 +624,21 @@ DownloadsViewUI.DownloadElementShell = class {
       new Date(this.download.endTime)
     );
 
-    let firstPart = formatValue("downloads-status-separator", {
-      start: stateLabel,
-      end: displayHost,
-    });
-    let fullStatus = formatValue("downloads-status-separator", {
-      start: firstPart,
-      end: displayDate,
-    });
+    let firstPart = lazy.DownloadsCommon.strings.statusSeparator(
+      stateLabel,
+      displayHost
+    );
+    let fullStatus = lazy.DownloadsCommon.strings.statusSeparator(
+      firstPart,
+      displayDate
+    );
 
     if (!this.isPanel) {
       this.showStatus(fullStatus);
     } else {
       this.showStatus(stateLabel, hoverStatus || fullStatus);
     }
-  }
+  },
 
   /**
    * Updates the main action button and makes it visible.
@@ -708,13 +662,13 @@ DownloadsViewUI.DownloadElementShell = class {
     }
     this._downloadButton.setAttribute("class", "downloadButton " + iconClass);
     this._downloadButton.removeAttribute("hidden");
-  }
+  },
 
   hideButton() {
     this._downloadButton.hidden = true;
-  }
+  },
 
-  lastEstimatedSecondsLeft = Infinity;
+  lastEstimatedSecondsLeft: Infinity,
 
   /**
    * This is called when a major state change occurs in the download, but is not
@@ -745,7 +699,7 @@ DownloadsViewUI.DownloadElementShell = class {
     this.lastEstimatedSecondsLeft = Infinity;
 
     this._updateStateInner();
-  }
+  },
 
   /**
    * This is called for all changes in the download, including progress updates.
@@ -814,19 +768,19 @@ DownloadsViewUI.DownloadElementShell = class {
             // label, for example "Completed - 1.5 MB". When the pointer is over
             // the main area of the item, this label is replaced with a
             // description of the default action, which opens the file.
-            let status = formatValue("downloads-state-completed");
+            let status = lazy.DownloadsCommon.strings.stateCompleted;
             if (sizeWithUnits) {
-              status = formatValue("downloads-status-separator", {
-                start: status,
-                end: sizeWithUnits,
-              });
+              status = lazy.DownloadsCommon.strings.statusSeparator(
+                status,
+                sizeWithUnits
+              );
             }
             this.showStatus(status, { l10n: { id: "downloads-open-file" } });
           } else {
             // In the Downloads View, we show the file size in place of the
             // state label, for example "1.5 MB - example.com - 1:45 PM".
             this.showStatusWithDetails(
-              sizeWithUnits || formatValue("downloads-size-unknown")
+              sizeWithUnits || lazy.DownloadsCommon.strings.sizeUnknown
             );
           }
           this.showButton("show");
@@ -839,7 +793,7 @@ DownloadsViewUI.DownloadElementShell = class {
         if (this.download.error.becauseBlockedByParentalControls) {
           // This download was blocked permanently by parental controls.
           this.showStatusWithDetails(
-            formatValue("downloads-state-blocked-parental-controls")
+            lazy.DownloadsCommon.strings.stateBlockedParentalControls
           );
           this.hideButton();
         } else if (
@@ -884,7 +838,7 @@ DownloadsViewUI.DownloadElementShell = class {
         } else {
           // This download failed without being blocked, and can be restarted.
           this.showStatusWithDetails(
-            formatValue("downloads-state-failed"),
+            lazy.DownloadsCommon.strings.stateFailed,
             this.download.error.localizedReason
           );
           this.showButton("retry");
@@ -902,25 +856,27 @@ DownloadsViewUI.DownloadElementShell = class {
             totalBytes
           );
           this.showStatus(
-            formatValue("downloads-status-separator-before-number", {
-              start: formatValue("downloads-state-paused"),
-              end: transfer,
-            })
+            lazy.DownloadsCommon.strings.statusSeparatorBeforeNumber(
+              lazy.DownloadsCommon.strings.statePaused,
+              transfer
+            )
           );
           this.showButton("cancel");
           progressPaused = true;
         } else {
           // This download was canceled.
-          this.showStatusWithDetails(formatValue("downloads-state-canceled"));
+          this.showStatusWithDetails(
+            lazy.DownloadsCommon.strings.stateCanceled
+          );
           this.showButton("retry");
         }
       } else {
         // This download was added to the global list before it started. While
         // we still support this case, at the moment it can only be triggered by
         // internally developed add-ons and regression tests, and should not
-        // happen unless there is a bug. This means the downloads-state-starting
-        // string can probably be removed.
-        this.showStatus(formatValue("downloads-state-starting"));
+        // happen unless there is a bug. This means the stateStarting string can
+        // probably be removed when converting the localization to Fluent.
+        this.showStatus(lazy.DownloadsCommon.strings.stateStarting);
         this.showButton("cancel");
       }
 
@@ -945,37 +901,39 @@ DownloadsViewUI.DownloadElementShell = class {
     } else {
       this.showProgress("undetermined", 100, progressPaused);
     }
-  }
+  },
 
-  getContentAnalysisErrorTitle(cancelError) {
-    let args = { agent: lazy.contentAnalysisAgentName };
+  getContentAnalysisErrorTitle(strings, cancelError) {
     switch (cancelError) {
       case Ci.nsIContentAnalysisResponse.eNoAgent:
-        return formatValue("downloads-content-analysis-no-agent-error", args);
+        return strings.contentAnalysisNoAgentError(
+          lazy.contentAnalysisAgentName
+        );
       case Ci.nsIContentAnalysisResponse.eInvalidAgentSignature:
-        return formatValue(
-          "downloads-content-analysis-invalid-agent-signature-error",
-          args
+        return strings.contentAnalysisInvalidAgentSignatureError(
+          lazy.contentAnalysisAgentName
         );
       case Ci.nsIContentAnalysisResponse.eTimeout:
-        return formatValue("downloads-content-analysis-timeout-error", args);
+        return strings.contentAnalysisTimeoutError(
+          lazy.contentAnalysisAgentName
+        );
       case Ci.nsIContentAnalysisResponse.eErrorOther:
-        return formatValue(
-          "downloads-content-analysis-unspecified-error",
-          args
+        return strings.contentAnalysisUnspecifiedError(
+          lazy.contentAnalysisAgentName
         );
       default:
         // This also handles the case when cancelError is undefined
         // because the request wasn't cancelled at all.
-        return formatValue("downloads-blocked-by-content-analysis");
+        return strings.blockedByContentAnalysis;
     }
-  }
+  },
 
   /**
    * Returns [title, [details1, details2]] for blocked downloads.
    * The title or details could be raw strings or l10n objects.
    */
   get rawBlockedTitleAndDetails() {
+    let s = lazy.DownloadsCommon.strings;
     if (
       !this.download.error ||
       (!this.download.error.becauseBlockedByReputationCheck &&
@@ -985,29 +943,17 @@ DownloadsViewUI.DownloadElementShell = class {
     }
     switch (this.download.error.reputationCheckVerdict) {
       case lazy.Downloads.Error.BLOCK_VERDICT_UNCOMMON:
-        return [
-          formatValue("downloads-blocked-uncommon"),
-          [
-            formatValue("downloads-unblock-type-uncommon"),
-            formatValue("downloads-unblock-tip"),
-          ],
-        ];
+        return [s.blockedUncommon2, [s.unblockTypeUncommon2, s.unblockTip2]];
       case lazy.Downloads.Error.BLOCK_VERDICT_INSECURE:
         return [
-          formatValue("downloads-blocked-potentially-insecure"),
-          [
-            formatValue("downloads-unblock-insecure"),
-            formatValue("downloads-unblock-tip"),
-          ],
+          s.blockedPotentiallyInsecure,
+          [s.unblockInsecure2, s.unblockTip2],
         ];
       case lazy.Downloads.Error.BLOCK_VERDICT_POTENTIALLY_UNWANTED:
         if (this.download.error.becauseBlockedByReputationCheck) {
           return [
-            formatValue("downloads-blocked-potentially-unwanted"),
-            [
-              formatValue("downloads-unblock-type-potentially-unwanted"),
-              formatValue("downloads-unblock-tip"),
-            ],
+            s.blockedPotentiallyUnwanted,
+            [s.unblockTypePotentiallyUnwanted2, s.unblockTip2],
           ];
         }
         if (!this.download.error.becauseBlockedByContentAnalysis) {
@@ -1017,21 +963,12 @@ DownloadsViewUI.DownloadElementShell = class {
           break;
         }
         return [
-          formatValue("downloads-warned-by-content-analysis"),
-          [
-            formatValue("downloads-unblock-type-content-analysis-warn"),
-            formatValue("downloads-unblock-content-analysis-warn-tip"),
-          ],
+          s.warnedByContentAnalysis,
+          [s.unblockTypeContentAnalysisWarn, s.unblockContentAnalysisWarnTip],
         ];
       case lazy.Downloads.Error.BLOCK_VERDICT_MALWARE:
         if (this.download.error.becauseBlockedByReputationCheck) {
-          return [
-            formatValue("downloads-blocked-malware"),
-            [
-              formatValue("downloads-unblock-type-malware"),
-              formatValue("downloads-unblock-tip"),
-            ],
-          ];
+          return [s.blockedMalware, [s.unblockTypeMalware, s.unblockTip2]];
         }
         if (!this.download.error.becauseBlockedByContentAnalysis) {
           // We expect one of becauseBlockedByReputationCheck or
@@ -1041,12 +978,10 @@ DownloadsViewUI.DownloadElementShell = class {
         }
         return [
           this.getContentAnalysisErrorTitle(
+            s,
             this.download.error.contentAnalysisCancelError
           ),
-          [
-            formatValue("downloads-unblock-content-analysis-blocked"),
-            formatValue("downloads-unblock-content-analysis-override"),
-          ],
+          [s.unblockContentAnalysis1, s.unblockContentAnalysis2],
         ];
       case lazy.Downloads.Error.BLOCK_VERDICT_DOWNLOAD_SPAM: {
         let title = {
@@ -1066,22 +1001,22 @@ DownloadsViewUI.DownloadElementShell = class {
       "Unexpected reputationCheckVerdict: " +
         this.download.error.reputationCheckVerdict
     );
-  }
+  },
 
   showDeletedOrMissing() {
     this.element.removeAttribute("exists");
-    let l10nId;
+    let stringKey;
     if (this.download.deleted && this.download.error?.becauseBlocked) {
-      l10nId = "downloads-file-blocked-and-deleted";
+      stringKey = "fileBlockedAndDeleted";
     } else if (this.download.deleted) {
-      l10nId = "downloads-file-deleted";
+      stringKey = "fileDeleted";
     } else {
-      l10nId = "downloads-file-moved-or-missing";
+      stringKey = "fileMovedOrMissing";
     }
-    let label = formatValue(l10nId);
+    let label = lazy.DownloadsCommon.strings[stringKey];
     this.showStatusWithDetails(label, label);
     this.hideButton();
-  }
+  },
 
   /**
    * Shows the appropriate unblock dialog based on the verdict, and executes the
@@ -1112,7 +1047,7 @@ DownloadsViewUI.DownloadElementShell = class {
         return Promise.resolve();
       })
       .catch(console.error);
-  }
+  },
 
   /**
    * Unblocks the downloaded file and opens it.
@@ -1121,12 +1056,11 @@ DownloadsViewUI.DownloadElementShell = class {
    */
   unblockAndOpenDownload() {
     return this.download.unblock().then(() => this.downloadsCmd_open());
-  }
+  },
 
   unblockAndSave() {
     return this.download.unblock();
-  }
-
+  },
   /**
    * Returns the name of the default command to use for the current state of the
    * download, when there is a double click or another default interaction. If
@@ -1151,7 +1085,7 @@ DownloadsViewUI.DownloadElementShell = class {
         return "downloadsCmd_showBlockedInfo";
     }
     return "";
-  }
+  },
 
   /**
    * Returns true if the specified command can be invoked on the current item.
@@ -1207,7 +1141,7 @@ DownloadsViewUI.DownloadElementShell = class {
         );
     }
     return DownloadsViewUI.isCommandName(aCommand) && !!this[aCommand];
-  }
+  },
 
   doCommand(aCommand) {
     // split off an optional command "modifier" into an argument,
@@ -1216,11 +1150,11 @@ DownloadsViewUI.DownloadElementShell = class {
     if (DownloadsViewUI.isCommandName(command)) {
       this[command](modifier);
     }
-  }
+  },
 
   onButton() {
     this.doCommand(this.buttonCommandName);
-  }
+  },
 
   downloadsCmd_cancel() {
     // This is the correct way to avoid race conditions when cancelling.
@@ -1229,23 +1163,23 @@ DownloadsViewUI.DownloadElementShell = class {
       .removePartialData()
       .catch(console.error)
       .finally(() => this.download.target.refresh());
-  }
+  },
 
   downloadsCmd_confirmBlock() {
     this.download.confirmBlock().catch(console.error);
-  }
+  },
 
   downloadsCmd_open(openWhere = "tab") {
     lazy.DownloadsCommon.openDownload(this.download, {
       openWhere,
     });
-  }
+  },
 
   downloadsCmd_openReferrer() {
     this.element.documentGlobal.openURL(
       this.download.source.referrerInfo.originalReferrer
     );
-  }
+  },
 
   downloadsCmd_pauseResume() {
     if (this.download.stopped) {
@@ -1253,12 +1187,12 @@ DownloadsViewUI.DownloadElementShell = class {
     } else {
       this.download.cancel();
     }
-  }
+  },
 
   downloadsCmd_show() {
     let file = new lazy.FileUtils.File(this.download.target.path);
     lazy.DownloadsCommon.showDownloadedFile(file);
-  }
+  },
 
   downloadsCmd_retry() {
     if (this.download.start) {
@@ -1275,18 +1209,18 @@ DownloadsViewUI.DownloadElementShell = class {
       ? PathUtils.filename(this.download.target.path)
       : null;
     window.DownloadURL(this.download.source.url, targetPath, document);
-  }
+  },
 
   downloadsCmd_delete() {
     // Alias for the 'cmd_delete' command, because it may clash with another
     // controller which causes unexpected behavior as different codepaths claim
     // ownership.
     this.cmd_delete();
-  }
+  },
 
   cmd_delete() {
     lazy.DownloadsCommon.deleteDownload(this.download).catch(console.error);
-  }
+  },
 
   async downloadsCmd_deleteFile() {
     // Remove the download from the session and history downloads, delete part files.
@@ -1294,7 +1228,7 @@ DownloadsViewUI.DownloadElementShell = class {
       this.download,
       DownloadsViewUI.clearHistoryOnDelete
     );
-  }
+  },
 
   downloadsCmd_openInSystemViewer() {
     // For this interaction only, pass a flag to override the preferredAction for this
@@ -1302,7 +1236,7 @@ DownloadsViewUI.DownloadElementShell = class {
     lazy.DownloadsCommon.openDownload(this.download, {
       useSystemDefault: true,
     }).catch(console.error);
-  }
+  },
 
   downloadsCmd_alwaysOpenInSystemViewer() {
     // this command toggles between setting preferredAction for this mime-type to open
@@ -1333,7 +1267,7 @@ DownloadsViewUI.DownloadElementShell = class {
     }
     lazy.handlerSvc.store(mimeInfo);
     lazy.DownloadsCommon.openDownload(this.download).catch(console.error);
-  }
+  },
 
   downloadsCmd_alwaysOpenSimilarFiles() {
     const mimeInfo = lazy.DownloadsCommon.getMimeInfo(this.download);
@@ -1354,5 +1288,5 @@ DownloadsViewUI.DownloadElementShell = class {
       mimeInfo.preferredAction = mimeInfo.saveToDisk;
       lazy.handlerSvc.store(mimeInfo);
     }
-  }
+  },
 };

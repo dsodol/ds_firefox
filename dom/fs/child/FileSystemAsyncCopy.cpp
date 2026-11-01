@@ -20,18 +20,17 @@ nsresult AsyncCopy(nsIInputStream* aSource, nsIOutputStream* aSink,
   struct CallbackClosure {
     CallbackClosure(std::function<void(uint32_t)>&& aProgressCallback,
                     MoveOnlyFunction<void(nsresult)>&& aCompleteCallback) {
-      mProgressCallbackWrapper =
-          std::make_unique<std::function<void(uint32_t)>>(
-              [progressCallback = std::move(aProgressCallback)](
-                  uint32_t count) { progressCallback(count); });
+      mProgressCallbackWrapper = MakeUnique<std::function<void(uint32_t)>>(
+          [progressCallback = std::move(aProgressCallback)](uint32_t count) {
+            progressCallback(count);
+          });
 
-      mCompleteCallbackWrapper =
-          std::make_unique<MoveOnlyFunction<void(nsresult)>>(
-              [completeCallback =
-                   std::move(aCompleteCallback)](nsresult rv) mutable {
-                auto callback = std::move(completeCallback);
-                callback(rv);
-              });
+      mCompleteCallbackWrapper = MakeUnique<MoveOnlyFunction<void(nsresult)>>(
+          [completeCallback =
+               std::move(aCompleteCallback)](nsresult rv) mutable {
+            auto callback = std::move(completeCallback);
+            callback(rv);
+          });
     }
 
     UniquePtr<std::function<void(uint32_t)>> mProgressCallbackWrapper;

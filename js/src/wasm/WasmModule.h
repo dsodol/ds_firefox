@@ -141,7 +141,13 @@ class Module : public JS::WasmModule {
   class PartialTier2CompileTaskImpl;
 
   Module(const ModuleMetadata& moduleMeta, const Code& code,
-         bool loggingDeserialized = false);
+         bool loggingDeserialized = false)
+      : moduleMeta_(&moduleMeta),
+        code_(&code),
+        loggingDeserialized_(loggingDeserialized),
+        testingTier2Active_(false) {
+    initGCMallocBytesExcludingCode();
+  }
   ~Module() override;
 
   const Code& code() const { return *code_; }

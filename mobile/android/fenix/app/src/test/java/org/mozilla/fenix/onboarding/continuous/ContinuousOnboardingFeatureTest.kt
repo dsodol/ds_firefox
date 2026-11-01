@@ -181,12 +181,12 @@ class ContinuousOnboardingFeatureTest {
 
         assertNotNull(Onboarding.signIn.testGetValue())
         val signInEvent = Onboarding.signIn.testGetValue()!!.single()
-        assertEquals("sync", signInEvent.extra!!["sequence_id"])
+        assertEquals(OnboardingPageUiData.Type.SYNC_SIGN_IN.telemetryId, signInEvent.extra!!["sequence_id"])
         assertEquals("0", signInEvent.extra!!["sequence_position"])
 
         assertNotNull(Onboarding.completed.testGetValue())
         val completedEvent = Onboarding.completed.testGetValue()!!.single()
-        assertEquals("sync", completedEvent.extra!!["sequence_id"])
+        assertEquals(OnboardingPageUiData.Type.SYNC_SIGN_IN.telemetryId, completedEvent.extra!!["sequence_id"])
         assertEquals("0", completedEvent.extra!!["sequence_position"])
 
         assertNotNull(Onboarding.dismissed.testGetValue())
@@ -231,12 +231,12 @@ class ContinuousOnboardingFeatureTest {
 
         assertNotNull(Onboarding.skipSignIn.testGetValue())
         val skipEvent = Onboarding.skipSignIn.testGetValue()!!.single()
-        assertEquals("sync", skipEvent.extra!!["sequence_id"])
+        assertEquals(OnboardingPageUiData.Type.SYNC_SIGN_IN.telemetryId, skipEvent.extra!!["sequence_id"])
         assertEquals("0", skipEvent.extra!!["sequence_position"])
 
         assertNotNull(Onboarding.completed.testGetValue())
         val completedEvent = Onboarding.completed.testGetValue()!!.single()
-        assertEquals("sync", completedEvent.extra!!["sequence_id"])
+        assertEquals(OnboardingPageUiData.Type.SYNC_SIGN_IN.telemetryId, completedEvent.extra!!["sequence_id"])
         assertEquals("0", completedEvent.extra!!["sequence_position"])
 
         assertNotNull(Onboarding.dismissed.testGetValue())
@@ -253,7 +253,7 @@ class ContinuousOnboardingFeatureTest {
 
         assertNotNull(Onboarding.signInCard.testGetValue())
         val event = Onboarding.signInCard.testGetValue()!!.single()
-        assertEquals("sync", event.extra!!["sequence_id"])
+        assertEquals(OnboardingPageUiData.Type.SYNC_SIGN_IN.telemetryId, event.extra!!["sequence_id"])
         assertEquals("0", event.extra!!["sequence_position"])
     }
 
@@ -282,7 +282,7 @@ class ContinuousOnboardingFeatureTest {
                         text = "Turn on notifications",
                         onClick = {
                             telemetryRecorder.onNotificationPermissionClick(
-                                sequenceId = "notification",
+                                sequenceId = OnboardingPageUiData.Type.NOTIFICATION_PERMISSION.telemetryId,
                                 sequencePosition = "0",
                             )
                             activity.components.notificationsDelegate.requestNotificationPermission()
@@ -293,14 +293,15 @@ class ContinuousOnboardingFeatureTest {
                         text = "Not now",
                         onClick = {
                             telemetryRecorder.onSkipTurnOnNotificationsClick(
-                                sequenceId = "notification",
+                                sequenceId = OnboardingPageUiData.Type.NOTIFICATION_PERMISSION.telemetryId,
                                 sequencePosition = "0",
                             )
                         },
                     ),
                 onRecordImpressionEvent = {
-                    telemetryRecorder.onNotificationCardImpression(
-                        sequenceId = "notification",
+                    telemetryRecorder.onImpression(
+                        sequenceId = OnboardingPageUiData.Type.NOTIFICATION_PERMISSION.telemetryId,
+                        pageType = OnboardingPageUiData.Type.NOTIFICATION_PERMISSION,
                         sequencePosition = "0",
                     )
                 },
@@ -324,7 +325,7 @@ class ContinuousOnboardingFeatureTest {
 
         assertNotNull(Onboarding.turnOnNotifications.testGetValue())
         val event = Onboarding.turnOnNotifications.testGetValue()!!.single()
-        assertEquals("notification", event.extra!!["sequence_id"])
+        assertEquals(OnboardingPageUiData.Type.NOTIFICATION_PERMISSION.telemetryId, event.extra!!["sequence_id"])
         assertEquals("0", event.extra!!["sequence_position"])
 
         assertEquals(dateTimeProvider.currentTimeMillis(), settings.secondDayOnboardingCompletedTimestamp)
@@ -339,7 +340,7 @@ class ContinuousOnboardingFeatureTest {
 
         assertNotNull(Onboarding.skipTurnOnNotifications.testGetValue())
         val event = Onboarding.skipTurnOnNotifications.testGetValue()!!.single()
-        assertEquals("notification", event.extra!!["sequence_id"])
+        assertEquals(OnboardingPageUiData.Type.NOTIFICATION_PERMISSION.telemetryId, event.extra!!["sequence_id"])
         assertEquals("0", event.extra!!["sequence_position"])
 
         assertEquals(dateTimeProvider.currentTimeMillis(), settings.secondDayOnboardingCompletedTimestamp)
@@ -354,7 +355,7 @@ class ContinuousOnboardingFeatureTest {
 
         assertNotNull(Onboarding.turnOnNotificationsCard.testGetValue())
         val event = Onboarding.turnOnNotificationsCard.testGetValue()!!.single()
-        assertEquals("notification", event.extra!!["sequence_id"])
+        assertEquals(OnboardingPageUiData.Type.NOTIFICATION_PERMISSION.telemetryId, event.extra!!["sequence_id"])
         assertEquals("0", event.extra!!["sequence_position"])
     }
 
@@ -394,10 +395,8 @@ class ContinuousOnboardingFeatureTest {
                 )
 
             feature.start()
-            ipProtectionStore.dispatch(
-                IPProtectionAction.EligibilityAction.EligibilityChanged(EligibilityStatus.Eligible)
-            )
-            ipProtectionStore.dispatch(IPProtectionAction.AccountAction.AccountStateChanged(AccountStatus.NoAccount))
+            ipProtectionStore.dispatch(IPProtectionAction.EligibilityChanged(EligibilityStatus.Eligible))
+            ipProtectionStore.dispatch(IPProtectionAction.AccountStateChanged(AccountStatus.NoAccount))
             testDispatcher.scheduler.advanceUntilIdle()
 
             assertTrue(navigateToIpProtectionInvoked)
@@ -428,10 +427,8 @@ class ContinuousOnboardingFeatureTest {
                 )
 
             feature.start()
-            ipProtectionStore.dispatch(
-                IPProtectionAction.EligibilityAction.EligibilityChanged(EligibilityStatus.Eligible)
-            )
-            ipProtectionStore.dispatch(IPProtectionAction.AccountAction.AccountStateChanged(AccountStatus.NoAccount))
+            ipProtectionStore.dispatch(IPProtectionAction.EligibilityChanged(EligibilityStatus.Eligible))
+            ipProtectionStore.dispatch(IPProtectionAction.AccountStateChanged(AccountStatus.NoAccount))
             testDispatcher.scheduler.advanceUntilIdle()
 
             assertFalse(navigateToIpProtectionInvoked)
@@ -465,16 +462,12 @@ class ContinuousOnboardingFeatureTest {
                 )
 
             feature.start()
-            ipProtectionStore.dispatch(
-                IPProtectionAction.EligibilityAction.EligibilityChanged(EligibilityStatus.Eligible)
-            )
-            ipProtectionStore.dispatch(IPProtectionAction.AccountAction.AccountStateChanged(AccountStatus.NoAccount))
+            ipProtectionStore.dispatch(IPProtectionAction.EligibilityChanged(EligibilityStatus.Eligible))
+            ipProtectionStore.dispatch(IPProtectionAction.AccountStateChanged(AccountStatus.NoAccount))
             testDispatcher.scheduler.advanceUntilIdle()
 
             ipProtectionPromptRepository.canShowIPProtectionPrompt = false
-            ipProtectionStore.dispatch(
-                IPProtectionAction.AccountAction.AccountStateChanged(AccountStatus.Authenticated)
-            )
+            ipProtectionStore.dispatch(IPProtectionAction.AccountStateChanged(AccountStatus.Authenticated))
             testDispatcher.scheduler.advanceUntilIdle()
 
             assertEquals(1, navigateToIpProtectionCount)
@@ -507,7 +500,7 @@ class ContinuousOnboardingFeatureTest {
                     )
 
                 feature.start()
-                store.dispatch(IPProtectionAction.EligibilityAction.EligibilityChanged(ineligibleStatus))
+                store.dispatch(IPProtectionAction.EligibilityChanged(ineligibleStatus))
                 testDispatcher.scheduler.advanceUntilIdle()
 
                 assertFalse(navigateToIpProtectionInvoked)
@@ -543,10 +536,8 @@ class ContinuousOnboardingFeatureTest {
 
             feature.start()
             feature.stop()
-            ipProtectionStore.dispatch(
-                IPProtectionAction.EligibilityAction.EligibilityChanged(EligibilityStatus.Eligible)
-            )
-            ipProtectionStore.dispatch(IPProtectionAction.AccountAction.AccountStateChanged(AccountStatus.NoAccount))
+            ipProtectionStore.dispatch(IPProtectionAction.EligibilityChanged(EligibilityStatus.Eligible))
+            ipProtectionStore.dispatch(IPProtectionAction.AccountStateChanged(AccountStatus.NoAccount))
             testDispatcher.scheduler.advanceUntilIdle()
 
             assertFalse(navigateToIpProtectionInvoked)
@@ -580,10 +571,8 @@ class ContinuousOnboardingFeatureTest {
             feature.start()
             feature.stop()
             feature.start()
-            ipProtectionStore.dispatch(
-                IPProtectionAction.EligibilityAction.EligibilityChanged(EligibilityStatus.Eligible)
-            )
-            ipProtectionStore.dispatch(IPProtectionAction.AccountAction.AccountStateChanged(AccountStatus.NoAccount))
+            ipProtectionStore.dispatch(IPProtectionAction.EligibilityChanged(EligibilityStatus.Eligible))
+            ipProtectionStore.dispatch(IPProtectionAction.AccountStateChanged(AccountStatus.NoAccount))
             testDispatcher.scheduler.advanceUntilIdle()
 
             assertTrue(navigateToIpProtectionInvoked)
@@ -637,10 +626,8 @@ class ContinuousOnboardingFeatureTest {
                 )
 
             feature.start()
-            ipProtectionStore.dispatch(
-                IPProtectionAction.EligibilityAction.EligibilityChanged(EligibilityStatus.Eligible)
-            )
-            ipProtectionStore.dispatch(IPProtectionAction.AccountAction.AccountStateChanged(AccountStatus.NoAccount))
+            ipProtectionStore.dispatch(IPProtectionAction.EligibilityChanged(EligibilityStatus.Eligible))
+            ipProtectionStore.dispatch(IPProtectionAction.AccountStateChanged(AccountStatus.NoAccount))
             testDispatcher.scheduler.advanceUntilIdle()
 
             assertFalse(navigateToIpProtectionInvoked)
@@ -706,7 +693,7 @@ class ContinuousOnboardingFeatureTest {
 
         assertNotNull(Onboarding.setToDefault.testGetValue())
         val event = Onboarding.setToDefault.testGetValue()!!.single()
-        assertEquals("default", event.extra!!["sequence_id"])
+        assertEquals(OnboardingPageUiData.Type.DEFAULT_BROWSER.telemetryId, event.extra!!["sequence_id"])
         assertEquals("0", event.extra!!["sequence_position"])
     }
 

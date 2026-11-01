@@ -441,20 +441,12 @@
   text-align: match-parent;
 }
 
-.protections-popup-list-count-label {
-  color: var(--text-color-deemphasized);
-}
-
 /* Special alignment for items which include a state label (e.g. "Allowed") */
 .protections-popup-list-item-with-state > label {
   margin: auto 0;
 }
-.protections-popup-list-item-with-state > .permission-popup-permission-remove-button {
-  margin-inline-start: auto;
-}
-
-.protections-popup-list-item-with-count > .protections-popup-list-host-label {
-  margin-inline-end: var(--space-small);
+.protections-popup-list-item-with-state {
+  justify-content: space-between;
 }
 
 /* Content Blocking categories */

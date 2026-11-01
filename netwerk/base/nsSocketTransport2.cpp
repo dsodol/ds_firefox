@@ -2769,7 +2769,7 @@ nsSocketTransport::Bind(NetAddr* aLocalAddr) {
     return NS_ERROR_FAILURE;
   }
 
-  mBindAddr = std::make_unique<NetAddr>(*aLocalAddr);
+  mBindAddr = MakeUnique<NetAddr>(*aLocalAddr);
 
   return NS_OK;
 }

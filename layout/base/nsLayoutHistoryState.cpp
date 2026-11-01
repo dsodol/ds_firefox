@@ -161,7 +161,7 @@ void nsLayoutHistoryState::Reset() {
 
 namespace mozilla {
 UniquePtr<PresState> NewPresState() {
-  return std::make_unique<PresState>(
+  return MakeUnique<PresState>(
       /* contentData */ mozilla::void_t(),
       /* scrollState */ nsPoint(),
       /* resolution */ 1.0,

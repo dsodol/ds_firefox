@@ -21,7 +21,6 @@
 #include "mozilla/ipc/Endpoint.h"
 #include "mozilla/ipc/UtilityProcessChild.h"
 #include "mozilla/layers/ImageDataSerializer.h"
-#include "mozilla/layers/LayerTreeLog.h"
 #include "mozilla/layers/VideoBridgeChild.h"
 #include "mozilla/layers/VideoBridgeParent.h"
 #include "nsIObserverService.h"
@@ -216,9 +215,7 @@ RemoteMediaManagerParent::~RemoteMediaManagerParent() {
 }
 
 void RemoteMediaManagerParent::ActorDestroy(
-    mozilla::ipc::IProtocol::ActorDestroyReason aWhy) {
-  LAYERTREE_LOG("Remote media manager for content {} destroyed, reason {}",
-                mContentId, fmt::enums::format_as(aWhy));
+    mozilla::ipc::IProtocol::ActorDestroyReason) {
   mThread = nullptr;
 }
 
@@ -226,6 +223,7 @@ already_AddRefed<PRemoteDecoderParent>
 RemoteMediaManagerParent::AllocPRemoteDecoderParent(
     const RemoteDecoderInfoIPDL& aRemoteDecoderInfo,
     const CreateDecoderParams::OptionSet& aOptions,
+    const Maybe<layers::TextureFactoryIdentifier>& aIdentifier,
     const Maybe<uint64_t>& aMediaEngineId, const Maybe<TrackingId>& aTrackingId,
     PRemoteCDMParent* aCDM) {
   RefPtr<TaskQueue> decodeTaskQueue =
@@ -240,8 +238,8 @@ RemoteMediaManagerParent::AllocPRemoteDecoderParent(
         aRemoteDecoderInfo.get_VideoDecoderInfoIPDL();
     return MakeAndAddRef<RemoteVideoDecoderParent>(
         this, decoderInfo.videoInfo(), decoderInfo.framerate(), aOptions,
-        sRemoteMediaManagerParentThread, decodeTaskQueue, aMediaEngineId,
-        aTrackingId, cdm);
+        aIdentifier, sRemoteMediaManagerParentThread, decodeTaskQueue,
+        aMediaEngineId, aTrackingId, cdm);
   }
 
   if (aRemoteDecoderInfo.type() == RemoteDecoderInfoIPDL::TAudioInfo) {
@@ -295,7 +293,6 @@ void RemoteMediaManagerParent::Open(
     // We can't recover from this.
     MOZ_CRASH("Failed to bind RemoteMediaManagerParent to endpoint");
   }
-  LAYERTREE_LOG("Remote media manager bound, content {}", mContentId);
 }
 
 mozilla::ipc::IPCResult RemoteMediaManagerParent::RecvReadback(

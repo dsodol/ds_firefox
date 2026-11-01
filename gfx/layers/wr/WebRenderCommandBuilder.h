@@ -82,7 +82,6 @@ class WebRenderCommandBuilder final {
                  const StackingContextHelper& aSc,
                  const LayoutDeviceRect& aRect, const LayoutDeviceRect& aClip);
 
-  // aOpacity is applied through the image's color multiplier.
   bool PushImageProvider(nsDisplayItem* aItem,
                          image::WebRenderImageProvider* aProvider,
                          image::ImgDrawResult aDrawResult,
@@ -90,8 +89,7 @@ class WebRenderCommandBuilder final {
                          mozilla::wr::IpcResourceUpdateQueue& aResources,
                          const LayoutDeviceRect& aRect,
                          const LayoutDeviceRect& aClip,
-                         bool aRasterizedForRect = false,
-                         float aOpacity = 1.0f);
+                         bool aRasterizedForRect = false);
 
   Maybe<wr::ImageMask> BuildWrMaskImage(
       nsDisplayMasksAndClipPaths* aMaskItem, wr::DisplayListBuilder& aBuilder,

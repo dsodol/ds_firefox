@@ -16,7 +16,6 @@
 #include "mozilla/layers/CanvasTranslator.h"
 #include "mozilla/layers/CompositorThread.h"
 #include "mozilla/layers/ISurfaceAllocator.h"
-#include "mozilla/layers/LayerTreeLog.h"
 #include "mozilla/layers/SharedSurfacesParent.h"
 #include "mozilla/webgpu/WebGPUParent.h"
 #include "nsIThread.h"
@@ -126,12 +125,9 @@ void CanvasManagerParent::Bind(Endpoint<PCanvasManagerParent>&& aEndpoint) {
 #endif
 
   sManagers.Insert(this);
-  LAYERTREE_LOG("Canvas manager bound, content {}", mContentId);
 }
 
 void CanvasManagerParent::ActorDestroy(ActorDestroyReason aWhy) {
-  LAYERTREE_LOG("Canvas manager for content {} destroyed, reason {}",
-                mContentId, fmt::enums::format_as(aWhy));
   sManagers.Remove(this);
 }
 
@@ -201,12 +197,13 @@ mozilla::ipc::IPCResult CanvasManagerParent::RecvGetSnapshot(
   webgl::FrontBufferSnapshotIpc buffer;
   if (RefPtr<dom::WebGLParent> webgl =
           mozilla::ipc::ActorDynCast<dom::WebGLParent>(actor)) {
-    mozilla::ipc::IPCResult rv = webgl->GetFrontBufferSnapshot(&buffer);
+    mozilla::ipc::IPCResult rv = webgl->GetFrontBufferSnapshot(&buffer, this);
     if (!rv) {
       return rv;
     }
   } else if (RefPtr<webgpu::WebGPUParent> webgpu =
                  mozilla::ipc::ActorDynCast<webgpu::WebGPUParent>(actor)) {
+    IntSize size;
     if (aOwnerId.isNothing()) {
       return IPC_FAIL(this, "invalid OwnerId");
     }
@@ -216,16 +213,16 @@ mozilla::ipc::IPCResult CanvasManagerParent::RecvGetSnapshot(
     if (aCommandBufferId.isNothing()) {
       return IPC_FAIL(this, "invalid CommandBufferId");
     }
-    webgpu::FrontBufferSnapshot snapshot;
+    uint32_t stride = 0;
     mozilla::ipc::IPCResult rv = webgpu->GetFrontBufferSnapshot(
-        *aOwnerId, *aCommandEncoderId, *aCommandBufferId, snapshot);
+        this, *aOwnerId, *aCommandEncoderId, *aCommandBufferId, buffer.shmem,
+        size, stride);
     if (!rv) {
       return rv;
     }
-    buffer.shmem = std::move(snapshot.handle);
-    buffer.surfSize.x = snapshot.width;
-    buffer.surfSize.y = snapshot.height;
-    buffer.byteStride = snapshot.byteStride;
+    buffer.surfSize.x = static_cast<uint32_t>(size.width);
+    buffer.surfSize.y = static_cast<uint32_t>(size.height);
+    buffer.byteStride = stride;
   } else {
     return IPC_FAIL(this, "unsupported protocol");
   }

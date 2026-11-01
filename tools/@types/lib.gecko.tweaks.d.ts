@@ -6,8 +6,6 @@
 interface CanonicalBrowsingContext extends LoadContextMixin {
   embedderElement: MozBrowser;
   currentWindowContext: WindowGlobalParent;
-  // Set by tabbrowser.
-  nonWebControlledLoadingURI?: nsIURI;
   parent: CanonicalBrowsingContext;
   parentWindowContext: WindowGlobalParent;
   top: CanonicalBrowsingContext;
@@ -22,9 +20,6 @@ declare namespace ChromeUtils {
     aOptions?: ImportESModuleOptionsDictionary
   ): Modules[T];
 }
-
-// Defined by SystemGlobal, see XPCRuntimeService.cpp.
-declare var locks: LockManager;
 
 interface ChromeWindow extends Window {
   isChromeWindow: true;
@@ -59,16 +54,6 @@ interface Document {
     localName: string,
     options?: string | ElementCreationOptions
   ): XULElement;
-}
-
-interface CustomElementRegistry {
-  // Accept XUL custom elements, which the generated CustomElementConstructor
-  // leaves out by requiring an HTMLElement.
-  define(
-    name: string,
-    constructor: new () => XULElement,
-    options?: ElementDefinitionOptions
-  ): void;
 }
 
 type nsIGleanPingNoReason = {
@@ -121,15 +106,6 @@ interface MozQueryInterface {
 interface nsICryptoHash extends nsISupports {
   // Accepts a TypedArray.
   update(aData: ArrayLike<number>, aLen: number): void;
-}
-
-// The type generator drops UTF8String dictionary members from IOUtils options.
-interface ReadUTF8Options {
-  decrypt?: string;
-}
-
-interface WriteOptions {
-  encrypt?: string;
 }
 
 interface nsIDOMWindow extends Window {}

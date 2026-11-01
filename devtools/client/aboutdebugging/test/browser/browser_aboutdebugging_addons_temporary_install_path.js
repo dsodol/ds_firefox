@@ -46,7 +46,6 @@ add_task(async function testPreferenceRetrievedWhenInstallingExtension() {
 
   const MockFilePicker = SpecialPowers.MockFilePicker;
   MockFilePicker.init();
-  registerCleanupFunction(() => MockFilePicker.cleanup());
   const onFilePickerShown = new Promise(resolve => {
     MockFilePicker.showCallback = fp => {
       resolve(fp);

@@ -193,7 +193,7 @@ impl BindingType {
     }
 }
 
-crate::bitflags_array! {
+bitflags::bitflags! {
     /// Describes the shader stages that a binding will be visible from.
     ///
     /// These can be combined so something that is visible from both vertex and fragment shaders can be defined as:
@@ -202,20 +202,11 @@ crate::bitflags_array! {
     ///
     /// Corresponds to [WebGPU `GPUShaderStageFlags`](
     /// https://gpuweb.github.io/gpuweb/#typedefdef-gpushaderstageflags).
-    #[repr(C)]
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-    pub struct (ShaderStages, ShaderStagesBits): [u32; 2];
-
-    /// Shader stages that are defined in the WebGPU specification.
-    /// For all usages, see [`ShaderStages`].
-    ///
-    /// Corresponds to [WebGPU `GPUShaderStageFlags`](
-    /// https://gpuweb.github.io/gpuweb/#typedefdef-gpushaderstageflags).
     #[repr(transparent)]
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     #[cfg_attr(feature = "serde", serde(transparent))]
     #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-    pub struct ShaderStagesWebGPU features_webgpu {
+    pub struct ShaderStages: u32 {
         /// Binding is not visible from any shader stage.
         const NONE = 0;
         /// Binding is visible from the vertex shader of a render pipeline.
@@ -225,28 +216,19 @@ crate::bitflags_array! {
         /// Binding is visible from the compute shader of a compute pipeline.
         const COMPUTE = 1 << 2;
         /// Binding is visible from the vertex and fragment shaders of a render pipeline.
-        const VERTEX_FRAGMENT = ShaderStagesWebGPU::VERTEX.bits() | ShaderStagesWebGPU::FRAGMENT.bits();
-    }
-
-    /// Shader stages that are available in WGPU only when targeting native.
-    /// For all usages, see [`ShaderStages`].
-    #[repr(transparent)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-    #[cfg_attr(feature = "serde", serde(transparent))]
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-    pub struct ShaderStagesWGPU features_wgpu {
+        const VERTEX_FRAGMENT = Self::VERTEX.bits() | Self::FRAGMENT.bits();
         /// Binding is visible from the task shader of a mesh pipeline.
-        const TASK = 1 << 0;
+        const TASK = 1 << 3;
         /// Binding is visible from the mesh shader of a mesh pipeline.
-        const MESH = 1 << 1;
+        const MESH = 1 << 4;
         /// Binding is visible from the ray generation shader of a ray tracing pipeline.
-        const RAY_GENERATION = 1 << 2;
+        const RAY_GENERATION = 1 << 5;
         /// Binding is visible from the ray any hit shader of a ray tracing pipeline.
-        const ANY_HIT = 1 << 3;
+        const ANY_HIT = 1 << 6;
         /// Binding is visible from the ray closest hit shader of a ray tracing pipeline.
-        const CLOSEST_HIT = 1 << 4;
+        const CLOSEST_HIT = 1 << 7;
         /// Binding is visible from the ray miss shader of a ray tracing pipeline.
-        const MISS = 1 << 5;
+        const MISS = 1 << 8;
     }
 }
 
@@ -254,7 +236,6 @@ crate::bitflags_array! {
 ///
 /// Corresponds to [WebGPU `GPUBufferBindingType`](
 /// https://gpuweb.github.io/gpuweb/#enumdef-gpubufferbindingtype).
-#[repr(C)]
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum BufferBindingType {

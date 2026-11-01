@@ -78,7 +78,7 @@ constexpr ContentClassifierFeature kFeatures[] = {
      nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT,
      NS_ERROR_TRACKING_URI, false, true,
      Some(nsIScopedPrefs::PRIVACY_TRACKINGPROTECTION_CONTENT_ENABLED),
-     &ContentClassifierFeatureUtils::ShouldClassifyForETP, nullptr},
+     &ContentClassifierFeatureUtils::IsThirdPartyUnlessAnnotating, nullptr},
     // The annotation variant adds content-track-digest256, which mirrors
     // url-classifier's promotion to STATE_LOADED_LEVEL_2_TRACKING_CONTENT
     // when a content-track-* table matches.
@@ -89,7 +89,7 @@ constexpr ContentClassifierFeature kFeatures[] = {
      nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
      nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT,
      NS_ERROR_TRACKING_URI, false, true, Nothing(),
-     &ContentClassifierFeatureUtils::ShouldClassifyForETP, nullptr},
+     &ContentClassifierFeatureUtils::IsThirdPartyUnlessAnnotating, nullptr},
     {"social-trackers"_ns, Span<const nsLiteralCString>(kSocialTrackersListIds),
      nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_SOCIALTRACKING,
      nsIWebProgressListener::STATE_LOADED_SOCIALTRACKING_CONTENT,
@@ -98,7 +98,7 @@ constexpr ContentClassifierFeature kFeatures[] = {
      NS_ERROR_SOCIALTRACKING_URI, false, true,
      Some(nsIScopedPrefs::
               PRIVACY_TRACKINGPROTECTION_CONTENT_SOCIALTRACKING_ENABLED),
-     &ContentClassifierFeatureUtils::ShouldClassifyForETP, nullptr},
+     &ContentClassifierFeatureUtils::IsThirdPartyUnlessAnnotating, nullptr},
     {"fingerprinters"_ns, Span<const nsLiteralCString>(kFingerprintersListIds),
      nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_FINGERPRINTING,
      nsIWebProgressListener::STATE_LOADED_FINGERPRINTING_CONTENT,
@@ -107,7 +107,7 @@ constexpr ContentClassifierFeature kFeatures[] = {
      NS_ERROR_FINGERPRINTING_URI, false, true,
      Some(nsIScopedPrefs::
               PRIVACY_TRACKINGPROTECTION_CONTENT_FINGERPRINTING_ENABLED),
-     &ContentClassifierFeatureUtils::ShouldClassifyNonPassiveForETP, nullptr},
+     &ContentClassifierFeatureUtils::IsThirdPartyUnlessAnnotating, nullptr},
     {"email-trackers"_ns, Span<const nsLiteralCString>(kEmailTrackersListIds),
      nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_EMAILTRACKING,
      nsIWebProgressListener::STATE_LOADED_EMAILTRACKING_LEVEL_1_CONTENT,
@@ -116,7 +116,7 @@ constexpr ContentClassifierFeature kFeatures[] = {
      NS_ERROR_EMAILTRACKING_URI, false, true,
      Some(nsIScopedPrefs::
               PRIVACY_TRACKINGPROTECTION_CONTENT_EMAILTRACKING_ENABLED),
-     &ContentClassifierFeatureUtils::ShouldClassifyForETP, nullptr},
+     &ContentClassifierFeatureUtils::IsThirdPartyUnlessAnnotating, nullptr},
     {"cryptominers"_ns, Span<const nsLiteralCString>(kCryptominersListIds),
      nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_CRYPTOMINING,
      nsIWebProgressListener::STATE_LOADED_CRYPTOMINING_CONTENT,
@@ -125,7 +125,7 @@ constexpr ContentClassifierFeature kFeatures[] = {
      NS_ERROR_CRYPTOMINING_URI, false, true,
      Some(nsIScopedPrefs::
               PRIVACY_TRACKINGPROTECTION_CONTENT_CRYPTOMINING_ENABLED),
-     &ContentClassifierFeatureUtils::ShouldClassifyForETP, nullptr},
+     &ContentClassifierFeatureUtils::IsThirdPartyUnlessAnnotating, nullptr},
     {"harmful-addon"_ns, Span<const nsLiteralCString>(kHarmfulAddonListIds),
      nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_TRACKING,
      0,  // mLoadedState: blocking-only feature, not annotated
@@ -138,12 +138,12 @@ constexpr ContentClassifierFeature kFeatures[] = {
      Span<const nsLiteralCString>(kMinorExceptionListIds),
      nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_TRACKING, 0, 0, 0,
      NS_OK, true, true, Nothing(),
-     &ContentClassifierFeatureUtils::ShouldClassifyForETP, nullptr},
+     &ContentClassifierFeatureUtils::IsThirdPartyUnlessAnnotating, nullptr},
     {"major-exceptions"_ns,
      Span<const nsLiteralCString>(kMajorExceptionListIds),
      nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_TRACKING, 0, 0, 0,
      NS_OK, true, true, Nothing(),
-     &ContentClassifierFeatureUtils::ShouldClassifyForETP, nullptr},
+     &ContentClassifierFeatureUtils::IsThirdPartyUnlessAnnotating, nullptr},
     // Test-only features. Their engines are built directly by the HTTP
     // test loader (driven by the *.test_list_urls prefs) and installed
     // into mEngines under these names. They behave like any other
@@ -155,14 +155,14 @@ constexpr ContentClassifierFeature kFeatures[] = {
      nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT,
      NS_ERROR_TRACKING_URI, false, false,
      Some(nsIScopedPrefs::PRIVACY_TRACKINGPROTECTION_CONTENT_TEST_ENABLED),
-     &ContentClassifierFeatureUtils::ShouldClassifyForETP, nullptr},
+     &ContentClassifierFeatureUtils::IsThirdPartyUnlessAnnotating, nullptr},
     {"test_annotate"_ns, Span<const nsLiteralCString>(kTestAnnotateListIds),
      nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_TRACKING,
      nsIWebProgressListener::STATE_LOADED_LEVEL_1_TRACKING_CONTENT,
      nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
      nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT, NS_OK, false,
-     false, Nothing(), &ContentClassifierFeatureUtils::ShouldClassifyForETP,
-     nullptr},
+     false, Nothing(),
+     &ContentClassifierFeatureUtils::IsThirdPartyUnlessAnnotating, nullptr},
 };
 
 // Prefs that name feature engines built into mEngines.
@@ -1451,8 +1451,6 @@ void ContentClassifierService::ProcessListChanges(
   nsTHashSet<nsCString> activeNames = ActiveFeatureNames(snapshot);
 
   nsTArray<const ContentClassifierFeature*> toUpdate;
-  nsTArray<uint64_t> featureVersions;
-  uint64_t generation;
   {
     MutexAutoLock lock(mLock);
     for (const auto& feature : GetFeatures()) {
@@ -1472,44 +1470,27 @@ void ContentClassifierService::ProcessListChanges(
         toUpdate.AppendElement(&feature);
       }
     }
-
-    // Bump the global generation and (where applicable) per-feature
-    // versions under the lock. The build closure compares each captured
-    // version against the current one before installing, so a later
-    // ProcessListChanges call for the same feature can't be overwritten by
-    // an earlier in-flight rebuild. The global generation gates
-    // Populate / Prune / Notify so an older closure's stale snapshot
-    // can't clobber the active-engine lists set up by a newer call.
-    generation = ++mUpdateGeneration;
-    featureVersions.SetCapacity(toUpdate.Length());
-    for (const auto* feature : toUpdate) {
-      uint64_t& v = mFeatureVersions.LookupOrInsert(feature->mName);
-      featureVersions.AppendElement(++v);
-    }
   }
 
-  UpdateFeatures(std::move(toUpdate), std::move(featureVersions), generation,
-                 std::move(snapshot));
+  UpdateFeatures(toUpdate, std::move(snapshot));
 }
 
 void ContentClassifierService::UpdateFeatures(
-    nsTArray<const ContentClassifierFeature*> aFeatures,
-    nsTArray<uint64_t> aFeatureVersions, uint64_t aGeneration,
+    const nsTArray<const ContentClassifierFeature*>& aFeatures,
     EnginesPrefsSnapshot aPreferenceSnapshot) {
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(aFeatures.Length() == aFeatureVersions.Length());
 
-#ifdef DEBUG
-  // Ensure the features to update are all active in the snapshot.
+  // Drop inactive features before issuing fetches: their engines will be
+  // removed by PruneInactiveEngines below, so fetching list bytes just to
+  // throw the engine away would be wasted work.
   nsTHashSet<nsCString> activeNames = ActiveFeatureNames(aPreferenceSnapshot);
-  for (const auto* feature : aFeatures) {
-    MOZ_ASSERT(activeNames.Contains(nsCString(feature->mName)),
-               "UpdateFeatures expects only features active in the snapshot");
-  }
-#endif
-
+  nsTArray<const ContentClassifierFeature*> features;
   nsTArray<RefPtr<EngineRulesPromise>> fetches;
   for (const auto* feature : aFeatures) {
+    if (!activeNames.Contains(nsCString(feature->mName))) {
+      continue;
+    }
+    features.AppendElement(feature);
     fetches.AppendElement(FetchEngineDataForFeature(*feature));
   }
 
@@ -1522,9 +1503,28 @@ void ContentClassifierService::UpdateFeatures(
     return;
   }
 
+  // Bump the global generation and (where applicable) per-feature
+  // versions under the lock. The build closure compares each captured
+  // version against the current one before installing, so a later
+  // UpdateFeatures call for the same feature can't be overwritten by
+  // an earlier in-flight rebuild. The global generation gates
+  // Populate / Prune / Notify so an older closure's stale snapshot
+  // can't clobber the active-engine lists set up by a newer call.
+  nsTArray<uint64_t> featureVersions;
+  featureVersions.SetCapacity(features.Length());
+  uint64_t generation;
+  {
+    MutexAutoLock lock(mLock);
+    generation = ++mUpdateGeneration;
+    for (const auto* feature : features) {
+      uint64_t& v = mFeatureVersions.LookupOrInsert(feature->mName);
+      featureVersions.AppendElement(++v);
+    }
+  }
+
   RefPtr<ContentClassifierService> self = this;
 
-  if (aFeatures.IsEmpty()) {
+  if (features.IsEmpty()) {
     // No fetches needed; still refresh the active lists and prune in
     // case the snapshot changed. Run the lock-holding work on the
     // build thread so it never blocks the main thread. The Notify is
@@ -1532,8 +1532,7 @@ void ContentClassifierService::UpdateFeatures(
     // call — otherwise a newer call's closure will fire it.
     buildThread->Dispatch(NS_NewRunnableFunction(
         "ContentClassifierService::UpdateFeaturesNoFetch",
-        [self, snapshot = std::move(aPreferenceSnapshot),
-         generation = aGeneration]() {
+        [self, snapshot = std::move(aPreferenceSnapshot), generation]() {
           {
             MutexAutoLock lock(self->mLock);
             if (self->mInitPhase != InitPhase::InitSucceeded) {
@@ -1555,10 +1554,10 @@ void ContentClassifierService::UpdateFeatures(
   EngineRulesPromise::AllSettled(GetMainThreadSerialEventTarget(), fetches)
       ->Then(
           GetMainThreadSerialEventTarget(), __func__,
-          [self, features = std::move(aFeatures),
-           featureVersions = std::move(aFeatureVersions),
+          [self, features = std::move(features),
+           featureVersions = std::move(featureVersions),
            snapshot = std::move(aPreferenceSnapshot),
-           buildThread = std::move(buildThread), generation = aGeneration](
+           buildThread = std::move(buildThread), generation](
               EngineRulesPromise::AllSettledPromiseType::ResolveOrRejectValue&&
                   aValue) mutable {
             MOZ_ASSERT(NS_IsMainThread());

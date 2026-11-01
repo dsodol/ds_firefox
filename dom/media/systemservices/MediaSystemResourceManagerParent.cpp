@@ -30,8 +30,7 @@ mozilla::ipc::IPCResult MediaSystemResourceManagerParent::RecvAcquire(
       return;
     }
 
-    request.Insert(
-        std::make_unique<MediaSystemResourceRequest>(aId, aResourceType));
+    request.Insert(MakeUnique<MediaSystemResourceRequest>(aId, aResourceType));
     mMediaSystemResourceService->Acquire(this, aId, aResourceType, aWillWait);
   });
 

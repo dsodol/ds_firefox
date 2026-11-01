@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.remember
@@ -74,12 +73,12 @@ private fun SearchOverlayContent(
         is State.Disabled,
         is State.NoSuggestionsAPI -> {
             if (query.isNullOrEmpty()) {
-                TopSitesOverlay(modifier = Modifier.fillMaxWidth())
+                TopSitesOverlay()
             }
         }
         is State.ReadyForSuggestions -> {
             if (query.isNullOrEmpty()) {
-                TopSitesOverlay(modifier = Modifier.fillMaxWidth())
+                TopSitesOverlay()
             } else {
                 SearchSuggestions(
                     text = query,

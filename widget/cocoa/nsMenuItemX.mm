@@ -110,7 +110,7 @@ nsMenuItemX::nsMenuItemX(nsMenuX* aParent, const nsString& aLabel,
     SetTooltip();
   }
 
-  mIcon = std::make_unique<nsMenuItemIconX>(this);
+  mIcon = MakeUnique<nsMenuItemIconX>(this);
 
   mIsVisible = !nsMenuUtilsX::NodeIsHiddenOrCollapsed(mContent);
 
@@ -212,8 +212,6 @@ void nsMenuItemX::DetachFromGroupOwner() {
     }
     if (mKeyElement) {
       mMenuGroupOwner->UnregisterForContentChanges(mKeyElement);
-      mMenuGroupOwner->UnregisterKeyElement(mKeyElement, this);
-      mKeyElement = nullptr;
     }
     if (mImageElement) {
       mMenuGroupOwner->UnregisterForContentChanges(mImageElement);
@@ -332,31 +330,23 @@ void nsMenuItemX::SetKeyEquiv() {
     if (mMenuGroupOwner) {
       if (mKeyElement) {
         mMenuGroupOwner->UnregisterForContentChanges(mKeyElement);
-        mMenuGroupOwner->UnregisterKeyElement(mKeyElement, this);
       }
       if (keyContent) {
         mMenuGroupOwner->RegisterForContentChanges(keyContent, this);
-        mMenuGroupOwner->RegisterKeyElement(keyContent, this);
       }
     }
     mKeyElement = keyContent;
   }
 
-  NSString* keyEquivalent = @"";
-  NSEventModifierFlags macModifiers = 0;
   if (keyContent) {
-    // The native item carries the built-in shortcut. A shortcut the user
-    // assigned in System Settings is applied on top of it by AppKit, and
-    // taken away again by AppKit when the user removes it.
-    nsMenuGroupOwnerX::KeyElementAttributes attributes =
-        nsMenuGroupOwnerX::BuiltInKeyElementAttributes(keyContent);
-
     nsAutoString keyChar;
-    if (attributes.mKey && !attributes.mKey->IsEmpty()) {
-      keyChar = *attributes.mKey;
-    } else {
-      uint32_t charCode = nsCocoaUtils::ConvertGeckoNameToMacCharCode(
-          attributes.mKeyCode.valueOr(EmptyString()));
+    bool hasKey = keyContent->GetAttr(nsGkAtoms::key, keyChar);
+
+    if (!hasKey || keyChar.IsEmpty()) {
+      nsAutoString keyCodeName;
+      keyContent->GetAttr(nsGkAtoms::keycode, keyCodeName);
+      uint32_t charCode =
+          nsCocoaUtils::ConvertGeckoNameToMacCharCode(keyCodeName);
       if (charCode) {
         keyChar.Assign(charCode);
       } else {
@@ -364,26 +354,30 @@ void nsMenuItemX::SetKeyEquiv() {
       }
     }
 
-    uint8_t modifiers = nsMenuUtilsX::GeckoModifiersForNodeAttribute(
-        attributes.mModifiers.valueOr(EmptyString()));
-    macModifiers = nsMenuUtilsX::MacModifiersForGeckoModifiers(modifiers);
+    nsAutoString modifiersStr;
+    keyContent->GetAttr(nsGkAtoms::modifiers, modifiersStr);
+    uint8_t modifiers =
+        nsMenuUtilsX::GeckoModifiersForNodeAttribute(modifiersStr);
 
-    keyEquivalent =
+    unsigned int macModifiers =
+        nsMenuUtilsX::MacModifiersForGeckoModifiers(modifiers);
+    mNativeMenuItem.keyEquivalentModifierMask = macModifiers;
+
+    NSString* keyEquivalent =
         [[NSString stringWithCharacters:(unichar*)keyChar.get()
                                  length:keyChar.Length()] lowercaseString];
     if ([keyEquivalent isEqualToString:@" "]) {
-      keyEquivalent = @"";
+      mNativeMenuItem.keyEquivalent = @"";
+    } else {
+      mNativeMenuItem.keyEquivalent = keyEquivalent;
     }
+
+    return;
   }
 
-  // Setting these posts NSMenuDidChangeItemNotification, so only touch what
-  // changed.
-  if (mNativeMenuItem.keyEquivalentModifierMask != macModifiers) {
-    mNativeMenuItem.keyEquivalentModifierMask = macModifiers;
-  }
-  if (![mNativeMenuItem.keyEquivalent isEqualToString:keyEquivalent]) {
-    mNativeMenuItem.keyEquivalent = keyEquivalent;
-  }
+  // if the key was removed, clear the key
+  mNativeMenuItem.keyEquivalentModifierMask = 0;
+  mNativeMenuItem.keyEquivalent = @"";
 
   NS_OBJC_END_TRY_ABORT_BLOCK;
 }
@@ -413,18 +407,8 @@ void nsMenuItemX::SetTitle() {
   mNativeMenuItem.title = nsMenuUtilsX::GetTruncatedCocoaLabel(newLabel);
 
   SetAttributedTitle();
-  // System Settings assigns shortcuts by title.
-  CopyUserKeyEquivalentToKeyElement();
 
   NS_OBJC_END_TRY_ABORT_BLOCK;
-}
-
-void nsMenuItemX::CopyUserKeyEquivalentToKeyElement() {
-  if (mType == eSeparatorMenuItemType || !mNativeMenuItem.menu) {
-    return;
-  }
-  nsMenuGroupOwnerX::CopyUserKeyEquivalentToKeyElement(mNativeMenuItem,
-                                                       mContent->AsElement());
 }
 
 void nsMenuItemX::SetAttributedTitle() {
@@ -563,7 +547,6 @@ void nsMenuItemX::ObserveAttributeChanged(dom::Document* aDocument,
       SetBadge();
     } else if (aAttribute == nsGkAtoms::key) {
       SetKeyEquiv();
-      CopyUserKeyEquivalentToKeyElement();
     } else if (aAttribute == nsGkAtoms::disabled) {
       SetEnabled();
     } else if (aAttribute == nsGkAtoms::indented) {
@@ -589,11 +572,7 @@ void nsMenuItemX::ObserveAttributeChanged(dom::Document* aDocument,
     }
   } else if (aContent == mKeyElement) {
     if (aAttribute == nsGkAtoms::key || aAttribute == nsGkAtoms::keycode ||
-        aAttribute == nsGkAtoms::modifiers ||
-        aAttribute == nsGkAtoms::databuiltinkey ||
-        aAttribute == nsGkAtoms::databuiltinkeycode ||
-        aAttribute == nsGkAtoms::databuiltinmodifiers ||
-        aAttribute == nsGkAtoms::datahassystemshortcut) {
+        aAttribute == nsGkAtoms::modifiers) {
       SetKeyEquiv();
     }
   } else if (aContent == mImageElement && aAttribute == nsGkAtoms::srcset) {

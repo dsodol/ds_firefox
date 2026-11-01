@@ -385,7 +385,7 @@ for ( [ty, const0, a, b, c, d] of
       m,
       "f",
       `and             \\$t6, \\$a0, \\$a1
-       bnez            \\$t6, \\d+ -> ${HEX}+
+       bne             \\$t6, \\$zero, \\d+ -> ${HEX}+
        bge             \\$zero, \\$zero, \\d+ -> ${HEX}+
        ${NopIns}
        addi.w          \\$a0, \\$zero, 1
@@ -426,7 +426,7 @@ for ( [ty, imm, expect] of
       m,
       "f",
       `${expect}
-       bnez            \\$t6, \\d+ -> ${HEX}+
+       bne             \\$t6, \\$zero, \\d+ -> ${HEX}+
        bge             \\$zero, \\$zero, \\d+ -> ${HEX}+
        ${NopIns}
        addi.w          \\$a0, \\$zero, 1
@@ -530,7 +530,7 @@ for ( [imm, expect] of
       "f",
       `${expect}
        and             \\$t6, \\$a0, \\$t6
-       bnez            \\$t6, \\d+ -> ${HEX}+
+       bne             \\$t6, \\$zero, \\d+ -> ${HEX}+
        bge             \\$zero, \\$zero, \\d+ -> ${HEX}+
        ${NopIns}
        addi.w          \\$a0, \\$zero, 1

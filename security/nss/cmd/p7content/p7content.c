@@ -75,7 +75,6 @@ DecodeAndPrintFile(FILE *out, PRFileDesc *in, char *progName)
     SECItem derdata;
     SEC_PKCS7ContentInfo *cinfo = NULL;
     SEC_PKCS7DecoderContext *dcx;
-    int status = 0;
 
     if (SECU_ReadDERFromFile(&derdata, in, PR_FALSE, PR_FALSE)) {
         SECU_PrintError(progName, "error converting der");
@@ -117,14 +116,11 @@ DecodeAndPrintFile(FILE *out, PRFileDesc *in, char *progName)
         if (saw_content) {
             fprintf(out, "Signature is ");
             PORT_SetError(0);
-            if (SEC_PKCS7VerifySignature(cinfo, certUsageEmailSigner,
-                                         PR_FALSE)) {
+            if (SEC_PKCS7VerifySignature(cinfo, certUsageEmailSigner, PR_FALSE))
                 fprintf(out, "valid.\n");
-            } else {
+            else
                 fprintf(out, "invalid (Reason: %s).\n",
                         SECU_Strerror(PORT_GetError()));
-                status = -1;
-            }
         } else {
             fprintf(out,
                     "Content is detached; signature cannot be verified.\n");
@@ -161,7 +157,7 @@ DecodeAndPrintFile(FILE *out, PRFileDesc *in, char *progName)
 
     SECITEM_FreeItem(&derdata, PR_FALSE);
     SEC_PKCS7DestroyContentInfo(cinfo);
-    return status;
+    return 0;
 }
 
 /*

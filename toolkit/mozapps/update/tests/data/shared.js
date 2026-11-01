@@ -846,7 +846,12 @@ async function continueFileHandler(leafName) {
     }
     continueFile.append(leafName);
   } else {
-    continueFile = getContinueFile(leafName);
+    continueFile = Services.dirsvc.get("CurWorkD", Ci.nsIFile);
+    let continuePath = REL_PATH_DATA + leafName;
+    let continuePathParts = continuePath.split("/");
+    for (let i = 0; i < continuePathParts.length; ++i) {
+      continueFile.append(continuePathParts[i]);
+    }
   }
   if (continueFile.exists()) {
     logTestInfo(

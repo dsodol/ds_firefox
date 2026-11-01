@@ -34,7 +34,6 @@
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/gfx/Point.h"
 #include "mozilla/gfx/Rect.h"
-#include "mozilla/ipc/SharedMemoryHandle.h"
 #include "mozilla/ipc/Shmem.h"
 #include "mozilla/layers/LayersSurfaces.h"
 #include "nsString.h"
@@ -103,6 +102,7 @@ class TexUnpackSurface;
 }  // namespace webgl
 
 class ClientWebGLContext;
+struct WebGLTexPboOffset;
 class WebGLTexture;
 class WebGLBuffer;
 class WebGLFramebuffer;
@@ -615,6 +615,15 @@ enum class ContextLossReason : uint8_t {
   Guilty,
 };
 
+inline bool ReadContextLossReason(const uint8_t val,
+                                  ContextLossReason* const out) {
+  if (val > static_cast<uint8_t>(ContextLossReason::Guilty)) {
+    return false;
+  }
+  *out = static_cast<ContextLossReason>(val);
+  return true;
+}
+
 // -
 
 struct InitContextDesc final {
@@ -900,7 +909,7 @@ struct GetUniformData final {
 struct FrontBufferSnapshotIpc final {
   uvec2 surfSize = {};
   size_t byteStride = 0;
-  mozilla::ipc::MutableSharedMemoryHandle shmem;
+  Maybe<mozilla::ipc::Shmem> shmem = {};
 };
 
 struct ReadPixelsResult {

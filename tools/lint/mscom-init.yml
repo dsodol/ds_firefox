@@ -65,6 +65,4 @@ forbid-apartment-region:
         # These files have been reviewed and approved by MSCOM peers.
         - ipc/mscom/ProcessRuntime.cpp
         - ipc/mscom/ProcessRuntime.h
-        - widget/windows/JumpListBuilder.cpp
-        - widget/windows/JumpListBuilder.h
         - widget/windows/filedialog/WinFileDialogCommands.cpp

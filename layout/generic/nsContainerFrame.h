@@ -632,7 +632,7 @@ class nsContainerFrame : public nsSplittableFrame {
    */
   nsFrameList* SetOverflowFrames(nsFrameList&& aOverflowFrames) {
     MOZ_ASSERT(aOverflowFrames.NotEmpty(), "Shouldn't be called");
-    auto* list = new nsFrameList(std::move(aOverflowFrames));
+    auto* list = new (PresShell()) nsFrameList(std::move(aOverflowFrames));
     SetProperty(OverflowProperty(), list);
     return list;
   }
@@ -642,7 +642,7 @@ class nsContainerFrame : public nsSplittableFrame {
                "Shouldn't override existing list!");
     MOZ_ASSERT(CanContainOverflowContainers(),
                "This type of frame can't have overflow containers!");
-    auto* list = new nsFrameList(std::move(aOverflowContainers));
+    auto* list = new (PresShell()) nsFrameList(std::move(aOverflowContainers));
     SetProperty(OverflowContainersProperty(), list);
     return list;
   }
@@ -654,7 +654,8 @@ class nsContainerFrame : public nsSplittableFrame {
                "Shouldn't override existing list!");
     MOZ_ASSERT(CanContainOverflowContainers(),
                "This type of frame can't have overflow containers!");
-    auto* list = new nsFrameList(std::move(aExcessOverflowContainers));
+    auto* list =
+        new (PresShell()) nsFrameList(std::move(aExcessOverflowContainers));
     SetProperty(ExcessOverflowContainersProperty(), list);
     return list;
   }
@@ -670,17 +671,17 @@ class nsContainerFrame : public nsSplittableFrame {
   void DestroyOverflowList() {
     nsFrameList* list = TakeProperty(OverflowProperty());
     MOZ_ASSERT(list && list->IsEmpty());
-    list->Delete();
+    list->Delete(PresShell());
   }
   void DestroyOverflowContainers() {
     nsFrameList* list = TakeProperty(OverflowContainersProperty());
     MOZ_ASSERT(list && list->IsEmpty());
-    list->Delete();
+    list->Delete(PresShell());
   }
   void DestroyExcessOverflowContainers() {
     nsFrameList* list = TakeProperty(ExcessOverflowContainersProperty());
     MOZ_ASSERT(list && list->IsEmpty());
-    list->Delete();
+    list->Delete(PresShell());
   }
 
   /**

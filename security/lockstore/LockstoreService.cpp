@@ -51,11 +51,7 @@ LockstoreService::~LockstoreService() {
 }
 
 nsresult LockstoreService::Init() {
-  // Initialization is main-thread only. Fail instead, so that no service is
-  // created and a later main-thread request creates it.
-  if (!NS_IsMainThread()) {
-    return NS_ERROR_NOT_SAME_THREAD;
-  }
+  MOZ_ASSERT(NS_IsMainThread());
 
   // A consumer that creates the service at or beyond XPCOMWillShutdown would
   // register a teardown observer that never fires and open a keystore that is
@@ -308,7 +304,7 @@ nsresult ImplXpcomMethod(LockstoreService* aLockstore, JSContext* aCx,
   nsresult rv = NS_DispatchBackgroundTask(NS_NewRunnableFunction(
       "LockstoreService::ImplXpcomMethod",
       [self = RefPtr{aLockstore}, aMethod, domHandle,
-       ... args = std::move(aArgs)]() mutable {
+       ... args = std::forward<Storages>(aArgs)]() mutable {
         auto result = (self.get()->*aMethod)(Unwrap(args)...);
         NS_DispatchToMainThread(NS_NewRunnableFunction(
             "LockstoreService::ImplXpcomMethod::Resolve",
@@ -471,7 +467,7 @@ Result<nsTArray<nsCString>, nsresult> LockstoreService::DoListKeks(
 
 Result<nsTArray<uint8_t>, nsresult> LockstoreService::DoEncrypt(
     const nsACString& aDekName, const nsACString& aKekRef,
-    Span<const uint8_t> aPlaintext) {
+    const nsTArray<uint8_t>& aPlaintext) {
   LOCKSTORE_SYNC_PREAMBLE;
   nsTArray<uint8_t> out;
   MOZ_TRY(keystore_encrypt(mKeystore, &aDekName, &aKekRef,
@@ -481,7 +477,7 @@ Result<nsTArray<uint8_t>, nsresult> LockstoreService::DoEncrypt(
 
 Result<nsTArray<uint8_t>, nsresult> LockstoreService::DoDecrypt(
     const nsACString& aDekName, const nsACString& aKekRef,
-    Span<const uint8_t> aCiphertext) {
+    const nsTArray<uint8_t>& aCiphertext) {
   LOCKSTORE_SYNC_PREAMBLE;
   nsTArray<uint8_t> out;
   MOZ_TRY(keystore_decrypt(mKeystore, &aDekName, &aKekRef,

@@ -35,7 +35,7 @@ HTMLOptionsCollection::HTMLOptionsCollection(HTMLSelectElement* aRoot)
                   /* aLiveList = */ true) {}
 
 HTMLSelectElement* HTMLOptionsCollection::Select() const {
-  return static_cast<HTMLSelectElement*>(mRootNode.get());
+  return static_cast<HTMLSelectElement*>(mRootNode);
 }
 
 nsresult HTMLOptionsCollection::GetOptionIndex(Element* aOption,

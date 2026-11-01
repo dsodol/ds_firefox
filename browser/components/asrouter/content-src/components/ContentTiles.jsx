@@ -337,7 +337,6 @@ export const ContentTiles = props => {
                   props.setActiveSingleSelectSelection
                 }
                 singleSelectId={`single-select-${index}`}
-                messageId={props.messageId}
               />
             )}
             {tile.type === "mobile_downloads" && tile.data && (

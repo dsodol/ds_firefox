@@ -33,7 +33,7 @@ MediaResourceIndex::MediaResourceIndex(MediaResource* aResource)
           aResource->ShouldCacheReads() ? kMediaResourceIndexCacheSize : 0),
       mCachedOffset(0),
       mCachedBytes(0),
-      mCachedBlock(std::make_unique<char[]>(mCacheBlockSize)) {
+      mCachedBlock(MakeUnique<char[]>(mCacheBlockSize)) {
   DDLINKCHILD("resource", aResource);
 }
 

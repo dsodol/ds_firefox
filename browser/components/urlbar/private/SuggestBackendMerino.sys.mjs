@@ -50,12 +50,7 @@ export class SuggestBackendMerino extends SuggestBackend {
   }
 
   async query(searchString, { queryContext }) {
-    // Per product requirements, at least two characters must be typed to fetch
-    // suggestions from Merino.
-    if (
-      searchString.trimEnd().length < 2 ||
-      !queryContext.allowRemoteResults()
-    ) {
+    if (!searchString || !queryContext.allowRemoteResults()) {
       return [];
     }
 

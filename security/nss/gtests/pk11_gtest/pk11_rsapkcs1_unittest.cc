@@ -57,12 +57,6 @@ class Pkcs11RsaBaseTest : public Pk11SignatureTest {
 
 class Pkcs11RsaPkcs1WycheproofTest : public ::testing::Test {
  protected:
-  void Run(const std::string& name,
-           const std::string& schema = "rsassa_pkcs1_verify_schema_v1.json") {
-    WycheproofHeader(name, "RSASSA-PKCS1-v1_5", schema,
-                     [this](JsonReader& r) { RunGroup(r); });
-  }
-
   static void ReadTestAttr(RsaSignatureTestVector& t, const std::string& n,
                            JsonReader& r) {
     if (n == "msg") {
@@ -84,15 +78,12 @@ class Pkcs11RsaPkcs1WycheproofTest : public ::testing::Test {
       if (n == "") {
         break;
       }
-      // rsa_signature_test.json has no successor in testvectors_v1/, so this
-      // reads both the original and the v1 field names.
       if (n == "e" || n == "keyAsn" || n == "keyJwk" || n == "keyPem" ||
-          n == "n" || n == "publicKey" || n == "publicKeyAsn" ||
-          n == "publicKeyPem" || n == "source") {
+          n == "n") {
         r.SkipValue();
-      } else if (n == "keyDer" || n == "publicKeyDer") {
+      } else if (n == "keyDer") {
         public_key = r.ReadHex();
-      } else if (n == "keysize" || n == "keySize") {
+      } else if (n == "keysize") {
         keysize = r.ReadInt();
       } else if (n == "type") {
         ASSERT_EQ("RsassaPkcs1Verify", r.ReadString());
@@ -207,14 +198,14 @@ TEST(RsaPkcs1Test, Pkcs1MinimumPadding) {
   ASSERT_TRUE(slot);
   SECKEYPublicKey* p_pub_tmp = nullptr;
   short_priv.reset(PK11_GenerateKeyPair(slot.get(), CKM_RSA_PKCS_KEY_PAIR_GEN,
-                                        &rsa_params, &p_pub_tmp, false,
-                                        PK11_IsFIPS(), nullptr));
+                                        &rsa_params, &p_pub_tmp, false, false,
+                                        nullptr));
   short_pub.reset(p_pub_tmp);
 
   rsa_params.keySizeInBits = kRsaKeyBits;
   good_priv.reset(PK11_GenerateKeyPair(slot.get(), CKM_RSA_PKCS_KEY_PAIR_GEN,
-                                       &rsa_params, &p_pub_tmp, false,
-                                       PK11_IsFIPS(), nullptr));
+                                       &rsa_params, &p_pub_tmp, false, false,
+                                       nullptr));
   good_pub.reset(p_pub_tmp);
 
   size_t em_len = kRsaShortKeyBits / 8;
@@ -339,7 +330,7 @@ TEST(RsaPkcs1Test, KeyGenPublicExponentTooLarge) {
   SECKEYPublicKey* pub = nullptr;
   ScopedSECKEYPrivateKey priv(
       PK11_GenerateKeyPair(slot.get(), CKM_RSA_PKCS_KEY_PAIR_GEN, &rsa_params,
-                           &pub, false, PK11_IsFIPS(), nullptr));
+                           &pub, false, false, nullptr));
   EXPECT_FALSE(priv);
   EXPECT_FALSE(pub);
   EXPECT_EQ(SEC_ERROR_INVALID_ARGS, PORT_GetError());
@@ -347,31 +338,9 @@ TEST(RsaPkcs1Test, KeyGenPublicExponentTooLarge) {
 }
 
 TEST_F(Pkcs11RsaPkcs1WycheproofTest, Pkcs11RsaPkcs1WycheproofTest) {
-  Run("rsa_signature", "rsassa_pkcs1_verify_schema.json");
-}
-TEST_F(Pkcs11RsaPkcs1WycheproofTest, Rsa2048Sha224) {
-  Run("rsa_signature_2048_sha224");
-}
-TEST_F(Pkcs11RsaPkcs1WycheproofTest, Rsa2048Sha256) {
-  Run("rsa_signature_2048_sha256");
-}
-TEST_F(Pkcs11RsaPkcs1WycheproofTest, Rsa2048Sha512) {
-  Run("rsa_signature_2048_sha512");
-}
-TEST_F(Pkcs11RsaPkcs1WycheproofTest, Rsa3072Sha256) {
-  Run("rsa_signature_3072_sha256");
-}
-TEST_F(Pkcs11RsaPkcs1WycheproofTest, Rsa3072Sha384) {
-  Run("rsa_signature_3072_sha384");
-}
-TEST_F(Pkcs11RsaPkcs1WycheproofTest, Rsa3072Sha512) {
-  Run("rsa_signature_3072_sha512");
-}
-TEST_F(Pkcs11RsaPkcs1WycheproofTest, Rsa4096Sha384) {
-  Run("rsa_signature_4096_sha384");
-}
-TEST_F(Pkcs11RsaPkcs1WycheproofTest, Rsa4096Sha512) {
-  Run("rsa_signature_4096_sha512");
+  WycheproofHeader("rsa_signature", "RSASSA-PKCS1-v1_5",
+                   "rsassa_pkcs1_verify_schema.json",
+                   [this](JsonReader& r) { RunGroup(r); });
 }
 
 }  // namespace nss_test

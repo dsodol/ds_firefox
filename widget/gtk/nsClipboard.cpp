@@ -32,7 +32,6 @@
 #include "nsGtkUtils.h"
 #include "nsIFile.h"
 #include "nsIFileURL.h"
-#include "nsIMutableArray.h"
 #include "nsIObserverService.h"
 #include "nsIURI.h"
 #include "nsImageToPixbuf.h"

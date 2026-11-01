@@ -1344,7 +1344,7 @@ nsresult imgLoader::InitCache() {
   os->AddObserver(this, "profile-before-change", false);
   os->AddObserver(this, "xpcom-shutdown", false);
 
-  mCacheTracker = std::make_unique<imgCacheExpirationTracker>();
+  mCacheTracker = MakeUnique<imgCacheExpirationTracker>();
 
   return NS_OK;
 }
@@ -1793,7 +1793,7 @@ bool imgLoader::ValidateRequestWithNewChannel(
     nsContentPolicyType aLoadPolicyType, imgRequestProxy** aProxyRequest,
     nsIPrincipal* aTriggeringPrincipal, CORSMode aCORSMode, bool aLinkPreload,
     uint64_t aEarlyHintPreloaderId, FetchPriority aFetchPriority,
-    const nsAString& aInitiatorType, bool* aNewChannelCreated) {
+    bool* aNewChannelCreated) {
   // now we need to insert a new channel request object in between the real
   // request and the proxy that basically delays loading the image until it
   // gets a 304 or figures out that this needs to be a new request
@@ -1843,13 +1843,6 @@ bool imgLoader::ValidateRequestWithNewChannel(
                        aEarlyHintPreloaderId, aFetchPriority, aLinkPreload);
   if (NS_FAILED(rv)) {
     return false;
-  }
-
-  if (!aInitiatorType.IsEmpty()) {
-    if (nsCOMPtr<nsITimedChannel> timedChannel =
-            do_QueryInterface(newChannel)) {
-      timedChannel->SetInitiatorType(aInitiatorType);
-    }
   }
 
   if (aNewChannelCreated) {
@@ -1964,7 +1957,7 @@ bool imgLoader::ValidateEntry(
     bool aCanMakeNewChannel, bool* aNewChannelCreated,
     imgRequestProxy** aProxyRequest, nsIPrincipal* aTriggeringPrincipal,
     CORSMode aCORSMode, bool aLinkPreload, uint64_t aEarlyHintPreloaderId,
-    FetchPriority aFetchPriority, const nsAString& aInitiatorType) {
+    FetchPriority aFetchPriority) {
   LOG_SCOPE(gImgLog, "imgLoader::ValidateEntry");
 
   // If the expiration time is zero, then the request has not gotten far enough
@@ -2091,8 +2084,7 @@ bool imgLoader::ValidateEntry(
         request, aURI, aInitialDocumentURI, aReferrerInfo, aLoadGroup,
         aObserver, aLoadingDocument, innerWindowID, aLoadFlags, aLoadPolicyType,
         aProxyRequest, aTriggeringPrincipal, aCORSMode, aLinkPreload,
-        aEarlyHintPreloaderId, aFetchPriority, aInitiatorType,
-        aNewChannelCreated);
+        aEarlyHintPreloaderId, aFetchPriority, aNewChannelCreated);
   }
 
   if (!validateRequest) {
@@ -2468,7 +2460,7 @@ nsresult imgLoader::LoadImage(
                       aLoadGroup, aObserver, aLoadingDocument, requestFlags,
                       aContentPolicyType, true, &newChannelCreated, _retval,
                       aTriggeringPrincipal, corsmode, aLinkPreload,
-                      aEarlyHintPreloaderId, aFetchPriority, initiatorType)) {
+                      aEarlyHintPreloaderId, aFetchPriority)) {
       request = entry->GetRequest();
 
       // If this entry has no proxies, its request has no reference to the
@@ -2735,7 +2727,7 @@ nsresult imgLoader::LoadImageWithChannel(nsIChannel* channel,
       if (ValidateEntry(entry, uri, nullptr, nullptr, nullptr, aObserver,
                         aLoadingDocument, requestFlags, policyType, false,
                         nullptr, nullptr, nullptr, corsMode, false, 0,
-                        FetchPriority::Auto, u""_ns)) {
+                        FetchPriority::Auto)) {
         request = entry->GetRequest();
       } else {
         nsCOMPtr<nsICacheInfoChannel> cacheChan(do_QueryInterface(channel));

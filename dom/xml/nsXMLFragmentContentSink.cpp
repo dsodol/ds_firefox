@@ -89,7 +89,8 @@ class nsXMLFragmentContentSink : public nsXMLContentSink,
   virtual nsresult MaybeProcessXSLTLink(
       ProcessingInstruction* aProcessingInstruction, const nsAString& aHref,
       bool aAlternate, const nsAString& aTitle, const nsAString& aType,
-      const nsAString& aMedia, const nsAString& aReferrerPolicy) override;
+      const nsAString& aMedia, const nsAString& aReferrerPolicy,
+      bool* aWasXSLT = nullptr) override;
 
   nsCOMPtr<Document> mTargetDocument;
   // the fragment
@@ -276,7 +277,8 @@ nsresult nsXMLFragmentContentSink::ProcessStyleLinkFromHeader(
 nsresult nsXMLFragmentContentSink::MaybeProcessXSLTLink(
     ProcessingInstruction* aProcessingInstruction, const nsAString& aHref,
     bool aAlternate, const nsAString& aTitle, const nsAString& aType,
-    const nsAString& aMedia, const nsAString& aReferrerPolicy) {
+    const nsAString& aMedia, const nsAString& aReferrerPolicy, bool* aWasXSLT) {
+  MOZ_ASSERT(!aWasXSLT, "Our one caller doesn't care about whether we're XSLT");
   return NS_OK;
 }
 

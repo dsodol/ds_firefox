@@ -8,7 +8,9 @@ const { TelemetryTestUtils } = ChromeUtils.importESModule(
 );
 
 const telemetryKey = `browser.ui.interaction.preferences_${DEFAULT_PANE}`;
-const defaultPaneMetric = Glean.browserUiInteraction.preferencesPaneSync;
+const defaultPaneMetric = SRD_PREF_VALUE
+  ? Glean.browserUiInteraction.preferencesPaneSync
+  : Glean.browserUiInteraction.preferencesPaneGeneral;
 
 let resetTelemetry = async () => {
   await Services.fog.testFlushAllChildren();

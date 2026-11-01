@@ -401,8 +401,9 @@ nsFrameSelection::CreateRangeExtendedToSomewhere(
 nsFrameSelection::nsFrameSelection(
     PresShell* aPresShell, const bool aAccessibleCaretEnabled,
     Element* aEditorRootAnonymousDiv /* = nullptr */) {
-  // The other selection types are created on demand, see GetSelection().
-  mDomSelections[0] = new Selection(SelectionType::eNormal, this);
+  for (size_t i = 0; i < std::size(mDomSelections); i++) {
+    mDomSelections[i] = new Selection(kPresentSelectionTypes[i], this);
+  }
 
   Selection& sel = NormalSelection();
   if (AutoCopyListener::IsEnabled()) {
@@ -1627,12 +1628,11 @@ UniquePtr<SelectionDetails> nsFrameSelection::LookUpSelection(
   UniquePtr<SelectionDetails> details;
   for (size_t j = aIgnoreNormalSelection == IgnoreNormalSelection::Yes ? 1 : 0;
        j < std::size(mDomSelections); j++) {
-    if (Selection* selection = mDomSelections[j]) {
-      details = selection->LookUpSelection(
-          aContent, static_cast<uint32_t>(aContentOffset),
-          static_cast<uint32_t>(aContentLength), std::move(details),
-          kPresentSelectionTypes[j]);
-    }
+    MOZ_ASSERT(mDomSelections[j]);
+    details = mDomSelections[j]->LookUpSelection(
+        aContent, static_cast<uint32_t>(aContentOffset),
+        static_cast<uint32_t>(aContentLength), std::move(details),
+        kPresentSelectionTypes[j]);
   }
 
   // This may seem counter intuitive at first. Highlight selections need to be
@@ -1674,24 +1674,13 @@ void nsFrameSelection::SetDragState(bool aState) {
   }
 }
 
-Selection* nsFrameSelection::GetExistingSelection(
-    SelectionType aSelectionType) const {
-  int8_t index = GetIndexFromSelectionType(aSelectionType);
-  return index < 0 ? nullptr : mDomSelections[index].get();
-}
-
 Selection* nsFrameSelection::GetSelection(SelectionType aSelectionType) const {
   int8_t index = GetIndexFromSelectionType(aSelectionType);
   if (index < 0) {
     return nullptr;
   }
-  RefPtr<Selection>& selection = mDomSelections[index];
-  // Don't recreate selections after the cycle collector unlinked them.
-  if (!selection && IsAvailable()) {
-    selection =
-        new Selection(aSelectionType, const_cast<nsFrameSelection*>(this));
-  }
-  return selection;
+  MOZ_ASSERT(mDomSelections[index]);
+  return mDomSelections[index];
 }
 
 void nsFrameSelection::PopulateHighlightSelection(
@@ -1700,11 +1689,13 @@ void nsFrameSelection::PopulateHighlightSelection(
   AutoFrameSelectionBatcher selectionBatcher(__FUNCTION__);
   selectionBatcher.AddFrameSelection(this);
   const Document* doc = GetPresShell()->GetDocument();
-  for (const auto& entry : aHighlight.Setlike()) {
-    const RefPtr<AbstractRange> range = entry;
+  for (const RefPtr<AbstractRange>& range : aHighlight.Ranges()) {
     const Document* rangeDoc = range->GetComposedDocOfContainers();
     if (!rangeDoc || rangeDoc == doc) {
-      aSelection.AddHighlightRangeAndSelectFramesAndNotifyListeners(*range);
+      // since this is run in a context guarded by a selection batcher,
+      // no strong reference is needed to keep `range` alive.
+      aSelection.AddHighlightRangeAndSelectFramesAndNotifyListeners(
+          MOZ_KnownLive(*range));
     }
   }
 }
@@ -1826,9 +1817,9 @@ nsresult nsFrameSelection::ScrollSelectionIntoView(SelectionType aSelectionType,
 }
 
 nsresult nsFrameSelection::RepaintSelection(SelectionType aSelectionType) {
-  RefPtr<Selection> sel = GetExistingSelection(aSelectionType);
+  RefPtr<Selection> sel = GetSelection(aSelectionType);
   if (!sel) {
-    return NS_OK;
+    return NS_ERROR_INVALID_ARG;
   }
   if (!mPresShell) {
     return NS_ERROR_UNEXPECTED;
@@ -2296,8 +2287,7 @@ void nsFrameSelection::EndBatchChanges(const char* aRequesterFuncName,
 
 nsresult nsFrameSelection::NotifySelectionListeners(
     SelectionType aSelectionType, IsBatchingEnd aEndBatching) {
-  // Selections that weren't created yet have nothing to notify about.
-  if (RefPtr<Selection> selection = GetExistingSelection(aSelectionType)) {
+  if (RefPtr<Selection> selection = GetSelection(aSelectionType)) {
     if (aEndBatching == IsBatchingEnd::Yes &&
         !selection->ChangesDuringBatching()) {
       return NS_OK;
@@ -3301,9 +3291,8 @@ void nsFrameSelection::DisconnectFromPresShell() {
 
   StopAutoScrollTimer();
   for (size_t i = 0; i < std::size(mDomSelections); i++) {
-    if (RefPtr<Selection> selection = mDomSelections[i]) {
-      selection->Clear(nullptr);
-    }
+    MOZ_ASSERT(mDomSelections[i]);
+    mDomSelections[i]->Clear(nullptr);
   }
 
   if (auto* presshell = mPresShell) {

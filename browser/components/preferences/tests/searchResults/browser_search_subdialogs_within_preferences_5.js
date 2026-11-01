@@ -36,7 +36,7 @@ add_task(async function () {
   });
   await evaluateSearchResults(
     "won’t save passwords for sites listed here",
-    "passwords"
+    SRD_PREF_VALUE ? "passwords" : "passwordsGroup"
   );
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
 });

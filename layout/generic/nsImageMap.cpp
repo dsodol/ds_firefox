@@ -694,18 +694,18 @@ void nsImageMap::AddArea(HTMLAreaElement* aArea) {
     case AttrArray::ATTR_MISSING:
     case 0:
     case 1:
-      area = std::make_unique<RectArea>(aArea);
+      area = MakeUnique<RectArea>(aArea);
       break;
     case 2:
     case 3:
-      area = std::make_unique<CircleArea>(aArea);
+      area = MakeUnique<CircleArea>(aArea);
       break;
     case 4:
-      area = std::make_unique<DefaultArea>(aArea);
+      area = MakeUnique<DefaultArea>(aArea);
       break;
     case 5:
     case 6:
-      area = std::make_unique<PolyArea>(aArea);
+      area = MakeUnique<PolyArea>(aArea);
       break;
     default:
       area = nullptr;

@@ -212,12 +212,14 @@ impl Selector {
     }
     }
 
-    // For Darwin (macOS, iOS, etc.) we don't need any setup.
+    // Used by `Waker`.
     #[cfg(any(
-        target_os = "dragonfly",
         target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
+        target_os = "ios",
+        target_os = "macos",
+        target_os = "tvos",
+        target_os = "visionos",
+        target_os = "watchos"
     ))]
     pub fn setup_waker(&self, token: Token) -> io::Result<()> {
         // First attempt to accept user space notifications.
@@ -238,14 +240,11 @@ impl Selector {
         })
     }
 
-    /// Generate a user space event (`EVFILT_USER`) using `token`.
+    // Used by `Waker`.
     #[cfg(any(
-        target_os = "dragonfly",
         target_os = "freebsd",
         target_os = "ios",
         target_os = "macos",
-        target_os = "netbsd",
-        target_os = "openbsd",
         target_os = "tvos",
         target_os = "visionos",
         target_os = "watchos"
@@ -254,14 +253,19 @@ impl Selector {
         let mut kevent = kevent!(
             0,
             libc::EVFILT_USER,
-            libc::EV_ADD | libc::EV_ONESHOT,
+            libc::EV_ADD | libc::EV_RECEIPT,
             token.0
         );
         kevent.fflags = libc::NOTE_TRIGGER;
 
         let kq = self.kq.as_raw_fd();
-        syscall!(kevent(kq, &kevent, 1, ptr::null_mut(), 0, ptr::null()))?;
-        Ok(())
+        syscall!(kevent(kq, &kevent, 1, &mut kevent, 1, ptr::null())).and_then(|_| {
+            if (kevent.flags & libc::EV_ERROR) != 0 && kevent.data != 0 {
+                Err(io::Error::from_raw_os_error(kevent.data as i32))
+            } else {
+                Ok(())
+            }
+        })
     }
 }
 
@@ -730,6 +734,7 @@ pub mod event {
             ))]
             libc::NOTE_EXIT_DETAIL,
             libc::NOTE_PDATAMASK,
+            libc::NOTE_PCTRLMASK,
             #[cfg(any(
                 target_os = "dragonfly",
                 target_os = "freebsd",

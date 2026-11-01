@@ -85,10 +85,10 @@ range_request_test(
 // (5) Range responses come from a single origin, with a mix of opaque and
 //     non-opaque responses. The first request uses 'no-cors' mode to
 //     receive an opaque response, and subsequent range requests use 'cors'
-//     to receive non-opaque responses.
+//     to receive non-opaque responses. The canvas should be tainted.
 range_request_test(
   'resources/range-request-with-different-cors-modes-worker.js',
-  'LOAD_ERROR',
+  'TAINTED',
   'range responses from single origin with both opaque and non-opaque responses');
 
 // (6) Range responses come from a single origin, with a mix of opaque and

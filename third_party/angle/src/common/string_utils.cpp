@@ -41,26 +41,11 @@ namespace angle
 const char kWhitespaceASCII[] = " \f\n\r\t\v";
 
 std::vector<std::string> SplitString(const std::string &input,
-                                     const std::string_view &delimiters,
+                                     const std::string &delimiters,
                                      WhitespaceHandling whitespace,
                                      SplitResult resultType)
 {
-    std::vector<std::string_view> views =
-        SplitStringView(input, delimiters, whitespace, resultType);
-    std::vector<std::string> result(views.size());
-    for (size_t i = 0; i < views.size(); i++)
-    {
-        result[i] = std::string(views[i]);
-    }
-    return result;
-}
-
-std::vector<std::string_view> SplitStringView(const std::string_view &input,
-                                              const std::string_view &delimiters,
-                                              WhitespaceHandling whitespace,
-                                              SplitResult resultType)
-{
-    std::vector<std::string_view> result;
+    std::vector<std::string> result;
     if (input.empty())
     {
         return result;
@@ -71,7 +56,7 @@ std::vector<std::string_view> SplitStringView(const std::string_view &input,
     {
         auto end = input.find_first_of(delimiters, start);
 
-        std::string_view piece;
+        std::string piece;
         if (end == std::string::npos)
         {
             piece = input.substr(start);
@@ -85,7 +70,7 @@ std::vector<std::string_view> SplitStringView(const std::string_view &input,
 
         if (whitespace == TRIM_WHITESPACE)
         {
-            piece = TrimStringView(piece, kWhitespaceASCII);
+            piece = TrimString(piece, kWhitespaceASCII);
         }
 
         if (resultType == SPLIT_WANT_ALL || !piece.empty())
@@ -118,11 +103,6 @@ void SplitStringAlongWhitespace(const std::string &input, std::vector<std::strin
 }
 
 std::string TrimString(const std::string &input, const std::string &trimChars)
-{
-    return std::string(TrimStringView(input, trimChars));
-}
-
-std::string_view TrimStringView(const std::string_view &input, const std::string &trimChars)
 {
     auto begin = input.find_first_not_of(trimChars);
     if (begin == std::string::npos)
@@ -357,77 +337,44 @@ std::vector<std::string> GetCachedStringsFromEnvironmentVarOrAndroidProperty(
     return SplitString(environment, separator, TRIM_WHITESPACE, SPLIT_WANT_NONEMPTY);
 }
 
-bool IsGlobPattern(const std::string_view &pattern)
+// glob can have * as wildcard
+bool NamesMatchWithWildcard(const char *glob, const char *name)
 {
-    return std::any_of(pattern.begin(), pattern.end(),
-                       [](const char c) { return c == '?' || c == '*'; });
-}
+    // Find the first * in glob.
+    const char *firstWildcard = ANGLE_UNSAFE_TODO(strchr(glob, '*'));
 
-bool NamesMatchWithWildcard(const std::string_view &glob, const std::string_view &name)
-{
-    // This function implements a linear-time string globbing algorithm based on
-    // https://research.swtch.com/glob.
-    // It is mostly taken from the implementation in gtest.cc.
-
-    using StringIter = std::string_view::iterator;
-
-    StringIter nameIter        = name.begin();
-    const StringIter nameBegin = name.begin();
-    const StringIter nameEnd   = name.end();
-
-    StringIter globIter      = glob.begin();
-    const StringIter globEnd = glob.end();
-
-    StringIter globNext = globIter;
-    StringIter nameNext = nameIter;
-
-    while (globIter < globEnd || nameIter < nameEnd)
+    // If there are no wildcards, match the strings precisely.
+    if (firstWildcard == nullptr)
     {
-        if (globIter < globEnd)
-        {
-            switch (*globIter)
-            {
-                default:  // Match an ordinary character.
-                    if (nameIter < nameEnd && *nameIter == *globIter)
-                    {
-                        ++globIter;
-                        ++nameIter;
-                        continue;
-                    }
-                    break;
+        return ANGLE_UNSAFE_TODO(strcmp(glob, name)) == 0;
+    }
 
-                case '?':  // Match any single character.
-                    if (nameIter < nameEnd)
-                    {
-                        ++globIter;
-                        ++nameIter;
-                        continue;
-                    }
-                    break;
-
-                case '*':
-                    // Match zero or more characters. Start by skipping over the wildcard
-                    // and matching zero characters from name. If that fails, restart and
-                    // match one more character than the last attempt.
-                    globNext = globIter;
-                    nameNext = nameIter + 1;
-                    ++globIter;
-                    continue;
-            }
-        }
-
-        // Failed to match a character. Restart if possible.
-        if (nameBegin < nameNext && nameNext <= nameEnd)
-        {
-            globIter = globNext;
-            nameIter = nameNext;
-            continue;
-        }
-
+    // Otherwise, match up to the wildcard first.
+    size_t preWildcardLen = firstWildcard - glob;
+    if (ANGLE_UNSAFE_TODO(strncmp(glob, name, preWildcardLen)) != 0)
+    {
         return false;
     }
 
-    return true;
+    const char *postWildcardRef = ANGLE_UNSAFE_TODO(glob + preWildcardLen + 1);
+
+    // As a small optimization, if the wildcard is the last character in glob, accept the match
+    // already.
+    if (postWildcardRef[0] == '\0')
+    {
+        return true;
+    }
+
+    // Try to match the wildcard with a number of characters.
+    for (size_t matchSize = 0; ANGLE_UNSAFE_TODO(name[matchSize]) != '\0'; ++matchSize)
+    {
+        if (NamesMatchWithWildcard(postWildcardRef, ANGLE_UNSAFE_TODO(name + matchSize)))
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 std::vector<uint8_t> HexStringToUintVector(const std::string_view &hexStr)

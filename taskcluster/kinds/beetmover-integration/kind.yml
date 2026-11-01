@@ -26,6 +26,7 @@ only-for-build-platforms:
 
 task-defaults:
     description: Beetmover integration submission - {build_platform}/{build_type}
+    run-on-repo-type: [hg]
     if-dependencies:
         - build
     run-on-projects: [autoland-only]

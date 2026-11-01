@@ -87,7 +87,7 @@ NativeLayerRootRemoteMacChild::CreateSnapshotter() {
                      "No NativeLayerRootSnapshotter for this NativeLayerRoot "
                      "should exist when this is called");
   auto cr = NativeLayerRootSnapshotterCA::Create(
-      std::make_unique<SnapshotterDelegate>(this));
+      MakeUnique<SnapshotterDelegate>(this));
   if (cr) {
     mWeakSnapshotter = cr.get();
   }

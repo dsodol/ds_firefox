@@ -4,8 +4,6 @@
 
 package mozilla.components.feature.listentopage.ui
 
-import android.content.Context
-import android.provider.Settings
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
@@ -18,57 +16,36 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.basicMarquee
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
-import androidx.compose.ui.unit.dp
-import mozilla.components.compose.base.annotation.FlexibleWindowLightDarkPreview
 import mozilla.components.compose.base.theme.AcornCorners
 import mozilla.components.compose.base.theme.AcornTheme
 import mozilla.components.feature.listentopage.ArticleProgress
 import mozilla.components.feature.listentopage.ListenAction
-import mozilla.components.feature.listentopage.ListenError
-import mozilla.components.feature.listentopage.PlaybackPhase
 import mozilla.components.feature.listentopage.PlaybackSpeed
 import mozilla.components.feature.listentopage.VoiceState
 
-/** Opacity of a player control that is present but not interactive. */
-internal const val DISABLED_ALPHA = 0.38f
-internal const val LISTEN_SHEET_PLAYER_CARD_TEST_TAG = "listenSheetPlayerCard"
 private const val FADE_OUT_DURATION_MS = 50
-private const val RESIZE_DURATION_MS = 150
+private const val RESIZE_DURATION_MS = 200
 private const val FADE_IN_DURATION_MS = 50
-
-/** The width the player stops growing at, so that it does not stretch across a landscape phone or tablet window. */
-internal val PlayerMaxWidth = 560.dp
 private val EasingStandard = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 private val EasingStandardAccelerate = CubicBezierEasing(0.3f, 0f, 1f, 1f)
 private val EasingStandardDecelerate = CubicBezierEasing(0f, 0f, 0f, 1f)
@@ -94,7 +71,7 @@ private val ContentExit =
  * @param articleProgressState How far playback has got and how long the audio is. Held as a [State] rather than a plain
  *   value so that the position is read while drawing the progress bar instead of while composing the player, which
  *   keeps a position update from recomposing the controls around it.
- * @param playbackPhase The phase of playback, used to display the correct controls to the user.
+ * @param playing equals true if audio is playing, false if audio is paused.
  * @param speed How fast the article is being read out, shown on the expanded player's speed control.
  * @param voiceState The voices the expanded player offers to read the article in, and the one it is read in.
  * @param expanded Whether to show the full player. `false` shows the compact one.
@@ -106,35 +83,26 @@ private val ContentExit =
 fun ListenSheet(
     article: ArticleDetails,
     articleProgressState: State<ArticleProgress>,
-    playbackPhase: PlaybackPhase,
+    playing: Boolean,
     speed: PlaybackSpeed,
     voiceState: VoiceState,
     onAction: (ListenAction) -> Unit,
     onExpandClicked: () -> Unit,
     modifier: Modifier = Modifier,
-    error: ListenError? = null,
     expanded: Boolean = true,
 ) {
     // Reading articleProgressState here instead of inside the lambda would defeat the point of hoisting it as a State.
     val progress = { articleProgressState.value.fraction }
 
     val transition = updateTransition(targetState = expanded, label = "ListenSheet")
-    val playbackUiState = playbackPhase.toUiState(error = error)
-    val sheetFocusRequester = remember { FocusRequester() }
 
-    SideEffect(Unit) {
-        sheetFocusRequester.requestFocus()
-    }
-    Box(modifier = modifier.focusRequester(sheetFocusRequester).focusable()) {
+    Box(modifier = modifier) {
         Card(
             shape = RoundedCornerShape(AcornCorners.extraLarge),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(AcornTheme.layout.elevation.level2),
             border = BorderStroke(AcornTheme.layout.border.default, MaterialTheme.colorScheme.outlineVariant),
-            modifier =
-                Modifier.widthIn(max = PlayerMaxWidth)
-                    .align(Alignment.Center)
-                    .testTag(LISTEN_SHEET_PLAYER_CARD_TEST_TAG),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             transition.AnimatedContent(
                 transitionSpec = {
@@ -154,7 +122,7 @@ fun ListenSheet(
                     PlayerExpanded(
                         article = article,
                         articleProgressState = articleProgressState,
-                        playbackUiState = playbackUiState,
+                        playing = playing,
                         speed = speed,
                         voiceState = voiceState,
                         onAction = onAction,
@@ -163,8 +131,7 @@ fun ListenSheet(
                 } else {
                     PlayerCompact(
                         article = article,
-                        playbackUiState = playbackUiState,
-                        articleProgressState = articleProgressState,
+                        playing = playing,
                         onAction = onAction,
                         onExpandClicked = onExpandClicked,
                         modifier = Modifier.inertWhileTransitioning(scope = this),
@@ -178,11 +145,7 @@ fun ListenSheet(
             enter = ContentEnter,
             exit = ContentExit,
         ) {
-            AudioProgressBarCompact(
-                progress = progress,
-                modifier = Modifier.widthIn(max = PlayerMaxWidth),
-                isEnabled = playbackUiState !is PlaybackUiState.Error,
-            )
+            AudioProgressBarCompact(progress = progress)
         }
     }
 }
@@ -223,46 +186,16 @@ data class ArticleDetails(val title: String? = null, val site: String? = null, v
 }
 
 @Composable
-internal fun ArticleHeading(
-    article: ArticleDetails,
-    modifier: Modifier = Modifier,
-    shouldScrollTitle: Boolean = false,
-    playbackUiState: PlaybackUiState,
-) {
-    val context = LocalContext.current
-    val reducedMotion = remember(context) { isReducedMotionEnabled(context) }
-    val marquee = shouldScrollTitle && !reducedMotion
-    Column(
-        modifier = modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
-        verticalArrangement = Arrangement.Center,
-    ) {
+internal fun ArticleHeading(article: ArticleDetails, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.Center) {
         Text(
             text = article.heading.orEmpty(),
-            modifier =
-                if (marquee) {
-                    Modifier.basicMarquee(iterations = Int.MAX_VALUE, repeatDelayMillis = 0)
-                } else {
-                    Modifier
-                },
-            color =
-                if (playbackUiState !is PlaybackUiState.Error) {
-                    MaterialTheme.colorScheme.onSurface
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
+            color = MaterialTheme.colorScheme.onSurface,
             style = AcornTheme.typography.headline8,
             maxLines = 1,
-            overflow = if (marquee) TextOverflow.Clip else TextOverflow.Ellipsis,
+            overflow = TextOverflow.Ellipsis,
         )
-        if (playbackUiState is PlaybackUiState.Error) {
-            Text(
-                text = stringResource(playbackUiState.listenError.userFacingMessage),
-                color = MaterialTheme.colorScheme.error,
-                style = AcornTheme.typography.caption,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        } else if (article.hasTitle) {
+        if (article.hasTitle) {
             Text(
                 text = article.site.orEmpty(),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -274,10 +207,7 @@ internal fun ArticleHeading(
     }
 }
 
-private fun isReducedMotionEnabled(context: Context): Boolean =
-    Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
-
-@FlexibleWindowLightDarkPreview
+@PreviewLightDark
 @Composable
 private fun ListenSheetCompactPreview() {
     AcornTheme {
@@ -285,7 +215,7 @@ private fun ListenSheetCompactPreview() {
     }
 }
 
-@FlexibleWindowLightDarkPreview
+@PreviewLightDark
 @Composable
 private fun ListenSheetExpandedPreview() {
     AcornTheme {
@@ -322,7 +252,7 @@ private fun ListenSheetPreview(
                 url = "https://www.bbc.co.uk/sport/football/articles/c0l8m2y4kxpo",
             ),
         articleProgressState = remember { mutableStateOf(ArticleProgress(positionMs = 84_000, durationMs = 360_000)) },
-        playbackPhase = PlaybackPhase.Playing,
+        playing = true,
         speed = PlaybackSpeed.Default,
         voiceState = VoiceState(),
         onAction = {},

@@ -6,7 +6,9 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 import { UrlbarProvider } from "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs";
 import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
 
-const lazy = XPCOMUtils.declareLazy({
+const lazy = {};
+
+ChromeUtils.defineESModuleGetters(lazy, {
   AppUpdater: "resource://gre/modules/AppUpdater.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   NLP: "resource://gre/modules/NLP.sys.mjs",
@@ -17,8 +19,9 @@ const lazy = XPCOMUtils.declareLazy({
     "moz-src:///browser/components/urlbar/UrlbarProviderGlobalActions.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
   UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
-  appUpdater: () => new lazy.AppUpdater(),
 });
+
+ChromeUtils.defineLazyGetter(lazy, "appUpdater", () => new lazy.AppUpdater());
 
 const EN_LOCALE_MATCH = /^en(-.*)$/;
 
@@ -698,10 +701,7 @@ export class UrlbarProviderInterventions extends UrlbarProvider {
   static resetAppUpdater() {
     // Reset only if the object has already been initialized.
     if (!Object.getOwnPropertyDescriptor(lazy, "appUpdater").get) {
-      // eslint-disable-next-line mozilla/valid-lazy
-      Object.defineProperty(lazy, "appUpdater", {
-        value: new lazy.AppUpdater(),
-      });
+      lazy.appUpdater = new lazy.AppUpdater();
     }
   }
 }
@@ -741,9 +741,7 @@ function openClearHistoryDialog(window) {
   if (lazy.PrivateBrowsingUtils.isWindowPrivate(window)) {
     return;
   }
-  lazy.Sanitizer.showUI(window, undefined, {
-    entryPoint: lazy.Sanitizer.DIALOG_ENTRY_POINTS.ADDRESS_BAR_SUGGESTION,
-  });
+  lazy.Sanitizer.showUI(window);
 }
 
 function restartBrowser() {

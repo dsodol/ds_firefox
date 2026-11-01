@@ -26,10 +26,7 @@ class SdpMediaSectionImpl : public SdpMediaSection {
   friend class SdpImpl;
 
  public:
-  MediaType GetMediaType() const override final { return mMediaTypeInfo.type; }
-  MediaTypeInfo GetMediaTypeInfo() const override final {
-    return mMediaTypeInfo;
-  }
+  MediaType GetMediaType() const override final { return mMediaType; }
 
   unsigned int GetPort() const override final;
   void SetPort(const unsigned int port) override final;
@@ -71,7 +68,7 @@ class SdpMediaSectionImpl : public SdpMediaSection {
                       UniquePtr<SdpAttributeListImpl>&& attributeList);
 
   // the following values are cached on first get
-  MediaTypeInfo mMediaTypeInfo;
+  MediaType mMediaType;
   uint16_t mPort;
   uint16_t mPortCount;
   Protocol mProtocol;

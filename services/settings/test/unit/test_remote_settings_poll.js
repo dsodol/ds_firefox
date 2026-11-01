@@ -1,5 +1,5 @@
 const { pushBroadcastService } = ChromeUtils.importESModule(
-  "moz-src:///dom/push/PushBroadcastService.sys.mjs"
+  "resource://gre/modules/PushBroadcastService.sys.mjs"
 );
 
 const { remoteSettingsBroadcastHandler, BROADCAST_ID } =

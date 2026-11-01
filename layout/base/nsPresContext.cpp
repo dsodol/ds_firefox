@@ -290,7 +290,6 @@ nsPresContext::nsPresContext(dom::Document* aDocument, nsPresContextType aType)
       mHadFirstContentfulPaint(false),
       mHadNonTickContentfulPaint(false),
       mHadContentfulPaintComposite(false),
-      mReadyToReplaceRetainedPaintDeferred(false),
       mNeedsToUpdateHiddenByContentVisibilityForAnimations(false),
       mUserInputEventsAllowed(false),
 #ifdef DEBUG
@@ -313,11 +312,11 @@ nsPresContext::nsPresContext(dom::Document* aDocument, nsPresContextType aType)
 
   // if text perf logging enabled, init stats struct
   if (MOZ_LOG_TEST(gfxPlatform::GetLog(eGfxLog_textperf), LogLevel::Warning)) {
-    mTextPerf = std::make_unique<gfxTextPerfMetrics>();
+    mTextPerf = MakeUnique<gfxTextPerfMetrics>();
   }
 
   if (StaticPrefs::gfx_missing_fonts_notify()) {
-    mMissingFonts = std::make_unique<gfxMissingFontRecorder>();
+    mMissingFonts = MakeUnique<gfxMissingFontRecorder>();
   }
 
   if (StaticPrefs::layout_dynamic_toolbar_max_height() > 0 &&
@@ -565,7 +564,7 @@ void nsPresContext::PreferenceChanged(const char* aPrefName) {
   if (prefName.EqualsLiteral(GFX_MISSING_FONTS_NOTIFY_PREF)) {
     if (StaticPrefs::gfx_missing_fonts_notify()) {
       if (!mMissingFonts) {
-        mMissingFonts = std::make_unique<gfxMissingFontRecorder>();
+        mMissingFonts = MakeUnique<gfxMissingFontRecorder>();
         // trigger reflow to detect missing fonts on the current page
         changeHint |= NS_STYLE_HINT_REFLOW;
       }
@@ -670,9 +669,9 @@ void nsPresContext::Init(nsDeviceContext* aDeviceContext) {
   mAnimationEventDispatcher =
       MakeRefPtr<mozilla::AnimationEventDispatcher>(this);
   mEffectCompositor = MakeRefPtr<mozilla::EffectCompositor>(this);
-  mTransitionManager = std::make_unique<nsTransitionManager>(this);
-  mAnimationManager = std::make_unique<nsAnimationManager>(this);
-  mTimelineManager = std::make_unique<mozilla::TimelineManager>(this);
+  mTransitionManager = MakeUnique<nsTransitionManager>(this);
+  mAnimationManager = MakeUnique<nsAnimationManager>(this);
+  mTimelineManager = MakeUnique<mozilla::TimelineManager>(this);
 
   if (mDocument->GetDisplayDocument()) {
     NS_ASSERTION(mDocument->GetDisplayDocument()->GetPresContext(),
@@ -823,7 +822,7 @@ void nsPresContext::AttachPresShell(mozilla::PresShell* aPresShell) {
   MOZ_ASSERT(!mPresShell);
   mPresShell = aPresShell;
 
-  mRestyleManager = std::make_unique<mozilla::RestyleManager>(this);
+  mRestyleManager = MakeUnique<mozilla::RestyleManager>(this);
 
   // Since CounterStyleManager is also the name of a method of
   // nsPresContext, it is necessary to prefix the class with the mozilla
@@ -857,6 +856,10 @@ void nsPresContext::AttachPresShell(mozilla::PresShell* aPresShell) {
 }
 
 Maybe<ColorScheme> nsPresContext::GetOverriddenOrEmbedderColorScheme() const {
+  if (Medium() == nsGkAtoms::print) {
+    return Some(ColorScheme::Light);
+  }
+
   switch (mOverriddenOrEmbedderColorScheme) {
     case dom::PrefersColorSchemeOverride::Dark:
       return Some(ColorScheme::Dark);
@@ -865,6 +868,7 @@ Maybe<ColorScheme> nsPresContext::GetOverriddenOrEmbedderColorScheme() const {
     case dom::PrefersColorSchemeOverride::None:
       break;
   }
+
   return Nothing();
 }
 
@@ -1398,11 +1402,9 @@ void nsPresContext::SetInRDMPane(bool aInRDMPane) {
   mInRDMPane = aInRDMPane;
   RecomputeTheme();
   if (mPresShell) {
-    nsContentUtils::AddScriptRunner(
-        NewRunnableMethod<PresShell::MobileViewportManagerUpdate>(
-            "PresShell::MaybeRecreateMobileViewportManager", mPresShell,
-            &PresShell::MaybeRecreateMobileViewportManager,
-            PresShell::MobileViewportManagerUpdate::ManagerTypeMayChange));
+    nsContentUtils::AddScriptRunner(NewRunnableMethod<bool>(
+        "PresShell::MaybeRecreateMobileViewportManager", mPresShell,
+        &PresShell::MaybeRecreateMobileViewportManager, true));
   }
 }
 
@@ -2032,8 +2034,7 @@ void nsPresContext::MediaFeatureValuesChanged(
   }
 
   if (!mPendingMediaFeatureValuesChange) {
-    mPendingMediaFeatureValuesChange =
-        std::make_unique<MediaFeatureChange>(aChange);
+    mPendingMediaFeatureValuesChange = MakeUnique<MediaFeatureChange>(aChange);
   } else {
     *mPendingMediaFeatureValuesChange |= aChange;
   }
@@ -2071,13 +2072,8 @@ bool nsPresContext::FlushPendingMediaFeatureValuesChanged() {
 
   // MediumFeaturesChanged updates the applied rules, so it always gets called.
   if (mPresShell) {
-    const RestyleHint rulesHint =
+    change.mRestyleHint |=
         mPresShell->StyleSet()->MediumFeaturesChanged(change.mReason);
-    change.mRestyleHint |= rulesHint;
-    // A @view-transition rule in a @media rule can start or stop matching.
-    if (rulesHint) {
-      mDocument->OutboundViewTransitionRulesChanged();
-    }
   }
 
   const bool changedStyle = change.mRestyleHint || change.mChangeHint;
@@ -2424,41 +2420,8 @@ void nsPresContext::NotifyRevokingDidPaint(TransactionId aTransactionId) {
   });
 }
 
-void nsPresContext::SendReadyToReplaceRetainedPaint() {
-  mReadyToReplaceRetainedPaintDeferred = false;
-  mReadyToReplaceRetainedPaintTransactionId.reset();
-  if (!IsRootContentDocumentCrossProcess()) {
-    return;
-  }
-  if (auto* bc = BrowserChild::GetFrom(mDocument->GetDocShell())) {
-    if (mDocument->IsInitialDocument()) {
-      bc->SendReadyToReplaceRetainedPaintNormalPriority();
-    } else {
-      bc->SendReadyToReplaceRetainedPaint();
-    }
-  }
-}
-
-void nsPresContext::SendReadyToReplaceRetainedPaintAfterNextComposite() {
-  mReadyToReplaceRetainedPaintDeferred = false;
-  mReadyToReplaceRetainedPaintTransactionId =
-      Some(mRefreshDriver->LastTransactionId().Next());
-}
-
-void nsPresContext::FlushDeferredReadyToReplaceRetainedPaint() {
-  if (mReadyToReplaceRetainedPaintDeferred ||
-      mReadyToReplaceRetainedPaintTransactionId) {
-    SendReadyToReplaceRetainedPaint();
-  }
-}
-
 void nsPresContext::NotifyDidPaintForSubtree(
     TransactionId aTransactionId, const mozilla::TimeStamp& aTimeStamp) {
-  if (mReadyToReplaceRetainedPaintTransactionId &&
-      aTransactionId >= *mReadyToReplaceRetainedPaintTransactionId) {
-    SendReadyToReplaceRetainedPaint();
-  }
-
   if (mFirstContentfulPaintTransactionId && !mHadContentfulPaintComposite) {
     if (aTransactionId >= *mFirstContentfulPaintTransactionId) {
       mHadContentfulPaintComposite = true;
@@ -2872,7 +2835,7 @@ UniquePtr<intl::Bidi> nsPresContext::GetBidiEngine() {
   if (mBidiEngine) {
     return std::move(mBidiEngine);
   }
-  return std::make_unique<mozilla::intl::Bidi>();
+  return MakeUnique<mozilla::intl::Bidi>();
 }
 
 void nsPresContext::FlushFontFeatureValues() {

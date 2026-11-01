@@ -11,6 +11,7 @@
 
 #include "mozilla/Assertions.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/MathAlgorithms.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/SegmentedVector.h"
 #include "mozilla/Sprintf.h"
@@ -391,6 +392,14 @@ template <typename T>
 inline constexpr unsigned CountLeadingZeros(T value) {
   static_assert(std::is_unsigned_v<T>);
   return std::countl_zero(value);
+}
+
+inline constexpr size_t RoundUpToPowerOfTwo32(size_t value) {
+  return mozilla::RoundUpPow2(value);
+}
+
+inline constexpr size_t RoundUpToPowerOfTwo(size_t value) {
+  return mozilla::RoundUpPow2(value);
 }
 
 template <typename T>
@@ -1398,9 +1407,6 @@ inline bool IsUnicodeSets(regexp::Flags flags) { return flags.unicodeSets(); }
 inline bool IsEitherUnicode(regexp::Flags flags) {
   return flags.unicode() || flags.unicodeSets();
 }
-inline bool ShouldOptionallyStepBackToLeadSurrogate(regexp::Flags flags) {
-  return IsEitherUnicode(flags) && (IsGlobal(flags) || IsSticky(flags));
-}
 
 inline std::optional<regexp::Flag> TryFlagFromChar(char c) {
   regexp::Flag flag;
@@ -1614,7 +1620,6 @@ class ExternalReference {
  public:
   static const void* TopOfRegexpStack(Isolate* isolate);
   static const void* RegexpStackPointer(Isolate* isolate);
-  static const void* RegexpStackLimit(Isolate* isolate);
   static size_t SizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf,
                                     regexp::Stack* regexpStack);
 };

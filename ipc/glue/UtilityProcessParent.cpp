@@ -34,7 +34,7 @@ UtilityProcessParent::~UtilityProcessParent() = default;
 bool UtilityProcessParent::SendRequestMemoryReport(
     const uint32_t& aGeneration, const bool& aAnonymize,
     const bool& aMinimizeMemoryUsage, const Maybe<FileDescriptor>& aDMDFile) {
-  mMemoryReportRequest = std::make_unique<MemoryReportRequestHost>(aGeneration);
+  mMemoryReportRequest = MakeUnique<MemoryReportRequestHost>(aGeneration);
 
   RefPtr<UtilityProcessParent> self(this);
   PUtilityProcessParent::SendRequestMemoryReport(aGeneration, aAnonymize,
@@ -197,7 +197,6 @@ void UtilityProcessParent::ActorDestroy(ActorDestroyReason aWhy) {
   }
 
   mHost->OnChannelClosed(aWhy);
-  mHost = nullptr;
 }
 
 // To ensure that IPDL is finished before UtilityParent gets deleted.

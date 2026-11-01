@@ -18,16 +18,30 @@ let {createStructIL, createStructOOL, createArray, createArrayFixed} = wasmEvalT
     )
 )`).exports;
 
-enableTrackAllocations();
+let metadata;
+let lastMetadataIndex;
 
-function assertWasmFrame(obj) {
-    let frame = getAllocationMetadata(obj);
-    assertEq(frame.source.endsWith("> WebAssembly.Module"), true);
-}
+enableShellAllocationMetadataBuilder();
 
-assertWasmFrame(createStructIL());
-assertWasmFrame(createStructOOL());
-assertWasmFrame(createArray(0));
-assertWasmFrame(createArray(1));
-assertWasmFrame(createArray(500));
-assertWasmFrame(createArrayFixed());
+metadata = getAllocationMetadata(createStructIL());
+lastMetadataIndex = metadata.index;
+
+metadata = getAllocationMetadata(createStructOOL());
+assertEq(lastMetadataIndex < metadata.index, true);
+lastMetadataIndex = metadata.index;
+
+metadata = getAllocationMetadata(createArray(0));
+assertEq(lastMetadataIndex < metadata.index, true);
+lastMetadataIndex = metadata.index;
+
+metadata = getAllocationMetadata(createArray(1));
+assertEq(lastMetadataIndex < metadata.index, true);
+lastMetadataIndex = metadata.index;
+
+metadata = getAllocationMetadata(createArray(500));
+assertEq(lastMetadataIndex < metadata.index, true);
+lastMetadataIndex = metadata.index;
+
+metadata = getAllocationMetadata(createArrayFixed());
+assertEq(lastMetadataIndex < metadata.index, true);
+lastMetadataIndex = metadata.index;

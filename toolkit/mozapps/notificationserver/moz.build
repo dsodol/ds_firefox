@@ -36,8 +36,3 @@ with Files("docs/**"):
 
 LIBRARY_DEFINES["MOZ_NO_MOZALLOC"] = True
 DisableStlWrapping()
-
-SOURCE_HEADERS += [
-    "NotificationCallback.h",
-    "NotificationFactory.h",
-]

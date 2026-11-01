@@ -1459,11 +1459,9 @@ static nsIntRegion ResultChangeRegionForPrimitive(
     }
 
     nsIntRegion operator()(const DisplacementMapAttributes& aDisplacementMap) {
-      auto scale = aDisplacementMap.mScale;
-      int32_t scaleX = ceil(std::abs(scale.Width()));
-      int32_t scaleY = ceil(std::abs(scale.Height()));
+      int32_t scale = ceil(std::abs(aDisplacementMap.mScale));
       return mInputChangeRegions[0].Inflated(
-          nsIntMargin(scaleY, scaleX, scaleY, scaleX));
+          nsIntMargin(scale, scale, scale, scale));
     }
 
     nsIntRegion operator()(const TurbulenceAttributes& aTurbulence) {
@@ -1832,10 +1830,9 @@ static nsIntRegion SourceNeededRegionForPrimitive(
       if (mInputIndex == 1) {
         return mResultNeededRegion;
       }
-      int32_t scaleX = ceil(std::abs(aDisplacementMap.mScale.Width()));
-      int32_t scaleY = ceil(std::abs(aDisplacementMap.mScale.Height()));
+      int32_t scale = ceil(std::abs(aDisplacementMap.mScale));
       return mResultNeededRegion.Inflated(
-          nsIntMargin(scaleY, scaleX, scaleY, scaleX));
+          nsIntMargin(scale, scale, scale, scale));
     }
 
     nsIntRegion operator()(const TurbulenceAttributes& aTurbulence) {

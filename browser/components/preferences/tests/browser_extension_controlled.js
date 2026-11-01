@@ -84,8 +84,6 @@ async function reEnableExtension(addon, labelId) {
   await controlledMessageShown;
 }
 
-// Bug 2084341 - reenable this test when we add support for extensioncontrolled
-// to the new ETP setting
 add_task(async function testExtensionControlledWebNotificationsPermission() {
   let manifest = {
     manifest_version: 2,
@@ -244,15 +242,15 @@ add_task(async function testExtensionControlledTrackingProtection() {
     );
   }
 
-  await openPreferencesViaOpenPreferencesAPI("etp", {
+  await openPreferencesViaOpenPreferencesAPI("panePrivacy", {
     leaveOpen: true,
   });
   let doc = gBrowser.contentDocument;
 
   is(
     gBrowser.currentURI.spec,
-    "about:preferences#etp",
-    "#etp should be in the URI for about:preferences"
+    "about:preferences#privacy",
+    "#privacy should be in the URI for about:preferences"
   );
 
   verifyState(false);
@@ -291,7 +289,7 @@ add_task(async function testExtensionControlledTrackingProtection() {
   await extension.unload();
 
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
-}).skip();
+});
 
 add_task(async function testExtensionControlledPasswordManager() {
   await SpecialPowers.pushPrefEnv({

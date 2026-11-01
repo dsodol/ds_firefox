@@ -143,14 +143,11 @@ export class FlightStatusSuggestions extends RealtimeSuggestProvider {
     let statusL10nArgs;
     if (status == "delayed") {
       statusL10nArgs = {
-        departureEstimatedTime: new Intl.DateTimeFormat(
-          lazy.UrlbarShared.locale(),
-          {
-            hour: "numeric",
-            minute: "numeric",
-            timeZone: getTimeZone(item.departure.estimated_time),
-          }
-        ).format(new Date(item.departure.estimated_time)),
+        departureEstimatedTime: new Intl.DateTimeFormat(undefined, {
+          hour: "numeric",
+          minute: "numeric",
+          timeZone: getTimeZone(item.departure.estimated_time),
+        }).format(new Date(item.departure.estimated_time)),
       };
     }
 
@@ -200,7 +197,7 @@ export class FlightStatusSuggestions extends RealtimeSuggestProvider {
       let minutes = item.time_left_minutes % 60;
       // TODO Bug 1997547: TypeScript support for `Intl.DurationFormat`
       // @ts-ignore
-      timeLeft = new Intl.DurationFormat(lazy.UrlbarShared.locale(), {
+      timeLeft = new Intl.DurationFormat(undefined, {
         style: "short",
       }).format({
         // If hours is zero, pass `undefined` to not show it at all.
@@ -218,14 +215,14 @@ export class FlightStatusSuggestions extends RealtimeSuggestProvider {
       [`image_container_${index}`]: backgroundImage,
       [`image_${index}`]: foregroundImage,
       [`departure_time_${index}`]: {
-        textContent: new Intl.DateTimeFormat(lazy.UrlbarShared.locale(), {
+        textContent: new Intl.DateTimeFormat(undefined, {
           hour: "numeric",
           minute: "numeric",
           timeZone: departureTimeZone,
         }).format(departureTime),
       },
       [`departure_date_${index}`]: {
-        textContent: new Intl.DateTimeFormat(lazy.UrlbarShared.locale(), {
+        textContent: new Intl.DateTimeFormat(undefined, {
           month: "short",
           day: "numeric",
           weekday: "short",
@@ -233,7 +230,7 @@ export class FlightStatusSuggestions extends RealtimeSuggestProvider {
         }).format(departureTime),
       },
       [`arrival_time_${index}`]: {
-        textContent: new Intl.DateTimeFormat(lazy.UrlbarShared.locale(), {
+        textContent: new Intl.DateTimeFormat(undefined, {
           hour: "numeric",
           minute: "numeric",
           timeZone: arrivalTimeZone,

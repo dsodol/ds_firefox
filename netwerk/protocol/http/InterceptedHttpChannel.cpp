@@ -4,8 +4,6 @@
 
 #include "InterceptedHttpChannel.h"
 
-#include <memory>
-
 #include "NetworkMarker.h"
 #include "mozilla/Logging.h"
 #include "mozilla/SchedulerGroup.h"
@@ -64,7 +62,6 @@ void InterceptedHttpChannel::ReleaseListeners() {
   mBodyReader = nullptr;
   mReleaseHandle = nullptr;
   mProgressSink = nullptr;
-  mHasProgressSink = false;
   mBodyCallback = nullptr;
   mPump = nullptr;
 
@@ -501,7 +498,7 @@ InterceptedHttpChannel::CreateForSynthesis(
   RefPtr<InterceptedHttpChannel> ref = new InterceptedHttpChannel(
       aCreationTime, aCreationTimestamp, aAsyncOpenTimestamp);
 
-  ref->mResponseHead = std::make_unique<nsHttpResponseHead>(*aHead);
+  ref->mResponseHead = MakeUnique<nsHttpResponseHead>(*aHead);
   ref->mBodyReader = aBody;
   ref->mBodyCallback = aBodyCallback;
 
@@ -858,7 +855,7 @@ InterceptedHttpChannel::SynthesizeStatus(uint16_t aStatus,
   }
 
   if (!mSynthesizedResponseHead) {
-    mSynthesizedResponseHead = std::make_unique<nsHttpResponseHead>();
+    mSynthesizedResponseHead.reset(new nsHttpResponseHead());
   }
 
   nsAutoCString statusLine;
@@ -880,7 +877,7 @@ InterceptedHttpChannel::SynthesizeHeader(const nsACString& aName,
   }
 
   if (!mSynthesizedResponseHead) {
-    mSynthesizedResponseHead = std::make_unique<nsHttpResponseHead>();
+    mSynthesizedResponseHead.reset(new nsHttpResponseHead());
   }
 
   nsAutoCString header = aName + ": "_ns + aValue;
@@ -927,7 +924,7 @@ InterceptedHttpChannel::StartSynthesizedResponse(
   mSynthesizedCacheInfo = aSynthesizedCacheInfo;
 
   if (!mSynthesizedResponseHead) {
-    mSynthesizedResponseHead = std::make_unique<nsHttpResponseHead>();
+    mSynthesizedResponseHead.reset(new nsHttpResponseHead());
   }
 
   mResponseHead = std::move(mSynthesizedResponseHead);
@@ -1164,7 +1161,6 @@ InterceptedHttpChannel::OnStartRequest(nsIRequest* aRequest) {
   if (!mProgressSink) {
     GetCallback(mProgressSink);
   }
-  mHasProgressSink = !!mProgressSink;
 
   MOZ_ASSERT_IF(!mLoadInfo->GetServiceWorkerTaintingSynthesized(),
                 mLoadInfo->GetLoadingPrincipal());
@@ -1288,7 +1284,7 @@ InterceptedHttpChannel::OnDataAvailable(nsIRequest* aRequest,
     aInputStream->ReadSegments(NS_DiscardSegment, nullptr, aCount, &unused);
     return mStatus;
   }
-  if (mHasProgressSink) {
+  if (mProgressSink) {
     if (!(mLoadFlags & HttpBaseChannel::LOAD_BACKGROUND)) {
       mProgress = aOffset + aCount;
       MaybeCallStatusAndProgress();

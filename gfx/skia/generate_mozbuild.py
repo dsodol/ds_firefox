@@ -44,9 +44,6 @@ LOCAL_INCLUDES += [
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'windows':
     DEFINES['UNICODE'] = True
     DEFINES['_UNICODE'] = True
-    SOURCES += [
-        'gdi/SkGDIDocument.cpp',
-    ]
 
 # We should autogenerate these SSE related flags.
 

@@ -132,20 +132,22 @@ class GfxInfo::GLStrings {
       return;
     }
 
-    // If the cache is invalid, query Android's system GLES implementation
-    // before choosing Gecko's backend, without initializing bundled ANGLE.
+    // If we didn't have any cached values or they were invalid, we must create
+    // a GL context and query the strings from it.
     RefPtr<gl::GLContext> gl;
     nsCString discardFailureId;
-    gl = gl::GLContextProviderEGL::CreateHeadlessNative(
+    gl = gl::GLContextProvider::CreateHeadless(
         {gl::CreateContextFlags::REQUIRE_COMPAT_PROFILE}, &discardFailureId);
 
-    if (!gl || !gl->MakeCurrent()) {
+    if (!gl) {
       // Setting mReady to true here means that we won't retry. Everything will
       // remain blocklisted forever. Ideally, we would like to update that once
       // any GLContext is successfully created, like the compositor's GLContext.
       mReady = true;
       return;
     }
+
+    gl->MakeCurrent();
 
     if (mVendor.IsEmpty()) {
       mVendor.Assign(gl->VendorString());

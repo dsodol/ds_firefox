@@ -15,6 +15,7 @@
 #include "txXPathTreeWalker.h"
 #include "txXSLTPatterns.h"
 
+using mozilla::MakeUnique;
 using mozilla::UniquePtr;
 
 nsresult txXSLTNumber::createNumber(Expr* aValueExpr, txPattern* aCountPattern,
@@ -147,7 +148,7 @@ nsresult txXSLTNumber::getValueList(Expr* aValueExpr, txPattern* aCountPattern,
       }
     }
     MOZ_ASSERT(nodeTest);
-    newCountPattern = std::make_unique<txStepPattern>(nodeTest, false);
+    newCountPattern = MakeUnique<txStepPattern>(nodeTest, false);
     countPattern = newCountPattern.get();
   }
 

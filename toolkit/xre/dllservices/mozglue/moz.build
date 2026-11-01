@@ -19,11 +19,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"]:
         "WindowsOleAut32Initialization.cpp",
         "WindowsStackWalkInitialization.cpp",
     ]
-    SOURCE_HEADERS += [
-        "LoaderObserver.h",
-        "ModuleLoadFrame.h",
-        "WindowsFallbackLoaderAPI.h",
-    ]
 
 if not CONFIG["JS_STANDALONE"]:
     UNIFIED_SOURCES += [
@@ -80,7 +75,3 @@ DIRS += [
 ]
 
 FINAL_LIBRARY = "mozglue"
-
-SOURCE_HEADERS += [
-    "NtLoaderAPI.h",
-]

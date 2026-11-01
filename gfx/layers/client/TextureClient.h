@@ -470,9 +470,6 @@ class TextureClient : public AtomicRefCountedWithFinalize<TextureClient> {
 
   already_AddRefed<gfx::SourceSurface> BorrowSnapshot();
 
-  // Snapshot BufferTextureData.
-  already_AddRefed<gfx::SourceSurface> GetBufferSnapshot();
-
   void ReturnSnapshot(already_AddRefed<gfx::SourceSurface> aSnapshot);
 
   /**

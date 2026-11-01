@@ -34,7 +34,6 @@ class WaylandSurfaceLock final {
 
 #ifdef MOZ_WAYLAND
   void Commit();
-  void CommitAndFlushDisplay();
 #endif
 
  private:

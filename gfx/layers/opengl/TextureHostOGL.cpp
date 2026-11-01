@@ -63,11 +63,6 @@ already_AddRefed<TextureHost> CreateTextureHostOGL(
   switch (aDesc.type()) {
 #ifdef MOZ_WIDGET_ANDROID
     case SurfaceDescriptor::TSurfaceTextureDescriptor: {
-      if (gfx::gfxVars::ForceAImageReaderAndroid()) {
-        MOZ_ASSERT_UNREACHABLE("unexpected to be called");
-        gfxCriticalError() << "ForceAImageReader is enabled";
-        return nullptr;
-      }
       const SurfaceTextureDescriptor& desc =
           aDesc.get_SurfaceTextureDescriptor();
       java::GeckoSurfaceTexture::LocalRef surfaceTexture =
@@ -384,8 +379,9 @@ gfx::Matrix4x4 SurfaceTextureSource::GetTextureTransform() {
 
   // GetTransformMatrix() returns the transform set by the producer side of the
   // SurfaceTexture that must be applied to texture coordinates when
-  // sampling. In some cases we may have set an override value, such as for
-  // MediaCodec output on devices where we know the value is incorrect.
+  // sampling. In some cases we may have set an override value, such as in
+  // AndroidNativeWindowTextureData where we own the producer side, or for
+  // MediaCodec output on devices where where we know the value is incorrect.
   if (mTransformOverride) {
     ret = *mTransformOverride;
   } else {
@@ -547,15 +543,6 @@ void SurfaceTextureHost::PushDisplayItems(wr::DisplayListBuilder& aBuilder,
 bool SurfaceTextureHost::SupportsExternalCompositing(
     WebRenderBackend aBackend) {
   return aBackend == WebRenderBackend::SOFTWARE;
-}
-
-SurfaceDescriptor SurfaceTextureHost::GetSurfaceDescriptor() {
-  if (!mSurfTex) {
-    return SurfaceDescriptor();
-  }
-  return SurfaceTextureDescriptor(mSurfTex->GetHandle(), mSize, mFormat,
-                                  mContinuousUpdate, mForceBT709ColorSpace,
-                                  mTransformOverride);
 }
 
 ////////////////////////////////////////////////////////////////////////

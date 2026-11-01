@@ -72,11 +72,9 @@ def get_chrome_process_category(process, binary):
 
 
 def get_fenix_process_category(process, binary):
-    # In the future, we'll also need to catch media procs
+    # In the future, we'll also need to catch media/utility procs
     if "tab" in process:
         return "tab"
-    elif "utility" in process:
-        return "utility"
     elif f"{binary}" in process:
         return "main"
     elif "zygote" in process:
@@ -137,9 +135,13 @@ def parse_memory_usage(mem_file, binary):
     for mem_type, mem_info in final_mems.items():
         for name, mem_usage in mem_info.items():
             final_name = get_category_for_process(name, binary)
-            measurements[mem_type][final_name] = (
-                measurements[mem_type].get(final_name, 0) + mem_usage
-            )
+            if (
+                final_name == "zygote"
+                and measurements[mem_type].get("zygote", None) is None
+            ):
+                # Only add this process if it exists (it doesn't exist on fenix)
+                measurements[mem_type]["zygote"] = 0
+            measurements[mem_type][final_name] += mem_usage
 
     return measurements
 
@@ -178,7 +180,11 @@ def parse_cpu_usage(cpu_file, binary):
         milliseconds = (((dt.minute * 60) + dt.second) * 1000) + (dt.microsecond / 1000)
 
         final_name = get_category_for_process(name, binary)
-        cpu_times[final_name] = cpu_times.get(final_name, 0) + milliseconds
+        if final_name == "zygote" and cpu_times.get("zygote", None) is None:
+            # Only add this process if it exists (it doesn't exist on fenix)
+            cpu_times["zygote"] = 0
+
+        cpu_times[final_name] += milliseconds
 
     return cpu_times
 

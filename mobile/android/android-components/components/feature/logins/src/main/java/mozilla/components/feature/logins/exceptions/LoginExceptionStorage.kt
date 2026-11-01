@@ -22,7 +22,7 @@ class LoginExceptionStorage(context: Context) : LoginExceptions {
      *
      * @param origin The origin.
      */
-    override suspend fun addLoginException(origin: String) {
+    override fun addLoginException(origin: String) {
         LoginExceptionEntity(origin = origin).also { entity ->
             entity.id = database.value.loginExceptionDao().insertLoginException(entity)
         }
@@ -40,17 +40,17 @@ class LoginExceptionStorage(context: Context) : LoginExceptions {
         database.value.loginExceptionDao().getLoginExceptionsPaged().map { entity -> LoginExceptionAdapter(entity) }
 
     /** Removes the given [LoginException]. */
-    suspend fun removeLoginException(site: LoginException) {
+    fun removeLoginException(site: LoginException) {
         val exceptionEntity = (site as LoginExceptionAdapter).entity
         database.value.loginExceptionDao().deleteLoginException(exceptionEntity)
     }
 
-    override suspend fun isLoginExceptionByOrigin(origin: String): Boolean {
+    override fun isLoginExceptionByOrigin(origin: String): Boolean {
         return findExceptionByOrigin(origin) != null
     }
 
     /** Finds a [LoginException] by origin. */
-    suspend fun findExceptionByOrigin(origin: String): LoginException? {
+    fun findExceptionByOrigin(origin: String): LoginException? {
         val exception = database.value.loginExceptionDao().findExceptionByOrigin(origin)
         return exception?.let {
             LoginExceptionAdapter(it)
@@ -58,7 +58,7 @@ class LoginExceptionStorage(context: Context) : LoginExceptions {
     }
 
     /** Removes all [LoginException]s. */
-    suspend fun deleteAllLoginExceptions() {
+    fun deleteAllLoginExceptions() {
         database.value.loginExceptionDao().deleteAllLoginExceptions()
     }
 }

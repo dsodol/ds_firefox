@@ -1003,29 +1003,6 @@ void MacroAssembler::branchTestNull(Condition cond, const ValueOperand& value,
   branchTestNull(cond, scratch2, label);
 }
 
-void MacroAssembler::branchTestNullOrUndefined(Condition cond, Register tag,
-                                               Label* label) {
-  MOZ_ASSERT(cond == Equal || cond == NotEqual);
-  if (cond == Equal) {
-    branchTestNull(Equal, tag, label);
-    branchTestUndefined(Equal, tag, label);
-    return;
-  }
-  Label done;
-  branchTestNull(Equal, tag, &done);
-  branchTestUndefined(NotEqual, tag, label);
-  bind(&done);
-}
-
-void MacroAssembler::branchTestNullOrUndefined(Condition cond,
-                                               const ValueOperand& value,
-                                               Label* label) {
-  UseScratchRegisterScope temps(this);
-  Register scratch2 = temps.Acquire();
-  splitSignExtTag(value, scratch2);
-  branchTestNullOrUndefined(cond, scratch2, label);
-}
-
 void MacroAssembler::branchTestNull(Condition cond, const Address& address,
                                     Label* label) {
   UseScratchRegisterScope temps(this);

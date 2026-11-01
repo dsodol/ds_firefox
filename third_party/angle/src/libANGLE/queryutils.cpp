@@ -3572,6 +3572,14 @@ bool GetQueryParameterInfo(const State &glState,
             *type      = GL_INT;
             *numParams = 1;
             return true;
+        case GL_COVERAGE_MODULATION_CHROMIUM:
+            if (!extensions.framebufferMixedSamplesCHROMIUM)
+            {
+                return false;
+            }
+            *type      = GL_INT;
+            *numParams = 1;
+            return true;
         case GL_TEXTURE_BINDING_EXTERNAL_OES:
             if (!extensions.EGLStreamConsumerExternalNV && !extensions.EGLImageExternalOES)
             {
@@ -4987,22 +4995,20 @@ egl::Error SetSurfaceAttrib(Surface *surface, EGLint attribute, EGLint value)
     return NoError();
 }
 
-Error GetSyncAttrib(const ThreadSafeDisplay *display,
-                    const Sync *syncObject,
-                    EGLint attribute,
-                    EGLint *value)
+Error GetSyncAttrib(Display *display, SyncID sync, EGLint attribute, EGLint *value)
 {
+    const egl::Sync *syncObj = display->getSync(sync);
     switch (attribute)
     {
         case EGL_SYNC_TYPE_KHR:
-            *value = syncObject->getType();
+            *value = syncObj->getType();
             return NoError();
 
         case EGL_SYNC_STATUS_KHR:
-            return syncObject->getStatus(display, value);
+            return syncObj->getStatus(display, value);
 
         case EGL_SYNC_CONDITION_KHR:
-            *value = syncObject->getCondition();
+            *value = syncObj->getCondition();
             return NoError();
 
         default:

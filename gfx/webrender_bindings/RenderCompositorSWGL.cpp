@@ -27,7 +27,7 @@ UniquePtr<RenderCompositor> RenderCompositorSWGL::Create(
     gfxCriticalNote << "Failed SWGL context creation for WebRender";
     return nullptr;
   }
-  return std::make_unique<RenderCompositorSWGL>(aWidget, ctx);
+  return MakeUnique<RenderCompositorSWGL>(aWidget, ctx);
 }
 
 RenderCompositorSWGL::RenderCompositorSWGL(

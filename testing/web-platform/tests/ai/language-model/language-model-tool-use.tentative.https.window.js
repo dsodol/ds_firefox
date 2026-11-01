@@ -567,8 +567,7 @@ promise_test(async t => {
   await ensureLanguageModel();
 
   // Test with expectedOutputs includes tool-call but no tools - should succeed.
-  // (Will return text message in sequence since tool-call is in
-  // expectedOutputs)
+  // (Will return text since no tools are available)
   const model = await createLanguageModel({
     expectedOutputs: [
       { type: "tool-call" }
@@ -578,17 +577,10 @@ promise_test(async t => {
 
   assert_true(!!model, 'Model should be created successfully');
 
-  // When expectedOutputs includes tool-call, prompt() consistently resolves to
-  // a sequence of LanguageModelMessageContent even when only text is produced.
+  // Should work normally. Since no tools are available, will return text string.
   const result = await model.prompt('Hello');
-  assert_true(
-      Array.isArray(result),
-      'Result should be an array when expectedOutputs includes tool-call');
-  assert_equals(result.length, 1);
-  assert_equals(result[0].type, 'text');
-  assert_equals(typeof result[0].value, 'string');
-  assert_true(result[0].value.includes('Hello'),
-              'Result should echo back the input "Hello"');
+  assert_equals(typeof result, 'string', 'Result should be a string when no tools available');
+  assert_true(result.includes('Hello'), 'Result should echo back the input "Hello"');
 }, 'createLanguageModel should succeed with tool-call in expectedOutputs but no tools.');
 
 promise_test(async t => {
@@ -597,17 +589,17 @@ promise_test(async t => {
   // Verify that initial history preserves structured arguments and
   // canonicalizes explicit, undefined, and omitted empty arguments to {}.
   const nestedCall = new LanguageModelToolCall({
-    callId: 'nested-call',
+    callID: 'nested-call',
     name: 'lookup',
     arguments:
         {query: 'weather', filters: {cities: ['Paris', 'Tokyo'], metric: true}}
   });
   const emptyCall = new LanguageModelToolCall(
-      {callId: 'empty-call', name: 'lookup', arguments: {}});
+      {callID: 'empty-call', name: 'lookup', arguments: {}});
   const undefinedCall = new LanguageModelToolCall(
-      {callId: 'undefined-call', name: 'lookup', arguments: undefined});
+      {callID: 'undefined-call', name: 'lookup', arguments: undefined});
   const omittedCall =
-      new LanguageModelToolCall({callId: 'omitted-call', name: 'lookup'});
+      new LanguageModelToolCall({callID: 'omitted-call', name: 'lookup'});
   const model = await createLanguageModel(toolHistoryOptions({
     initialPrompts: [{
       role: 'assistant',
@@ -617,22 +609,19 @@ promise_test(async t => {
   }));
 
   const response = await model.prompt('Continue');
-  assert_true(Array.isArray(response));
-  assert_equals(response.length, 1);
-  assert_equals(response[0].type, 'text');
-  assert_equals(typeof response[0].value, 'string');
-  const calls = extractEchoedToolCalls(response[0].value);
+  assert_equals(typeof response, 'string');
+  const calls = extractEchoedToolCalls(response);
   assert_equals(calls.length, 4);
-  assert_equals(calls[0].callId, 'nested-call');
+  assert_equals(calls[0].callID, 'nested-call');
   assert_equals(calls[0].name, 'lookup');
   assert_equals(calls[0].arguments.query, 'weather');
   assert_array_equals(calls[0].arguments.filters.cities, ['Paris', 'Tokyo']);
   assert_true(calls[0].arguments.filters.metric);
-  assert_equals(calls[1].callId, 'empty-call');
+  assert_equals(calls[1].callID, 'empty-call');
   assert_object_equals(calls[1].arguments, {});
-  assert_equals(calls[2].callId, 'undefined-call');
+  assert_equals(calls[2].callID, 'undefined-call');
   assert_object_equals(calls[2].arguments, {});
-  assert_equals(calls[3].callId, 'omitted-call');
+  assert_equals(calls[3].callID, 'omitted-call');
   assert_object_equals(calls[3].arguments, {});
 }, 'Caller-supplied tool calls preserve structured initial history and normalize empty arguments');
 
@@ -642,9 +631,9 @@ promise_test(async t => {
   // Verify caller-supplied history can be appended and used to reconstruct an
   // edited session without depending on generated tool-call state.
   const call = new LanguageModelToolCall(
-      {callId: 'history-call', name: 'lookup', arguments: {query: 'original'}});
+      {callID: 'history-call', name: 'lookup', arguments: {query: 'original'}});
   const response = new LanguageModelToolSuccess({
-    callId: 'history-call',
+    callID: 'history-call',
     name: 'lookup',
     result: [{type: 'text', value: 'original result'}]
   });
@@ -655,18 +644,14 @@ promise_test(async t => {
   ]);
 
   const appendedResponse = await model.prompt('Continue');
-  assert_true(Array.isArray(appendedResponse));
-  assert_equals(appendedResponse.length, 1);
-  assert_equals(appendedResponse[0].type, 'text');
-  const appendedCalls = extractEchoedToolCalls(appendedResponse[0].value);
+  const appendedCalls = extractEchoedToolCalls(appendedResponse);
   assert_equals(appendedCalls.length, 1);
-  assert_equals(appendedCalls[0].callId, 'history-call');
+  assert_equals(appendedCalls[0].callID, 'history-call');
   assert_equals(appendedCalls[0].name, 'lookup');
   assert_equals(appendedCalls[0].arguments.query, 'original');
-  const appendedResponses =
-      extractEchoedToolResponses(appendedResponse[0].value);
+  const appendedResponses = extractEchoedToolResponses(appendedResponse);
   assert_equals(appendedResponses.length, 1);
-  assert_equals(appendedResponses[0].callId, 'history-call');
+  assert_equals(appendedResponses[0].callID, 'history-call');
   assert_equals(appendedResponses[0].name, 'lookup');
   // Blink transports each result item's converted value without its type.
   assert_array_equals(appendedResponses[0].result, ['original result']);
@@ -677,7 +662,7 @@ promise_test(async t => {
       content: [{
         type: 'tool-call',
         value: new LanguageModelToolCall({
-          callId: 'history-call',
+          callID: 'history-call',
           name: 'lookup',
           arguments: {query: 'edited'}
         })
@@ -685,12 +670,8 @@ promise_test(async t => {
     }]
   }));
   const recreatedResponse = await recreated.prompt('Continue');
-  assert_true(Array.isArray(recreatedResponse));
-  assert_equals(recreatedResponse.length, 1);
-  assert_equals(recreatedResponse[0].type, 'text');
-  assert_equals(
-      extractEchoedToolCalls(recreatedResponse[0].value)[0].arguments.query,
-      'edited');
+  assert_equals(extractEchoedToolCalls(recreatedResponse)[0].arguments.query,
+                'edited');
 }, 'append() and recreated sessions preserve caller-supplied tool-call history');
 
 promise_test(async t => {
@@ -704,7 +685,7 @@ promise_test(async t => {
     content: [{
       type: 'tool-call',
       value: new LanguageModelToolCall(
-          {callId: 'invalid-call', name: 'lookup', arguments: toolArguments})
+          {callID: 'invalid-call', name: 'lookup', arguments: toolArguments})
     }]
   }]);
 
@@ -722,7 +703,7 @@ promise_test(async t => {
     content: [{
       type: 'tool-call',
       value: new LanguageModelToolCall(
-          {callId: 'invalid-role-call', name: 'lookup', arguments: {}})
+          {callID: 'invalid-role-call', name: 'lookup', arguments: {}})
     }]
   }]),
                            'Tool calls must use the assistant role');
@@ -732,7 +713,7 @@ promise_test(async t => {
     content: [{
       type: 'tool-response',
       value: new LanguageModelToolSuccess({
-        callId: 'invalid-role-response',
+        callID: 'invalid-role-response',
         name: 'lookup',
         result: [{type: 'text', value: 'result'}]
       })
@@ -748,7 +729,7 @@ promise_test(async t => {
         content: [{
           type: 'tool-call',
           value: new LanguageModelToolCall(
-              {callId: 'unsupported-call', name: 'lookup', arguments: {}})
+              {callID: 'unsupported-call', name: 'lookup', arguments: {}})
         }]
       }]),
       'Tool-call input must be requested when creating the session');
@@ -797,8 +778,7 @@ promise_test(async t => {
   assert_true(!!toolCallMessage, 'Should have a tool-call message');
 
   const toolCall = toolCallMessage.value;
-  assert_equals(typeof toolCall.callId, 'string',
-                'Tool call should have callId');
+  assert_equals(typeof toolCall.callID, 'string', 'Tool call should have callID');
   assert_equals(toolCall.name, 'get_weather', 'Tool call name should be get_weather');
   assert_equals(typeof toolCall.arguments, 'object', 'Tool call arguments should be an object');
   assert_equals(toolCall.arguments.location, 'Seattle', 'Tool call should have location=Seattle');
@@ -841,30 +821,29 @@ promise_test(async t => {
   assert_equals(toolCall.name, 'calculator', 'Tool call name should match');
   assert_equals(toolCall.arguments.expression, '2 + 2',
     'Tool call arguments should match the echoed hint');
-  const callId = toolCall.callId;
+  const callID = toolCall.callID;
 
   // Execute tool (simulated).
   const toolResult = "4";
 
   // Send tool response back via open-loop pattern.
-  const secondResult = await model.prompt([{
-    role: 'user',
-    content: [{
-      type: 'tool-response',
-      value: new LanguageModelToolSuccess({
-        callId: callId,
-        name: 'calculator',
-        result: [{type: 'text', value: toolResult}]
-      })
-    }]
-  }]);
+  const secondResult = await model.prompt([
+    {
+      role: 'user',
+      content: [{
+        type: 'tool-response',
+        value: new LanguageModelToolSuccess({
+          callID: callID,
+          name: 'calculator',
+          result: [{ type: 'text', value: toolResult }]
+        })
+      }]
+    }
+  ]);
 
   // Model should process the tool response.
-  assert_true(Array.isArray(secondResult), 'Second result should be an array');
-  assert_equals(secondResult.length, 1);
-  assert_equals(secondResult[0].type, 'text');
-  assert_true(secondResult[0].value.includes('4'),
-              'Response should include the result "4"');
+  assert_equals(typeof secondResult, 'string', 'Second result should be a string');
+  assert_true(secondResult.includes('4'), 'Response should include the result "4"');
 }, 'Open-loop pattern - send tool response via follow-up prompt');
 
 promise_test(async t => {
@@ -899,10 +878,10 @@ promise_test(async t => {
   // Invalid: Passing DOM object (ImageBitmap) with type='object' instead of
   // type='image'.
   const toolSuccess = new LanguageModelToolSuccess({
-    callId: 'test-123',
+    callID: 'test-123',
     name: 'test-tool',
     result: [
-      {type: 'object', value: imageBitmap}  // Wrong type for ImageBitmap!
+      { type: 'object', value: imageBitmap }  // Wrong type for ImageBitmap!
     ]
   });
 
@@ -955,7 +934,7 @@ promise_test(async t => {
 
   const toolCall = toolCallMessage.value;
   assert_equals(toolCall.name, 'generate_image', 'Tool call name should match');
-  const callId = toolCall.callId;
+  const callID = toolCall.callID;
 
   // Simulate tool execution - create an ImageBitmap.
   const canvas = document.createElement('canvas');
@@ -968,11 +947,11 @@ promise_test(async t => {
 
   // Send multimodal tool response with image.
   const toolResponse = new LanguageModelToolSuccess({
-    callId: callId,
+    callID: callID,
     name: 'generate_image',
     result: [
-      {type: 'text', value: 'Generated a red image:'},
-      {type: 'image', value: imageBitmap}
+      { type: 'text', value: 'Generated a red image:' },
+      { type: 'image', value: imageBitmap }
     ]
   });
 
@@ -1025,7 +1004,7 @@ promise_test(async t => {
 
   const toolCall = toolCallMessage.value;
   assert_equals(toolCall.name, 'generate_audio', 'Tool call name should match');
-  const callId = toolCall.callId;
+  const callID = toolCall.callID;
 
   // Verify the tool call arguments contain the frequency.
   assert_equals(typeof toolCall.arguments, 'object', 'Tool call arguments should be an object');
@@ -1050,11 +1029,11 @@ promise_test(async t => {
 
   // Send multimodal tool response with audio.
   const toolResponse = new LanguageModelToolSuccess({
-    callId: callId,
+    callID: callID,
     name: 'generate_audio',
     result: [
-      {type: 'text', value: 'Generated a 440Hz tone:'},
-      {type: 'audio', value: audioBuffer}
+      { type: 'text', value: 'Generated a 440Hz tone:' },
+      { type: 'audio', value: audioBuffer }
     ]
   });
 
@@ -1112,8 +1091,7 @@ promise_test(async t => {
   assert_true(toolCallChunks.length > 0, 'Should have received at least one tool-call chunk');
 
   const firstToolCall = toolCallChunks[0];
-  assert_equals(typeof firstToolCall.value.callId, 'string',
-                'Tool call should have callId');
+  assert_equals(typeof firstToolCall.value.callID, 'string', 'Tool call should have callID');
   assert_equals(firstToolCall.value.name, 'get_time', 'Tool call name should be get_time');
 }, 'promptStreaming() should stream tool call messages');
 
@@ -1239,29 +1217,28 @@ promise_test(async t => {
 
   const firstResult = await model.prompt(TOOL_CALL_TRIGGER + 'Use errorTool');
   const toolCallMessage = firstResult.find(msg => msg.type === 'tool-call');
-  const callId = toolCallMessage.value.callId;
+  const callID = toolCallMessage.value.callID;
 
   // Send error response.
-  const secondResult = await model.prompt([{
-    role: 'user',
-    content: [{
-      type: 'tool-response',
-      value: new LanguageModelToolError({
-        callId: callId,
-        name: 'errorTool',
-        errorMessage: 'Tool execution failed'
-      })
-    }]
-  }]);
+  const secondResult = await model.prompt([
+    {
+      role: 'user',
+      content: [{
+        type: 'tool-response',
+        value: new LanguageModelToolError({
+          callID: callID,
+          name: 'errorTool',
+          errorMessage: 'Tool execution failed'
+        })
+      }]
+    }
+  ]);
 
   // Model should handle the error response.
-  assert_true(Array.isArray(secondResult),
-              'Should return a message sequence response');
-  assert_equals(secondResult.length, 1);
-  assert_equals(secondResult[0].type, 'text');
-  const echoedResponses = extractEchoedToolResponses(secondResult[0].value);
+  assert_equals(typeof secondResult, 'string', 'Should return a string response');
+  const echoedResponses = extractEchoedToolResponses(secondResult);
   assert_equals(echoedResponses.length, 1);
-  assert_equals(echoedResponses[0].callId, callId);
+  assert_equals(echoedResponses[0].callID, callID);
   assert_equals(echoedResponses[0].name, 'errorTool');
   assert_equals(echoedResponses[0].errorMessage, 'Tool execution failed');
 }, 'Tool response can include error field');
@@ -1290,24 +1267,26 @@ promise_test(async t => {
 
   const result = await model.prompt(TOOL_CALL_TRIGGER + 'Use testTool');
   const toolCallMessage = result.find(msg => msg.type === 'tool-call');
-  const callId = toolCallMessage.value.callId;
+  const callID = toolCallMessage.value.callID;
 
   // Create a circular reference in tool result value.
   const circularObj = {};
   circularObj.self = circularObj;
 
   // Sending tool response with circular reference should reject with DataError.
-  await promise_rejects_dom(t, 'DataError', model.prompt([{
-    role: 'user',
-    content: [{
-      type: 'tool-response',
-      value: new LanguageModelToolSuccess({
-        callId: callId,
-        name: 'testTool',
-        result: [{type: 'text', value: circularObj}]
-      })
-    }]
-  }]));
+  await promise_rejects_dom(t, 'DataError', model.prompt([
+    {
+      role: 'user',
+      content: [{
+        type: 'tool-response',
+        value: new LanguageModelToolSuccess({
+          callID: callID,
+          name: 'testTool',
+          result: [{ type: 'text', value: circularObj }]
+        })
+      }]
+    }
+  ]));
 }, 'Tool response with circular reference should reject with DataError');
 
 promise_test(async t => {
@@ -1332,20 +1311,22 @@ promise_test(async t => {
 
   const result = await model.prompt(TOOL_CALL_TRIGGER + 'Use testTool');
   const toolCallMessage = result.find(msg => msg.type === 'tool-call');
-  const callId = toolCallMessage.value.callId;
+  const callID = toolCallMessage.value.callID;
 
   // Sending tool response with function should reject with DataError.
-  await promise_rejects_dom(t, 'DataError', model.prompt([{
-    role: 'user',
-    content: [{
-      type: 'tool-response',
-      value: new LanguageModelToolSuccess({
-        callId: callId,
-        name: 'testTool',
-        result: [{type: 'text', value: function() {}}]
-      })
-    }]
-  }]));
+  await promise_rejects_dom(t, 'DataError', model.prompt([
+    {
+      role: 'user',
+      content: [{
+        type: 'tool-response',
+        value: new LanguageModelToolSuccess({
+          callID: callID,
+          name: 'testTool',
+          result: [{ type: 'text', value: function() {} }]
+        })
+      }]
+    }
+  ]));
 }, 'Tool response with function value should reject with DataError');
 
 promise_test(async t => {
@@ -1370,20 +1351,22 @@ promise_test(async t => {
 
   const result = await model.prompt(TOOL_CALL_TRIGGER + 'Use testTool');
   const toolCallMessage = result.find(msg => msg.type === 'tool-call');
-  const callId = toolCallMessage.value.callId;
+  const callID = toolCallMessage.value.callID;
 
   // Sending tool response with BigInt should reject with DataError.
-  await promise_rejects_dom(t, 'DataError', model.prompt([{
-    role: 'user',
-    content: [{
-      type: 'tool-response',
-      value: new LanguageModelToolSuccess({
-        callId: callId,
-        name: 'testTool',
-        result: [{type: 'text', value: 12345678901234567890n}]
-      })
-    }]
-  }]));
+  await promise_rejects_dom(t, 'DataError', model.prompt([
+    {
+      role: 'user',
+      content: [{
+        type: 'tool-response',
+        value: new LanguageModelToolSuccess({
+          callID: callID,
+          name: 'testTool',
+          result: [{ type: 'text', value: 12345678901234567890n }]
+        })
+      }]
+    }
+  ]));
 }, 'Tool response with BigInt value should reject with DataError');
 
 promise_test(async t => {
@@ -1408,30 +1391,28 @@ promise_test(async t => {
 
   const result = await model.prompt(TOOL_CALL_TRIGGER + 'Use testTool');
   const toolCallMessage = result.find(msg => msg.type === 'tool-call');
-  const callId = toolCallMessage.value.callId;
+  const callID = toolCallMessage.value.callID;
 
   // Sending valid tool response should succeed.
-  const secondResult = await model.prompt([{
-    role: 'user',
-    content: [{
-      type: 'tool-response',
-      value: new LanguageModelToolSuccess({
-        callId: callId,
-        name: 'testTool',
-        result: [
-          {type: 'text', value: 'Valid string result'},
-          {type: 'text', value: {nested: 'object', data: 123}},
-          {type: 'text', value: [1, 2, 3, 'array']}
-        ]
-      })
-    }]
-  }]);
+  const secondResult = await model.prompt([
+    {
+      role: 'user',
+      content: [{
+        type: 'tool-response',
+        value: new LanguageModelToolSuccess({
+          callID: callID,
+          name: 'testTool',
+          result: [
+            { type: 'text', value: 'Valid string result' },
+            { type: 'text', value: { nested: 'object', data: 123 } },
+            { type: 'text', value: [1, 2, 3, 'array'] }
+          ]
+        })
+      }]
+    }
+  ]);
 
-  assert_true(Array.isArray(secondResult),
-              'Valid tool response should succeed');
-  assert_equals(secondResult.length, 1);
-  assert_equals(secondResult[0].type, 'text');
-  assert_equals(typeof secondResult[0].value, 'string');
+  assert_equals(typeof secondResult, 'string', 'Valid tool response should succeed');
 }, 'Tool response with valid serializable values should succeed');
 
 promise_test(async t => {
@@ -1516,8 +1497,7 @@ promise_test(async t => {
   assert_true(!!toolCallMessage, 'Should have a tool-call message');
 
   const toolCall = toolCallMessage.value;
-  assert_equals(typeof toolCall.callId, 'string',
-                'Tool call should have callId');
+  assert_equals(typeof toolCall.callID, 'string', 'Tool call should have callID');
   assert_equals(toolCall.name, 'search', 'Tool call name should be search');
   assert_equals(typeof toolCall.arguments, 'object', 'Tool call arguments should be an object');
   assert_equals(toolCall.arguments.query, 'test', 'Tool call should use argument hint from description');
@@ -1597,12 +1577,10 @@ promise_test(async t => {
   assert_true(toolNames.includes('tool3'), 'Should have tool3');
   assert_true(toolNames.includes('tool4'), 'Should have tool4');
 
-  // Verify all have valid callIds.
+  // Verify all have valid callIDs.
   for (const msg of toolCallMessages) {
-    assert_equals(typeof msg.value.callId, 'string',
-                  'Tool call should have callId');
-    assert_true(msg.value.callId.length > 0,
-                'Tool call should have non-empty callId');
+    assert_equals(typeof msg.value.callID, 'string', 'Tool call should have callID');
+    assert_true(msg.value.callID.length > 0, 'Tool call should have non-empty callID');
   }
 }, 'prompt() should handle multiple batches of tool calls from model');
 
@@ -1678,11 +1656,9 @@ promise_test(async t => {
   assert_true(toolNames.includes('streamTool3'), 'Should have streamTool3');
   assert_true(toolNames.includes('streamTool4'), 'Should have streamTool4');
 
-  // Verify all have valid callIds.
+  // Verify all have valid callIDs.
   for (const msg of toolCallChunks) {
-    assert_equals(typeof msg.value.callId, 'string',
-                  'Tool call should have callId');
-    assert_true(msg.value.callId.length > 0,
-                'Tool call should have non-empty callId');
+    assert_equals(typeof msg.value.callID, 'string', 'Tool call should have callID');
+    assert_true(msg.value.callID.length > 0, 'Tool call should have non-empty callID');
   }
 }, 'promptStreaming() should handle multiple batches of tool calls from model');

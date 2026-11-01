@@ -9,9 +9,8 @@ import kotlinx.coroutines.test.runTest
 import mozilla.components.ExperimentalAndroidComponentsApi
 import mozilla.components.concept.sync.AuthFlowError
 import mozilla.components.concept.sync.OAuthAccount
-import mozilla.components.feature.ipprotection.auth.fxa.IPProtectionFxaAuthFlow.Companion.SCOPE_IPPROTECTION
-import mozilla.components.feature.ipprotection.storage.FxaAccountStoreSync
-import mozilla.components.feature.ipprotection.store.IPProtectionAction
+import mozilla.components.feature.ipprotection.IPProtectionFxaAuthFlow.Companion.SCOPE_IPPROTECTION
+import mozilla.components.feature.ipprotection.store.InternalAction
 import mozilla.components.feature.ipprotection.store.state.AccountStatus
 import mozilla.components.service.fxa.manager.AccountState
 import mozilla.components.service.fxa.manager.FxaAccountManager
@@ -47,7 +46,7 @@ class FxaAccountStoreSyncTest {
 
         testScheduler.advanceUntilIdle()
 
-        captureMiddleware.assertFirstAction(IPProtectionAction.AccountAction.AccountManagerStateChanged::class) {
+        captureMiddleware.assertFirstAction(InternalAction.AccountManagerStateChanged::class) {
             assertEquals(AccountStatus.Uninitialized, it.status)
         }
         assertEquals(AccountStatus.Uninitialized, ipProtectionStore.state.accountState.status)
@@ -78,7 +77,7 @@ class FxaAccountStoreSyncTest {
 
             testScheduler.advanceUntilIdle()
 
-            captureMiddleware.assertLastAction(IPProtectionAction.AccountAction.AccountManagerStateChanged::class) {
+            captureMiddleware.assertLastAction(InternalAction.AccountManagerStateChanged::class) {
                 assertEquals("Unexpected forwarded status for $accountState", expectedStatus, it.status)
             }
             assertEquals(
@@ -103,7 +102,7 @@ class FxaAccountStoreSyncTest {
 
         testScheduler.advanceUntilIdle()
 
-        captureMiddleware.assertLastAction(IPProtectionAction.AccountAction.AccountManagerStateChanged::class) {
+        captureMiddleware.assertLastAction(InternalAction.AccountManagerStateChanged::class) {
             assertEquals(AccountStatus.Authenticated, it.status)
         }
         assertEquals(AccountStatus.Authenticated, ipProtectionStore.state.accountState.status)
@@ -128,7 +127,7 @@ class FxaAccountStoreSyncTest {
 
             testScheduler.advanceUntilIdle()
 
-            captureMiddleware.assertLastAction(IPProtectionAction.AccountAction.AccountManagerStateChanged::class) {
+            captureMiddleware.assertLastAction(InternalAction.AccountManagerStateChanged::class) {
                 assertEquals(AccountStatus.NeedsAuthorization, it.status)
             }
             assertEquals(AccountStatus.NeedsAuthorization, ipProtectionStore.state.accountState.status)
@@ -148,7 +147,7 @@ class FxaAccountStoreSyncTest {
         syncStore.dispatch(SyncAction.UpdateSyncStatus(SyncStatus.Idle))
 
         assertEquals(SyncState(accountState = AccountState.Authenticated, status = SyncStatus.Idle), syncStore.state)
-        captureMiddleware.assertNotDispatched(IPProtectionAction.AccountAction.AccountManagerStateChanged::class)
+        captureMiddleware.assertNotDispatched(InternalAction.AccountManagerStateChanged::class)
     }
 
     @Test
@@ -159,7 +158,7 @@ class FxaAccountStoreSyncTest {
 
         sync.onFlowError(AuthFlowError.FailedToCompleteAuth)
 
-        captureMiddleware.assertLastAction(IPProtectionAction.AccountAction.AccountManagerStateChanged::class) {
+        captureMiddleware.assertLastAction(InternalAction.AccountManagerStateChanged::class) {
             assertEquals(AccountStatus.AuthFailed, it.status)
         }
         // The reducer moves AuthFailed into NeedsAuthentication.
@@ -174,7 +173,7 @@ class FxaAccountStoreSyncTest {
 
         sync.onReady(authenticatedAccount = null)
 
-        captureMiddleware.assertLastAction(IPProtectionAction.AccountAction.AccountManagerStateChanged::class) {
+        captureMiddleware.assertLastAction(InternalAction.AccountManagerStateChanged::class) {
             assertEquals(AccountStatus.NoAccount, it.status)
         }
         assertEquals(AccountStatus.NoAccount, ipProtectionStore.state.accountState.status)
@@ -182,14 +181,13 @@ class FxaAccountStoreSyncTest {
 
     @Test
     fun `WHEN onReady is called with an account THEN WarmingUp is forwarded`() {
-        val (ipProtectionStore, captureMiddleware) =
-            buildStore(buildIPProtectionState(accountStatus = AccountStatus.Uninitialized))
+        val (ipProtectionStore, captureMiddleware) = buildStore()
 
         val sync = FxaAccountStoreSync(syncStore, ipProtectionStore, lazyOf(accountManager), StandardTestDispatcher())
 
         sync.onReady(authenticatedAccount = mock<OAuthAccount>())
 
-        captureMiddleware.assertLastAction(IPProtectionAction.AccountAction.AccountManagerStateChanged::class) {
+        captureMiddleware.assertLastAction(InternalAction.AccountManagerStateChanged::class) {
             assertEquals(AccountStatus.WarmingUp, it.status)
         }
         assertEquals(AccountStatus.WarmingUp, ipProtectionStore.state.accountState.status)

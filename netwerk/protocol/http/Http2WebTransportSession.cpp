@@ -5,8 +5,6 @@
 // HttpLog.h should generally be included first
 #include "Http2WebTransportSession.h"
 
-#include <limits>
-
 #include "Capsule.h"
 #include "CapsuleEncoder.h"
 #include "Http2Session.h"
@@ -67,29 +65,18 @@ void Http2WebTransportSessionImpl::CloseSession(uint32_t aStatus,
   mHandler->SetSentFin();
 
   Capsule capsule = Capsule::CloseWebTransportSession(aStatus, aReason);
-  auto encoder = std::make_unique<CapsuleEncoder>();
+  UniquePtr<CapsuleEncoder> encoder = MakeUnique<CapsuleEncoder>();
   encoder->EncodeCapsule(capsule);
   EnqueueOutCapsule(CapsuleTransmissionPriority::Important, std::move(encoder));
 }
 
 uint64_t Http2WebTransportSessionImpl::GetStreamId() const { return mStreamId; }
 
-void Http2WebTransportSessionImpl::GetMaxDatagramSize() {
-  // HTTP/2 WebTransport (draft-ietf-webtrans-http2) has no equivalent limit
-  // to HTTP/3's max_datagram_size; report back the implementation-defined
-  // default (see WebTransportDatagramDuplexStream.h's mOutgoingMaxDataSize)
-  // instead of leaving the caller's value at its default-constructed 0,
-  // which would make every future writeDatagrams()/sendDatagrams() call
-  // silently no-op forever (spec: "If OutgoingMaxDatagramSize is less than
-  // data's length, return a promise resolved with undefined").
-  if (RefPtr<WebTransportSessionEventListener> listener = GetListener()) {
-    listener->OnMaxDatagramSize(1024);
-  }
-}
+void Http2WebTransportSessionImpl::GetMaxDatagramSize() {}
 
 nsresult Http2WebTransportSessionImpl::ExportKeyingMaterial(
     const nsTArray<uint8_t>& aLabel, const nsTArray<uint8_t>& aContext,
-    uint32_t aOutputLength, nsTArray<uint8_t>& aKeyingMaterial) {
+    nsTArray<uint8_t>& aKeyingMaterial) {
   // TODO: Implement exportKeyingMaterial for HTTP/2 WebTransport
   // HTTP/2 WebTransport over TLS should support this via the underlying TLS
   // connection, but the implementation is not yet available.
@@ -122,33 +109,18 @@ void Http2WebTransportSessionImpl::GetNegotiatedProtocol(
 void Http2WebTransportSessionImpl::SendDatagram(nsTArray<uint8_t>&& aData,
                                                 uint64_t aTrackingId,
                                                 uint64_t aSendGroupId,
-                                                int64_t aSendOrder,
-                                                TimeStamp aTimestamp) {
+                                                int64_t aSendOrder) {
   LOG(("Http2WebTransportSessionImpl::SendDatagram %p, sendGroup=%" PRIu64
        ", sendOrder=%" PRId64,
        this, aSendGroupId, aSendOrder));
   // Note: Http2 WebTransport doesn't support sendGroup/sendOrder prioritization
   // yet. These parameters are accepted for API compatibility but not used.
-  // Nor is aTimestamp: the datagram is sent here, so it cannot expire.
 
   Capsule capsule = Capsule::WebTransportDatagram(std::move(aData));
 
-  auto encoder = std::make_unique<CapsuleEncoder>();
+  UniquePtr<CapsuleEncoder> encoder = MakeUnique<CapsuleEncoder>();
   encoder->EncodeCapsule(capsule);
   EnqueueOutCapsule(CapsuleTransmissionPriority::Normal, std::move(encoder));
-}
-
-void Http2WebTransportSessionImpl::SetDatagramMaxBufferedDatagrams(
-    uint32_t aMaxBufferedDatagrams) {
-  LOG(
-      ("Http2WebTransportSessionImpl::SetDatagramMaxBufferedDatagrams %p "
-       "max=%" PRIu32,
-       this, aMaxBufferedDatagrams));
-}
-
-void Http2WebTransportSessionImpl::SetDatagramMaxAge(double aMaxAge) {
-  LOG(("Http2WebTransportSessionImpl::SetDatagramMaxAge %p age=%f", this,
-       aMaxAge));
 }
 
 void Http2WebTransportSessionImpl::CreateOutgoingStreamInternal(
@@ -195,7 +167,7 @@ void Http2WebTransportSessionImpl::CreateOutgoingBidirectionalStream(
   auto id = mLocalStreamsFlowControl.TakeStreamId(WebTransportStreamType::BiDi);
   if (!id) {
     mBidiPendingStreamCallbacks.Push(
-        std::make_unique<PendingStreamCallback>(std::move(aCallback)));
+        MakeUnique<PendingStreamCallback>(std::move(aCallback)));
     return;
   }
 
@@ -209,7 +181,7 @@ void Http2WebTransportSessionImpl::CreateOutgoingUnidirectionalStream(
       mLocalStreamsFlowControl.TakeStreamId(WebTransportStreamType::UniDi);
   if (!id) {
     mUnidiPendingStreamCallbacks.Push(
-        std::make_unique<PendingStreamCallback>(std::move(aCallback)));
+        MakeUnique<PendingStreamCallback>(std::move(aCallback)));
     return;
   }
 
@@ -231,39 +203,33 @@ void Http2WebTransportSessionImpl::SendMaintenanceCapsules(
     CapsuleTransmissionPriority aPriority) {
   auto encoder = mSessionDataFc.CreateSessionDataBlockedCapsule();
   if (encoder) {
-    mCapsuleQueue[aPriority].Push(
-        std::make_unique<CapsuleEncoder>(encoder.ref()));
+    mCapsuleQueue[aPriority].Push(MakeUnique<CapsuleEncoder>(encoder.ref()));
   }
   encoder = mReceiverFc.CreateMaxDataCapsule();
   if (encoder) {
-    mCapsuleQueue[aPriority].Push(
-        std::make_unique<CapsuleEncoder>(encoder.ref()));
+    mCapsuleQueue[aPriority].Push(MakeUnique<CapsuleEncoder>(encoder.ref()));
   }
   encoder = mLocalStreamsFlowControl[WebTransportStreamType::BiDi]
                 .CreateStreamsBlockedCapsule();
   if (encoder) {
-    mCapsuleQueue[aPriority].Push(
-        std::make_unique<CapsuleEncoder>(encoder.ref()));
+    mCapsuleQueue[aPriority].Push(MakeUnique<CapsuleEncoder>(encoder.ref()));
   }
   encoder = mLocalStreamsFlowControl[WebTransportStreamType::UniDi]
                 .CreateStreamsBlockedCapsule();
   if (encoder) {
-    mCapsuleQueue[aPriority].Push(
-        std::make_unique<CapsuleEncoder>(encoder.ref()));
+    mCapsuleQueue[aPriority].Push(MakeUnique<CapsuleEncoder>(encoder.ref()));
   }
   encoder = mRemoteStreamsFlowControl[WebTransportStreamType::BiDi]
                 .FlowControl()
                 .CreateMaxStreamsCapsule();
   if (encoder) {
-    mCapsuleQueue[aPriority].Push(
-        std::make_unique<CapsuleEncoder>(encoder.ref()));
+    mCapsuleQueue[aPriority].Push(MakeUnique<CapsuleEncoder>(encoder.ref()));
   }
   encoder = mRemoteStreamsFlowControl[WebTransportStreamType::UniDi]
                 .FlowControl()
                 .CreateMaxStreamsCapsule();
   if (encoder) {
-    mCapsuleQueue[aPriority].Push(
-        std::make_unique<CapsuleEncoder>(encoder.ref()));
+    mCapsuleQueue[aPriority].Push(MakeUnique<CapsuleEncoder>(encoder.ref()));
   }
   for (const auto& stream : mOutgoingStreams.Values()) {
     stream->WriteMaintenanceCapsules(mCapsuleQueue[aPriority]);
@@ -490,15 +456,6 @@ bool Http2WebTransportSessionImpl::HandleMaxStreamDataCapsule(
 
 bool Http2WebTransportSessionImpl::HandleStreamStopSendingCapsule(
     StreamId aId, Capsule&& aCapsule) {
-  WebTransportStopSendingCapsule& stopSending =
-      aCapsule.GetWebTransportStopSendingCapsule();
-
-  // https://www.ietf.org/archive/id/draft-ietf-webtrans-http2-15.html#name-wt_stop_sending-capsule
-  // An error code above 0xffffffff is a session error of type WT_ERROR.
-  if (stopSending.mErrorCode > std::numeric_limits<uint32_t>::max()) {
-    return false;
-  }
-
   RefPtr<Http2WebTransportStream> stream = GetStream(aId);
   if (!stream) {
     return false;
@@ -506,39 +463,40 @@ bool Http2WebTransportSessionImpl::HandleStreamStopSendingCapsule(
 
   stream->OnStopSending();
 
+  WebTransportStopSendingCapsule& stopSending =
+      aCapsule.GetWebTransportStopSendingCapsule();
+
   LOG(
       ("Http2WebTransportSessionImpl::HandleStreamStopSendingCapsule %p "
        "aID=%" PRIu64 " error=%" PRIu64,
        this, (uint64_t)aId, stopSending.mErrorCode));
 
+  uint8_t wtError = Http3ErrorToWebTransportError(stopSending.mErrorCode);
+  nsresult rv = GetNSResultFromWebTransportError(wtError);
   if (RefPtr<WebTransportSessionEventListener> listener = GetListener()) {
-    listener->OnStopSending(aId, stopSending.mErrorCode);
+    listener->OnStopSending(aId, rv);
   }
   return true;
 }
 
 bool Http2WebTransportSessionImpl::HandleStreamResetCapsule(
     StreamId aId, Capsule&& aCapsule) {
-  WebTransportResetStreamCapsule& reset =
-      aCapsule.GetWebTransportResetStreamCapsule();
-
-  // https://www.ietf.org/archive/id/draft-ietf-webtrans-http2-15.html#name-wt_reset_stream-capsule
-  // An error code above 0xffffffff is a session error of type WT_ERROR.
-  if (reset.mErrorCode > std::numeric_limits<uint32_t>::max()) {
-    return false;
-  }
-
   RefPtr<Http2WebTransportStream> stream = GetStream(aId);
   if (!stream) {
     return false;
   }
 
+  WebTransportResetStreamCapsule& reset =
+      aCapsule.GetWebTransportResetStreamCapsule();
+
   if (NS_FAILED(stream->OnReset(reset.mReliableSize))) {
     return false;
   }
 
+  uint8_t wtError = Http3ErrorToWebTransportError(reset.mErrorCode);
+  nsresult rv = GetNSResultFromWebTransportError(wtError);
   if (RefPtr<WebTransportSessionEventListener> listener = GetListener()) {
-    listener->OnResetReceived(aId, reset.mErrorCode);
+    listener->OnResetReceived(aId, rv);
   }
 
   return true;
@@ -623,7 +581,7 @@ Http2WebTransportSession::Http2WebTransportSession(
     Http2WebTransportInitialSettings aSettings)
     : Http2StreamTunnel(aSession, aPriority, aBcId, aConnectionInfo),
       mImpl(MakeRefPtr<Http2WebTransportSessionImpl>(this, aSettings)),
-      mCapsuleParser(std::make_unique<CapsuleParser>(mImpl)) {
+      mCapsuleParser(MakeUnique<CapsuleParser>(mImpl)) {
   LOG(("Http2WebTransportSession ctor:%p", this));
 }
 

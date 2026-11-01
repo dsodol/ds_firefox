@@ -2,7 +2,7 @@
 "use strict";
 
 const { PushCrypto } = ChromeUtils.importESModule(
-  "moz-src:///dom/push/PushCrypto.sys.mjs"
+  "resource://gre/modules/PushCrypto.sys.mjs"
 );
 
 let from64 = v => {

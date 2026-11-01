@@ -306,8 +306,3 @@ if CONFIG["MOZ_ASAN"] or CONFIG["MOZ_DEBUG"]:
     WINCONSOLE = True
 else:
     WINCONSOLE = False
-
-SOURCE_HEADERS += [
-    "ApplicationData.h",
-    "BrowserDefines.h",
-]

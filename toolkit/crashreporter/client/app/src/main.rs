@@ -69,7 +69,7 @@ mod logging;
 mod logic;
 mod memory_test;
 mod net;
-mod prefs;
+mod prefs_parser;
 mod process;
 mod send_ping;
 mod settings;

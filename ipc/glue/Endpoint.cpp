@@ -50,7 +50,7 @@ UntypedManagedEndpoint::~UntypedManagedEndpoint() {
             // Clear the reservation which was taken when the
             // UntypedManagedEndpoint was deserialized.
             actor->ToplevelProtocol()->ClearReservation(id);
-            actor->GetIPCChannel()->Send(std::make_unique<IPC::Message>(
+            actor->GetIPCChannel()->Send(MakeUnique<IPC::Message>(
                 id, MANAGED_ENDPOINT_DROPPED_MESSAGE_TYPE));
           }
         }));
@@ -119,7 +119,7 @@ bool UntypedManagedEndpoint::BindCommon(IProtocol* aActor,
   MOZ_ALWAYS_TRUE(aActor->SetManagerAndRegister(aManager, id));
 
   aManager->GetIPCChannel()->Send(
-      std::make_unique<IPC::Message>(id, MANAGED_ENDPOINT_BOUND_MESSAGE_TYPE));
+      MakeUnique<IPC::Message>(id, MANAGED_ENDPOINT_BOUND_MESSAGE_TYPE));
   return true;
 }
 

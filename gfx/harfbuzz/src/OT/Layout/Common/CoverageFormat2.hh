@@ -39,16 +39,15 @@ template <typename Types>
 struct CoverageFormat2_4
 {
   friend struct Coverage;
-  using CoverageRangeRecord = RangeRecord<Types, typename Types::HBUINT>;
 
   public:
   HBUINT16      coverageFormat; /* Format identifier--format = 2 */
-  typename Types::template SortedArrayOf<CoverageRangeRecord>
+  SortedArray16Of<RangeRecord<Types>>
                 rangeRecord;    /* Array of glyph ranges--ordered by
                                  * Start GlyphID. rangeCount entries
                                  * long */
   public:
-  DEFINE_SIZE_ARRAY (2 + Types::HBUINT::static_size, rangeRecord);
+  DEFINE_SIZE_ARRAY (4, rangeRecord);
 
   private:
 
@@ -60,7 +59,7 @@ struct CoverageFormat2_4
 
   unsigned int get_coverage (hb_codepoint_t glyph_id) const
   {
-    const CoverageRangeRecord &range = rangeRecord.bsearch (glyph_id);
+    const RangeRecord<Types> &range = rangeRecord.bsearch (glyph_id);
     return likely (range.first <= range.last)
          ? (unsigned int) range.value + (glyph_id - range.first)
          : NOT_COVERED;
@@ -114,7 +113,7 @@ struct CoverageFormat2_4
     }
 
     if (unlikely (unsorted))
-      rangeRecord.as_array ().qsort (CoverageRangeRecord::cmp_range);
+      rangeRecord.as_array ().qsort (RangeRecord<Types>::cmp_range);
 
     return_trace (true);
   }
@@ -130,7 +129,7 @@ struct CoverageFormat2_4
     }
 
     return hb_any (+ hb_iter (rangeRecord)
-                   | hb_map ([glyphs] (const CoverageRangeRecord &range) { return range.intersects (*glyphs); }));
+                   | hb_map ([glyphs] (const RangeRecord<Types> &range) { return range.intersects (*glyphs); }));
   }
   bool intersects_coverage (const hb_set_t *glyphs, unsigned int index) const
   {

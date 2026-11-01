@@ -95,7 +95,6 @@ void SocketProcessParent::ActorDestroy(ActorDestroyReason aWhy) {
 
   if (mHost) {
     mHost->OnChannelClosed();
-    mHost = nullptr;
   }
 }
 
@@ -103,8 +102,7 @@ bool SocketProcessParent::SendRequestMemoryReport(
     const uint32_t& aGeneration, const bool& aAnonymize,
     const bool& aMinimizeMemoryUsage,
     const Maybe<ipc::FileDescriptor>& aDMDFile) {
-  mMemoryReportRequest =
-      std::make_unique<dom::MemoryReportRequestHost>(aGeneration);
+  mMemoryReportRequest = MakeUnique<dom::MemoryReportRequestHost>(aGeneration);
 
   PSocketProcessParent::SendRequestMemoryReport(aGeneration, aAnonymize,
                                                 aMinimizeMemoryUsage, aDMDFile)

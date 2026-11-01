@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.390
- * pdfjsBuild = ea6cf5c98
+ * pdfjsVersion = 6.5.10
+ * pdfjsBuild = 17bb2442f
  */
 
 ;// ./src/shared/util.js
@@ -29,8 +29,6 @@ const isNodeJS = false;
 const BBOX_INIT = [Infinity, Infinity, -Infinity, -Infinity];
 const F32_BBOX_INIT = new Float32Array(BBOX_INIT);
 const FONT_IDENTITY_MATRIX = [0.001, 0, 0, 0.001, 0, 0];
-const DEFAULT_VERTICAL_ORIGIN_Y = 880;
-const DEFAULT_VERTICAL_ADVANCE = 1000;
 const LINE_FACTOR = 1.35;
 const LINE_DESCENT_FACTOR = 0.35;
 const BASELINE_FACTOR = (/* unused pure expression or super */ null && (LINE_DESCENT_FACTOR / LINE_FACTOR));
@@ -495,9 +493,6 @@ class FeatureTest {
   static get isImageDecoderSupported() {
     return shadow(this, "isImageDecoderSupported", typeof ImageDecoder !== "undefined");
   }
-  static get isVideoFrameSupported() {
-    return shadow(this, "isVideoFrameSupported", typeof VideoFrame !== "undefined");
-  }
   static get isFloat16ArraySupported() {
     return shadow(this, "isFloat16ArraySupported", typeof Float16Array !== "undefined");
   }
@@ -548,11 +543,6 @@ class Util {
   }
   static makeHexColor(r, g, b) {
     return `#${this.hexNums[r]}${this.hexNums[g]}${this.hexNums[b]}`;
-  }
-  static get identity0to256Map() {
-    return shadow(this, "identity0to256Map", Uint8Array.from({
-      length: 256
-    }, (_, i) => i));
   }
   static transform(m1, m2) {
     return [m1[0] * m2[0] + m1[2] * m2[1], m1[1] * m2[0] + m1[3] * m2[1], m1[0] * m2[2] + m1[2] * m2[3], m1[1] * m2[2] + m1[3] * m2[3], m1[0] * m2[4] + m1[2] * m2[5] + m1[4], m1[1] * m2[4] + m1[3] * m2[5] + m1[5]];
@@ -620,10 +610,10 @@ class Util {
       b1 += m1r2;
       b2 += m1r2;
     }
-    output[0] = Math.min(output[0], a0, a1, Math.min(a2, a3));
-    output[1] = Math.min(output[1], b0, b1, Math.min(b2, b3));
-    output[2] = Math.max(output[2], a0, a1, Math.max(a2, a3));
-    output[3] = Math.max(output[3], b0, b1, Math.max(b2, b3));
+    output[0] = Math.min(output[0], a0, a1, a2, a3);
+    output[1] = Math.min(output[1], b0, b1, b2, b3);
+    output[2] = Math.max(output[2], a0, a1, a2, a3);
+    output[3] = Math.max(output[3], b0, b1, b2, b3);
   }
   static inverseTransform(m) {
     const d = m[0] * m[3] - m[1] * m[2];
@@ -742,12 +732,7 @@ function normalizeUnicode(str) {
   return str.replaceAll(NormalizeRegex, (_, p1, p2) => p1 ? p1.normalize("NFKC") : NormalizationMap.get(p2));
 }
 function getUuid() {
-  if (typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  const buf = new Uint8Array(32);
-  crypto.getRandomValues(buf);
-  return bytesToString(buf);
+  return crypto.randomUUID();
 }
 function _isValidExplicitDest(validRef, validName, dest) {
   if (!Array.isArray(dest) || dest.length < 2) {
@@ -809,269 +794,6 @@ if (typeof Iterator.prototype.join !== "function") {
 ;// ./src/shared/math_clamp.js
 function MathClamp(v, min, max) {
   return Math.min(Math.max(v, min), max);
-}
-
-;// ./src/display/display_utils.js
-
-
-class PixelsPerInch {
-  static CSS = 96.0;
-  static PDF = 72.0;
-  static PDF_TO_CSS_UNITS = this.CSS / this.PDF;
-}
-class RenderingCancelledException extends BaseException {
-  constructor(msg, extraDelay = 0) {
-    super(msg, "RenderingCancelledException");
-    this.extraDelay = extraDelay;
-  }
-}
-function getRGBA(color) {
-  if (color.startsWith("#")) {
-    const hex = color.slice(1);
-    return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16), hex.length >= 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1];
-  }
-  if (color.startsWith("rgb(")) {
-    const [r, g, b] = color.slice(4, -1).split(",").map(x => parseInt(x, 10));
-    return [r, g, b, 1];
-  }
-  if (color.startsWith("rgba(")) {
-    const parts = color.slice(5, -1).split(",");
-    return [parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2], 10), parseFloat(parts[3])];
-  }
-  const m = color.match(/^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+|none))?\)$/);
-  if (m) {
-    return [Math.round(parseFloat(m[1]) * 255), Math.round(parseFloat(m[2]) * 255), Math.round(parseFloat(m[3]) * 255), m[4] !== undefined && m[4] !== "none" ? parseFloat(m[4]) : 1];
-  }
-  return null;
-}
-function getRGB(color) {
-  const rgba = getRGBA(color);
-  if (!rgba) {
-    warn(`Not a valid color format: "${color}"`);
-    return [0, 0, 0];
-  }
-  return rgba.slice(0, 3);
-}
-function getCurrentTransform(ctx) {
-  const {
-    a,
-    b,
-    c,
-    d,
-    e,
-    f
-  } = ctx.getTransform();
-  return [a, b, c, d, e, f];
-}
-function getCurrentTransformInverse(ctx) {
-  const {
-    a,
-    b,
-    c,
-    d,
-    e,
-    f
-  } = ctx.getTransform().invertSelf();
-  return [a, b, c, d, e, f];
-}
-class OutputScale {
-  constructor() {
-    const {
-      pixelRatio
-    } = OutputScale;
-    this.sx = pixelRatio;
-    this.sy = pixelRatio;
-  }
-  get scaled() {
-    return this.sx !== 1 || this.sy !== 1;
-  }
-  get symmetric() {
-    return this.sx === this.sy;
-  }
-  limitCanvas(width, height, maxPixels, maxDim, capAreaFactor = -1) {
-    let maxAreaScale = Infinity,
-      maxWidthScale = Infinity,
-      maxHeightScale = Infinity;
-    maxPixels = OutputScale.capPixels(maxPixels, capAreaFactor);
-    if (maxPixels > 0) {
-      maxAreaScale = Math.sqrt(maxPixels / (width * height));
-    }
-    if (maxDim !== -1) {
-      maxWidthScale = maxDim / width;
-      maxHeightScale = maxDim / height;
-    }
-    const maxScale = Math.min(maxAreaScale, maxWidthScale, maxHeightScale);
-    if (this.sx > maxScale || this.sy > maxScale) {
-      this.sx = maxScale;
-      this.sy = maxScale;
-      return true;
-    }
-    return false;
-  }
-  static get pixelRatio() {
-    return globalThis.devicePixelRatio || 1;
-  }
-  static capPixels(maxPixels, capAreaFactor) {
-    if (capAreaFactor >= 0) {
-      const winPixels = Math.ceil(window.screen.availWidth * window.screen.availHeight * this.pixelRatio ** 2 * (1 + capAreaFactor / 100));
-      return maxPixels > 0 ? Math.min(maxPixels, winPixels) : winPixels;
-    }
-    return maxPixels;
-  }
-}
-function applyOpacity(color, opacity) {
-  opacity = MathClamp(opacity ?? 1, 0, 1);
-  const white = 255 * (1 - opacity);
-  return color.map(c => Math.round(c * opacity + white));
-}
-function RGBToHSL(rgb, output) {
-  const r = rgb[0] / 255;
-  const g = rgb[1] / 255;
-  const b = rgb[2] / 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  if (max === min) {
-    output[0] = output[1] = 0;
-  } else {
-    const d = max - min;
-    output[1] = l < 0.5 ? d / (max + min) : d / (2 - max - min);
-    switch (max) {
-      case r:
-        output[0] = ((g - b) / d + (g < b ? 6 : 0)) * 60;
-        break;
-      case g:
-        output[0] = ((b - r) / d + 2) * 60;
-        break;
-      case b:
-        output[0] = ((r - g) / d + 4) * 60;
-        break;
-    }
-  }
-  output[2] = l;
-}
-function HSLToRGB(hsl, output) {
-  const h = hsl[0];
-  const s = hsl[1];
-  const l = hsl[2];
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs(h / 60 % 2 - 1));
-  const m = l - c / 2;
-  switch (Math.floor(h / 60)) {
-    case 0:
-      output[0] = c + m;
-      output[1] = x + m;
-      output[2] = m;
-      break;
-    case 1:
-      output[0] = x + m;
-      output[1] = c + m;
-      output[2] = m;
-      break;
-    case 2:
-      output[0] = m;
-      output[1] = c + m;
-      output[2] = x + m;
-      break;
-    case 3:
-      output[0] = m;
-      output[1] = x + m;
-      output[2] = c + m;
-      break;
-    case 4:
-      output[0] = x + m;
-      output[1] = m;
-      output[2] = c + m;
-      break;
-    case 5:
-    case 6:
-      output[0] = c + m;
-      output[1] = m;
-      output[2] = x + m;
-      break;
-  }
-}
-function computeLuminance(x) {
-  return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
-}
-function contrastRatio(hsl1, hsl2, output) {
-  HSLToRGB(hsl1, output);
-  output.map(computeLuminance);
-  const lum1 = 0.2126 * output[0] + 0.7152 * output[1] + 0.0722 * output[2];
-  HSLToRGB(hsl2, output);
-  output.map(computeLuminance);
-  const lum2 = 0.2126 * output[0] + 0.7152 * output[1] + 0.0722 * output[2];
-  return lum1 > lum2 ? (lum1 + 0.05) / (lum2 + 0.05) : (lum2 + 0.05) / (lum1 + 0.05);
-}
-const contrastCache = new Map();
-function findContrastColor(baseColor, fixedColor) {
-  const key = baseColor[0] + baseColor[1] * 0x100 + baseColor[2] * 0x10000 + fixedColor[0] * 0x1000000 + fixedColor[1] * 0x100000000 + fixedColor[2] * 0x10000000000;
-  let cachedValue = contrastCache.get(key);
-  if (cachedValue) {
-    return cachedValue;
-  }
-  const array = new Float32Array(9);
-  const output = array.subarray(0, 3);
-  const baseHSL = array.subarray(3, 6);
-  RGBToHSL(baseColor, baseHSL);
-  const fixedHSL = array.subarray(6, 9);
-  RGBToHSL(fixedColor, fixedHSL);
-  const isFixedColorDark = fixedHSL[2] < 0.5;
-  const minContrast = isFixedColorDark ? 12 : 4.5;
-  baseHSL[2] = isFixedColorDark ? Math.sqrt(baseHSL[2]) : 1 - Math.sqrt(1 - baseHSL[2]);
-  if (contrastRatio(baseHSL, fixedHSL, output) < minContrast) {
-    let start, end;
-    if (isFixedColorDark) {
-      start = baseHSL[2];
-      end = 1;
-    } else {
-      start = 0;
-      end = baseHSL[2];
-    }
-    const PRECISION = 0.005;
-    while (end - start > PRECISION) {
-      const mid = baseHSL[2] = (start + end) / 2;
-      if (isFixedColorDark === contrastRatio(baseHSL, fixedHSL, output) < minContrast) {
-        start = mid;
-      } else {
-        end = mid;
-      }
-    }
-    baseHSL[2] = isFixedColorDark ? end : start;
-  }
-  HSLToRGB(baseHSL, output);
-  cachedValue = Util.makeHexColor(Math.round(output[0] * 255), Math.round(output[1] * 255), Math.round(output[2] * 255));
-  contrastCache.set(key, cachedValue);
-  return cachedValue;
-}
-function makePathFromDrawOPS(data) {
-  const path = new Path2D();
-  if (!data) {
-    return path;
-  }
-  for (let i = 0, ii = data.length; i < ii;) {
-    switch (data[i++]) {
-      case DrawOPS.moveTo:
-        path.moveTo(data[i++], data[i++]);
-        break;
-      case DrawOPS.lineTo:
-        path.lineTo(data[i++], data[i++]);
-        break;
-      case DrawOPS.curveTo:
-        path.bezierCurveTo(data[i++], data[i++], data[i++], data[i++], data[i++], data[i++]);
-        break;
-      case DrawOPS.quadraticCurveTo:
-        path.quadraticCurveTo(data[i++], data[i++], data[i++], data[i++]);
-        break;
-      case DrawOPS.closePath:
-        path.closePath();
-        break;
-      default:
-        warn(`Unrecognized drawing path operator: ${data[i - 1]}`);
-        break;
-    }
-  }
-  return path;
 }
 
 ;// ./src/display/page_viewport.js
@@ -1499,11 +1221,16 @@ class XfaLayer {
   }
 }
 
-;// ./src/display/dom_utils.js
+;// ./src/display/display_utils.js
 
 
 
 
+class PixelsPerInch {
+  static CSS = 96.0;
+  static PDF = 72.0;
+  static PDF_TO_CSS_UNITS = this.CSS / this.PDF;
+}
 async function fetchData(url, type = "text") {
   const response = await fetch(url);
   if (!response.ok) {
@@ -1518,6 +1245,12 @@ async function fetchData(url, type = "text") {
       return response.json();
   }
   return response.text();
+}
+class RenderingCancelledException extends BaseException {
+  constructor(msg, extraDelay = 0) {
+    super(msg, "RenderingCancelledException");
+    this.extraDelay = extraDelay;
+  }
 }
 function isDataScheme(url) {
   const ii = url.length;
@@ -1609,6 +1342,31 @@ function getPdfFilenameFromUrl(url, defaultFilename = "document.pdf") {
   }
   return defaultFilename;
 }
+class StatTimer {
+  #started = new Map();
+  times = [];
+  time(name) {
+    if (this.#started.has(name)) {
+      warn(`Timer is already running for ${name}`);
+    }
+    this.#started.set(name, Date.now());
+  }
+  timeEnd(name) {
+    if (!this.#started.has(name)) {
+      warn(`Timer has not been started for ${name}`);
+    }
+    this.times.push({
+      name,
+      start: this.#started.get(name),
+      end: Date.now()
+    });
+    this.#started.delete(name);
+  }
+  toString() {
+    const longest = Math.max(...this.times.map(t => t.name.length));
+    return this.times.map(t => `${t.name.padEnd(longest)} ${t.end - t.start}ms\n`).join("");
+  }
+}
 function isValidFetchUrl(url, baseUrl) {
   throw new Error("Not implemented: isValidFetchUrl");
 }
@@ -1618,6 +1376,9 @@ function noContextMenu(e) {
 function stopEvent(e) {
   e.preventDefault();
   e.stopPropagation();
+}
+function deprecated(details) {
+  console.log("Deprecated API usage: " + details);
 }
 class PDFDateString {
   static #regex;
@@ -1659,6 +1420,33 @@ class PDFDateString {
     return new Date(Date.UTC(year, month, day, hour, minute, second));
   }
 }
+function getRGBA(color) {
+  if (color.startsWith("#")) {
+    const hex = color.slice(1);
+    return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16), hex.length >= 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1];
+  }
+  if (color.startsWith("rgb(")) {
+    const [r, g, b] = color.slice(4, -1).split(",").map(x => parseInt(x, 10));
+    return [r, g, b, 1];
+  }
+  if (color.startsWith("rgba(")) {
+    const parts = color.slice(5, -1).split(",");
+    return [parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2], 10), parseFloat(parts[3])];
+  }
+  const m = color.match(/^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+|none))?\)$/);
+  if (m) {
+    return [Math.round(parseFloat(m[1]) * 255), Math.round(parseFloat(m[2]) * 255), Math.round(parseFloat(m[3]) * 255), m[4] !== undefined && m[4] !== "none" ? parseFloat(m[4]) : 1];
+  }
+  return null;
+}
+function getRGB(color) {
+  const rgba = getRGBA(color);
+  if (!rgba) {
+    warn(`Not a valid color format: "${color}"`);
+    return [0, 0, 0];
+  }
+  return rgba.slice(0, 3);
+}
 function getColorValues(colors) {
   const span = document.createElement("span");
   span.style.visibility = "hidden";
@@ -1670,6 +1458,28 @@ function getColorValues(colors) {
     colors.set(name, getRGB(computedColor));
   }
   span.remove();
+}
+function getCurrentTransform(ctx) {
+  const {
+    a,
+    b,
+    c,
+    d,
+    e,
+    f
+  } = ctx.getTransform();
+  return [a, b, c, d, e, f];
+}
+function getCurrentTransformInverse(ctx) {
+  const {
+    a,
+    b,
+    c,
+    d,
+    e,
+    f
+  } = ctx.getTransform().invertSelf();
+  return [a, b, c, d, e, f];
 }
 function setLayerDimensions(div, viewport, mustFlip = false, mustRotate = true) {
   if (viewport instanceof PageViewport) {
@@ -1692,6 +1502,51 @@ function setLayerDimensions(div, viewport, mustFlip = false, mustRotate = true) 
   }
   if (mustRotate) {
     div.setAttribute("data-main-rotation", viewport.rotation);
+  }
+}
+class OutputScale {
+  constructor() {
+    const {
+      pixelRatio
+    } = OutputScale;
+    this.sx = pixelRatio;
+    this.sy = pixelRatio;
+  }
+  get scaled() {
+    return this.sx !== 1 || this.sy !== 1;
+  }
+  get symmetric() {
+    return this.sx === this.sy;
+  }
+  limitCanvas(width, height, maxPixels, maxDim, capAreaFactor = -1) {
+    let maxAreaScale = Infinity,
+      maxWidthScale = Infinity,
+      maxHeightScale = Infinity;
+    maxPixels = OutputScale.capPixels(maxPixels, capAreaFactor);
+    if (maxPixels > 0) {
+      maxAreaScale = Math.sqrt(maxPixels / (width * height));
+    }
+    if (maxDim !== -1) {
+      maxWidthScale = maxDim / width;
+      maxHeightScale = maxDim / height;
+    }
+    const maxScale = Math.min(maxAreaScale, maxWidthScale, maxHeightScale);
+    if (this.sx > maxScale || this.sy > maxScale) {
+      this.sx = maxScale;
+      this.sy = maxScale;
+      return true;
+    }
+    return false;
+  }
+  static get pixelRatio() {
+    return globalThis.devicePixelRatio || 1;
+  }
+  static capPixels(maxPixels, capAreaFactor) {
+    if (capAreaFactor >= 0) {
+      const winPixels = Math.ceil(window.screen.availWidth * window.screen.availHeight * this.pixelRatio ** 2 * (1 + capAreaFactor / 100));
+      return maxPixels > 0 ? Math.min(maxPixels, winPixels) : winPixels;
+    }
+    return maxPixels;
   }
 }
 const SupportedImageMimeTypes = new Set(["image/apng", "image/avif", "image/bmp", "image/gif", "image/jpeg", "image/png", "image/svg+xml", "image/webp", "image/x-icon"]);
@@ -1717,6 +1572,131 @@ class CSSConstants {
     element.remove();
     return shadow(this, "commentForegroundColor", getRGB(color));
   }
+}
+function applyOpacity(color, opacity) {
+  opacity = MathClamp(opacity ?? 1, 0, 1);
+  const white = 255 * (1 - opacity);
+  return color.map(c => Math.round(c * opacity + white));
+}
+function RGBToHSL(rgb, output) {
+  const r = rgb[0] / 255;
+  const g = rgb[1] / 255;
+  const b = rgb[2] / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) {
+    output[0] = output[1] = 0;
+  } else {
+    const d = max - min;
+    output[1] = l < 0.5 ? d / (max + min) : d / (2 - max - min);
+    switch (max) {
+      case r:
+        output[0] = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+        break;
+      case g:
+        output[0] = ((b - r) / d + 2) * 60;
+        break;
+      case b:
+        output[0] = ((r - g) / d + 4) * 60;
+        break;
+    }
+  }
+  output[2] = l;
+}
+function HSLToRGB(hsl, output) {
+  const h = hsl[0];
+  const s = hsl[1];
+  const l = hsl[2];
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(h / 60 % 2 - 1));
+  const m = l - c / 2;
+  switch (Math.floor(h / 60)) {
+    case 0:
+      output[0] = c + m;
+      output[1] = x + m;
+      output[2] = m;
+      break;
+    case 1:
+      output[0] = x + m;
+      output[1] = c + m;
+      output[2] = m;
+      break;
+    case 2:
+      output[0] = m;
+      output[1] = c + m;
+      output[2] = x + m;
+      break;
+    case 3:
+      output[0] = m;
+      output[1] = x + m;
+      output[2] = c + m;
+      break;
+    case 4:
+      output[0] = x + m;
+      output[1] = m;
+      output[2] = c + m;
+      break;
+    case 5:
+    case 6:
+      output[0] = c + m;
+      output[1] = m;
+      output[2] = x + m;
+      break;
+  }
+}
+function computeLuminance(x) {
+  return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+}
+function contrastRatio(hsl1, hsl2, output) {
+  HSLToRGB(hsl1, output);
+  output.map(computeLuminance);
+  const lum1 = 0.2126 * output[0] + 0.7152 * output[1] + 0.0722 * output[2];
+  HSLToRGB(hsl2, output);
+  output.map(computeLuminance);
+  const lum2 = 0.2126 * output[0] + 0.7152 * output[1] + 0.0722 * output[2];
+  return lum1 > lum2 ? (lum1 + 0.05) / (lum2 + 0.05) : (lum2 + 0.05) / (lum1 + 0.05);
+}
+const contrastCache = new Map();
+function findContrastColor(baseColor, fixedColor) {
+  const key = baseColor[0] + baseColor[1] * 0x100 + baseColor[2] * 0x10000 + fixedColor[0] * 0x1000000 + fixedColor[1] * 0x100000000 + fixedColor[2] * 0x10000000000;
+  let cachedValue = contrastCache.get(key);
+  if (cachedValue) {
+    return cachedValue;
+  }
+  const array = new Float32Array(9);
+  const output = array.subarray(0, 3);
+  const baseHSL = array.subarray(3, 6);
+  RGBToHSL(baseColor, baseHSL);
+  const fixedHSL = array.subarray(6, 9);
+  RGBToHSL(fixedColor, fixedHSL);
+  const isFixedColorDark = fixedHSL[2] < 0.5;
+  const minContrast = isFixedColorDark ? 12 : 4.5;
+  baseHSL[2] = isFixedColorDark ? Math.sqrt(baseHSL[2]) : 1 - Math.sqrt(1 - baseHSL[2]);
+  if (contrastRatio(baseHSL, fixedHSL, output) < minContrast) {
+    let start, end;
+    if (isFixedColorDark) {
+      start = baseHSL[2];
+      end = 1;
+    } else {
+      start = 0;
+      end = baseHSL[2];
+    }
+    const PRECISION = 0.005;
+    while (end - start > PRECISION) {
+      const mid = baseHSL[2] = (start + end) / 2;
+      if (isFixedColorDark === contrastRatio(baseHSL, fixedHSL, output) < minContrast) {
+        start = mid;
+      } else {
+        end = mid;
+      }
+    }
+    baseHSL[2] = isFixedColorDark ? end : start;
+  }
+  HSLToRGB(baseHSL, output);
+  cachedValue = Util.makeHexColor(Math.round(output[0] * 255), Math.round(output[1] * 255), Math.round(output[2] * 255));
+  contrastCache.set(key, cachedValue);
+  return cachedValue;
 }
 function renderRichText({
   html,
@@ -1745,6 +1725,35 @@ function renderRichText({
   }
   fragment.firstElementChild.classList.add("richText", className);
   container.append(fragment);
+}
+function makePathFromDrawOPS(data) {
+  const path = new Path2D();
+  if (!data) {
+    return path;
+  }
+  for (let i = 0, ii = data.length; i < ii;) {
+    switch (data[i++]) {
+      case DrawOPS.moveTo:
+        path.moveTo(data[i++], data[i++]);
+        break;
+      case DrawOPS.lineTo:
+        path.lineTo(data[i++], data[i++]);
+        break;
+      case DrawOPS.curveTo:
+        path.bezierCurveTo(data[i++], data[i++], data[i++], data[i++], data[i++], data[i++]);
+        break;
+      case DrawOPS.quadraticCurveTo:
+        path.quadraticCurveTo(data[i++], data[i++], data[i++], data[i++]);
+        break;
+      case DrawOPS.closePath:
+        path.closePath();
+        break;
+      default:
+        warn(`Unrecognized drawing path operator: ${data[i - 1]}`);
+        break;
+    }
+  }
+  return path;
 }
 
 ;// ./src/display/editor/toolbar.js
@@ -2052,13 +2061,12 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "b5f7d5ec-e6de-4b4b-b3ac-16d611e7e365";
+const INTERNAL_EVT = "69c561af-2641-4e9f-a96c-d349a5f13a03";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
 
 ;// ./src/display/editor/tools.js
-
 
 
 
@@ -2637,7 +2645,7 @@ class AnnotationEditorUIManager {
       checker: arrowChecker
     }]]));
   }
-  constructor(container, viewer, viewerAlert, altTextManager, commentManager, signatureManager, eventBus, pdfDocument, pageColors, highlightColors, enableHighlightFloatingButton, enableUpdatedAddImage, enableNewAltTextWhenAddingImage, mlManager, editorUndoBar, supportsPinchToZoom, keepToolbarInPage) {
+  constructor(container, viewer, viewerAlert, altTextManager, commentManager, signatureManager, eventBus, pdfDocument, pageColors, highlightColors, enableHighlightFloatingButton, enableUpdatedAddImage, enableNewAltTextWhenAddingImage, mlManager, editorUndoBar, supportsPinchToZoom) {
     const signal = this._signal = this.#abortController.signal;
     this.#container = container;
     this.#viewer = viewer;
@@ -2691,7 +2699,6 @@ class AnnotationEditorUIManager {
     this.isShiftKeyDown = false;
     this._editorUndoBar = editorUndoBar || null;
     this._supportsPinchToZoom = supportsPinchToZoom !== false;
-    this._keepToolbarInPage = keepToolbarInPage === true;
     commentManager?.setSidebarUiManager(this);
   }
   destroy() {
@@ -3857,7 +3864,7 @@ class AnnotationEditorUIManager {
     this.#commandManager.undo();
     this.#dispatchUpdateStates({
       hasSomethingToUndo: this.#commandManager.hasSomethingToUndo(),
-      hasSomethingToRedo: this.#commandManager.hasSomethingToRedo(),
+      hasSomethingToRedo: true,
       isEmpty: this.#isEmpty()
     });
     this._editorUndoBar?.hide();
@@ -3865,7 +3872,7 @@ class AnnotationEditorUIManager {
   redo() {
     this.#commandManager.redo();
     this.#dispatchUpdateStates({
-      hasSomethingToUndo: this.#commandManager.hasSomethingToUndo(),
+      hasSomethingToUndo: true,
       hasSomethingToRedo: this.#commandManager.hasSomethingToRedo(),
       isEmpty: this.#isEmpty()
     });
@@ -4765,7 +4772,6 @@ class Comment {
 
 ;// ./src/display/touch_manager.js
 
-
 function preventDefault(evt) {
   evt.preventDefault();
 }
@@ -5435,29 +5441,6 @@ class AnnotationEditor {
     height *= pageHeight;
     x *= pageWidth;
     y *= pageHeight;
-    let tx = 0;
-    let ty = 0;
-    const toolbar = this._uiManager._keepToolbarInPage && this._editToolbar?.div;
-    if (toolbar?.offsetParent) {
-      const scale = this.parentScale;
-      const toolbarLeft = toolbar.offsetLeft + this.div.clientLeft;
-      const toolbarTop = toolbar.offsetTop + this.div.clientTop;
-      const left = Math.min(0, toolbarLeft) / scale;
-      const top = Math.min(0, toolbarTop) / scale;
-      const widthWithToolbar = width - left + Math.max(0, toolbarLeft + toolbar.offsetWidth - this.div.offsetWidth) / scale;
-      const heightWithToolbar = height - top + Math.max(0, toolbarTop + toolbar.offsetHeight - this.div.offsetHeight) / scale;
-      if (widthWithToolbar <= (rotation % 180 ? pageHeight : pageWidth)) {
-        width = widthWithToolbar;
-        tx = left;
-      }
-      if (heightWithToolbar <= (rotation % 180 ? pageWidth : pageHeight)) {
-        height = heightWithToolbar;
-        ty = top;
-      }
-      [tx, ty] = AnnotationEditor.#rotatePoint(tx, ty, rotation);
-      x += tx;
-      y += ty;
-    }
     if (this._mustFixPosition) {
       switch (rotation) {
         case 0:
@@ -5478,8 +5461,8 @@ class AnnotationEditor {
           break;
       }
     }
-    this.x = x = (x - tx) / pageWidth;
-    this.y = y = (y - ty) / pageHeight;
+    this.x = x /= pageWidth;
+    this.y = y /= pageHeight;
     const [bx, by] = this.getBaseTranslation();
     x += bx;
     y += by;
@@ -6560,20 +6543,13 @@ class AnnotationEditor {
     if (!this._editToolbar) {
       this.addEditToolbar().then(() => {
         if (this.div?.classList.contains("selectedEditor")) {
-          this.#showEditToolbar();
+          this._editToolbar?.show();
         }
       });
       return;
     }
-    this.#showEditToolbar();
-    this.#altText?.toggleAltTextBadge(false);
-  }
-  #showEditToolbar() {
     this._editToolbar?.show();
-    if (this._uiManager._keepToolbarInPage) {
-      this.fixAndSetPosition();
-      this._onTranslated();
-    }
+    this.#altText?.toggleAltTextBadge(false);
   }
   focus() {
     if (this.div && !this.div.contains(document.activeElement)) {
@@ -7106,524 +7082,6 @@ class PrintAnnotationStorage extends AnnotationStorage {
   }
 }
 
-;// ./src/display/api_utils.js
-
-function deprecated(details) {
-  console.log("Deprecated API usage: " + details);
-}
-function getUrlProp(val) {
-  return null;
-}
-function getDataProp(val) {
-  if (val instanceof Uint8Array && val.byteLength === val.buffer.byteLength) {
-    return val;
-  }
-  if (typeof val === "string") {
-    return stringToBytes(val);
-  }
-  if (val instanceof ArrayBuffer || ArrayBuffer.isView(val) || typeof val === "object" && !isNaN(val?.length)) {
-    return new Uint8Array(val);
-  }
-  throw new Error("Invalid PDF binary data: either TypedArray, " + "string, or array-like object is expected in the data property.");
-}
-function getFactoryUrlProp(val) {
-  if (typeof val !== "string") {
-    return null;
-  }
-  if (val.endsWith("/")) {
-    return val;
-  }
-  throw new Error(`Invalid factory url: "${val}" must include trailing slash.`);
-}
-const isRefProxy = v => typeof v === "object" && Number.isInteger(v?.num) && v.num >= 0 && Number.isInteger(v?.gen) && v.gen >= 0;
-const isNameProxy = v => typeof v === "object" && typeof v?.name === "string";
-const isValidExplicitDest = _isValidExplicitDest.bind(null, isRefProxy, isNameProxy);
-function isSameOrigin(baseUrl, otherUrl) {
-  return false;
-}
-function getWorkerSrc(src) {
-  return src;
-}
-class LoopbackPort {
-  #listeners = new Map();
-  #deferred = Promise.resolve();
-  postMessage(obj, transfer) {
-    const event = {
-      data: structuredClone(obj, transfer ? {
-        transfer
-      } : null)
-    };
-    this.#deferred.then(() => {
-      for (const [listener] of this.#listeners) {
-        listener.call(this, event);
-      }
-    });
-  }
-  addEventListener(name, listener, options = null) {
-    let rmAbort = null;
-    if (options?.signal instanceof AbortSignal) {
-      const {
-        signal
-      } = options;
-      if (signal.aborted) {
-        warn("LoopbackPort - cannot use an `aborted` signal.");
-        return;
-      }
-      const onAbort = () => this.removeEventListener(name, listener);
-      rmAbort = () => signal.removeEventListener("abort", onAbort);
-      signal.addEventListener("abort", onAbort);
-    }
-    this.#listeners.set(listener, rmAbort);
-  }
-  removeEventListener(name, listener) {
-    const rmAbort = this.#listeners.get(listener);
-    rmAbort?.();
-    this.#listeners.delete(listener);
-  }
-  terminate() {
-    for (const [, rmAbort] of this.#listeners) {
-      rmAbort?.();
-    }
-    this.#listeners.clear();
-  }
-}
-class StatTimer {
-  #started = new Map();
-  times = [];
-  time(name) {
-    if (this.#started.has(name)) {
-      warn(`Timer is already running for ${name}`);
-    }
-    this.#started.set(name, Date.now());
-  }
-  timeEnd(name) {
-    if (!this.#started.has(name)) {
-      warn(`Timer has not been started for ${name}`);
-    }
-    this.times.push({
-      name,
-      start: this.#started.get(name),
-      end: Date.now()
-    });
-    this.#started.delete(name);
-  }
-  toString() {
-    const longest = Math.max(...this.times.map(t => t.name.length));
-    return this.times.map(t => `${t.name.padEnd(longest)} ${t.end - t.start}ms\n`).join("");
-  }
-}
-
-;// ./src/shared/message_handler.js
-
-const CallbackKind = {
-  DATA: 1,
-  ERROR: 2
-};
-const StreamKind = {
-  CANCEL: 1,
-  CANCEL_COMPLETE: 2,
-  CLOSE: 3,
-  ENQUEUE: 4,
-  ERROR: 5,
-  PULL: 6,
-  PULL_COMPLETE: 7,
-  START_COMPLETE: 8
-};
-function onFn() {}
-function wrapReason(ex) {
-  if (ex instanceof AbortException || ex instanceof InvalidPDFException || ex instanceof PasswordException || ex instanceof ResponseException || ex instanceof UnknownErrorException) {
-    return ex;
-  }
-  if (typeof ex !== "object" || ex === null) {
-    return new UnknownErrorException(String(ex), String(ex));
-  }
-  switch (ex.name) {
-    case "AbortException":
-      return new AbortException(ex.message);
-    case "InvalidPDFException":
-      return new InvalidPDFException(ex.message);
-    case "PasswordException":
-      return new PasswordException(ex.message, ex.code);
-    case "ResponseException":
-      return new ResponseException(ex.message, ex.status, ex.missing);
-    case "UnknownErrorException":
-      return new UnknownErrorException(ex.message, ex.details);
-  }
-  return new UnknownErrorException(ex.message, ex.toString());
-}
-class MessageHandler {
-  #actions = new Map();
-  #callbackCapabilities = new Map();
-  #callbackId = 1;
-  #comObj;
-  #messageAC = new AbortController();
-  #sourceName;
-  #streamControllers = new Map();
-  #streamId = 1;
-  #streamSinks = new Map();
-  #targetName;
-  constructor(sourceName, targetName, comObj) {
-    this.#sourceName = sourceName;
-    this.#targetName = targetName;
-    this.#comObj = comObj;
-    comObj.addEventListener("message", this.#onMessage.bind(this), {
-      signal: this.#messageAC.signal
-    });
-  }
-  #onMessage({
-    data
-  }) {
-    if (data.targetName !== this.#sourceName) {
-      return;
-    }
-    if (data.stream) {
-      this.#processStreamMessage(data);
-      return;
-    }
-    if (data.callback) {
-      const {
-        callbackId,
-        callback
-      } = data;
-      const capability = this.#callbackCapabilities.get(callbackId);
-      if (!capability) {
-        throw new Error(`Cannot resolve callback ${callbackId}`);
-      }
-      this.#callbackCapabilities.delete(callbackId);
-      if (callback === CallbackKind.DATA) {
-        capability.resolve(data.data);
-      } else if (callback === CallbackKind.ERROR) {
-        capability.reject(wrapReason(data.reason));
-      } else {
-        throw new Error("Unexpected callback case");
-      }
-      return;
-    }
-    const action = this.#actions.get(data.action);
-    if (!action) {
-      throw new Error(`Unknown action from worker: ${data.action}`);
-    }
-    if (data.callbackId) {
-      const sourceName = this.#sourceName,
-        targetName = data.sourceName,
-        comObj = this.#comObj;
-      Promise.try(action, data.data).then(result => {
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          callback: CallbackKind.DATA,
-          callbackId: data.callbackId,
-          data: result
-        });
-      }).catch(reason => {
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          callback: CallbackKind.ERROR,
-          callbackId: data.callbackId,
-          reason: wrapReason(reason)
-        });
-      });
-      return;
-    }
-    if (data.streamId) {
-      this.#createStreamSink(data);
-      return;
-    }
-    action(data.data);
-  }
-  on(actionName, handler) {
-    const ah = this.#actions;
-    if (ah.has(actionName)) {
-      throw new Error(`There is already a "${actionName}" handler.`);
-    }
-    ah.set(actionName, handler);
-  }
-  send(actionName, data, transfers) {
-    this.#comObj.postMessage({
-      sourceName: this.#sourceName,
-      targetName: this.#targetName,
-      action: actionName,
-      data
-    }, transfers);
-  }
-  sendWithPromise(actionName, data, transfers) {
-    const callbackId = this.#callbackId++,
-      capability = Promise.withResolvers();
-    this.#callbackCapabilities.set(callbackId, capability);
-    try {
-      this.#comObj.postMessage({
-        sourceName: this.#sourceName,
-        targetName: this.#targetName,
-        action: actionName,
-        callbackId,
-        data
-      }, transfers);
-    } catch (ex) {
-      capability.reject(ex);
-    }
-    return capability.promise;
-  }
-  sendWithStream(actionName, data, queueingStrategy, transfers) {
-    const streamId = this.#streamId++,
-      sourceName = this.#sourceName,
-      targetName = this.#targetName,
-      comObj = this.#comObj;
-    return new ReadableStream({
-      start: controller => {
-        const startCapability = Promise.withResolvers();
-        this.#streamControllers.set(streamId, {
-          controller,
-          startCall: startCapability,
-          pullCall: null,
-          cancelCall: null,
-          isClosed: false
-        });
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          action: actionName,
-          streamId,
-          data,
-          desiredSize: controller.desiredSize
-        }, transfers);
-        return startCapability.promise;
-      },
-      pull: controller => {
-        const pullCapability = Promise.withResolvers();
-        this.#streamControllers.get(streamId).pullCall = pullCapability;
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.PULL,
-          streamId,
-          desiredSize: controller.desiredSize
-        });
-        return pullCapability.promise;
-      },
-      cancel: reason => {
-        assert(reason instanceof Error, "cancel must have a valid reason");
-        const cancelCapability = Promise.withResolvers();
-        this.#streamControllers.get(streamId).cancelCall = cancelCapability;
-        this.#streamControllers.get(streamId).isClosed = true;
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.CANCEL,
-          streamId,
-          reason: wrapReason(reason)
-        });
-        return cancelCapability.promise;
-      }
-    }, queueingStrategy);
-  }
-  #createStreamSink(data) {
-    const streamId = data.streamId,
-      sourceName = this.#sourceName,
-      targetName = data.sourceName,
-      comObj = this.#comObj;
-    const streamSinks = this.#streamSinks,
-      action = this.#actions.get(data.action);
-    const streamSink = {
-      enqueue(chunk, size = 1, transfers) {
-        if (this.isCancelled) {
-          return;
-        }
-        const lastDesiredSize = this.desiredSize;
-        this.desiredSize -= size;
-        if (lastDesiredSize > 0 && this.desiredSize <= 0) {
-          this.sinkCapability = Promise.withResolvers();
-          this.ready = this.sinkCapability.promise;
-        }
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.ENQUEUE,
-          streamId,
-          chunk
-        }, transfers);
-      },
-      close() {
-        if (this.isCancelled) {
-          return;
-        }
-        this.isCancelled = true;
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.CLOSE,
-          streamId
-        });
-        streamSinks.delete(streamId);
-      },
-      error(reason) {
-        if (this.isCancelled) {
-          return;
-        }
-        this.isCancelled = true;
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.ERROR,
-          streamId,
-          reason: wrapReason(reason)
-        });
-      },
-      sinkCapability: Promise.withResolvers(),
-      onPull: null,
-      onCancel: null,
-      isCancelled: false,
-      desiredSize: data.desiredSize,
-      ready: null
-    };
-    streamSink.sinkCapability.resolve();
-    streamSink.ready = streamSink.sinkCapability.promise;
-    streamSinks.set(streamId, streamSink);
-    Promise.try(action, data.data, streamSink).then(() => {
-      comObj.postMessage({
-        sourceName,
-        targetName,
-        stream: StreamKind.START_COMPLETE,
-        streamId,
-        success: true
-      });
-    }, reason => {
-      comObj.postMessage({
-        sourceName,
-        targetName,
-        stream: StreamKind.START_COMPLETE,
-        streamId,
-        reason: wrapReason(reason)
-      });
-    });
-  }
-  #processStreamMessage(data) {
-    const streamId = data.streamId,
-      sourceName = this.#sourceName,
-      targetName = data.sourceName,
-      comObj = this.#comObj;
-    const streamController = this.#streamControllers.get(streamId),
-      streamSink = this.#streamSinks.get(streamId);
-    switch (data.stream) {
-      case StreamKind.START_COMPLETE:
-        if (data.success) {
-          streamController.startCall.resolve();
-        } else {
-          streamController.startCall.reject(wrapReason(data.reason));
-        }
-        break;
-      case StreamKind.PULL_COMPLETE:
-        if (data.success) {
-          streamController.pullCall.resolve();
-        } else {
-          streamController.pullCall.reject(wrapReason(data.reason));
-        }
-        break;
-      case StreamKind.PULL:
-        if (!streamSink) {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.PULL_COMPLETE,
-            streamId,
-            success: true
-          });
-          break;
-        }
-        if (streamSink.desiredSize <= 0 && data.desiredSize > 0) {
-          streamSink.sinkCapability.resolve();
-        }
-        streamSink.desiredSize = data.desiredSize;
-        Promise.try(streamSink.onPull || onFn).then(() => {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.PULL_COMPLETE,
-            streamId,
-            success: true
-          });
-        }, reason => {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.PULL_COMPLETE,
-            streamId,
-            reason: wrapReason(reason)
-          });
-        });
-        break;
-      case StreamKind.ENQUEUE:
-        assert(streamController, "enqueue should have stream controller");
-        if (streamController.isClosed) {
-          break;
-        }
-        streamController.controller.enqueue(data.chunk);
-        break;
-      case StreamKind.CLOSE:
-        assert(streamController, "close should have stream controller");
-        if (streamController.isClosed) {
-          break;
-        }
-        streamController.isClosed = true;
-        streamController.controller.close();
-        this.#deleteStreamController(streamController, streamId);
-        break;
-      case StreamKind.ERROR:
-        assert(streamController, "error should have stream controller");
-        streamController.controller.error(wrapReason(data.reason));
-        this.#deleteStreamController(streamController, streamId);
-        break;
-      case StreamKind.CANCEL_COMPLETE:
-        if (data.success) {
-          streamController.cancelCall.resolve();
-        } else {
-          streamController.cancelCall.reject(wrapReason(data.reason));
-        }
-        this.#deleteStreamController(streamController, streamId);
-        break;
-      case StreamKind.CANCEL:
-        if (!streamSink) {
-          break;
-        }
-        const dataReason = wrapReason(data.reason);
-        Promise.try(streamSink.onCancel || onFn, dataReason).then(() => {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.CANCEL_COMPLETE,
-            streamId,
-            success: true
-          });
-        }, reason => {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.CANCEL_COMPLETE,
-            streamId,
-            reason: wrapReason(reason)
-          });
-        });
-        streamSink.sinkCapability.reject(dataReason);
-        streamSink.isCancelled = true;
-        this.#streamSinks.delete(streamId);
-        break;
-      default:
-        throw new Error("Unexpected stream case");
-    }
-  }
-  async #deleteStreamController(streamController, streamId) {
-    await Promise.allSettled([streamController.startCall?.promise, streamController.pullCall?.promise, streamController.cancelCall?.promise]);
-    this.#streamControllers.delete(streamId);
-  }
-  destroy() {
-    this.#messageAC?.abort();
-    this.#messageAC = null;
-  }
-  get destroyed() {
-    return !this.#messageAC;
-  }
-}
-
 ;// ./src/display/canvas_dependency_tracker.js
 
 
@@ -7671,12 +7129,6 @@ class BBoxReader {
   constructor(bboxes, coords) {
     this.#bboxes = bboxes;
     this.#coords = coords;
-  }
-  static fromBuffer(buffer) {
-    return new BBoxReader(new Uint32Array(buffer), new Uint8ClampedArray(buffer));
-  }
-  get buffer() {
-    return this.#bboxes.buffer;
   }
   get length() {
     return this.#bboxes.length;
@@ -8386,16 +7838,1091 @@ class CanvasImagesTracker {
     return this.#coords.subarray(0, this.#count * 6);
   }
 }
-function createCanvasTrackers(canvas, operationsCount, {
-  recordOperations = false,
-  recordImages = false,
-  recordDebugMetadata = false
-}) {
-  const bboxTracker = recordOperations || recordImages ? new CanvasBBoxTracker(canvas, operationsCount) : null;
-  return {
-    dependencyTracker: recordOperations ? new CanvasDependencyTracker(bboxTracker, recordDebugMetadata) : bboxTracker,
-    imagesTracker: recordImages ? new CanvasImagesTracker(canvas) : null
-  };
+
+;// ./src/shared/css_utils.js
+const CONTROL_CHAR_REGEXP = /\p{Cc}/u;
+function isCSSString(str) {
+  const quote = str[0];
+  if (str.length < 2 || quote !== `"` && quote !== `'` || str.at(-1) !== quote) {
+    return false;
+  }
+  const end = str.length - 1;
+  for (let i = 1; i < end; i++) {
+    const char = str[i];
+    if (char === quote || CONTROL_CHAR_REGEXP.test(char)) {
+      return false;
+    }
+    if (char === "\\") {
+      if (++i >= end || CONTROL_CHAR_REGEXP.test(str[i])) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+function serializeFontFamily(fontFamily) {
+  if (isCSSString(fontFamily)) {
+    return fontFamily;
+  }
+  const escaped = fontFamily.replaceAll(/["\\\p{Cc}]/gu, char => char === `"` || char === "\\" ? `\\${char}` : `\\${char.codePointAt(0).toString(16)} `);
+  return `"${escaped}"`;
+}
+
+;// ./src/display/font_loader.js
+
+
+
+class FontLoader {
+  #nativeFontFaces = new Set();
+  #systemFonts = new Set();
+  #styleSheet = null;
+  constructor({
+    ownerDocument = globalThis.document,
+    styleElement = null
+  }) {
+    this._document = ownerDocument;
+    this.styleElement = null;
+  }
+  addNativeFontFace(nativeFontFace) {
+    this.#nativeFontFaces.add(nativeFontFace);
+    this._document.fonts.add(nativeFontFace);
+  }
+  removeNativeFontFace(nativeFontFace) {
+    this.#nativeFontFaces.delete(nativeFontFace);
+    this._document.fonts.delete(nativeFontFace);
+  }
+  insertRule(rule) {
+    const styleSheet = this.#getStyleSheet();
+    styleSheet.insertRule(rule, styleSheet.cssRules.length);
+  }
+  #getStyleSheet() {
+    if (this.#styleSheet) {
+      return this.#styleSheet;
+    }
+    const StyleSheet = this._document.defaultView?.CSSStyleSheet || globalThis.CSSStyleSheet;
+    if (!this.styleElement && StyleSheet) {
+      const {
+        adoptedStyleSheets
+      } = this._document;
+      if (adoptedStyleSheets) {
+        const styleSheet = new StyleSheet();
+        adoptedStyleSheets.push(styleSheet);
+        return this.#styleSheet = styleSheet;
+      }
+    }
+    if (!this.styleElement) {
+      this.styleElement = this._document.createElement("style");
+      this._document.documentElement.getElementsByTagName("head")[0].append(this.styleElement);
+    }
+    return this.#styleSheet = this.styleElement.sheet;
+  }
+  clear() {
+    for (const nativeFontFace of this.#nativeFontFaces) {
+      this._document.fonts.delete(nativeFontFace);
+    }
+    this.#nativeFontFaces.clear();
+    this.#systemFonts.clear();
+    if (this.#styleSheet) {
+      const {
+        adoptedStyleSheets
+      } = this._document;
+      if (adoptedStyleSheets?.includes(this.#styleSheet)) {
+        this._document.adoptedStyleSheets = adoptedStyleSheets.filter(styleSheet => styleSheet !== this.#styleSheet);
+      }
+      this.#styleSheet = null;
+    }
+    this.styleElement?.remove();
+    this.styleElement = null;
+  }
+  async loadSystemFont({
+    systemFontInfo: info,
+    disableFontFace,
+    _inspectFont
+  }) {
+    if (!info || this.#systemFonts.has(info.loadedName)) {
+      return;
+    }
+    assert(!disableFontFace, "loadSystemFont shouldn't be called when `disableFontFace` is set.");
+    if (this.isFontLoadingAPISupported) {
+      const {
+        loadedName,
+        src,
+        style
+      } = info;
+      const fontFace = new FontFace(loadedName, src, style);
+      this.addNativeFontFace(fontFace);
+      try {
+        await fontFace.load();
+        this.#systemFonts.add(loadedName);
+        _inspectFont?.(info);
+      } catch {
+        warn(`Cannot load system font: ${info.baseFontName}, installing it could help to improve PDF rendering.`);
+        this.removeNativeFontFace(fontFace);
+      }
+      return;
+    }
+    unreachable("Not implemented: loadSystemFont without the Font Loading API.");
+  }
+  async bind(font) {
+    if (font.attached || font.missingFile && !font.systemFontInfo) {
+      return;
+    }
+    font.attached = true;
+    if (font.systemFontInfo) {
+      await this.loadSystemFont(font);
+      return;
+    }
+    if (this.isFontLoadingAPISupported) {
+      const nativeFontFace = font.createNativeFontFace();
+      if (nativeFontFace) {
+        this.addNativeFontFace(nativeFontFace);
+        try {
+          await nativeFontFace.loaded;
+        } catch (ex) {
+          warn(`Failed to load font '${nativeFontFace.family}': '${ex}'.`);
+          font.disableFontFace = true;
+          throw ex;
+        }
+      }
+      return;
+    }
+    const rule = font.createFontFaceRule();
+    if (rule) {
+      this.insertRule(rule);
+      if (this.isSyncFontLoadingSupported) {
+        return;
+      }
+      await this.#testFontLoaded(font);
+    }
+  }
+  get isFontLoadingAPISupported() {
+    return shadow(this, "isFontLoadingAPISupported", !!this._document?.fonts);
+  }
+  get isSyncFontLoadingSupported() {
+    return shadow(this, "isSyncFontLoadingSupported", true);
+  }
+  #testFontLoaded(font) {
+    throw new Error("Not implemented: #testFontLoaded");
+  }
+}
+class FontFaceObject {
+  #compiledPaths = new Map();
+  #fontData;
+  constructor(translatedData, inspectFont = null, charProcOperatorList, extra) {
+    this.#fontData = translatedData;
+    this._inspectFont = inspectFont;
+    if (charProcOperatorList) {
+      this.charProcOperatorList = charProcOperatorList;
+    }
+    if (extra) {
+      Object.assign(this, extra);
+    }
+  }
+  createNativeFontFace() {
+    const {
+      data
+    } = this;
+    if (!data || this.disableFontFace) {
+      return null;
+    }
+    let nativeFontFace;
+    if (!this.cssFontInfo) {
+      nativeFontFace = new FontFace(this.loadedName, data, {});
+    } else {
+      const css = {
+        weight: this.cssFontInfo.fontWeight
+      };
+      if (this.cssFontInfo.italicAngle) {
+        css.style = `oblique ${this.cssFontInfo.italicAngle}deg`;
+      }
+      nativeFontFace = new FontFace(serializeFontFamily(this.cssFontInfo.fontFamily), data, css);
+    }
+    this._inspectFont?.(this);
+    return nativeFontFace;
+  }
+  createFontFaceRule() {
+    const {
+      data
+    } = this;
+    if (!data || this.disableFontFace) {
+      return null;
+    }
+    const url = `url(data:${this.mimetype};base64,${data.toBase64()});`;
+    let rule;
+    if (!this.cssFontInfo) {
+      rule = `@font-face {font-family:"${this.loadedName}";src:${url}}`;
+    } else {
+      let css = `font-weight: ${this.cssFontInfo.fontWeight};`;
+      if (this.cssFontInfo.italicAngle) {
+        css += `font-style: oblique ${this.cssFontInfo.italicAngle}deg;`;
+      }
+      const fontFamily = serializeFontFamily(this.cssFontInfo.fontFamily);
+      rule = `@font-face {font-family:${fontFamily};${css}src:${url}}`;
+    }
+    this._inspectFont?.(this, url);
+    return rule;
+  }
+  getPathGenerator(objs, character) {
+    let path = this.#compiledPaths.get(character);
+    if (path) {
+      return path;
+    }
+    const objId = `${this.loadedName}_path_${character}`;
+    let cmds;
+    try {
+      cmds = objs.get(objId);
+    } catch (ex) {
+      warn(`getPathGenerator - ignoring character: "${ex}".`);
+    }
+    path = makePathFromDrawOPS(cmds?.path);
+    if (!this.fontExtraProperties) {
+      objs.delete(objId);
+    }
+    this.#compiledPaths.set(character, path);
+    return path;
+  }
+  get black() {
+    return this.#fontData.black;
+  }
+  get bold() {
+    return this.#fontData.bold;
+  }
+  get disableFontFace() {
+    return this.#fontData.disableFontFace;
+  }
+  set disableFontFace(value) {
+    shadow(this, "disableFontFace", !!value);
+  }
+  get fontExtraProperties() {
+    return this.#fontData.fontExtraProperties;
+  }
+  get isInvalidPDFjsFont() {
+    return this.#fontData.isInvalidPDFjsFont;
+  }
+  get isType3Font() {
+    return this.#fontData.isType3Font;
+  }
+  get italic() {
+    return this.#fontData.italic;
+  }
+  get missingFile() {
+    return this.#fontData.missingFile;
+  }
+  get remeasure() {
+    return this.#fontData.remeasure;
+  }
+  get vertical() {
+    return this.#fontData.vertical;
+  }
+  get bbox() {
+    return this.#fontData.bbox;
+  }
+  get fontMatrix() {
+    return this.#fontData.fontMatrix;
+  }
+  get fallbackName() {
+    return this.#fontData.fallbackName;
+  }
+  get loadedName() {
+    return this.#fontData.loadedName;
+  }
+  get mimetype() {
+    return this.missingFile ? null : "font/opentype";
+  }
+  get data() {
+    return this.#fontData.data;
+  }
+  clearData() {
+    this.#fontData.clearData();
+  }
+  get cssFontInfo() {
+    return this.#fontData.cssFontInfo;
+  }
+  get systemFontInfo() {
+    return this.#fontData.systemFontInfo;
+  }
+}
+
+;// ./src/shared/obj_bin_transform_utils.js
+
+class CSS_FONT_INFO {
+  static strings = ["fontFamily", "fontWeight", "italicAngle"];
+}
+class SYSTEM_FONT_INFO {
+  static strings = ["css", "loadedName", "baseFontName", "src"];
+}
+class FONT_INFO {
+  static bools = ["black", "bold", "disableFontFace", "fontExtraProperties", "isInvalidPDFjsFont", "isType3Font", "italic", "missingFile", "remeasure", "vertical"];
+  static strings = ["fallbackName", "loadedName"];
+  static OFFSET_BBOX = Math.ceil(this.bools.length * 2 / 8);
+  static OFFSET_FONT_MATRIX = this.OFFSET_BBOX + 1 + 2 * 4;
+  static OFFSET_STRINGS = this.OFFSET_FONT_MATRIX + 1 + 8 * 6;
+}
+class PATTERN_INFO {
+  static KIND = 0;
+  static HAS_BBOX = 1;
+  static HAS_BACKGROUND = 2;
+  static SHADING_TYPE = 3;
+  static N_COORD = 4;
+  static N_COLOR = 8;
+  static N_STOP = 12;
+  static N_FIGURES = 16;
+}
+class InfoUtils {
+  static get decoder() {
+    return shadow(this, "decoder", new TextDecoder());
+  }
+  static get encoder() {
+    return shadow(this, "encoder", new TextEncoder());
+  }
+}
+
+;// ./src/display/obj_bin_transform_display.js
+
+
+function readString(buffer, view, index, offset = 0) {
+  const {
+    decoder
+  } = InfoUtils;
+  for (let i = 0; i < index; i++) {
+    offset += view.getUint32(offset) + 4;
+  }
+  const length = view.getUint32(offset);
+  return decoder.decode(new Uint8Array(buffer, offset + 4, length));
+}
+class CssFontInfo {
+  #buffer;
+  #view;
+  constructor(buffer) {
+    this.#buffer = buffer;
+    this.#view = new DataView(buffer);
+  }
+  #readString(index) {
+    assert(index < CSS_FONT_INFO.strings.length, "Invalid string index");
+    return readString(this.#buffer, this.#view, index);
+  }
+  get fontFamily() {
+    return shadow(this, "fontFamily", this.#readString(0));
+  }
+  get fontWeight() {
+    return shadow(this, "fontWeight", this.#readString(1));
+  }
+  get italicAngle() {
+    return shadow(this, "italicAngle", this.#readString(2));
+  }
+}
+class SystemFontInfo {
+  #buffer;
+  #view;
+  constructor(buffer) {
+    this.#buffer = buffer;
+    this.#view = new DataView(buffer);
+  }
+  #readString(index) {
+    assert(index < SYSTEM_FONT_INFO.strings.length, "Invalid string index");
+    return readString(this.#buffer, this.#view, index, 4);
+  }
+  get css() {
+    return shadow(this, "css", this.#readString(0));
+  }
+  get loadedName() {
+    return shadow(this, "loadedName", this.#readString(1));
+  }
+  get baseFontName() {
+    return shadow(this, "baseFontName", this.#readString(2));
+  }
+  get src() {
+    return shadow(this, "src", this.#readString(3));
+  }
+  get style() {
+    let offset = 0;
+    offset += 4 + this.#view.getUint32(offset);
+    const style = readString(this.#buffer, this.#view, 0, offset),
+      weight = readString(this.#buffer, this.#view, 1, offset);
+    return shadow(this, "style", {
+      style,
+      weight
+    });
+  }
+}
+class FontInfo {
+  #buffer;
+  #view;
+  constructor(buffer) {
+    this.#buffer = buffer;
+    this.#view = new DataView(buffer);
+  }
+  #readBoolean(index) {
+    assert(index < FONT_INFO.bools.length, "Invalid boolean index");
+    const byteOffset = Math.floor(index / 4);
+    const bitOffset = index * 2 % 8;
+    const value = this.#view.getUint8(byteOffset) >> bitOffset & 0x03;
+    return value === 0x00 ? undefined : value === 0x02;
+  }
+  get black() {
+    return shadow(this, "black", this.#readBoolean(0));
+  }
+  get bold() {
+    return shadow(this, "bold", this.#readBoolean(1));
+  }
+  get disableFontFace() {
+    return shadow(this, "disableFontFace", this.#readBoolean(2));
+  }
+  get fontExtraProperties() {
+    return shadow(this, "fontExtraProperties", this.#readBoolean(3));
+  }
+  get isInvalidPDFjsFont() {
+    return shadow(this, "isInvalidPDFjsFont", this.#readBoolean(4));
+  }
+  get isType3Font() {
+    return shadow(this, "isType3Font", this.#readBoolean(5));
+  }
+  get italic() {
+    return shadow(this, "italic", this.#readBoolean(6));
+  }
+  get missingFile() {
+    return shadow(this, "missingFile", this.#readBoolean(7));
+  }
+  get remeasure() {
+    return shadow(this, "remeasure", this.#readBoolean(8));
+  }
+  get vertical() {
+    return shadow(this, "vertical", this.#readBoolean(9));
+  }
+  #readArray(offset, arrLen, lookupName, increment) {
+    const len = this.#view.getUint8(offset++);
+    if (len === 0) {
+      return undefined;
+    }
+    assert(len === arrLen, "Invalid array length.");
+    const arr = new Array(len);
+    for (let i = 0; i < len; i++) {
+      arr[i] = this.#view[lookupName](offset, true);
+      offset += increment;
+    }
+    return arr;
+  }
+  get bbox() {
+    return shadow(this, "bbox", this.#readArray(FONT_INFO.OFFSET_BBOX, 4, "getInt16", 2));
+  }
+  get fontMatrix() {
+    return shadow(this, "fontMatrix", this.#readArray(FONT_INFO.OFFSET_FONT_MATRIX, 6, "getFloat64", 8));
+  }
+  #readString(index) {
+    assert(index < FONT_INFO.strings.length, "Invalid string index");
+    return readString(this.#buffer, this.#view, index, FONT_INFO.OFFSET_STRINGS + 4);
+  }
+  get fallbackName() {
+    return shadow(this, "fallbackName", this.#readString(0));
+  }
+  get loadedName() {
+    return shadow(this, "loadedName", this.#readString(1));
+  }
+  #getBufferOffset(index) {
+    let offset = FONT_INFO.OFFSET_STRINGS;
+    for (let i = 0; i <= index; i++) {
+      offset += 4 + this.#view.getUint32(offset);
+    }
+    const length = this.#view.getUint32(offset);
+    return {
+      offset,
+      length
+    };
+  }
+  get data() {
+    const {
+      offset,
+      length
+    } = this.#getBufferOffset(2);
+    return !length ? undefined : new Uint8Array(this.#buffer, offset + 4, length);
+  }
+  clearData() {
+    const {
+      offset,
+      length
+    } = this.#getBufferOffset(2);
+    if (!length) {
+      return;
+    }
+    this.#view.setUint32(offset, 0);
+    this.#buffer = new Uint8Array(this.#buffer, 0, offset + 4).slice().buffer;
+    this.#view = new DataView(this.#buffer);
+  }
+  get cssFontInfo() {
+    const {
+      offset,
+      length
+    } = this.#getBufferOffset(1);
+    let info = null;
+    if (length) {
+      const data = new Uint8Array(this.#buffer, offset + 4, length).slice();
+      info = new CssFontInfo(data.buffer);
+    }
+    return shadow(this, "cssFontInfo", info);
+  }
+  get systemFontInfo() {
+    const {
+      offset,
+      length
+    } = this.#getBufferOffset(0);
+    let info = null;
+    if (length) {
+      const data = new Uint8Array(this.#buffer, offset + 4, length).slice();
+      info = new SystemFontInfo(data.buffer);
+    }
+    return shadow(this, "systemFontInfo", info);
+  }
+}
+class PatternInfo {
+  constructor(buffer) {
+    this.buffer = buffer;
+    this.view = new DataView(buffer);
+    this.data = new Uint8Array(buffer);
+  }
+  getIR() {
+    const dataView = this.view;
+    const kind = this.data[PATTERN_INFO.KIND];
+    const hasBBox = !!this.data[PATTERN_INFO.HAS_BBOX];
+    const hasBackground = !!this.data[PATTERN_INFO.HAS_BACKGROUND];
+    const nCoord = dataView.getUint32(PATTERN_INFO.N_COORD, true);
+    const nColor = dataView.getUint32(PATTERN_INFO.N_COLOR, true);
+    const nStop = dataView.getUint32(PATTERN_INFO.N_STOP, true);
+    let offset = 20;
+    const coords = new Float32Array(this.buffer, offset, nCoord * 2);
+    offset += nCoord * 8;
+    const colors = new Uint8Array(this.buffer, offset, nColor * 4);
+    offset += nColor * 4;
+    const stops = [];
+    for (let i = 0; i < nStop; ++i) {
+      const p = dataView.getFloat32(offset, true);
+      offset += 4;
+      const rgb = dataView.getUint32(offset, true);
+      offset += 4;
+      stops.push([p, `#${rgb.toString(16).padStart(6, "0")}`]);
+    }
+    let bbox = null;
+    if (hasBBox) {
+      bbox = [];
+      for (let i = 0; i < 4; ++i) {
+        bbox.push(dataView.getFloat32(offset, true));
+        offset += 4;
+      }
+    }
+    let background = null;
+    if (hasBackground) {
+      background = new Uint8Array(this.buffer, offset, 3);
+      offset += 3;
+    }
+    if (kind === 1) {
+      return ["RadialAxial", "axial", bbox, stops, [coords[0], coords[1]], [coords[2], coords[3]], null, null];
+    }
+    if (kind === 2) {
+      return ["RadialAxial", "radial", bbox, stops, [coords[0], coords[1]], [coords[3], coords[4]], coords[2], coords[5]];
+    }
+    if (kind === 3) {
+      const shadingType = this.data[PATTERN_INFO.SHADING_TYPE];
+      let bounds = null;
+      if (coords.length > 0) {
+        bounds = BBOX_INIT.slice();
+        for (let i = 0, ii = coords.length; i < ii; i += 2) {
+          Util.pointBoundingBox(coords[i], coords[i + 1], bounds);
+        }
+      }
+      return ["Mesh", shadingType, coords, colors, nCoord, bounds, bbox, background];
+    }
+    throw new Error(`Unsupported pattern kind: ${kind}`);
+  }
+}
+class FontPathInfo {
+  #buffer;
+  constructor(buffer) {
+    this.#buffer = buffer;
+  }
+  get path() {
+    return new Float16Array(this.#buffer);
+  }
+}
+
+;// ./src/display/api_utils.js
+
+function getUrlProp(val) {
+  return null;
+}
+function getDataProp(val) {
+  if (val instanceof Uint8Array && val.byteLength === val.buffer.byteLength) {
+    return val;
+  }
+  if (typeof val === "string") {
+    return stringToBytes(val);
+  }
+  if (val instanceof ArrayBuffer || ArrayBuffer.isView(val) || typeof val === "object" && !isNaN(val?.length)) {
+    return new Uint8Array(val);
+  }
+  throw new Error("Invalid PDF binary data: either TypedArray, " + "string, or array-like object is expected in the data property.");
+}
+function getFactoryUrlProp(val) {
+  if (typeof val !== "string") {
+    return null;
+  }
+  if (val.endsWith("/")) {
+    return val;
+  }
+  throw new Error(`Invalid factory url: "${val}" must include trailing slash.`);
+}
+const isRefProxy = v => typeof v === "object" && Number.isInteger(v?.num) && v.num >= 0 && Number.isInteger(v?.gen) && v.gen >= 0;
+const isNameProxy = v => typeof v === "object" && typeof v?.name === "string";
+const isValidExplicitDest = _isValidExplicitDest.bind(null, isRefProxy, isNameProxy);
+class LoopbackPort {
+  #listeners = new Map();
+  #deferred = Promise.resolve();
+  postMessage(obj, transfer) {
+    const event = {
+      data: structuredClone(obj, transfer ? {
+        transfer
+      } : null)
+    };
+    this.#deferred.then(() => {
+      for (const [listener] of this.#listeners) {
+        listener.call(this, event);
+      }
+    });
+  }
+  addEventListener(name, listener, options = null) {
+    let rmAbort = null;
+    if (options?.signal instanceof AbortSignal) {
+      const {
+        signal
+      } = options;
+      if (signal.aborted) {
+        warn("LoopbackPort - cannot use an `aborted` signal.");
+        return;
+      }
+      const onAbort = () => this.removeEventListener(name, listener);
+      rmAbort = () => signal.removeEventListener("abort", onAbort);
+      signal.addEventListener("abort", onAbort);
+    }
+    this.#listeners.set(listener, rmAbort);
+  }
+  removeEventListener(name, listener) {
+    const rmAbort = this.#listeners.get(listener);
+    rmAbort?.();
+    this.#listeners.delete(listener);
+  }
+  terminate() {
+    for (const [, rmAbort] of this.#listeners) {
+      rmAbort?.();
+    }
+    this.#listeners.clear();
+  }
+}
+
+;// ./src/shared/message_handler.js
+
+const CallbackKind = {
+  DATA: 1,
+  ERROR: 2
+};
+const StreamKind = {
+  CANCEL: 1,
+  CANCEL_COMPLETE: 2,
+  CLOSE: 3,
+  ENQUEUE: 4,
+  ERROR: 5,
+  PULL: 6,
+  PULL_COMPLETE: 7,
+  START_COMPLETE: 8
+};
+function onFn() {}
+function wrapReason(ex) {
+  if (ex instanceof AbortException || ex instanceof InvalidPDFException || ex instanceof PasswordException || ex instanceof ResponseException || ex instanceof UnknownErrorException) {
+    return ex;
+  }
+  if (!(ex instanceof Error || typeof ex === "object" && ex !== null)) {
+    unreachable('wrapReason: Expected "reason" to be a (possibly cloned) Error.');
+  }
+  switch (ex.name) {
+    case "AbortException":
+      return new AbortException(ex.message);
+    case "InvalidPDFException":
+      return new InvalidPDFException(ex.message);
+    case "PasswordException":
+      return new PasswordException(ex.message, ex.code);
+    case "ResponseException":
+      return new ResponseException(ex.message, ex.status, ex.missing);
+    case "UnknownErrorException":
+      return new UnknownErrorException(ex.message, ex.details);
+  }
+  return new UnknownErrorException(ex.message, ex.toString());
+}
+class MessageHandler {
+  #actions = new Map();
+  #callbackCapabilities = new Map();
+  #callbackId = 1;
+  #comObj;
+  #messageAC = new AbortController();
+  #sourceName;
+  #streamControllers = new Map();
+  #streamId = 1;
+  #streamSinks = new Map();
+  #targetName;
+  constructor(sourceName, targetName, comObj) {
+    this.#sourceName = sourceName;
+    this.#targetName = targetName;
+    this.#comObj = comObj;
+    comObj.addEventListener("message", this.#onMessage.bind(this), {
+      signal: this.#messageAC.signal
+    });
+  }
+  #onMessage({
+    data
+  }) {
+    if (data.targetName !== this.#sourceName) {
+      return;
+    }
+    if (data.stream) {
+      this.#processStreamMessage(data);
+      return;
+    }
+    if (data.callback) {
+      const {
+        callbackId,
+        callback
+      } = data;
+      const capability = this.#callbackCapabilities.get(callbackId);
+      if (!capability) {
+        throw new Error(`Cannot resolve callback ${callbackId}`);
+      }
+      this.#callbackCapabilities.delete(callbackId);
+      if (callback === CallbackKind.DATA) {
+        capability.resolve(data.data);
+      } else if (callback === CallbackKind.ERROR) {
+        capability.reject(wrapReason(data.reason));
+      } else {
+        throw new Error("Unexpected callback case");
+      }
+      return;
+    }
+    const action = this.#actions.get(data.action);
+    if (!action) {
+      throw new Error(`Unknown action from worker: ${data.action}`);
+    }
+    if (data.callbackId) {
+      const sourceName = this.#sourceName,
+        targetName = data.sourceName,
+        comObj = this.#comObj;
+      Promise.try(action, data.data).then(result => {
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          callback: CallbackKind.DATA,
+          callbackId: data.callbackId,
+          data: result
+        });
+      }, reason => {
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          callback: CallbackKind.ERROR,
+          callbackId: data.callbackId,
+          reason: wrapReason(reason)
+        });
+      });
+      return;
+    }
+    if (data.streamId) {
+      this.#createStreamSink(data);
+      return;
+    }
+    action(data.data);
+  }
+  on(actionName, handler) {
+    const ah = this.#actions;
+    if (ah.has(actionName)) {
+      throw new Error(`There is already a "${actionName}" handler.`);
+    }
+    ah.set(actionName, handler);
+  }
+  send(actionName, data, transfers) {
+    this.#comObj.postMessage({
+      sourceName: this.#sourceName,
+      targetName: this.#targetName,
+      action: actionName,
+      data
+    }, transfers);
+  }
+  sendWithPromise(actionName, data, transfers) {
+    const callbackId = this.#callbackId++,
+      capability = Promise.withResolvers();
+    this.#callbackCapabilities.set(callbackId, capability);
+    try {
+      this.#comObj.postMessage({
+        sourceName: this.#sourceName,
+        targetName: this.#targetName,
+        action: actionName,
+        callbackId,
+        data
+      }, transfers);
+    } catch (ex) {
+      capability.reject(ex);
+    }
+    return capability.promise;
+  }
+  sendWithStream(actionName, data, queueingStrategy, transfers) {
+    const streamId = this.#streamId++,
+      sourceName = this.#sourceName,
+      targetName = this.#targetName,
+      comObj = this.#comObj;
+    return new ReadableStream({
+      start: controller => {
+        const startCapability = Promise.withResolvers();
+        this.#streamControllers.set(streamId, {
+          controller,
+          startCall: startCapability,
+          pullCall: null,
+          cancelCall: null,
+          isClosed: false
+        });
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          action: actionName,
+          streamId,
+          data,
+          desiredSize: controller.desiredSize
+        }, transfers);
+        return startCapability.promise;
+      },
+      pull: controller => {
+        const pullCapability = Promise.withResolvers();
+        this.#streamControllers.get(streamId).pullCall = pullCapability;
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.PULL,
+          streamId,
+          desiredSize: controller.desiredSize
+        });
+        return pullCapability.promise;
+      },
+      cancel: reason => {
+        assert(reason instanceof Error, "cancel must have a valid reason");
+        const cancelCapability = Promise.withResolvers();
+        this.#streamControllers.get(streamId).cancelCall = cancelCapability;
+        this.#streamControllers.get(streamId).isClosed = true;
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.CANCEL,
+          streamId,
+          reason: wrapReason(reason)
+        });
+        return cancelCapability.promise;
+      }
+    }, queueingStrategy);
+  }
+  #createStreamSink(data) {
+    const streamId = data.streamId,
+      sourceName = this.#sourceName,
+      targetName = data.sourceName,
+      comObj = this.#comObj;
+    const streamSinks = this.#streamSinks,
+      action = this.#actions.get(data.action);
+    const streamSink = {
+      enqueue(chunk, size = 1, transfers) {
+        if (this.isCancelled) {
+          return;
+        }
+        const lastDesiredSize = this.desiredSize;
+        this.desiredSize -= size;
+        if (lastDesiredSize > 0 && this.desiredSize <= 0) {
+          this.sinkCapability = Promise.withResolvers();
+          this.ready = this.sinkCapability.promise;
+        }
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.ENQUEUE,
+          streamId,
+          chunk
+        }, transfers);
+      },
+      close() {
+        if (this.isCancelled) {
+          return;
+        }
+        this.isCancelled = true;
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.CLOSE,
+          streamId
+        });
+        streamSinks.delete(streamId);
+      },
+      error(reason) {
+        assert(reason instanceof Error, "error must have a valid reason");
+        if (this.isCancelled) {
+          return;
+        }
+        this.isCancelled = true;
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.ERROR,
+          streamId,
+          reason: wrapReason(reason)
+        });
+      },
+      sinkCapability: Promise.withResolvers(),
+      onPull: null,
+      onCancel: null,
+      isCancelled: false,
+      desiredSize: data.desiredSize,
+      ready: null
+    };
+    streamSink.sinkCapability.resolve();
+    streamSink.ready = streamSink.sinkCapability.promise;
+    streamSinks.set(streamId, streamSink);
+    Promise.try(action, data.data, streamSink).then(() => {
+      comObj.postMessage({
+        sourceName,
+        targetName,
+        stream: StreamKind.START_COMPLETE,
+        streamId,
+        success: true
+      });
+    }, reason => {
+      comObj.postMessage({
+        sourceName,
+        targetName,
+        stream: StreamKind.START_COMPLETE,
+        streamId,
+        reason: wrapReason(reason)
+      });
+    });
+  }
+  #processStreamMessage(data) {
+    const streamId = data.streamId,
+      sourceName = this.#sourceName,
+      targetName = data.sourceName,
+      comObj = this.#comObj;
+    const streamController = this.#streamControllers.get(streamId),
+      streamSink = this.#streamSinks.get(streamId);
+    switch (data.stream) {
+      case StreamKind.START_COMPLETE:
+        if (data.success) {
+          streamController.startCall.resolve();
+        } else {
+          streamController.startCall.reject(wrapReason(data.reason));
+        }
+        break;
+      case StreamKind.PULL_COMPLETE:
+        if (data.success) {
+          streamController.pullCall.resolve();
+        } else {
+          streamController.pullCall.reject(wrapReason(data.reason));
+        }
+        break;
+      case StreamKind.PULL:
+        if (!streamSink) {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.PULL_COMPLETE,
+            streamId,
+            success: true
+          });
+          break;
+        }
+        if (streamSink.desiredSize <= 0 && data.desiredSize > 0) {
+          streamSink.sinkCapability.resolve();
+        }
+        streamSink.desiredSize = data.desiredSize;
+        Promise.try(streamSink.onPull || onFn).then(() => {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.PULL_COMPLETE,
+            streamId,
+            success: true
+          });
+        }, reason => {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.PULL_COMPLETE,
+            streamId,
+            reason: wrapReason(reason)
+          });
+        });
+        break;
+      case StreamKind.ENQUEUE:
+        assert(streamController, "enqueue should have stream controller");
+        if (streamController.isClosed) {
+          break;
+        }
+        streamController.controller.enqueue(data.chunk);
+        break;
+      case StreamKind.CLOSE:
+        assert(streamController, "close should have stream controller");
+        if (streamController.isClosed) {
+          break;
+        }
+        streamController.isClosed = true;
+        streamController.controller.close();
+        this.#deleteStreamController(streamController, streamId);
+        break;
+      case StreamKind.ERROR:
+        assert(streamController, "error should have stream controller");
+        streamController.controller.error(wrapReason(data.reason));
+        this.#deleteStreamController(streamController, streamId);
+        break;
+      case StreamKind.CANCEL_COMPLETE:
+        if (data.success) {
+          streamController.cancelCall.resolve();
+        } else {
+          streamController.cancelCall.reject(wrapReason(data.reason));
+        }
+        this.#deleteStreamController(streamController, streamId);
+        break;
+      case StreamKind.CANCEL:
+        if (!streamSink) {
+          break;
+        }
+        const dataReason = wrapReason(data.reason);
+        Promise.try(streamSink.onCancel || onFn, dataReason).then(() => {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.CANCEL_COMPLETE,
+            streamId,
+            success: true
+          });
+        }, reason => {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.CANCEL_COMPLETE,
+            streamId,
+            reason: wrapReason(reason)
+          });
+        });
+        streamSink.sinkCapability.reject(dataReason);
+        streamSink.isCancelled = true;
+        this.#streamSinks.delete(streamId);
+        break;
+      default:
+        throw new Error("Unexpected stream case");
+    }
+  }
+  async #deleteStreamController(streamController, streamId) {
+    await Promise.allSettled([streamController.startCall?.promise, streamController.pullCall?.promise, streamController.cancelCall?.promise]);
+    this.#streamControllers.delete(streamId);
+  }
+  destroy() {
+    this.#messageAC?.abort();
+    this.#messageAC = null;
+  }
 }
 
 ;// ./src/shared/image_utils.js
@@ -9170,38 +9697,34 @@ class TilingPattern {
     if (dependencyTracker) {
       owner.dependencyTracker = new CanvasNestedDependencyTracker(dependencyTracker, opIdx);
     }
-    try {
-      owner.save();
-      if (useEOFill) {
-        owner.ctx.clip(path, "evenodd");
-      } else {
-        owner.ctx.clip(path);
-      }
-      owner.ctx.setTransform(...this.patternBaseMatrix);
-      owner.ctx.translate(n * this.xstep, m * this.ystep);
-      if (this.needsIsolation || owner.ctx.globalAlpha !== 1 || owner.ctx.globalCompositeOperation !== "source-over" || owner.inSMaskMode) {
-        const bboxWidth = x1 - x0;
-        const bboxHeight = y1 - y0;
-        const [combinedScaleX, combinedScaleY] = this._getCombinedScales();
-        const dimx = this.getSizeAndScale(bboxWidth, this.ctx.canvas.width, combinedScaleX);
-        const dimy = this.getSizeAndScale(bboxHeight, this.ctx.canvas.height, combinedScaleY);
-        const tmpCanvas = this._renderTileCanvas(owner, opIdx, dimx, dimy);
-        owner.ctx.drawImage(tmpCanvas.canvas, x0, y0, bboxWidth, bboxHeight);
-        owner.canvasFactory.destroy(tmpCanvas);
-      } else {
-        owner.resetGraphicsState();
-        this.setFillAndStrokeStyleToContext(owner, this.paintType, this.color);
-        this.clipBbox(owner, x0, y0, x1, y1);
-        owner.baseTransformStack.push(owner.baseTransform);
-        owner.baseTransform = getCurrentTransform(owner.ctx);
-        owner.executeOperatorList(this.operatorList);
-        owner.baseTransform = owner.baseTransformStack.pop();
-      }
-      owner.restore();
-    } finally {
-      if (dependencyTracker) {
-        owner.dependencyTracker = dependencyTracker;
-      }
+    owner.save();
+    if (useEOFill) {
+      owner.ctx.clip(path, "evenodd");
+    } else {
+      owner.ctx.clip(path);
+    }
+    owner.ctx.setTransform(...this.patternBaseMatrix);
+    owner.ctx.translate(n * this.xstep, m * this.ystep);
+    if (this.needsIsolation || owner.ctx.globalAlpha !== 1 || owner.ctx.globalCompositeOperation !== "source-over" || owner.inSMaskMode) {
+      const bboxWidth = x1 - x0;
+      const bboxHeight = y1 - y0;
+      const [combinedScaleX, combinedScaleY] = this._getCombinedScales();
+      const dimx = this.getSizeAndScale(bboxWidth, this.ctx.canvas.width, combinedScaleX);
+      const dimy = this.getSizeAndScale(bboxHeight, this.ctx.canvas.height, combinedScaleY);
+      const tmpCanvas = this._renderTileCanvas(owner, opIdx, dimx, dimy);
+      owner.ctx.drawImage(tmpCanvas.canvas, x0, y0, bboxWidth, bboxHeight);
+      owner.canvasFactory.destroy(tmpCanvas);
+    } else {
+      this.setFillAndStrokeStyleToContext(owner, this.paintType, this.color);
+      this.clipBbox(owner, x0, y0, x1, y1);
+      owner.baseTransformStack.push(owner.baseTransform);
+      owner.baseTransform = getCurrentTransform(owner.ctx);
+      owner.executeOperatorList(this.operatorList);
+      owner.baseTransform = owner.baseTransformStack.pop();
+    }
+    owner.restore();
+    if (dependencyTracker) {
+      owner.dependencyTracker = dependencyTracker;
     }
   }
   createPatternCanvas(owner, opIdx) {
@@ -9581,13 +10104,6 @@ function copyCtxState(sourceCtx, destCtx) {
     destCtx.lineDashOffset = sourceCtx.lineDashOffset;
   }
 }
-function setAnnotationCanvasName(canvas, canvasName) {
-  canvas.setAttribute?.("data-canvas-name", canvasName);
-  canvas._pdfjsCanvasName = canvasName;
-}
-function getAnnotationCanvasName(canvas) {
-  return canvas._pdfjsCanvasName ?? null;
-}
 function resetCtxToDefault(ctx) {
   ctx.strokeStyle = ctx.fillStyle = "#000000";
   ctx.fillRule = "nonzero";
@@ -9613,8 +10129,15 @@ class TransferMapsFallback {
   #maps;
   constructor(maps) {
     const [mapR, mapG = mapR, mapB = mapR] = maps;
-    const identityMap = Util.identity0to256Map.slice();
+    const {
+      identityMap
+    } = TransferMapsFallback;
     this.#maps = [mapR || identityMap, mapG || identityMap, mapB || identityMap];
+  }
+  static get identityMap() {
+    return shadow(this, "identityMap", Uint8Array.from({
+      length: 256
+    }, (_, i) => i));
   }
   applyToColor(color) {
     if (typeof color !== "string" || !color.startsWith("#")) {
@@ -9644,12 +10167,12 @@ class TransferMapsFallback {
     ctx.putImageData(imgData, 0, 0);
   }
 }
-function getImageSmoothingEnabled(transform, interpolate, pixelRatio) {
+function getImageSmoothingEnabled(transform, interpolate) {
   if (interpolate) {
     return true;
   }
   Util.singularValueDecompose2dScale(transform, XY);
-  const actualScale = Math.fround(pixelRatio * PixelsPerInch.PDF_TO_CSS_UNITS);
+  const actualScale = Math.fround(OutputScale.pixelRatio * PixelsPerInch.PDF_TO_CSS_UNITS);
   return XY[0] <= actualScale && XY[1] <= actualScale;
 }
 const LINE_CAP_STYLES = ["butt", "round", "square"];
@@ -9658,7 +10181,6 @@ const NORMAL_CLIP = {};
 const EO_CLIP = {};
 class CanvasGraphics {
   static #SCALE_MATRIX = null;
-  static #pathCaches = new WeakMap();
   #knockoutGroupLevel = 0;
   #knockoutElementDepth = 0;
   #knockoutTempCanvasEntry = null;
@@ -9671,8 +10193,7 @@ class CanvasGraphics {
   #groupStackMeta = [];
   constructor(canvasCtx, commonObjs, objs, canvasFactory, filterFactory, {
     optionalContentConfig,
-    markedContentStack = null,
-    pixelRatio = OutputScale.pixelRatio
+    markedContentStack = null
   }, annotationCanvasMap, pageColors, dependencyTracker, imagesTracker) {
     this.ctx = canvasCtx;
     this.current = new CanvasExtraState(this.ctx.canvas.width, this.ctx.canvas.height);
@@ -9699,7 +10220,6 @@ class CanvasGraphics {
     this.contentVisible = true;
     this.markedContentStack = markedContentStack || [];
     this.optionalContentConfig = optionalContentConfig;
-    this.pixelRatio = pixelRatio;
     this.cachedPatterns = new Map();
     this.annotationCanvasMap = annotationCanvasMap;
     this.viewportScale = 1;
@@ -9751,70 +10271,64 @@ class CanvasGraphics {
     this.viewportScale = viewport.scale;
     this.baseTransform = getCurrentTransform(this.ctx);
   }
-  executeOperatorList(operatorList, executionStartIdx, continueCallback, errorCallback, stepper, operationsFilter) {
+  executeOperatorList(operatorList, executionStartIdx, continueCallback, stepper, operationsFilter) {
     const argsArray = operatorList.argsArray;
     const fnArray = operatorList.fnArray;
-    const prevPathCache = this._pathCache;
-    this._pathCache = operatorList.pathCache ?? CanvasGraphics.#pathCaches.getOrInsertComputed(operatorList, makeMap);
-    try {
-      let i = executionStartIdx || 0;
-      const argsArrayLen = argsArray.length;
-      if (argsArrayLen === i) {
-        return i;
-      }
-      const chunkOperations = argsArrayLen - i > EXECUTION_STEPS && typeof continueCallback === "function";
-      const endTime = chunkOperations ? Date.now() + EXECUTION_TIME : 0;
-      let steps = 0;
-      const commonObjs = this.commonObjs;
-      const objs = this.objs;
-      let fnId, fnArgs;
-      while (true) {
-        if (stepper !== undefined) {
-          if (i === stepper.nextBreakPoint) {
-            stepper.breakIt(i, continueCallback);
-            return i;
-          }
-          if (stepper.shouldSkip(i)) {
-            if (++i === argsArrayLen) {
-              return i;
-            }
-            continue;
-          }
-        }
-        if (!operationsFilter || operationsFilter(i, operatorList)) {
-          fnId = fnArray[i];
-          fnArgs = argsArray[i] ?? null;
-          if (fnId !== OPS.dependency) {
-            if (fnArgs === null) {
-              this[fnId](i);
-            } else {
-              this[fnId](i, ...fnArgs);
-            }
-          } else {
-            for (const depObjId of fnArgs) {
-              this.dependencyTracker?.recordNamedData(depObjId, i);
-              const objsPool = depObjId.startsWith("g_") ? commonObjs : objs;
-              if (!objsPool.has(depObjId)) {
-                objsPool.get(depObjId, continueCallback, errorCallback);
-                return i;
-              }
-            }
-          }
-        }
-        i++;
-        if (i === argsArrayLen) {
+    let i = executionStartIdx || 0;
+    const argsArrayLen = argsArray.length;
+    if (argsArrayLen === i) {
+      return i;
+    }
+    const chunkOperations = argsArrayLen - i > EXECUTION_STEPS && typeof continueCallback === "function";
+    const endTime = chunkOperations ? Date.now() + EXECUTION_TIME : 0;
+    let steps = 0;
+    const commonObjs = this.commonObjs;
+    const objs = this.objs;
+    let fnId, fnArgs;
+    while (true) {
+      if (stepper !== undefined) {
+        if (i === stepper.nextBreakPoint) {
+          stepper.breakIt(i, continueCallback);
           return i;
         }
-        if (chunkOperations && ++steps > EXECUTION_STEPS) {
-          if (Date.now() > endTime) {
-            continueCallback();
+        if (stepper.shouldSkip(i)) {
+          if (++i === argsArrayLen) {
             return i;
           }
-          steps = 0;
+          continue;
         }
       }
-    } finally {
-      this._pathCache = prevPathCache;
+      if (!operationsFilter || operationsFilter(i, operatorList)) {
+        fnId = fnArray[i];
+        fnArgs = argsArray[i] ?? null;
+        if (fnId !== OPS.dependency) {
+          if (fnArgs === null) {
+            this[fnId](i);
+          } else {
+            this[fnId](i, ...fnArgs);
+          }
+        } else {
+          for (const depObjId of fnArgs) {
+            this.dependencyTracker?.recordNamedData(depObjId, i);
+            const objsPool = depObjId.startsWith("g_") ? commonObjs : objs;
+            if (!objsPool.has(depObjId)) {
+              objsPool.get(depObjId, continueCallback);
+              return i;
+            }
+          }
+        }
+      }
+      i++;
+      if (i === argsArrayLen) {
+        return i;
+      }
+      if (chunkOperations && ++steps > EXECUTION_STEPS) {
+        if (Date.now() > endTime) {
+          continueCallback();
+          return i;
+        }
+        steps = 0;
+      }
     }
   }
   #restoreInitialState() {
@@ -10011,7 +10525,7 @@ class CanvasGraphics {
         maskCanvas = null;
       }
     }
-    fillCtx.imageSmoothingEnabled = getImageSmoothingEnabled(getCurrentTransform(fillCtx), img.interpolate, this.pixelRatio);
+    fillCtx.imageSmoothingEnabled = getImageSmoothingEnabled(getCurrentTransform(fillCtx), img.interpolate);
     drawImageAtIntegerCoords(fillCtx, scaled, 0, 0, scaled.width, scaled.height, 0, 0, width, height);
     if (scaledEntry) {
       this.canvasFactory.destroy(scaledEntry);
@@ -10607,39 +11121,15 @@ class CanvasGraphics {
     this.pendingClip = null;
     this._cachedScaleForStroking[0] = -1;
   }
-  resetGraphicsState() {
-    const {
-      clipBox,
-      transferMaps,
-      transferMapsFallback
-    } = this.current;
-    const current = this.current = new CanvasExtraState(0, 0);
-    current.clipBox = clipBox;
-    current.transferMaps = transferMaps;
-    current.transferMapsFallback = transferMapsFallback;
-    const ctx = this.ctx;
-    ctx.lineWidth = 1;
-    ctx.lineCap = "butt";
-    ctx.lineJoin = "miter";
-    ctx.miterLimit = 10;
-    if (ctx.setLineDash !== undefined) {
-      ctx.setLineDash([]);
-      ctx.lineDashOffset = 0;
-    }
-    this._cachedScaleForStroking[0] = -1;
-  }
   transform(opIdx, a, b, c, d, e, f) {
     this.dependencyTracker?.recordIncrementalData("transform", opIdx);
     this.ctx.transform(a, b, c, d, e, f);
     this._cachedScaleForStroking[0] = -1;
   }
   constructPath(opIdx, op, data, minMax) {
-    let path = this._pathCache.get(opIdx);
+    let [path] = data;
     if (!minMax) {
-      if (!path) {
-        path = new Path2D();
-        this._pathCache.set(opIdx, path);
-      }
+      path ||= data[0] = new Path2D();
       if (op !== OPS.stroke && op !== OPS.closeStroke) {
         this.current.tilingPatternDims = null;
       }
@@ -10650,9 +11140,8 @@ class CanvasGraphics {
       const outerExtraSize = op === OPS.stroke ? this.current.lineWidth / 2 : 0;
       this.dependencyTracker.resetBBox(opIdx).recordBBox(opIdx, this.ctx, minMax[0] - outerExtraSize, minMax[2] + outerExtraSize, minMax[1] - outerExtraSize, minMax[3] + outerExtraSize).recordDependencies(opIdx, ["transform"]);
     }
-    if (!path) {
-      path = makePathFromDrawOPS(data[0]);
-      this._pathCache.set(opIdx, path);
+    if (!(path instanceof Path2D)) {
+      path = data[0] = makePathFromDrawOPS(path);
     }
     Util.axialAlignedBoundingBox(minMax, getCurrentTransform(this.ctx), this.current.minMax);
     const tilingDims = this.current.tilingPatternDims;
@@ -10713,14 +11202,8 @@ class CanvasGraphics {
       const dims = this.current.tilingPatternDims;
       const tileIdx = dims && fillColor.canSkipPatternCanvas(dims);
       if (tileIdx) {
-        const {
-          pendingClip,
-          pendingEOFill
-        } = this;
-        this.pendingClip = null;
+        fillColor.drawPattern(this, path, this.pendingEOFill, tileIdx, opIdx);
         this.pendingEOFill = false;
-        fillColor.drawPattern(this, path, pendingEOFill, tileIdx, opIdx);
-        this.pendingClip = pendingClip;
         if (consumePath) {
           this.consumePath(opIdx, path, intersect);
         }
@@ -11011,14 +11494,6 @@ class CanvasGraphics {
     }
     return shadow(this, "isFontSubpixelAAEnabled", enabled);
   }
-  #getTextPattern(color, pathType, opIdx) {
-    const ctx = this.ctx;
-    ctx.save();
-    const pattern = color.getPattern(ctx, this, getCurrentTransformInverse(ctx), pathType, opIdx);
-    const transform = getCurrentTransform(ctx);
-    ctx.restore();
-    return [pattern, transform];
-  }
   showText(opIdx, glyphs) {
     if (this.dependencyTracker) {
       this.dependencyTracker.recordDependencies(opIdx, Dependencies.showText).resetBBox(opIdx);
@@ -11081,10 +11556,18 @@ class CanvasGraphics {
     }
     ctx.lineWidth = lineWidth;
     if (needsFill && current.patternFill) {
-      [ctx.fillStyle, patternFillTransform] = this.#getTextPattern(current.fillColor, PathType.FILL, opIdx);
+      ctx.save();
+      const pattern = current.fillColor.getPattern(ctx, this, getCurrentTransformInverse(ctx), PathType.FILL, opIdx);
+      patternFillTransform = getCurrentTransform(ctx);
+      ctx.restore();
+      ctx.fillStyle = pattern;
     }
     if (needsStroke && current.patternStroke) {
-      [ctx.strokeStyle, patternStrokeTransform] = this.#getTextPattern(current.strokeColor, PathType.STROKE, opIdx);
+      ctx.save();
+      const pattern = current.strokeColor.getPattern(ctx, this, getCurrentTransformInverse(ctx), PathType.STROKE, opIdx);
+      patternStrokeTransform = getCurrentTransform(ctx);
+      ctx.restore();
+      ctx.strokeStyle = pattern;
     }
     if (font.isInvalidPDFjsFont) {
       const chars = [];
@@ -11106,8 +11589,7 @@ class CanvasGraphics {
       return;
     }
     let x = 0,
-      i,
-      glyphPatterns = null;
+      i;
     for (i = 0; i < glyphsLength; ++i) {
       const glyph = glyphs[i];
       if (typeof glyph === "number") {
@@ -11118,7 +11600,7 @@ class CanvasGraphics {
       const spacing = (glyph.isSpace ? wordSpacing : 0) + charSpacing;
       const character = glyph.fontChar;
       const accent = glyph.accent;
-      let scaledX, scaledY, measure;
+      let scaledX, scaledY;
       let width = glyph.width;
       if (vertical) {
         const vmetric = glyph.vmetric;
@@ -11127,39 +11609,22 @@ class CanvasGraphics {
         width = -vmetric[0];
         scaledX = vx / fontSizeScale;
         scaledY = (x + vy) / fontSizeScale;
-        if (glyph.isRotated) {
-          measure = ctx.measureText(character);
-          const glyphScale = widthAdvanceScale / fontSizeScale;
-          const halfWidth = glyph.width / 2 * glyphScale;
-          const centerX = scaledX + halfWidth;
-          scaledX = scaledY - ((/* inlined export .DEFAULT_VERTICAL_ORIGIN_Y */880) - (/* inlined export .DEFAULT_VERTICAL_ADVANCE */1000) / 2) * glyphScale - halfWidth;
-          scaledY = (measure.actualBoundingBoxAscent - measure.actualBoundingBoxDescent) / 2 - centerX;
-          restoreNeeded = true;
-          ctx.save();
-          ctx.rotate(Math.PI / 2);
-        }
       } else {
         scaledX = x / fontSizeScale;
         scaledY = 0;
       }
-      const glyphWidth = glyph.isRotated ? glyph.width : width;
-      if ((font.remeasure || glyph.isRotated) && glyphWidth > 0) {
-        measure ??= ctx.measureText(character);
+      let measure;
+      if (font.remeasure && width > 0) {
+        measure = ctx.measureText(character);
         const measuredWidth = measure.width * 1000 / fontSize * fontSizeScale;
-        if (glyphWidth < measuredWidth && this.isFontSubpixelAAEnabled) {
-          const characterScaleX = glyphWidth / measuredWidth;
-          if (!restoreNeeded) {
-            restoreNeeded = true;
-            ctx.save();
-          }
+        if (width < measuredWidth && this.isFontSubpixelAAEnabled) {
+          const characterScaleX = width / measuredWidth;
+          restoreNeeded = true;
+          ctx.save();
           ctx.scale(characterScaleX, 1);
           scaledX /= characterScaleX;
-          if (font.missingFile && (patternFillTransform || patternStrokeTransform)) {
-            glyphPatterns ||= new Map();
-            [ctx.fillStyle, ctx.strokeStyle] = glyphPatterns.getOrInsertComputed(glyph.isRotated ? -characterScaleX : characterScaleX, () => [patternFillTransform ? this.#getTextPattern(current.fillColor, PathType.FILL, opIdx)[0] : ctx.fillStyle, patternStrokeTransform ? this.#getTextPattern(current.strokeColor, PathType.STROKE, opIdx)[0] : ctx.strokeStyle]);
-          }
-        } else if (glyphWidth !== measuredWidth) {
-          scaledX += (glyphWidth - measuredWidth) / 2000 * fontSize / fontSizeScale;
+        } else if (width !== measuredWidth) {
+          scaledX += (width - measuredWidth) / 2000 * fontSize / fontSizeScale;
         }
       }
       if (this.contentVisible && (glyph.isInFont || font.missingFile)) {
@@ -11205,9 +11670,9 @@ class CanvasGraphics {
     const textHScale = current.textHScale * fontDirection;
     const fontMatrix = current.fontMatrix || FONT_IDENTITY_MATRIX;
     const glyphsLength = glyphs.length;
-    const isTextVisible = current.textRenderingMode !== TextRenderingMode.INVISIBLE;
+    const isTextInvisible = current.textRenderingMode === TextRenderingMode.INVISIBLE;
     let i, glyph, width, spacingLength;
-    if (fontSize === 0) {
+    if (isTextInvisible || fontSize === 0) {
       return;
     }
     this._cachedScaleForStroking[0] = -1;
@@ -11219,36 +11684,39 @@ class CanvasGraphics {
     ctx.scale(textHScale, fontDirection);
     const dependencyTracker = this.dependencyTracker;
     this.dependencyTracker = dependencyTracker ? new CanvasNestedDependencyTracker(dependencyTracker, opIdx) : null;
-    try {
-      for (i = 0; i < glyphsLength; ++i) {
-        glyph = glyphs[i];
-        if (typeof glyph === "number") {
-          spacingLength = spacingDir * glyph * fontSize / 1000;
-          this.ctx.translate(spacingLength, 0);
-          current.x += spacingLength * textHScale;
-          continue;
-        }
-        const spacing = (glyph.isSpace ? wordSpacing : 0) + charSpacing;
-        const operatorList = font.charProcOperatorList.get(glyph.operatorListId);
-        if (!operatorList) {
-          warn(`Type3 character "${glyph.operatorListId}" is not available.`);
-        } else if (this.contentVisible && isTextVisible) {
-          this.save();
-          ctx.scale(fontSize, fontSize);
-          ctx.transform(...fontMatrix);
-          this.executeOperatorList(operatorList);
-          this.restore();
-        }
-        width = glyph.width * fontMatrix[0] * fontSize + spacing * fontDirection;
-        ctx.translate(width, 0);
-        current.x += width * textHScale;
+    for (i = 0; i < glyphsLength; ++i) {
+      glyph = glyphs[i];
+      if (typeof glyph === "number") {
+        spacingLength = spacingDir * glyph * fontSize / 1000;
+        this.ctx.translate(spacingLength, 0);
+        current.x += spacingLength * textHScale;
+        continue;
       }
-    } finally {
-      if (dependencyTracker) {
-        this.dependencyTracker = dependencyTracker;
+      const spacing = (glyph.isSpace ? wordSpacing : 0) + charSpacing;
+      const operatorList = font.charProcOperatorList.get(glyph.operatorListId);
+      if (!operatorList) {
+        warn(`Type3 character "${glyph.operatorListId}" is not available.`);
+      } else if (this.contentVisible) {
+        this.save();
+        if (operatorList.fnArray[0] === OPS.setCharWidth) {
+          current.fillAlpha = current.strokeAlpha = 1;
+          ctx.globalAlpha = 1;
+        }
+        ctx.scale(fontSize, fontSize);
+        ctx.transform(...fontMatrix);
+        this.executeOperatorList(operatorList);
+        this.restore();
       }
+      const p = [glyph.width, 0];
+      Util.applyTransform(p, fontMatrix);
+      width = p[0] * fontSize + spacing;
+      ctx.translate(width, 0);
+      current.x += width * textHScale;
     }
     ctx.restore();
+    if (dependencyTracker) {
+      this.dependencyTracker = dependencyTracker;
+    }
   }
   setCharWidth(opIdx, xWidth, yWidth) {}
   setCharWidthAndBounds(opIdx, xWidth, yWidth, llx, lly, urx, ury) {
@@ -11265,8 +11733,7 @@ class CanvasGraphics {
       const canvasGraphicsFactory = {
         createCanvasGraphics: (ctx, renderingOpIdx) => new CanvasGraphics(ctx, this.commonObjs, this.objs, this.canvasFactory, this.filterFactory, {
           optionalContentConfig: this.optionalContentConfig,
-          markedContentStack: this.markedContentStack,
-          pixelRatio: this.pixelRatio
+          markedContentStack: this.markedContentStack
         }, undefined, undefined, this.dependencyTracker ? new CanvasNestedDependencyTracker(this.dependencyTracker, renderingOpIdx, true) : null)
       };
       pattern = new TilingPattern(IR, this.ctx, canvasGraphicsFactory, baseTransform);
@@ -11676,8 +12143,8 @@ class CanvasGraphics {
         } = this.annotationCanvas;
         if (canvasName) {
           const canvases = this.annotationCanvasMap.getOrInsertComputed(id, makeArr);
-          setAnnotationCanvasName(canvas, canvasName);
-          const index = canvases.findIndex(c => getAnnotationCanvasName(c) === canvasName);
+          canvas.setAttribute("data-canvas-name", canvasName);
+          const index = canvases.findIndex(c => c.getAttribute("data-canvas-name") === canvasName);
           if (index === -1) {
             canvases.push(canvas);
           } else {
@@ -11900,7 +12367,7 @@ class CanvasGraphics {
       inlineImgCanvas = tmpCanvas;
     }
     const scaled = this._scaleImage(imgToPaint, getCurrentTransformInverse(ctx));
-    ctx.imageSmoothingEnabled = getImageSmoothingEnabled(getCurrentTransform(ctx), imgData.interpolate, this.pixelRatio);
+    ctx.imageSmoothingEnabled = getImageSmoothingEnabled(getCurrentTransform(ctx), imgData.interpolate);
     if (this.dependencyTracker) {
       this.dependencyTracker.resetBBox(opIdx).recordBBox(opIdx, ctx, 0, width, -height, 0).recordDependencies(opIdx, Dependencies.imageXObject).recordOperation(opIdx);
       this.imagesTracker?.record(ctx, width, height, this.dependencyTracker.clipBox);
@@ -12169,19 +12636,10 @@ class BaseCanvasFactory {
     canvasAndContext.canvas = null;
     canvasAndContext.context = null;
   }
-  getNoAlphaContext(canvas) {
-    return canvas.getContext("2d", {
-      alpha: false,
-      willReadFrequently: !this.#enableHWA
-    });
-  }
   _createCanvas(width, height) {
     unreachable("Abstract method `_createCanvas` called.");
   }
 }
-
-;// ./src/display/dom_canvas_factory.js
-
 class DOMCanvasFactory extends BaseCanvasFactory {
   constructor({
     ownerDocument = globalThis.document,
@@ -12201,6 +12659,7 @@ class DOMCanvasFactory extends BaseCanvasFactory {
 }
 
 ;// ./src/display/filter_factory.js
+
 
 class BaseFilterFactory {
   addFilter(maps) {
@@ -12232,12 +12691,6 @@ class BaseFilterFactory {
   }
   destroy(keepHCM = false) {}
 }
-
-;// ./src/display/dom_filter_factory.js
-
-
-
-
 class DOMFilterFactory extends BaseFilterFactory {
   #baseUrl;
   #_cache;
@@ -12600,334 +13053,10 @@ function blend(fg, bg, alpha) {
   return Math.round(alpha * fg + (1 - alpha) * bg);
 }
 
-;// ./src/shared/css_utils.js
-const CONTROL_CHAR_REGEXP = /\p{Cc}/u;
-function isCSSString(str) {
-  const quote = str[0];
-  if (str.length < 2 || quote !== `"` && quote !== `'` || str.at(-1) !== quote) {
-    return false;
-  }
-  const end = str.length - 1;
-  for (let i = 1; i < end; i++) {
-    const char = str[i];
-    if (char === quote || CONTROL_CHAR_REGEXP.test(char)) {
-      return false;
-    }
-    if (char === "\\") {
-      if (++i >= end || CONTROL_CHAR_REGEXP.test(str[i])) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-function serializeFontFamily(fontFamily) {
-  if (isCSSString(fontFamily)) {
-    return fontFamily;
-  }
-  const escaped = fontFamily.replaceAll(/["\\\p{Cc}]/gu, char => char === `"` || char === "\\" ? `\\${char}` : `\\${char.codePointAt(0).toString(16)} `);
-  return `"${escaped}"`;
-}
-
-;// ./src/display/font_loader.js
-
-
-
-class FontLoader {
-  #nativeFontFaces = new Set();
-  #systemFonts = new Set();
-  #styleSheet = null;
-  constructor({
-    ownerDocument = globalThis.document,
-    styleElement = null
-  }) {
-    this._document = ownerDocument;
-    this.styleElement = null;
-  }
-  addNativeFontFace(nativeFontFace) {
-    this.#nativeFontFaces.add(nativeFontFace);
-    this._document.fonts.add(nativeFontFace);
-  }
-  removeNativeFontFace(nativeFontFace) {
-    this.#nativeFontFaces.delete(nativeFontFace);
-    this._document.fonts.delete(nativeFontFace);
-  }
-  insertRule(rule) {
-    const styleSheet = this.#getStyleSheet();
-    styleSheet.insertRule(rule, styleSheet.cssRules.length);
-  }
-  #getStyleSheet() {
-    if (this.#styleSheet) {
-      return this.#styleSheet;
-    }
-    const StyleSheet = this._document.defaultView?.CSSStyleSheet || globalThis.CSSStyleSheet;
-    if (!this.styleElement && StyleSheet) {
-      const {
-        adoptedStyleSheets
-      } = this._document;
-      if (adoptedStyleSheets) {
-        const styleSheet = new StyleSheet();
-        adoptedStyleSheets.push(styleSheet);
-        return this.#styleSheet = styleSheet;
-      }
-    }
-    if (!this.styleElement) {
-      this.styleElement = this._document.createElement("style");
-      this._document.documentElement.getElementsByTagName("head")[0].append(this.styleElement);
-    }
-    return this.#styleSheet = this.styleElement.sheet;
-  }
-  clear() {
-    for (const nativeFontFace of this.#nativeFontFaces) {
-      this._document.fonts.delete(nativeFontFace);
-    }
-    this.#nativeFontFaces.clear();
-    this.#systemFonts.clear();
-    if (this.#styleSheet) {
-      const {
-        adoptedStyleSheets
-      } = this._document;
-      if (adoptedStyleSheets?.includes(this.#styleSheet)) {
-        this._document.adoptedStyleSheets = adoptedStyleSheets.filter(styleSheet => styleSheet !== this.#styleSheet);
-      }
-      this.#styleSheet = null;
-    }
-    this.styleElement?.remove();
-    this.styleElement = null;
-  }
-  async loadSystemFont({
-    systemFontInfo: info,
-    disableFontFace,
-    _inspectFont
-  }) {
-    if (!info || this.#systemFonts.has(info.loadedName)) {
-      return;
-    }
-    assert(!disableFontFace, "loadSystemFont shouldn't be called when `disableFontFace` is set.");
-    if (this.isFontLoadingAPISupported) {
-      const {
-        loadedName,
-        src,
-        style
-      } = info;
-      const fontFace = new FontFace(loadedName, src, style);
-      this.addNativeFontFace(fontFace);
-      try {
-        await fontFace.load();
-        this.#systemFonts.add(loadedName);
-        _inspectFont?.(info);
-      } catch {
-        warn(`Cannot load system font: ${info.baseFontName}, installing it could help to improve PDF rendering.`);
-        this.removeNativeFontFace(fontFace);
-      }
-      return;
-    }
-    unreachable("Not implemented: loadSystemFont without the Font Loading API.");
-  }
-  async bind(font) {
-    if (font.attached || font.missingFile && !font.systemFontInfo) {
-      return;
-    }
-    font.attached = true;
-    if (font.systemFontInfo) {
-      await this.loadSystemFont(font);
-      return;
-    }
-    if (this.isFontLoadingAPISupported) {
-      const nativeFontFace = font.createNativeFontFace();
-      if (nativeFontFace) {
-        this.addNativeFontFace(nativeFontFace);
-        try {
-          await nativeFontFace.loaded;
-        } catch (ex) {
-          warn(`Failed to load font '${nativeFontFace.family}': '${ex}'.`);
-          font.disableFontFace = true;
-          throw ex;
-        }
-      }
-      return;
-    }
-    const rule = font.createFontFaceRule();
-    if (rule) {
-      this.insertRule(rule);
-      if (this.isSyncFontLoadingSupported) {
-        return;
-      }
-      await this.#testFontLoaded(font);
-    }
-  }
-  get isFontLoadingAPISupported() {
-    return shadow(this, "isFontLoadingAPISupported", !!this._document?.fonts);
-  }
-  get isSyncFontLoadingSupported() {
-    return shadow(this, "isSyncFontLoadingSupported", true);
-  }
-  #testFontLoaded(font) {
-    throw new Error("Not implemented: #testFontLoaded");
-  }
-}
-class FontFaceObject {
-  #compiledPaths = new Map();
-  #fontData;
-  constructor(translatedData, inspectFont = null, charProcOperatorList, extra) {
-    this.#fontData = translatedData;
-    this._inspectFont = inspectFont;
-    if (charProcOperatorList) {
-      this.charProcOperatorList = charProcOperatorList;
-    }
-    if (extra) {
-      Object.assign(this, extra);
-    }
-  }
-  createNativeFontFace() {
-    const {
-      data
-    } = this;
-    if (!data || this.disableFontFace) {
-      return null;
-    }
-    let nativeFontFace;
-    if (!this.cssFontInfo) {
-      nativeFontFace = new FontFace(this.loadedName, data, {});
-    } else {
-      const css = {
-        weight: this.cssFontInfo.fontWeight
-      };
-      if (this.cssFontInfo.italicAngle) {
-        css.style = `oblique ${this.cssFontInfo.italicAngle}deg`;
-      }
-      nativeFontFace = new FontFace(serializeFontFamily(this.cssFontInfo.fontFamily), data, css);
-    }
-    this._inspectFont?.(this);
-    return nativeFontFace;
-  }
-  createFontFaceRule() {
-    const {
-      data
-    } = this;
-    if (!data || this.disableFontFace) {
-      return null;
-    }
-    const url = `url(data:${this.mimetype};base64,${data.toBase64()});`;
-    let rule;
-    if (!this.cssFontInfo) {
-      rule = `@font-face {font-family:"${this.loadedName}";src:${url}}`;
-    } else {
-      let css = `font-weight: ${this.cssFontInfo.fontWeight};`;
-      if (this.cssFontInfo.italicAngle) {
-        css += `font-style: oblique ${this.cssFontInfo.italicAngle}deg;`;
-      }
-      const fontFamily = serializeFontFamily(this.cssFontInfo.fontFamily);
-      rule = `@font-face {font-family:${fontFamily};${css}src:${url}}`;
-    }
-    this._inspectFont?.(this, url);
-    return rule;
-  }
-  getPathGenerator(objs, character) {
-    let path = this.#compiledPaths.get(character);
-    if (path) {
-      return path;
-    }
-    const objId = `${this.loadedName}_path_${character}`;
-    let cmds;
-    try {
-      cmds = objs.get(objId);
-    } catch (ex) {
-      warn(`getPathGenerator - ignoring character: "${ex}".`);
-    }
-    path = makePathFromDrawOPS(cmds?.path);
-    if (!this.fontExtraProperties) {
-      objs.delete(objId);
-    }
-    this.#compiledPaths.set(character, path);
-    return path;
-  }
-  get black() {
-    return this.#fontData.black;
-  }
-  get bold() {
-    return this.#fontData.bold;
-  }
-  get disableFontFace() {
-    return this.#fontData.disableFontFace;
-  }
-  set disableFontFace(value) {
-    shadow(this, "disableFontFace", !!value);
-  }
-  get fontExtraProperties() {
-    return this.#fontData.fontExtraProperties;
-  }
-  get isInvalidPDFjsFont() {
-    return this.#fontData.isInvalidPDFjsFont;
-  }
-  get isType3Font() {
-    return this.#fontData.isType3Font;
-  }
-  get italic() {
-    return this.#fontData.italic;
-  }
-  get missingFile() {
-    return this.#fontData.missingFile;
-  }
-  get remeasure() {
-    return this.#fontData.remeasure;
-  }
-  get vertical() {
-    return this.#fontData.vertical;
-  }
-  get bbox() {
-    return this.#fontData.bbox;
-  }
-  get fontMatrix() {
-    return this.#fontData.fontMatrix;
-  }
-  get fallbackName() {
-    return this.#fontData.fallbackName;
-  }
-  get loadedName() {
-    return this.#fontData.loadedName;
-  }
-  get mimetype() {
-    return this.missingFile ? null : "font/opentype";
-  }
-  get data() {
-    return this.#fontData.data;
-  }
-  clearData() {
-    this.#fontData.clearData();
-  }
-  get cssFontInfo() {
-    return this.#fontData.cssFontInfo;
-  }
-  get systemFontInfo() {
-    return this.#fontData.systemFontInfo;
-  }
-}
-
 ;// ./src/display/worker_options.js
 class GlobalWorkerOptions {
   static #port = null;
-  static #rendererPorts = [];
-  static #rendererSrc = "";
   static #src = "";
-  static get rendererPorts() {
-    return this.#rendererPorts;
-  }
-  static set rendererPorts(val) {
-    if (!Array.isArray(val) || !val.every(port => typeof Worker !== "undefined" && port instanceof Worker)) {
-      throw new Error("Invalid `rendererPorts` type.");
-    }
-    this.#rendererPorts = val;
-  }
-  static get rendererSrc() {
-    return this.#rendererSrc;
-  }
-  static set rendererSrc(val) {
-    if (typeof val !== "string") {
-      throw new Error("Invalid `rendererSrc` type.");
-    }
-    this.#rendererSrc = val;
-  }
   static get workerPort() {
     return this.#port;
   }
@@ -12967,460 +13096,6 @@ class Metadata {
   }
   [Symbol.iterator]() {
     return this.#map.entries();
-  }
-}
-
-;// ./src/shared/obj_bin_transform_utils.js
-
-class CSS_FONT_INFO {
-  static strings = ["fontFamily", "fontWeight", "italicAngle"];
-}
-class SYSTEM_FONT_INFO {
-  static strings = ["css", "loadedName", "baseFontName", "src"];
-}
-class FONT_INFO {
-  static bools = ["black", "bold", "disableFontFace", "fontExtraProperties", "isInvalidPDFjsFont", "isType3Font", "italic", "missingFile", "remeasure", "vertical"];
-  static strings = ["fallbackName", "loadedName"];
-  static OFFSET_BBOX = Math.ceil(this.bools.length * 2 / 8);
-  static OFFSET_FONT_MATRIX = this.OFFSET_BBOX + 1 + 2 * 4;
-  static OFFSET_STRINGS = this.OFFSET_FONT_MATRIX + 1 + 8 * 6;
-}
-class PATTERN_INFO {
-  static KIND = 0;
-  static HAS_BBOX = 1;
-  static HAS_BACKGROUND = 2;
-  static SHADING_TYPE = 3;
-  static N_COORD = 4;
-  static N_COLOR = 8;
-  static N_STOP = 12;
-  static N_FIGURES = 16;
-}
-class InfoUtils {
-  static get decoder() {
-    return shadow(this, "decoder", new TextDecoder());
-  }
-  static get encoder() {
-    return shadow(this, "encoder", new TextEncoder());
-  }
-}
-
-;// ./src/display/obj_bin_transform_display.js
-
-
-function readString(buffer, view, index, offset = 0) {
-  const {
-    decoder
-  } = InfoUtils;
-  for (let i = 0; i < index; i++) {
-    offset += view.getUint32(offset) + 4;
-  }
-  const length = view.getUint32(offset);
-  return decoder.decode(new Uint8Array(buffer, offset + 4, length));
-}
-class CssFontInfo {
-  #buffer;
-  #view;
-  constructor(buffer) {
-    this.#buffer = buffer;
-    this.#view = new DataView(buffer);
-  }
-  #readString(index) {
-    assert(index < CSS_FONT_INFO.strings.length, "Invalid string index");
-    return readString(this.#buffer, this.#view, index);
-  }
-  get fontFamily() {
-    return shadow(this, "fontFamily", this.#readString(0));
-  }
-  get fontWeight() {
-    return shadow(this, "fontWeight", this.#readString(1));
-  }
-  get italicAngle() {
-    return shadow(this, "italicAngle", this.#readString(2));
-  }
-}
-class SystemFontInfo {
-  #buffer;
-  #view;
-  constructor(buffer) {
-    this.#buffer = buffer;
-    this.#view = new DataView(buffer);
-  }
-  #readString(index) {
-    assert(index < SYSTEM_FONT_INFO.strings.length, "Invalid string index");
-    return readString(this.#buffer, this.#view, index, 4);
-  }
-  get css() {
-    return shadow(this, "css", this.#readString(0));
-  }
-  get loadedName() {
-    return shadow(this, "loadedName", this.#readString(1));
-  }
-  get baseFontName() {
-    return shadow(this, "baseFontName", this.#readString(2));
-  }
-  get src() {
-    return shadow(this, "src", this.#readString(3));
-  }
-  get style() {
-    let offset = 0;
-    offset += 4 + this.#view.getUint32(offset);
-    const style = readString(this.#buffer, this.#view, 0, offset),
-      weight = readString(this.#buffer, this.#view, 1, offset);
-    return shadow(this, "style", {
-      style,
-      weight
-    });
-  }
-}
-class FontInfo {
-  #buffer;
-  #view;
-  constructor(buffer) {
-    this.#buffer = buffer;
-    this.#view = new DataView(buffer);
-  }
-  #readBoolean(index) {
-    assert(index < FONT_INFO.bools.length, "Invalid boolean index");
-    const byteOffset = Math.floor(index / 4);
-    const bitOffset = index * 2 % 8;
-    const value = this.#view.getUint8(byteOffset) >> bitOffset & 0x03;
-    return value === 0x00 ? undefined : value === 0x02;
-  }
-  get black() {
-    return shadow(this, "black", this.#readBoolean(0));
-  }
-  get bold() {
-    return shadow(this, "bold", this.#readBoolean(1));
-  }
-  get disableFontFace() {
-    return shadow(this, "disableFontFace", this.#readBoolean(2));
-  }
-  get fontExtraProperties() {
-    return shadow(this, "fontExtraProperties", this.#readBoolean(3));
-  }
-  get isInvalidPDFjsFont() {
-    return shadow(this, "isInvalidPDFjsFont", this.#readBoolean(4));
-  }
-  get isType3Font() {
-    return shadow(this, "isType3Font", this.#readBoolean(5));
-  }
-  get italic() {
-    return shadow(this, "italic", this.#readBoolean(6));
-  }
-  get missingFile() {
-    return shadow(this, "missingFile", this.#readBoolean(7));
-  }
-  get remeasure() {
-    return shadow(this, "remeasure", this.#readBoolean(8));
-  }
-  get vertical() {
-    return shadow(this, "vertical", this.#readBoolean(9));
-  }
-  #readArray(offset, arrLen, lookupName, increment) {
-    const len = this.#view.getUint8(offset++);
-    if (len === 0) {
-      return undefined;
-    }
-    assert(len === arrLen, "Invalid array length.");
-    const arr = new Array(len);
-    for (let i = 0; i < len; i++) {
-      arr[i] = this.#view[lookupName](offset, true);
-      offset += increment;
-    }
-    return arr;
-  }
-  get bbox() {
-    return shadow(this, "bbox", this.#readArray(FONT_INFO.OFFSET_BBOX, 4, "getInt16", 2));
-  }
-  get fontMatrix() {
-    return shadow(this, "fontMatrix", this.#readArray(FONT_INFO.OFFSET_FONT_MATRIX, 6, "getFloat64", 8));
-  }
-  #readString(index) {
-    assert(index < FONT_INFO.strings.length, "Invalid string index");
-    return readString(this.#buffer, this.#view, index, FONT_INFO.OFFSET_STRINGS + 4);
-  }
-  get fallbackName() {
-    return shadow(this, "fallbackName", this.#readString(0));
-  }
-  get loadedName() {
-    return shadow(this, "loadedName", this.#readString(1));
-  }
-  #getBufferOffset(index) {
-    let offset = FONT_INFO.OFFSET_STRINGS;
-    for (let i = 0; i <= index; i++) {
-      offset += 4 + this.#view.getUint32(offset);
-    }
-    const length = this.#view.getUint32(offset);
-    return {
-      offset,
-      length
-    };
-  }
-  get data() {
-    const {
-      offset,
-      length
-    } = this.#getBufferOffset(2);
-    return !length ? undefined : new Uint8Array(this.#buffer, offset + 4, length);
-  }
-  clearData() {
-    const {
-      offset,
-      length
-    } = this.#getBufferOffset(2);
-    if (!length) {
-      return;
-    }
-    this.#view.setUint32(offset, 0);
-    this.#buffer = new Uint8Array(this.#buffer, 0, offset + 4).slice().buffer;
-    this.#view = new DataView(this.#buffer);
-  }
-  get cssFontInfo() {
-    const {
-      offset,
-      length
-    } = this.#getBufferOffset(1);
-    let info = null;
-    if (length) {
-      const data = new Uint8Array(this.#buffer, offset + 4, length).slice();
-      info = new CssFontInfo(data.buffer);
-    }
-    return shadow(this, "cssFontInfo", info);
-  }
-  get systemFontInfo() {
-    const {
-      offset,
-      length
-    } = this.#getBufferOffset(0);
-    let info = null;
-    if (length) {
-      const data = new Uint8Array(this.#buffer, offset + 4, length).slice();
-      info = new SystemFontInfo(data.buffer);
-    }
-    return shadow(this, "systemFontInfo", info);
-  }
-}
-class PatternInfo {
-  constructor(buffer) {
-    this.buffer = buffer;
-    this.view = new DataView(buffer);
-    this.data = new Uint8Array(buffer);
-  }
-  getIR() {
-    const dataView = this.view;
-    const kind = this.data[PATTERN_INFO.KIND];
-    const hasBBox = !!this.data[PATTERN_INFO.HAS_BBOX];
-    const hasBackground = !!this.data[PATTERN_INFO.HAS_BACKGROUND];
-    const nCoord = dataView.getUint32(PATTERN_INFO.N_COORD, true);
-    const nColor = dataView.getUint32(PATTERN_INFO.N_COLOR, true);
-    const nStop = dataView.getUint32(PATTERN_INFO.N_STOP, true);
-    let offset = 20;
-    const coords = new Float32Array(this.buffer, offset, nCoord * 2);
-    offset += nCoord * 8;
-    const colors = new Uint8Array(this.buffer, offset, nColor * 4);
-    offset += nColor * 4;
-    const stops = [];
-    for (let i = 0; i < nStop; ++i) {
-      const p = dataView.getFloat32(offset, true);
-      offset += 4;
-      const rgb = dataView.getUint32(offset, true);
-      offset += 4;
-      stops.push([p, `#${rgb.toString(16).padStart(6, "0")}`]);
-    }
-    let bbox = null;
-    if (hasBBox) {
-      bbox = [];
-      for (let i = 0; i < 4; ++i) {
-        bbox.push(dataView.getFloat32(offset, true));
-        offset += 4;
-      }
-    }
-    let background = null;
-    if (hasBackground) {
-      background = new Uint8Array(this.buffer, offset, 3);
-      offset += 3;
-    }
-    if (kind === 1) {
-      return ["RadialAxial", "axial", bbox, stops, [coords[0], coords[1]], [coords[2], coords[3]], null, null];
-    }
-    if (kind === 2) {
-      return ["RadialAxial", "radial", bbox, stops, [coords[0], coords[1]], [coords[3], coords[4]], coords[2], coords[5]];
-    }
-    if (kind === 3) {
-      const shadingType = this.data[PATTERN_INFO.SHADING_TYPE];
-      let bounds = null;
-      if (coords.length > 0) {
-        bounds = BBOX_INIT.slice();
-        for (let i = 0, ii = coords.length; i < ii; i += 2) {
-          Util.pointBoundingBox(coords[i], coords[i + 1], bounds);
-        }
-      }
-      return ["Mesh", shadingType, coords, colors, nCoord, bounds, bbox, background];
-    }
-    throw new Error(`Unsupported pattern kind: ${kind}`);
-  }
-}
-class FontPathInfo {
-  #buffer;
-  constructor(buffer) {
-    this.#buffer = buffer;
-  }
-  get path() {
-    return new Float16Array(this.#buffer);
-  }
-}
-
-;// ./src/display/pdf_objects.js
-const INITIAL_DATA = Symbol("INITIAL_DATA");
-const dataObj = () => ({
-  ...Promise.withResolvers(),
-  data: INITIAL_DATA
-});
-class PDFObjects {
-  #objs = new Map();
-  get(objId, callback = null, errorCallback = null) {
-    if (callback) {
-      const obj = this.#objs.getOrInsertComputed(objId, dataObj);
-      obj.promise.then(() => callback(obj.data), errorCallback);
-      return null;
-    }
-    const obj = this.#objs.get(objId);
-    if (!obj || obj.data === INITIAL_DATA) {
-      throw new Error(`Requesting object that isn't resolved yet ${objId}.`);
-    }
-    return obj.data;
-  }
-  has(objId) {
-    const obj = this.#objs.get(objId);
-    return !!obj && obj.data !== INITIAL_DATA;
-  }
-  delete(objId) {
-    const obj = this.#objs.get(objId);
-    if (!obj || obj.data === INITIAL_DATA) {
-      return false;
-    }
-    this.#objs.delete(objId);
-    return true;
-  }
-  resolve(objId, data = null) {
-    const obj = this.#objs.getOrInsertComputed(objId, dataObj);
-    if (obj.data !== INITIAL_DATA) {
-      throw new Error(`Object already resolved ${objId}.`);
-    }
-    obj.data = data;
-    obj.resolve();
-  }
-  reject(objId, reason) {
-    const obj = this.#objs.getOrInsertComputed(objId, dataObj);
-    if (obj.data !== INITIAL_DATA) {
-      return;
-    }
-    obj.promise.catch(() => {});
-    obj.reject(reason);
-  }
-  clear() {
-    for (const {
-      data
-    } of this.#objs.values()) {
-      data?.bitmap?.close();
-    }
-    this.#objs.clear();
-  }
-  *[Symbol.iterator]() {
-    for (const [objId, {
-      data
-    }] of this.#objs) {
-      if (data !== INITIAL_DATA) {
-        yield [objId, data];
-      }
-    }
-  }
-}
-
-;// ./src/display/object_handler.js
-
-
-
-
-class ObjectHandler {
-  constructor({
-    messageHandler,
-    commonObjs,
-    fontLoader,
-    pageCache,
-    pdfBug = false,
-    shouldCreatePageObjs = false
-  }) {
-    this.messageHandler = messageHandler;
-    this.commonObjs = commonObjs;
-    this.fontLoader = fontLoader;
-    this.pageCache = pageCache;
-    this.pdfBug = pdfBug;
-    this.shouldCreatePageObjs = shouldCreatePageObjs;
-  }
-  resolveCommonObject(id, type, exportedData) {
-    switch (type) {
-      case "Font":
-        if ("error" in exportedData) {
-          const exportedError = exportedData.error;
-          warn(`Error during font loading: ${exportedError}`);
-          this.commonObjs.resolve(id, exportedError);
-          break;
-        }
-        const fontData = new FontInfo(exportedData.buffer);
-        const inspectFont = this.pdfBug && globalThis.FontInspector?.enabled ? (font, url) => globalThis.FontInspector.fontAdded(font, url) : null;
-        const font = new FontFaceObject(fontData, inspectFont, exportedData.charProcOperatorList, exportedData.extra);
-        this.fontLoader.bind(font).catch(() => this.messageHandler.sendWithPromise("FontFallback", {
-          id
-        }).catch(reason => {
-          warn(`FontFallback failed for "${id}": ${reason}`);
-        })).finally(() => {
-          if (!font.fontExtraProperties) {
-            font.clearData();
-          }
-          this.commonObjs.resolve(id, font);
-        });
-        break;
-      case "FontPath":
-        this.commonObjs.resolve(id, new FontPathInfo(exportedData));
-        break;
-      case "Image":
-        this.commonObjs.resolve(id, exportedData);
-        break;
-      case "Pattern":
-        const pattern = new PatternInfo(exportedData);
-        this.commonObjs.resolve(id, pattern.getIR());
-        break;
-      default:
-        throw new Error(`Got unknown common object type ${type}`);
-    }
-    return null;
-  }
-  resolveObject(id, pageProxyId, type, exportedData) {
-    let pageOrObjs = this.pageCache.get(pageProxyId);
-    if (!pageOrObjs) {
-      if (!this.shouldCreatePageObjs) {
-        return false;
-      }
-      pageOrObjs = new PDFObjects();
-      this.pageCache.set(pageProxyId, pageOrObjs);
-    }
-    const objs = pageOrObjs.objs || pageOrObjs;
-    if (objs.has(id)) {
-      return false;
-    }
-    if (pageOrObjs._intentStates?.size === 0) {
-      exportedData?.bitmap?.close();
-      return false;
-    }
-    switch (type) {
-      case "Image":
-      case "Pattern":
-        objs.resolve(id, exportedData);
-        return true;
-      default:
-        throw new Error(`Got unknown object type ${type}`);
-    }
   }
 }
 
@@ -13726,7 +13401,6 @@ class PagesMapper {
   #pageNumberToId = null;
   #prevPageNumbers = null;
   #pagesNumber = 0;
-  #initialPagesNumber = 0;
   #clipboard = null;
   #savedData = null;
   get pagesNumber() {
@@ -13736,7 +13410,7 @@ class PagesMapper {
     if (this.#pagesNumber === n) {
       return;
     }
-    this.#pagesNumber = this.#initialPagesNumber = n;
+    this.#pagesNumber = n;
     this.#pageNumberToId = null;
     this.#prevPageNumbers = null;
   }
@@ -13793,7 +13467,7 @@ class PagesMapper {
     prevPageNumbers.copyWithin(adjustedTarget + movedCount, adjustedTarget, remainingLen);
     prevPageNumbers.set(pagesToMove, adjustedTarget);
     this.#prevPageNumbers = prevPageNumbers;
-    if (pagesNumber === this.#initialPagesNumber && pageNumberToId.every((id, i) => id === i + 1)) {
+    if (pageNumberToId.every((id, i) => id === i + 1)) {
       this.#pageNumberToId = null;
     }
   }
@@ -14280,521 +13954,66 @@ class PDFDataTransportStreamRangeReader extends BasePDFStreamRangeReader {
   }
 }
 
-;// ./src/display/renderer_worker_proxy.js
-
-
-
-
-
-
-
-const PORT_CONNECTION_TIMEOUT = 5000;
-function closeFrame({
-  bitmap,
-  annotationBitmaps
-}) {
-  bitmap?.close();
-  if (annotationBitmaps) {
-    for (const [,, annotationBitmap] of annotationBitmaps) {
-      annotationBitmap.close();
-    }
-  }
-}
-class WorkerRenderTask {
-  #annotationCanvasMap;
-  #cancelled = false;
-  #canvas;
-  #canvasFactory;
-  #filteredLength = 0;
-  #id;
-  #initParams;
-  #onError;
-  #onFrame;
-  #operatorListState;
-  #rendererWorker;
-  #renderTasks;
-  imageCoordinates = null;
-  recordedBBoxes = null;
-  constructor({
-    rendererWorker,
-    renderTasks,
-    canvas,
-    canvasFactory,
-    annotationCanvasMap,
-    operatorListState,
-    initParams,
-    onFrame,
-    onError
-  }) {
-    this.#rendererWorker = rendererWorker;
-    this.#renderTasks = renderTasks;
-    this.#canvas = canvas;
-    this.#canvasFactory = canvasFactory;
-    this.#annotationCanvasMap = annotationCanvasMap;
-    this.#operatorListState = operatorListState;
-    this.#initParams = initParams;
-    this.#id = initParams.renderTaskId;
-    this.#onFrame = onFrame;
-    this.#onError = onError;
-  }
-  async initialize(transparency, optionalContentConfig) {
-    try {
-      await this.#rendererWorker.promise;
-    } catch {
-      return false;
-    }
-    if (!this.#rendererWorker.messageHandler || this.#cancelled) {
-      return false;
-    }
-    try {
-      await this.#rendererWorker.sendWithPromise("InitializeGraphics", {
-        ...this.#initParams,
-        width: this.#canvas.width,
-        height: this.#canvas.height,
-        transparency,
-        optionalContentConfig: optionalContentConfig.serializable
-      });
-    } catch (ex) {
-      if (!this.#cancelled) {
-        warn(`Failed to initialize graphics in renderer worker: ${ex.message}. ` + "Falling back to main-thread rendering.");
-      }
-      return false;
-    }
-    if (!this.#cancelled) {
-      this.#renderTasks.set(this.#id, this);
-    }
-    return true;
-  }
-  async executeOperatorList(operatorList, operatorListIdx, operationsFilter) {
-    const handler = this.#rendererWorker.messageHandler;
-    if (!handler) {
-      throw new Error("Renderer worker was destroyed during rendering.");
-    }
-    const {
-      lastChunk
-    } = operatorList;
-    const end = operatorList.argsArray.length;
-    const operatorListState = this.#operatorListState;
-    if (operatorListState.sentLength < end) {
-      const start = operatorListState.sentLength;
-      handler.send("AppendOperatorList", {
-        pageProxyId: this.#initParams.pageProxyId,
-        operatorListId: operatorListState.id,
-        fnArray: operatorList.fnArray.slice(start, end),
-        argsArray: operatorList.argsArray.slice(start, end)
-      });
-      operatorListState.sentLength = end;
-    }
-    let operationsFilterMask = null;
-    if (operationsFilter && this.#filteredLength < end) {
-      const start = this.#filteredLength;
-      operationsFilterMask = new Uint8Array(end - start);
-      for (let i = start; i < end; i++) {
-        operationsFilterMask[i - start] = operationsFilter(i, operatorList) ? 1 : 0;
-      }
-      this.#filteredLength = end;
-    }
-    const response = await this.#rendererWorker.sendWithPromise("ExecuteOperatorList", {
-      renderTaskId: this.#id,
-      operatorListIdx,
-      operatorListLength: end,
-      operationsFilterMask,
-      lastChunk
-    }).catch(reason => {
-      if (!this.#cancelled) {
-        throw reason;
-      }
-      return {
-        operatorListIdx,
-        aborted: true
-      };
-    });
-    if (response.aborted && !this.#cancelled) {
-      throw new Error("Render task was aborted in the renderer worker.");
-    }
-    if (lastChunk && response.operatorListIdx === end) {
-      this.#renderTasks.delete(this.#id);
-      const {
-        recordedBBoxesBuffer,
-        imageCoordinates
-      } = response;
-      if (recordedBBoxesBuffer) {
-        this.recordedBBoxes = BBoxReader.fromBuffer(recordedBBoxesBuffer);
-      }
-      this.imageCoordinates = imageCoordinates ?? null;
-    }
-    return response.operatorListIdx;
-  }
-  cancel() {
-    this.#cancelled = true;
-    this.#renderTasks.delete(this.#id);
-    this.#rendererWorker.messageHandler?.send("CleanupRenderTask", {
-      renderTaskId: this.#id
-    });
-  }
-  drawFrame(frame) {
-    try {
-      if (frame.bitmap) {
-        const ctx = this.#canvasFactory.getNoAlphaContext(this.#canvas);
-        ctx.drawImage(frame.bitmap, 0, 0);
-      }
-      if (frame.annotationBitmaps) {
-        this.#drawAnnotationCanvases(frame.annotationBitmaps);
-      }
-    } catch (ex) {
-      this.#onError(ex);
-      return;
-    } finally {
-      closeFrame(frame);
-    }
-    this.#onFrame();
-  }
-  #drawAnnotationCanvases(annotationBitmaps) {
-    const annotationCanvasMap = this.#annotationCanvasMap;
-    const seen = new Set();
-    for (const [id, canvasName, bitmap] of annotationBitmaps) {
-      const {
-        canvas,
-        context
-      } = this.#canvasFactory.create(bitmap.width, bitmap.height);
-      context.drawImage(bitmap, 0, 0);
-      if (!canvasName) {
-        annotationCanvasMap.set(id, canvas);
-        continue;
-      }
-      setAnnotationCanvasName(canvas, canvasName);
-      if (seen.has(id)) {
-        annotationCanvasMap.get(id).push(canvas);
-      } else {
-        seen.add(id);
-        annotationCanvasMap.set(id, [canvas]);
-      }
-    }
-  }
-}
-class RendererWorker {
-  #capability = Promise.withResolvers();
-  #enableHWA;
-  #enableWebGPU;
-  #messageHandler = null;
-  #operatorListId = 0;
-  #operatorLists = new WeakMap();
-  #pendingMessages = [];
-  #pendingRequests = new Set();
-  #port = null;
-  #portNames = null;
-  #renderTaskId = 0;
-  #renderTasks = new Map();
-  #terminateEarly = null;
-  #webWorker = null;
-  #workerAC = null;
-  static #connectionId = 0;
-  static #usedPorts = new WeakSet();
-  destroyed = false;
-  constructor({
-    port = null,
-    verbosity = getVerbosityLevel(),
-    enableHWA = false,
-    enableWebGPU = false
-  } = {}) {
-    this.verbosity = verbosity;
-    this.#enableHWA = enableHWA;
-    this.#enableWebGPU = enableWebGPU;
-    if (port) {
-      this.#initializeFromPort(port);
-    } else {
-      this.#initialize();
-    }
-  }
-  static get isAvailable() {
-    return (!!GlobalWorkerOptions.rendererSrc || GlobalWorkerOptions.rendererPorts.length > 0) && typeof Worker !== "undefined" && FeatureTest.isOffscreenCanvasSupported && !!globalThis.document?.fonts;
-  }
-  get promise() {
-    return this.#capability.promise;
-  }
-  get messageHandler() {
-    return this.#messageHandler;
-  }
-  get port() {
-    return this.#port;
-  }
-  #resolve() {
-    this.#messageHandler.on("RenderFrame", frame => {
-      const renderTask = this.#renderTasks.get(frame.renderTaskId);
-      if (renderTask) {
-        renderTask.drawFrame(frame);
-      } else {
-        closeFrame(frame);
-      }
-    });
-    this.#capability.resolve();
-    this.#messageHandler.send("configure", {
-      verbosity: this.verbosity,
-      enableHWA: this.#enableHWA,
-      enableWebGPU: this.#enableWebGPU
-    });
-    const pendingMessages = this.#pendingMessages;
-    this.#pendingMessages = null;
-    for (const send of pendingMessages) {
-      send();
-    }
-  }
-  #reject(reason) {
-    this.#pendingMessages = null;
-    this.#capability.reject(reason);
-  }
-  #initializeFromPort(port) {
-    RendererWorker.#usedPorts.add(port);
-    this.#port = port;
-    const id = RendererWorker.#connectionId++;
-    const sourceName = `main${id}`;
-    const targetName = `renderer${id}`;
-    this.#portNames = {
-      sourceName,
-      targetName
-    };
-    const handler = new MessageHandler("main", "renderer", port);
-    handler.send("Connect", {
-      sourceName: targetName,
-      targetName: sourceName
-    });
-    handler.destroy();
-    this.#waitForReady(port, new MessageHandler(sourceName, targetName, port), true);
-  }
-  #initialize() {
-    try {
-      const {
-        rendererSrc
-      } = GlobalWorkerOptions;
-      if (!rendererSrc) {
-        throw new Error('No "GlobalWorkerOptions.rendererSrc" specified.');
-      }
-      const worker = new Worker(getWorkerSrc(rendererSrc), {
-        type: "module"
-      });
-      this.#waitForReady(worker, new MessageHandler("main", "renderer", worker), false);
-    } catch (reason) {
-      this.#reject(reason);
-    }
-  }
-  #waitForReady(worker, messageHandler, isPort) {
-    let timeoutId = null;
-    const terminateEarly = reason => {
-      this.#terminateEarly = null;
-      clearTimeout(timeoutId);
-      ac.abort();
-      messageHandler.destroy();
-      if (isPort) {
-        this.#port = null;
-      } else {
-        worker.terminate();
-      }
-      this.#reject(new Error(`Renderer worker failed to initialize: "${reason?.message ?? reason}".`));
-    };
-    this.#terminateEarly = terminateEarly;
-    const ac = new AbortController();
-    const onError = (event, reason) => {
-      if (!this.#messageHandler) {
-        terminateEarly(reason);
-        return;
-      }
-      event.preventDefault();
-      warn(`Renderer worker failed: "${reason}". ` + "Falling back to main-thread rendering.");
-      this.destroy();
-    };
-    worker.addEventListener("error", event => onError(event, event.error?.message ?? event.message), {
-      signal: ac.signal
-    });
-    worker.addEventListener("messageerror", event => onError(event, "Cannot deserialize a message."), {
-      signal: ac.signal
-    });
-    if (isPort) {
-      timeoutId = setTimeout(() => terminateEarly("Connection timed out."), PORT_CONNECTION_TIMEOUT);
-    }
-    messageHandler.on("ready", data => {
-      if (!(data?.testObj instanceof Uint8Array)) {
-        terminateEarly("TypedArray transfer test failed.");
-        return;
-      }
-      const apiVersion = "6.5.390";
-      if (apiVersion !== data.workerVersion) {
-        terminateEarly(`The API version "${apiVersion}" does not match the Worker version "${data.workerVersion}".`);
-        return;
-      }
-      this.#terminateEarly = null;
-      clearTimeout(timeoutId);
-      this.#messageHandler = messageHandler;
-      if (!isPort) {
-        this.#webWorker = worker;
-      }
-      this.#workerAC = ac;
-      this.#resolve();
-    });
-  }
-  destroy() {
-    this.destroyed = true;
-    if (this.#port) {
-      if (this.#messageHandler) {
-        this.#closeStrayFrames(this.#port);
-        this.#messageHandler.send("Disconnect", null);
-      }
-      RendererWorker.#usedPorts.delete(this.#port);
-      this.#port = null;
-    }
-    this.#terminateEarly?.("Worker was destroyed.");
-    this.#workerAC?.abort();
-    this.#workerAC = null;
-    this.#webWorker?.terminate();
-    this.#webWorker = null;
-    this.#messageHandler?.destroy();
-    this.#messageHandler = null;
-    for (const reject of this.#pendingRequests) {
-      reject(new Error("Renderer worker was destroyed."));
-    }
-    this.#pendingRequests.clear();
-  }
-  #closeStrayFrames(port) {
-    const {
-      sourceName,
-      targetName
-    } = this.#portNames;
-    const ac = new AbortController();
-    const timeoutId = setTimeout(() => ac.abort(), PORT_CONNECTION_TIMEOUT);
-    port.addEventListener("message", ({
-      data
-    }) => {
-      if (data?.targetName !== sourceName || data.sourceName !== targetName) {
-        return;
-      }
-      if (data.action === "RenderFrame") {
-        closeFrame(data.data);
-      } else if (data.action === "Disconnected") {
-        clearTimeout(timeoutId);
-        ac.abort();
-      }
-    }, {
-      signal: ac.signal
-    });
-  }
-  static create({
-    ports = [],
-    ...params
-  } = {}) {
-    const port = ports.find(p => !this.#usedPorts.has(p)) ?? null;
-    if (!port && ports.length > 0) {
-      warn("RendererWorker.create - no unused `rendererPorts` available, " + "falling back to `rendererSrc`.");
-    }
-    return new RendererWorker({
-      ...params,
-      port
-    });
-  }
-  sendWithPromise(action, data) {
-    const handler = this.#messageHandler;
-    if (!handler) {
-      return Promise.reject(new Error("Renderer worker was destroyed."));
-    }
-    const {
-      promise,
-      resolve,
-      reject
-    } = Promise.withResolvers();
-    this.#pendingRequests.add(reject);
-    handler.sendWithPromise(action, data).then(resolve, reject);
-    return promise.finally(() => {
-      this.#pendingRequests.delete(reject);
-    });
-  }
-  #send(action, data) {
-    if (this.#pendingMessages) {
-      this.#pendingMessages.push(() => this.#send(action, data));
-      return;
-    }
-    this.#messageHandler?.send(action, data);
-  }
-  #sendObj(action, data, id, pageProxyId, isFont = false) {
-    try {
-      if (this.#pendingMessages) {
-        const queuedData = isFont ? structuredClone(data) : data;
-        this.#pendingMessages.push(() => this.#sendObj(action, queuedData, id, pageProxyId));
-        return;
-      }
-      this.#messageHandler?.send(action, data);
-    } catch (reason) {
-      warn(`RendererWorker - failed to send "${action}": ${reason}`);
-      this.#send("objFailed", {
-        id,
-        pageProxyId,
-        reason: reason.message
-      });
-    }
-  }
-  sendCommonObj(id, type, data) {
-    this.#sendObj("commonobj", [id, type, data], id, null, type === "Font");
-  }
-  sendObj(id, pageProxyId, type, data) {
-    this.#sendObj("obj", [id, pageProxyId, type, data], id, pageProxyId);
-  }
-  cleanup(keepLoadedFonts) {
-    this.#send("Cleanup", {
-      keepLoadedFonts
-    });
-  }
-  cleanupPage(pageProxyId) {
-    this.#send("cleanupPage", {
-      pageProxyId
-    });
-  }
-  createRenderTask({
-    pageProxyId,
-    operatorList,
-    params,
-    pageColors,
-    canvasFactory,
-    annotationCanvasMap,
-    onFrame,
-    onError
-  }) {
-    const {
-      canvas,
-      canvasContext,
-      background
-    } = params;
-    if (!this.#messageHandler && !this.#pendingMessages || canvasContext || background && typeof background !== "string" || pageColors || params.recordForDebugger) {
+;// ./src/display/pdf_objects.js
+const INITIAL_DATA = Symbol("INITIAL_DATA");
+const dataObj = () => ({
+  ...Promise.withResolvers(),
+  data: INITIAL_DATA
+});
+class PDFObjects {
+  #objs = new Map();
+  get(objId, callback = null) {
+    if (callback) {
+      const obj = this.#objs.getOrInsertComputed(objId, dataObj);
+      obj.promise.then(() => callback(obj.data));
       return null;
     }
-    const operatorListState = this.#operatorLists.getOrInsertComputed(operatorList, () => ({
-      id: this.#operatorListId++,
-      sentLength: 0
-    }));
-    return new WorkerRenderTask({
-      rendererWorker: this,
-      renderTasks: this.#renderTasks,
-      canvas,
-      canvasFactory,
-      annotationCanvasMap,
-      operatorListState,
-      initParams: {
-        pageProxyId,
-        operatorListId: operatorListState.id,
-        renderTaskId: this.#renderTaskId++,
-        hasAnnotationCanvasMap: !!annotationCanvasMap,
-        recordOperations: params.recordOperations,
-        recordImages: params.recordImages,
-        partialFrames: params.partialFrames,
-        transform: params.transform,
-        viewport: params.viewport,
-        background,
-        pixelRatio: OutputScale.pixelRatio
-      },
-      onFrame,
-      onError
-    });
+    const obj = this.#objs.get(objId);
+    if (!obj || obj.data === INITIAL_DATA) {
+      throw new Error(`Requesting object that isn't resolved yet ${objId}.`);
+    }
+    return obj.data;
+  }
+  has(objId) {
+    const obj = this.#objs.get(objId);
+    return !!obj && obj.data !== INITIAL_DATA;
+  }
+  delete(objId) {
+    const obj = this.#objs.get(objId);
+    if (!obj || obj.data === INITIAL_DATA) {
+      return false;
+    }
+    this.#objs.delete(objId);
+    return true;
+  }
+  resolve(objId, data = null) {
+    const obj = this.#objs.getOrInsertComputed(objId, dataObj);
+    if (obj.data !== INITIAL_DATA) {
+      throw new Error(`Object already resolved ${objId}.`);
+    }
+    obj.data = data;
+    obj.resolve();
+  }
+  clear() {
+    for (const {
+      data
+    } of this.#objs.values()) {
+      data?.bitmap?.close();
+    }
+    this.#objs.clear();
+  }
+  *[Symbol.iterator]() {
+    for (const [objId, {
+      data
+    }] of this.#objs) {
+      if (data !== INITIAL_DATA) {
+        yield [objId, data];
+      }
+    }
   }
 }
 
 ;// ./src/display/text_layer.js
-
 
 
 const MAX_TEXT_DIVS_TO_RENDER = 100000;
@@ -15166,8 +14385,6 @@ class TextLayer {
 
 
 
-
-
 const RENDERING_CANCELLED_TIMEOUT = 100;
 function getDocument(src = {}) {
   const task = new PDFDocumentLoadingTask();
@@ -15210,10 +14427,9 @@ function getDocument(src = {}) {
   const gpuPromise = enableWebGPU ? initGPU() : Promise.resolve(false);
   const useWasm = src.useWasm !== false;
   const pagesMapper = src.pagesMapper || new PagesMapper();
-  const styleElement = null;
   const useSystemFonts = typeof src.useSystemFonts === "boolean" ? src.useSystemFonts : !(/* inlined export .isNodeJS */false) && !disableFontFace;
   const useWorkerFetch = typeof src.useWorkerFetch === "boolean" ? src.useWorkerFetch : true;
-  const disableWorkerRendering = src.disableWorkerRendering === true || !isOffscreenCanvasSupported || ownerDocument !== globalThis.document || !!styleElement || !RendererWorker.isAvailable;
+  const styleElement = null;
   setVerbosityLevel(verbosity);
   const transportFactory = {
     canvasFactory: new CanvasFactory({
@@ -15233,24 +14449,9 @@ function getDocument(src = {}) {
     });
     task._worker = worker;
   }
-  if (!disableWorkerRendering) {
-    const rendererWorker = RendererWorker.create({
-      verbosity,
-      enableHWA,
-      enableWebGPU,
-      ports: GlobalWorkerOptions.rendererPorts
-    });
-    rendererWorker.promise.catch(reason => {
-      if (!rendererWorker.destroyed) {
-        warn(`Renderer worker disabled: ${reason.message}`);
-        rendererWorker.destroy();
-      }
-    });
-    task._rendererWorker = rendererWorker;
-  }
   const docParams = {
     docId,
-    apiVersion: "6.5.390",
+    apiVersion: "6.5.10",
     data,
     password,
     disableAutoFetch,
@@ -15280,7 +14481,7 @@ function getDocument(src = {}) {
     ownerDocument,
     pdfBug,
     styleElement,
-    rendererWorker: task._rendererWorker,
+    enableHWA,
     loadingParams: {
       disableAutoFetch,
       enableXfa
@@ -15325,7 +14526,6 @@ class PDFDocumentLoadingTask {
   _setupCapability = Promise.withResolvers();
   _transport = null;
   _worker = null;
-  _rendererWorker = null;
   docId = `d${PDFDocumentLoadingTask.#docId++}`;
   destroyed = false;
   onPassword = null;
@@ -15347,9 +14547,6 @@ class PDFDocumentLoadingTask {
         delete this._worker._pendingDestroy;
       }
       throw ex;
-    } finally {
-      this._rendererWorker?.destroy();
-      this._rendererWorker = null;
     }
     this._transport = null;
     this._worker?.destroy();
@@ -15623,7 +14820,6 @@ class PDFPageProxy {
     isEditing = false,
     recordImages = false,
     recordOperations = false,
-    partialFrames = false,
     operationsFilter = null
   }) {
     this._stats?.time("Overall");
@@ -15657,18 +14853,16 @@ class PDFPageProxy {
     const complete = error => {
       intentState.renderTasks.delete(internalRenderTask);
       if (shouldRecordOperations) {
-        const {
-          recordedBBoxes
-        } = internalRenderTask;
+        const recordedBBoxes = internalRenderTask.gfx?.dependencyTracker.take();
         if (recordedBBoxes) {
-          internalRenderTask.stepper?.setOperatorBBoxes(recordedBBoxes, internalRenderTask.debugMetadata);
+          internalRenderTask.stepper?.setOperatorBBoxes(recordedBBoxes, internalRenderTask.gfx.dependencyTracker.takeDebugMetadata());
           if (recordOperations) {
             this.recordedBBoxes = recordedBBoxes;
           }
         }
       }
       if (shouldRecordImages && !error) {
-        this.imageCoordinates = internalRenderTask.imageCoordinates;
+        this.imageCoordinates = internalRenderTask.gfx?.imagesTracker.take();
       }
       if (intentPrint) {
         this.#pendingCleanup = true;
@@ -15691,36 +14885,41 @@ class PDFPageProxy {
         }
       }
     };
+    let dependencyTracker = null;
+    let bboxTracker = null;
+    if (shouldRecordOperations || shouldRecordImages) {
+      bboxTracker = new CanvasBBoxTracker(canvas, intentState.operatorList.length);
+    }
+    if (shouldRecordOperations) {
+      dependencyTracker = new CanvasDependencyTracker(bboxTracker, recordForDebugger);
+    }
     const internalRenderTask = new InternalRenderTask({
       callback: complete,
       params: {
         canvas,
         canvasContext,
+        dependencyTracker: dependencyTracker ?? bboxTracker,
+        imagesTracker: shouldRecordImages ? new CanvasImagesTracker(canvas) : null,
         viewport,
         transform,
-        background,
-        recordOperations: shouldRecordOperations,
-        recordImages: shouldRecordImages,
-        partialFrames,
-        recordForDebugger
+        background
       },
       objs: this.objs,
       commonObjs: this.commonObjs,
       annotationCanvasMap,
       operatorList: intentState.operatorList,
       pageIndex: this._pageIndex,
-      pageProxyId: this._id,
       canvasFactory: this._transport.canvasFactory,
       filterFactory: this._transport.filterFactory,
       useRequestAnimationFrame: !intentPrint,
       pdfBug: this._pdfBug,
       pageColors,
-      operationsFilter,
-      rendererWorker: this._transport.rendererWorker
+      enableHWA: this._transport.enableHWA,
+      operationsFilter
     });
     (intentState.renderTasks ||= new Set()).add(internalRenderTask);
     const renderTask = internalRenderTask.task;
-    Promise.all([intentState.displayReadyCapability.promise, optionalContentConfigPromise]).then(async ([transparency, optionalContentConfig]) => {
+    Promise.all([intentState.displayReadyCapability.promise, optionalContentConfigPromise]).then(([transparency, optionalContentConfig]) => {
       if (this.destroyed) {
         complete();
         return;
@@ -15729,7 +14928,7 @@ class PDFPageProxy {
       if (!(optionalContentConfig.renderingIntent & renderingIntent)) {
         throw new Error("Must use the same `intent`-argument when calling the `PDFPageProxy.render` " + "and `PDFDocumentProxy.getOptionalContentConfig` methods.");
       }
-      await internalRenderTask.initializeGraphics({
+      internalRenderTask.initializeGraphics({
         transparency,
         optionalContentConfig
       });
@@ -15765,20 +14964,12 @@ class PDFPageProxy {
       return this.getXfa().then(xfa => XfaText.textContent(xfa));
     }
     const readableStream = this.streamTextContent(params);
-    const reader = readableStream.getReader();
     const textContent = {
       items: [],
       styles: Object.create(null),
       lang: null
     };
-    while (true) {
-      const {
-        value,
-        done
-      } = await reader.read();
-      if (done) {
-        break;
-      }
+    for await (const value of readableStream) {
       textContent.lang ??= value.lang;
       Object.assign(textContent.styles, value.styles);
       textContent.items.push(...value.items);
@@ -15806,7 +14997,6 @@ class PDFPageProxy {
       }
     }
     this.objs.clear();
-    this._transport.cleanupPage(this._id);
     this.#pendingCleanup = false;
     return Promise.all(waitOn);
   }
@@ -15832,7 +15022,6 @@ class PDFPageProxy {
     }
     this._intentStates.clear();
     this.objs.clear();
-    this._transport.cleanupPage(this._id);
     this.#pendingCleanup = false;
     return true;
   }
@@ -16018,11 +15207,11 @@ class PDFWorker {
       this.#setupFakeWorker();
       return;
     }
-    const {
+    let {
       workerSrc
     } = PDFWorker;
     try {
-      const worker = new Worker(getWorkerSrc(workerSrc), {
+      const worker = new Worker(workerSrc, {
         type: "module"
       });
       const messageHandler = new MessageHandler("main", "worker", worker);
@@ -16146,7 +15335,7 @@ class WorkerTransport {
       ownerDocument: params.ownerDocument,
       styleElement: params.styleElement
     });
-    this.rendererWorker = params.rendererWorker;
+    this.enableHWA = params.enableHWA;
     this.loadingParams = params.loadingParams;
     this._params = params;
     this.canvasFactory = factory.canvasFactory;
@@ -16254,7 +15443,6 @@ class WorkerTransport {
       this.#networkStream?.cancelAllRequests(new AbortException("Worker was terminated."));
       this.messageHandler?.destroy();
       this.messageHandler = null;
-      this.rendererWorker = null;
       this.destroyCapability.resolve();
     }, this.destroyCapability.reject);
     return this.destroyCapability.promise;
@@ -16388,26 +15576,64 @@ class WorkerTransport {
       const page = this.#pageCache.get(data.pageProxyId);
       page._startRenderPage(data.transparency, data.cacheKey);
     });
-    const objectHandler = new ObjectHandler({
-      messageHandler,
-      commonObjs: this.commonObjs,
-      fontLoader: this.fontLoader,
-      pageCache: this.#pageCache,
-      pdfBug: this._params.pdfBug
-    });
-    this.rendererWorker?.promise.then(() => {
-      this.rendererWorker?.messageHandler?.on("FontFallback", data => this.destroyed ? null : messageHandler.sendWithPromise("FontFallback", data));
-    }, () => {});
     messageHandler.on("commonobj", ([id, type, exportedData]) => {
       if (this.destroyed) {
         return null;
       }
-      const {
-        rendererWorker
-      } = this;
-      rendererWorker?.sendCommonObj(id, type, exportedData);
-      if (!this.commonObjs.has(id)) {
-        objectHandler.resolveCommonObject(id, type, exportedData);
+      if (this.commonObjs.has(id)) {
+        return null;
+      }
+      switch (type) {
+        case "Font":
+          if ("error" in exportedData) {
+            const exportedError = exportedData.error;
+            warn(`Error during font loading: ${exportedError}`);
+            this.commonObjs.resolve(id, exportedError);
+            break;
+          }
+          const fontData = new FontInfo(exportedData.buffer);
+          const inspectFont = this._params.pdfBug && globalThis.FontInspector?.enabled ? (font, url) => globalThis.FontInspector.fontAdded(font, url) : null;
+          const font = new FontFaceObject(fontData, inspectFont, exportedData.charProcOperatorList, exportedData.extra);
+          this.fontLoader.bind(font).catch(() => messageHandler.sendWithPromise("FontFallback", {
+            id
+          })).finally(() => {
+            if (!font.fontExtraProperties) {
+              font.clearData();
+            }
+            this.commonObjs.resolve(id, font);
+          });
+          break;
+        case "CopyLocalImage":
+          const {
+            imageRef
+          } = exportedData;
+          assert(imageRef, "The imageRef must be defined.");
+          for (const pageProxy of this.#pageCache.values()) {
+            for (const [, data] of pageProxy.objs) {
+              if (data?.ref !== imageRef) {
+                continue;
+              }
+              if (!data.dataLen) {
+                return null;
+              }
+              const copy = structuredClone(data);
+              this.commonObjs.resolve(id, copy);
+              return data.dataLen;
+            }
+          }
+          break;
+        case "FontPath":
+          this.commonObjs.resolve(id, new FontPathInfo(exportedData));
+          break;
+        case "Image":
+          this.commonObjs.resolve(id, exportedData);
+          break;
+        case "Pattern":
+          const pattern = new PatternInfo(exportedData);
+          this.commonObjs.resolve(id, pattern.getIR());
+          break;
+        default:
+          throw new Error(`Got unknown common object type ${type}`);
       }
       return null;
     });
@@ -16415,8 +15641,21 @@ class WorkerTransport {
       if (this.destroyed) {
         return;
       }
-      if (objectHandler.resolveObject(id, pageProxyId, type, imageData)) {
-        this.rendererWorker?.sendObj(id, pageProxyId, type, imageData);
+      const pageProxy = this.#pageCache.get(pageProxyId);
+      if (pageProxy.objs.has(id)) {
+        return;
+      }
+      if (pageProxy._intentStates.size === 0) {
+        imageData?.bitmap?.close();
+        return;
+      }
+      switch (type) {
+        case "Image":
+        case "Pattern":
+          pageProxy.objs.resolve(id, imageData);
+          break;
+        default:
+          throw new Error(`Got unknown object type ${type}`);
       }
     });
     messageHandler.on("DocProgress", data => {
@@ -16615,11 +15854,7 @@ class WorkerTransport {
     return this.messageHandler.sendWithPromise("GetOutline", null);
   }
   getOptionalContentConfig(renderingIntent) {
-    const name = "GetOptionalContentConfig";
-    return this.#methodPromises.getOrInsertComputed(name, () => this.messageHandler.sendWithPromise(name, null).catch(reason => {
-      warn(`${name}: "${reason}".`);
-      return null;
-    })).then(data => new OptionalContentConfig(data, renderingIntent));
+    return this.#cacheSimpleMethod("GetOptionalContentConfig").then(data => new OptionalContentConfig(data, renderingIntent));
   }
   getPermissions() {
     return this.messageHandler.sendWithPromise("GetPermissions", null);
@@ -16652,18 +15887,9 @@ class WorkerTransport {
     if (!keepLoadedFonts) {
       this.fontLoader.clear();
     }
-    this.rendererWorker?.cleanup(keepLoadedFonts);
     this.#methodPromises.clear();
     this.filterFactory.destroy(true);
     TextLayer.cleanup();
-  }
-  cleanupPage(pageProxyId) {
-    if (!this.destroyed) {
-      this.messageHandler.send("CleanupPage", {
-        pageProxyId
-      });
-    }
-    this.rendererWorker?.cleanupPage(pageProxyId);
   }
   cachedPageNumber(ref) {
     if (!isRefProxy(ref)) {
@@ -16684,7 +15910,6 @@ class RenderTask {
   _internalRenderTask = null;
   onContinue = null;
   onError = null;
-  onFrame = null;
   constructor(internalRenderTask) {
     this._internalRenderTask = internalRenderTask;
   }
@@ -16709,15 +15934,9 @@ class RenderTask {
   get imageCoordinates() {
     return this._internalRenderTask.imageCoordinates || null;
   }
-  get isWorkerRendering() {
-    return this._internalRenderTask.isWorkerRendering;
-  }
 }
 class InternalRenderTask {
-  #dependencyTracker = null;
-  #imagesTracker = null;
   #rAF = null;
-  #rendererTask = null;
   static #canvasInUse = new WeakSet();
   constructor({
     callback,
@@ -16727,14 +15946,13 @@ class InternalRenderTask {
     annotationCanvasMap,
     operatorList,
     pageIndex,
-    pageProxyId,
     canvasFactory,
     filterFactory,
     useRequestAnimationFrame = false,
     pdfBug = false,
     pageColors = null,
-    operationsFilter = null,
-    rendererWorker = null
+    enableHWA = false,
+    operationsFilter = null
   }) {
     this.callback = callback;
     this.params = params;
@@ -16761,34 +15979,15 @@ class InternalRenderTask {
     this._nextBound = this._next.bind(this);
     this._canvas = params.canvas;
     this._canvasContext = params.canvas ? null : params.canvasContext;
+    this._enableHWA = enableHWA;
+    this._dependencyTracker = params.dependencyTracker;
+    this._imagesTracker = params.imagesTracker;
     this._operationsFilter = operationsFilter;
-    this.#rendererTask = rendererWorker?.createRenderTask({
-      pageProxyId,
-      operatorList,
-      params,
-      pageColors,
-      canvasFactory,
-      annotationCanvasMap,
-      onFrame: () => this.task.onFrame?.(),
-      onError: reason => this.cancel(reason)
-    }) ?? null;
   }
   get completed() {
     return this.capability.promise.catch(() => {});
   }
-  get isWorkerRendering() {
-    return !!this.#rendererTask;
-  }
-  get imageCoordinates() {
-    return this.#rendererTask ? this.#rendererTask.imageCoordinates : this.#imagesTracker?.take();
-  }
-  get recordedBBoxes() {
-    return this.#rendererTask ? this.#rendererTask.recordedBBoxes : this.#dependencyTracker?.take();
-  }
-  get debugMetadata() {
-    return this.#dependencyTracker?.takeDebugMetadata() ?? null;
-  }
-  async initializeGraphics({
+  initializeGraphics({
     transparency = false,
     optionalContentConfig
   }) {
@@ -16806,45 +16005,26 @@ class InternalRenderTask {
       this.stepper.init(this.operatorList);
       this.stepper.nextBreakPoint = this.stepper.getNextBreakPoint();
     }
-    if (this.#rendererTask) {
-      const initialized = await this.#rendererTask.initialize(transparency, optionalContentConfig);
-      if (this.cancelled) {
-        return;
-      }
-      if (!initialized) {
-        this.#rendererTask = null;
-      }
-    }
-    if (!this.#rendererTask) {
-      const {
-        viewport,
-        transform,
-        background,
-        recordOperations,
-        recordImages,
-        recordForDebugger
-      } = this.params;
-      const canvasContext = this._canvasContext || this.canvasFactory.getNoAlphaContext(this._canvas);
-      const {
-        dependencyTracker,
-        imagesTracker
-      } = createCanvasTrackers(this._canvas, this.operatorList.fnArray.length, {
-        recordOperations,
-        recordImages,
-        recordDebugMetadata: recordForDebugger
-      });
-      this.#dependencyTracker = dependencyTracker;
-      this.#imagesTracker = imagesTracker;
-      this.gfx = new CanvasGraphics(canvasContext, this.commonObjs, this.objs, this.canvasFactory, this.filterFactory, {
-        optionalContentConfig
-      }, this.annotationCanvasMap, this.pageColors, dependencyTracker, imagesTracker);
-      this.gfx.beginDrawing({
-        transform,
-        viewport,
-        transparency,
-        background
-      });
-    }
+    const {
+      viewport,
+      transform,
+      background,
+      dependencyTracker,
+      imagesTracker
+    } = this.params;
+    const canvasContext = this._canvasContext || this._canvas.getContext("2d", {
+      alpha: false,
+      willReadFrequently: !this._enableHWA
+    });
+    this.gfx = new CanvasGraphics(canvasContext, this.commonObjs, this.objs, this.canvasFactory, this.filterFactory, {
+      optionalContentConfig
+    }, this.annotationCanvasMap, this.pageColors, dependencyTracker, imagesTracker);
+    this.gfx.beginDrawing({
+      transform,
+      viewport,
+      transparency,
+      background
+    });
     this.operatorListIdx = 0;
     this.graphicsReady = true;
     this.graphicsReadyCallback?.();
@@ -16852,7 +16032,6 @@ class InternalRenderTask {
   cancel(error = null, extraDelay = 0) {
     this.running = false;
     this.cancelled = true;
-    this.#rendererTask?.cancel();
     this.gfx?.endDrawing();
     if (this.#rAF) {
       window.cancelAnimationFrame(this.#rAF);
@@ -16868,7 +16047,7 @@ class InternalRenderTask {
       this.graphicsReadyCallback ||= this._continueBound;
       return;
     }
-    this.#dependencyTracker?.growOperationsCount(this.operatorList.fnArray.length);
+    this.gfx.dependencyTracker?.growOperationsCount(this.operatorList.fnArray.length);
     this.stepper?.updateOperatorList(this.operatorList);
     if (this.running) {
       return;
@@ -16900,39 +16079,21 @@ class InternalRenderTask {
     if (this.cancelled) {
       return;
     }
-    const {
-      operatorList
-    } = this;
-    const {
-      lastChunk
-    } = operatorList;
-    if (this.#rendererTask) {
-      this.operatorListIdx = await this.#rendererTask.executeOperatorList(operatorList, this.operatorListIdx, this._operationsFilter);
-      if (this.cancelled) {
-        return;
-      }
-      if (this.operatorListIdx !== operatorList.argsArray.length || lastChunk !== operatorList.lastChunk) {
-        this._continue();
-        return;
-      }
-    } else {
-      this.operatorListIdx = this.gfx.executeOperatorList(operatorList, this.operatorListIdx, this._continueBound, null, this.stepper, this._operationsFilter);
-    }
-    if (this.operatorListIdx === operatorList.argsArray.length) {
+    this.operatorListIdx = this.gfx.executeOperatorList(this.operatorList, this.operatorListIdx, this._continueBound, this.stepper, this._operationsFilter);
+    if (this.operatorListIdx === this.operatorList.argsArray.length) {
       this.running = false;
-      if (lastChunk) {
-        this.gfx?.endDrawing();
+      if (this.operatorList.lastChunk) {
+        this.gfx.endDrawing();
         InternalRenderTask.#canvasInUse.delete(this._canvas);
         this.callback();
       }
     }
   }
 }
-const version = "6.5.390";
-const build = "ea6cf5c98";
+const version = "6.5.10";
+const build = "17bb2442f";
 
 ;// ./src/display/editor/color_picker.js
-
 
 
 
@@ -17443,7 +16604,6 @@ class AnnotationElement {
     this.svgFactory = parameters.svgFactory;
     this.annotationStorage = parameters.annotationStorage;
     this.enableComment = parameters.enableComment;
-    this.enableAnnotationEditing = parameters.enableAnnotationEditing !== false;
     this.enableScripting = parameters.enableScripting;
     this.hasJSActions = parameters.hasJSActions;
     this._fieldObjects = parameters.fieldObjects;
@@ -17463,7 +16623,7 @@ class AnnotationElement {
     return !!(contentsObj?.str || richText?.str);
   }
   get _isEditable() {
-    return this.enableAnnotationEditing && this.data.isEditable;
+    return this.data.isEditable;
   }
   get hasPopupData() {
     return AnnotationElement._hasPopupData(this.data) || this.enableComment && !!this.commentText;
@@ -20636,7 +19796,6 @@ class AnnotationLayer {
       svgFactory: new DOMSVGFactory(),
       annotationStorage: this.#annotationStorage,
       enableComment: params.enableComment === true,
-      enableAnnotationEditing: params.enableAnnotationEditing !== false,
       enableScripting: params.enableScripting === true,
       hasJSActions: params.hasJSActions,
       fieldObjects: params.fieldObjects,
@@ -21928,7 +21087,7 @@ class DrawingEditor extends AnnotationEditor {
     return true;
   }
   onceAdded(focus) {
-    if (!this.annotationElementId && this._drawId !== null) {
+    if (!this.annotationElementId) {
       this.parent.addUndoableEditor(this);
     }
     this._isDraggable = true;
@@ -22288,7 +21447,7 @@ class DrawingEditor extends AnnotationEditor {
     parent.toggleDrawing();
     uiManager._editorUndoBar?.hide();
     if (DrawingEditor.#currentDraw) {
-      parent.drawLayer.updateProperties(this._currentDrawId, DrawingEditor.#currentDraw.startNew(x, y, parentWidth, parentHeight, rotation, event.timeStamp));
+      parent.drawLayer.updateProperties(this._currentDrawId, DrawingEditor.#currentDraw.startNew(x, y, parentWidth, parentHeight, rotation));
       return;
     }
     uiManager.updateUIForDefaultProperties(this);
@@ -22298,8 +21457,7 @@ class DrawingEditor extends AnnotationEditor {
       box: [boxX, boxY, parentWidth, parentHeight],
       rotation,
       parent,
-      isLTR,
-      timeStamp: event.timeStamp
+      isLTR
     });
     DrawingEditor.#currentDrawingOptions = this.getDefaultDrawingOptions();
     this._currentParent = parent;
@@ -22323,14 +21481,12 @@ class DrawingEditor extends AnnotationEditor {
     const coalesced = event.getCoalescedEvents?.();
     if (coalesced?.length) {
       const points = [];
-      const timeStamps = [];
       for (const sample of coalesced) {
         points.push(...this._getPointerCoords(sample, event));
-        timeStamps.push(sample.timeStamp);
       }
-      properties = DrawingEditor.#currentDraw.addPoints(points, timeStamps);
+      properties = DrawingEditor.#currentDraw.addPoints(points);
     } else {
-      properties = DrawingEditor.#currentDraw.add(...this._getPointerCoords(event), event.timeStamp);
+      properties = DrawingEditor.#currentDraw.add(...this._getPointerCoords(event));
     }
     this._currentParent.drawLayer.updateProperties(this._currentDrawId, properties);
     CurrentPointers.setTimeStamp(event.timeStamp);
@@ -22358,7 +21514,7 @@ class DrawingEditor extends AnnotationEditor {
     }
     parent.toggleDrawing(true);
     this._cleanup(false);
-    parent.drawLayer.updateProperties(this._currentDrawId, event?.target === parent.div ? DrawingEditor.#currentDraw.end(...this._getPointerCoords(event), event.timeStamp) : DrawingEditor.#currentDraw.end());
+    parent.drawLayer.updateProperties(this._currentDrawId, event?.target === parent.div ? DrawingEditor.#currentDraw.end(...this._getPointerCoords(event)) : DrawingEditor.#currentDraw.end());
     if (this.supportMultipleDrawings) {
       const draw = DrawingEditor.#currentDraw;
       const drawId = this._currentDrawId;
@@ -22531,30 +21687,20 @@ class Outline {
   static svgRound(x) {
     return Math.round(x * 10000);
   }
-  static _normalizePoint(x, y, parentWidth, parentHeight, rotation, dest = []) {
+  static _normalizePoint(x, y, parentWidth, parentHeight, rotation) {
     switch (rotation) {
       case 90:
-        dest[0] = 1 - y / parentWidth;
-        dest[1] = x / parentHeight;
-        break;
+        return [1 - y / parentWidth, x / parentHeight];
       case 180:
-        dest[0] = 1 - x / parentWidth;
-        dest[1] = 1 - y / parentHeight;
-        break;
+        return [1 - x / parentWidth, 1 - y / parentHeight];
       case 270:
-        dest[0] = y / parentWidth;
-        dest[1] = 1 - x / parentHeight;
-        break;
+        return [y / parentWidth, 1 - x / parentHeight];
       default:
-        dest[0] = x / parentWidth;
-        dest[1] = y / parentHeight;
-        break;
+        return [x / parentWidth, y / parentHeight];
     }
-    return dest;
   }
-  static createBezierPoints(x1, y1, x2, y2, x3, y3, dest = []) {
-    dest.push((x1 + 5 * x2) / 6, (y1 + 5 * y2) / 6, (5 * x2 + x3) / 6, (5 * y2 + y3) / 6, (x2 + x3) / 2, (y2 + y3) / 2);
-    return dest;
+  static createBezierPoints(x1, y1, x2, y2, x3, y3) {
+    return [(x1 + 5 * x2) / 6, (y1 + 5 * y2) / 6, (5 * x2 + x3) / 6, (5 * y2 + y3) / 6, (x2 + x3) / 2, (y2 + y3) / 2];
   }
 }
 
@@ -23838,197 +22984,55 @@ class HighlightEditor extends DrawingEditor {
   }
 }
 
-;// ./src/display/editor/drawers/input_smoother.js
-class InputSmoother {
-  static #HALF_WINDOW = 10;
-  static #UPSAMPLING_PERIOD = 1000 / 180;
-  static #MAX_DIVISIONS = 100;
-  static #TIME_EPSILON = 1e-3;
-  #samples;
-  #firstTime;
-  #lastTime;
-  constructor(x, y, timeStamp) {
-    this.#samples = [x, y, timeStamp];
-    this.#firstTime = this.#lastTime = timeStamp;
-  }
-  add(x, y, timeStamp) {
-    const samples = this.#samples;
-    const lastTime = samples.at(-1);
-    timeStamp = timeStamp > lastTime ? timeStamp : lastTime + InputSmoother.#TIME_EPSILON;
-    samples.push(x, y, timeStamp);
-    const points = this.#smooth(timeStamp - InputSmoother.#HALF_WINDOW, true);
-    const start = this.#getSampleIndex(this.#lastTime - InputSmoother.#HALF_WINDOW);
-    if (start >= samples.length / 2) {
-      samples.copyWithin(0, start);
-      samples.length -= start;
-    }
-    return points;
-  }
-  get pendingPoints() {
-    return this.#smooth(Infinity, false);
-  }
-  end() {
-    return this.#smooth(Infinity, true);
-  }
-  #smooth(maxTime, isStable) {
-    const samples = this.#samples;
-    const firstTime = this.#firstTime;
-    const lastTime = samples.at(-1);
-    const points = [];
-    const time = this.#lastTime;
-    for (let i = this.#getSampleIndex(time) + 3; i < samples.length; i += 3) {
-      const startTime = samples[i - 1];
-      const dt = samples[i + 2] - startTime;
-      const n = Math.min(Math.ceil(dt / InputSmoother.#UPSAMPLING_PERIOD), InputSmoother.#MAX_DIVISIONS);
-      for (let k = 1; k <= n; k++) {
-        const t = k === n ? samples[i + 2] : startTime + dt * k / n;
-        if (t <= time) {
-          continue;
-        }
-        if (t > maxTime) {
-          return points;
-        }
-        const halfWindow = Math.min(InputSmoother.#HALF_WINDOW, t - firstTime, lastTime - t);
-        this.#average(t - halfWindow, t + halfWindow, points);
-        if (isStable) {
-          this.#lastTime = t;
-        }
-      }
-    }
-    return points;
-  }
-  #getSampleIndex(time) {
-    const samples = this.#samples;
-    let start = 0;
-    let end = samples.length / 3 - 1;
-    while (start < end) {
-      const middle = start + end + 1 >> 1;
-      if (samples[3 * middle + 2] <= time) {
-        start = middle;
-      } else {
-        end = middle - 1;
-      }
-    }
-    return 3 * start;
-  }
-  #average(startTime, endTime, points) {
-    const samples = this.#samples;
-    const index = this.#getSampleIndex(startTime);
-    let sumX = 0,
-      sumY = 0,
-      duration = 0;
-    for (let i = index; i < samples.length - 3 && samples[i + 2] < endTime; i += 3) {
-      const x1 = samples[i],
-        y1 = samples[i + 1],
-        t1 = samples[i + 2],
-        t2 = samples[i + 5];
-      const start = Math.max(t1, startTime);
-      const end = Math.min(t2, endTime);
-      if (end <= start) {
-        continue;
-      }
-      const dt = end - start;
-      const ratio = (start + end - 2 * t1) / (t2 - t1);
-      sumX += dt * (x1 + ratio * (samples[i + 3] - x1) / 2);
-      sumY += dt * (y1 + ratio * (samples[i + 4] - y1) / 2);
-      duration += dt;
-    }
-    if (duration === 0) {
-      points.push(samples[index], samples[index + 1]);
-    } else {
-      points.push(sumX / duration, sumY / duration);
-    }
-  }
-}
-
 ;// ./src/display/editor/drawers/inkdraw.js
 
 
 
-
-function svgPoint(data, i) {
-  return `${Outline.svgRound(data[i])} ${Outline.svgRound(data[i + 1])}`;
-}
-function pushCurves(buffer, line, start) {
-  for (let i = start, ii = line.length; i < ii; i += 6) {
-    buffer.push(`C${svgPoint(line, i)} ${svgPoint(line, i + 2)} ${svgPoint(line, i + 4)}`);
-  }
-}
-function lineToSVGPath(line) {
-  const start = `M${svgPoint(line, 4)}`;
-  if (line.length === 6) {
-    return `${start}Z`;
-  }
-  if (line.length === 12 && isNaN(line[6])) {
-    return `${start}L${svgPoint(line, 10)}`;
-  }
-  const buffer = [start];
-  pushCurves(buffer, line, 6);
-  return buffer.join("");
-}
 class InkDrawOutliner {
   #last = new Float64Array(6);
   #tip = new Float64Array(2);
   #line;
   #lines;
   #rotation;
-  #smoother = null;
   #thickness;
   #points;
-  #inputCount = 1;
-  #lastInput = new Float64Array(2);
   #lastSVGPath = "";
   #lastIndex = 0;
   #outlines = new InkDrawOutline();
   #parentWidth;
   #parentHeight;
-  constructor(x, y, parentWidth, parentHeight, rotation, thickness, timeStamp) {
+  constructor(x, y, parentWidth, parentHeight, rotation, thickness) {
     this.#parentWidth = parentWidth;
     this.#parentHeight = parentHeight;
     this.#rotation = rotation;
     this.#thickness = thickness;
-    this.#lines = [];
-    this.#startLine(x, y, timeStamp);
-  }
-  #startLine(x, y, timeStamp) {
-    [x, y] = this.#normalizeToTip(x, y);
+    [x, y] = this.#normalizePoint(x, y);
     const line = this.#line = [NaN, NaN, NaN, NaN, x, y];
     this.#points = [x, y];
-    this.#lines.push({
+    this.#lines = [{
       line,
       points: this.#points
-    });
+    }];
     this.#last.set(line, 0);
-    this.#lastIndex = 0;
-    this.#inputCount = 1;
-    this.#lastInput.set(this.#tip);
-    this.#smoother = timeStamp === undefined ? null : new InputSmoother(x, y, timeStamp);
+    this.#tip.set([x, y], 0);
   }
   updateProperty(name, value) {
     if (name === "stroke-width") {
       this.#thickness = value;
     }
   }
-  #normalizeToTip(x, y) {
-    return Outline._normalizePoint(x, y, this.#parentWidth, this.#parentHeight, this.#rotation, this.#tip);
+  #normalizePoint(x, y) {
+    return Outline._normalizePoint(x, y, this.#parentWidth, this.#parentHeight, this.#rotation);
   }
   isEmpty() {
     return !this.#lines?.length;
   }
   isCancellable() {
-    return this.#inputCount <= 5;
+    return this.#points.length <= 10;
   }
-  add(x, y, timeStamp) {
-    this.#addSample(x, y, timeStamp);
-    return {
-      path: {
-        d: this.#toSVGPathWithTip()
-      }
-    };
-  }
-  addPoints(points, timeStamps) {
-    for (let i = 0, ii = points.length; i < ii; i += 2) {
-      this.#addSample(points[i], points[i + 1], timeStamps?.[i / 2]);
+  add(x, y) {
+    if (this.#add(x, y)) {
+      this.toSVGPath();
     }
     return {
       path: {
@@ -24036,97 +23040,91 @@ class InkDrawOutliner {
       }
     };
   }
-  #addSample(x, y, timeStamp) {
-    [x, y] = this.#normalizeToTip(x, y);
-    const [lastX, lastY] = this.#lastInput;
-    if (!this.#isTooClose(x, y, lastX, lastY)) {
-      this.#inputCount++;
-      this.#lastInput.set(this.#tip);
-    }
-    if (this.#smoother) {
-      this.#addSmoothedPoints(this.#smoother.add(x, y, timeStamp));
-    } else {
-      this.#addPoint(x, y);
-    }
-  }
-  #isTooClose(x, y, lastX, lastY) {
-    return Math.hypot(this.#parentWidth * (x - lastX), this.#parentHeight * (y - lastY)) <= 2;
-  }
-  #addSmoothedPoints(points) {
+  addPoints(points) {
+    let needsPathUpdate = false;
     for (let i = 0, ii = points.length; i < ii; i += 2) {
-      this.#addPoint(points[i], points[i + 1]);
+      if (!this.#add(points[i], points[i + 1])) {
+        continue;
+      }
+      needsPathUpdate = true;
+      if (this.#points.length <= 6) {
+        this.toSVGPath();
+        needsPathUpdate = false;
+      }
     }
+    if (needsPathUpdate) {
+      this.toSVGPath();
+    }
+    return {
+      path: {
+        d: this.#toSVGPathWithTip()
+      }
+    };
   }
-  #addPoint(x, y) {
-    const [,, x1, y1, x2, y2] = this.#last;
-    if (this.#isTooClose(x, y, x2, y2)) {
-      return;
+  #add(x, y) {
+    [x, y] = this.#normalizePoint(x, y);
+    this.#tip.set([x, y], 0);
+    const [x1, y1, x2, y2] = this.#last.subarray(2, 6);
+    const diffX = x - x2;
+    const diffY = y - y2;
+    const d = Math.hypot(this.#parentWidth * diffX, this.#parentHeight * diffY);
+    if (d <= 2) {
+      return false;
     }
     this.#points.push(x, y);
     if (isNaN(x1)) {
+      this.#last.set([x2, y2, x, y], 2);
       this.#line.push(NaN, NaN, NaN, NaN, x, y);
-    } else {
-      if (isNaN(this.#last[0])) {
-        this.#line.splice(6, 6);
-      }
-      Outline.createBezierPoints(x1, y1, x2, y2, x, y, this.#line);
+      return true;
     }
-    this.#last.copyWithin(0, 2);
-    this.#last[4] = x;
-    this.#last[5] = y;
+    if (isNaN(this.#last[0])) {
+      this.#line.splice(6, 6);
+    }
+    this.#last.set([x1, y1, x2, y2, x, y], 0);
+    this.#line.push(...Outline.createBezierPoints(x1, y1, x2, y2, x, y));
+    return true;
   }
-  #updatePath() {
-    const line = this.#line;
-    if (this.#points.length < 6 || this.#lastIndex === line.length) {
-      return;
+  end(x, y) {
+    if (x !== undefined && this.#add(x, y)) {
+      return {
+        path: {
+          d: this.toSVGPath()
+        }
+      };
     }
-    const buffer = [this.#lastSVGPath];
-    if (this.#lastIndex === 0) {
-      buffer.push(`M${svgPoint(line, 4)}`);
-      this.#lastIndex = 6;
+    if (this.#points.length === 2) {
+      return {
+        path: {
+          d: this.toSVGPath()
+        }
+      };
     }
-    pushCurves(buffer, line, this.#lastIndex);
-    this.#lastSVGPath = buffer.join("");
-    this.#lastIndex = line.length;
-  }
-  #endLine() {
-    if (!this.#line) {
-      return;
-    }
-    if (this.#smoother) {
-      this.#addSmoothedPoints(this.#smoother.end());
-      this.#smoother = null;
-    }
-    if (this.#points.length < 6) {
-      this.#lastSVGPath += lineToSVGPath(this.#line);
-    } else {
-      const [,, x1, y1, x2, y2] = this.#last;
-      Outline.createBezierPoints(x1, y1, x2, y2, x2, y2, this.#line);
-      this.#updatePath();
-    }
-    this.#line = this.#points = null;
-  }
-  end(x, y, timeStamp) {
-    if (this.#line && x !== undefined) {
-      this.#addSample(x, y, timeStamp);
-    }
-    this.#endLine();
     return {
       path: {
         d: this.#lastSVGPath
       }
     };
   }
-  startNew(x, y, parentWidth, parentHeight, rotation, timeStamp) {
+  startNew(x, y, parentWidth, parentHeight, rotation) {
     this.#parentWidth = parentWidth;
     this.#parentHeight = parentHeight;
     this.#rotation = rotation;
+    [x, y] = this.#normalizePoint(x, y);
+    const line = this.#line = [NaN, NaN, NaN, NaN, x, y];
+    this.#points = [x, y];
+    this.#tip.set([x, y], 0);
     const last = this.#lines.at(-1);
     if (last) {
       last.line = new Float32Array(last.line);
       last.points = new Float32Array(last.points);
     }
-    this.#startLine(x, y, timeStamp);
+    this.#lines.push({
+      line,
+      points: this.#points
+    });
+    this.#last.set(line, 0);
+    this.#lastIndex = 0;
+    this.toSVGPath();
     return null;
   }
   getLastElement() {
@@ -24137,10 +23135,12 @@ class InkDrawOutliner {
       return this.#outlines.setLastElement(element);
     }
     this.#lines.push(element);
-    this.#lastSVGPath += lineToSVGPath(element.line);
+    this.#line = element.line;
+    this.#points = element.points;
+    this.#lastIndex = 0;
     return {
       path: {
-        d: this.#lastSVGPath
+        d: this.toSVGPath()
       }
     };
   }
@@ -24148,11 +23148,18 @@ class InkDrawOutliner {
     if (!this.#lines) {
       return this.#outlines.removeLastElement();
     }
-    this.#line = this.#points = this.#smoother = null;
     this.#lines.pop();
-    this.#lastSVGPath = this.#lines.map(({
-      line
-    }) => lineToSVGPath(line)).join("");
+    this.#lastSVGPath = "";
+    for (let i = 0, ii = this.#lines.length; i < ii; i++) {
+      const {
+        line,
+        points
+      } = this.#lines[i];
+      this.#line = line;
+      this.#points = points;
+      this.#lastIndex = 0;
+      this.toSVGPath();
+    }
     return {
       path: {
         d: this.#lastSVGPath
@@ -24160,25 +23167,48 @@ class InkDrawOutliner {
     };
   }
   #toSVGPathWithTip() {
-    this.#updatePath();
-    const buffer = [this.#lastSVGPath];
+    const tipX = Outline.svgRound(this.#tip[0]);
+    const tipY = Outline.svgRound(this.#tip[1]);
+    if (this.#points.length === 2) {
+      const firstX = Outline.svgRound(this.#line[4]);
+      const firstY = Outline.svgRound(this.#line[5]);
+      return `${this.#lastSVGPath} M ${firstX} ${firstY} L ${tipX} ${tipY}`;
+    }
+    return `${this.#lastSVGPath} L ${tipX} ${tipY}`;
+  }
+  toSVGPath() {
+    const firstX = Outline.svgRound(this.#line[4]);
+    const firstY = Outline.svgRound(this.#line[5]);
+    if (this.#points.length === 2) {
+      this.#lastSVGPath = `${this.#lastSVGPath} M ${firstX} ${firstY} Z`;
+      return this.#lastSVGPath;
+    }
+    if (this.#points.length <= 6) {
+      const i = this.#lastSVGPath.lastIndexOf("M");
+      this.#lastSVGPath = `${this.#lastSVGPath.slice(0, i)} M ${firstX} ${firstY}`;
+      this.#lastIndex = 6;
+    }
+    if (this.#points.length === 4) {
+      const secondX = Outline.svgRound(this.#line[10]);
+      const secondY = Outline.svgRound(this.#line[11]);
+      this.#lastSVGPath = `${this.#lastSVGPath} L ${secondX} ${secondY}`;
+      this.#lastIndex = 12;
+      return this.#lastSVGPath;
+    }
+    const buffer = [];
     if (this.#lastIndex === 0) {
-      buffer.push(`M${svgPoint(this.#line, 4)}`);
-      if (this.#points.length === 4) {
-        buffer.push(`L${svgPoint(this.#line, 10)}`);
-      }
+      buffer.push(`M ${firstX} ${firstY}`);
+      this.#lastIndex = 6;
     }
-    let points = this.#smoother?.pendingPoints;
-    if (!points?.length) {
-      points = this.#tip;
+    for (let i = this.#lastIndex, ii = this.#line.length; i < ii; i += 6) {
+      const [c1x, c1y, c2x, c2y, x, y] = this.#line.slice(i, i + 6).map(Outline.svgRound);
+      buffer.push(`C${c1x} ${c1y} ${c2x} ${c2y} ${x} ${y}`);
     }
-    for (let i = 0, ii = points.length; i < ii; i += 2) {
-      buffer.push(`L${svgPoint(points, i)}`);
-    }
-    return buffer.join("");
+    this.#lastSVGPath += buffer.join(" ");
+    this.#lastIndex = this.#line.length;
+    return this.#lastSVGPath;
   }
   getOutlines(parentWidth, parentHeight, scale, innerMargin) {
-    this.#endLine();
     const last = this.#lines.at(-1);
     last.line = new Float32Array(last.line);
     last.points = new Float32Array(last.points);
@@ -24241,9 +23271,25 @@ class InkDrawOutline extends Outline {
     };
   }
   toSVGPath() {
-    return this.#lines.map(({
+    const buffer = [];
+    for (const {
       line
-    }) => lineToSVGPath(line)).join("");
+    } of this.#lines) {
+      buffer.push(`M${Outline.svgRound(line[4])} ${Outline.svgRound(line[5])}`);
+      if (line.length === 6) {
+        buffer.push("Z");
+        continue;
+      }
+      if (line.length === 12 && isNaN(line[6])) {
+        buffer.push(`L${Outline.svgRound(line[10])} ${Outline.svgRound(line[11])}`);
+        continue;
+      }
+      for (let i = 6, ii = line.length; i < ii; i += 6) {
+        const [c1x, c1y, c2x, c2y, x, y] = line.subarray(i, i + 6).map(Outline.svgRound);
+        buffer.push(`C${c1x} ${c1y} ${c2x} ${c2y} ${x} ${y}`);
+      }
+    }
+    return buffer.join("");
   }
   serialize([pageX, pageY, pageWidth, pageHeight], isForCopying) {
     const serializedLines = [];
@@ -24361,14 +23407,13 @@ class InkDrawOutline extends Outline {
           lines.push(new Float32Array([NaN, NaN, NaN, NaN, point[0], point[1], NaN, NaN, NaN, NaN, point[2], point[3]]));
           continue;
         }
-        const line = new Float32Array(3 * len);
+        const line = new Float32Array(3 * (len - 2));
         lines.push(line);
         let [x1, y1, x2, y2] = point.subarray(0, 4);
         line.set([NaN, NaN, NaN, NaN, x1, y1], 0);
-        for (let i = 4; i <= len; i += 2) {
-          const j = Math.min(i, len - 2);
-          const x = point[j];
-          const y = point[j + 1];
+        for (let i = 4; i < len; i += 2) {
+          const x = point[i];
+          const y = point[i + 1];
           line.set(Outline.createBezierPoints(x1, y1, x2, y2, x, y), (i - 2) * 3);
           [x1, y1, x2, y2] = [x2, y2, x, y];
         }
@@ -24707,10 +23752,9 @@ class InkEditor extends DrawingEditor {
     x,
     y,
     box: [,, width, height],
-    rotation,
-    timeStamp
+    rotation
   }) {
-    return new InkDrawOutliner(x, y, width, height, rotation, this._defaultDrawingOptions["stroke-width"], timeStamp);
+    return new InkDrawOutliner(x, y, width, height, rotation, this._defaultDrawingOptions["stroke-width"]);
   }
   static deserializeDraw(pageX, pageY, pageWidth, pageHeight, innerMargin, data) {
     return InkDrawOutline.deserialize(pageX, pageY, pageWidth, pageHeight, innerMargin, data);
@@ -25570,7 +24614,6 @@ class SignatureEditor extends DrawingEditor {
   #description = null;
   #signatureData = null;
   #signatureUUID = null;
-  #isWaitingForSignature = false;
   static _type = "signature";
   static _editorType = AnnotationEditorType.SIGNATURE;
   static _defaultDrawingOptions = null;
@@ -25619,10 +24662,6 @@ class SignatureEditor extends DrawingEditor {
   }
   get isResizable() {
     return true;
-  }
-  onceAdded(focus) {
-    this.#isWaitingForSignature = this._drawId === null;
-    super.onceAdded(focus);
   }
   onScaleChanging() {
     if (this._drawId === null) {
@@ -25793,10 +24832,6 @@ class SignatureEditor extends DrawingEditor {
       }
     });
     this.div.hidden = false;
-    if (this.#isWaitingForSignature) {
-      this.#isWaitingForSignature = false;
-      this.parent.addUndoableEditor(this);
-    }
   }
   getFromImage(bitmap) {
     const {
@@ -25903,7 +24938,6 @@ class SignatureEditor extends DrawingEditor {
 }
 
 ;// ./src/display/editor/stamp.js
-
 
 
 
@@ -26541,16 +25575,7 @@ class StampEditor extends AnnotationEditor {
       if (changes.isSameAltText) {
         delete serialized.accessibilityData;
       } else {
-        const structParent = this._initialData.structParent ?? -1;
-        if (serialized.accessibilityData) {
-          serialized.accessibilityData.structParent = structParent;
-        } else if (structParent >= 0) {
-          serialized.accessibilityData = {
-            type: "Figure",
-            alt: "",
-            structParent
-          };
-        }
+        serialized.accessibilityData.structParent = this._initialData.structParent ?? -1;
       }
       serialized.id = this.annotationElementId;
       delete serialized.bitmapId;
@@ -28036,7 +27061,6 @@ class TextLayerImages {
 
 
 
-
 globalThis.pdfjsLib = {
   AbortException: AbortException,
   AnnotationEditorLayer: AnnotationEditorLayer,
@@ -28098,8 +27122,9 @@ globalThis.pdfjsLib = {
   updateUrlHash: updateUrlHash,
   Util: Util,
   VerbosityLevel: VerbosityLevel,
-  version: version,
+  version: (/* inlined export .version */"6.5.10"),
   XfaLayer: XfaLayer
 };
 
-export { AbortException, AnnotationEditorLayer, AnnotationEditorParamsType, AnnotationEditorType, AnnotationEditorUIManager, AnnotationLayer, AnnotationMode, AnnotationType, CSSConstants, ColorPicker, DOMSVGFactory, DrawLayer, FeatureTest, GlobalWorkerOptions, ImageKind, InvalidPDFException, MathClamp, OPS, OutputScale, PDFDataRangeTransport, PDFDateString, PDFWorker, PasswordException, PasswordResponses, PermissionFlag, PixelsPerInch, RenderingCancelledException, ResponseException, SignatureExtractor, SupportedImageMimeTypes, TextLayer, TextLayerImages, TouchManager, Util, VerbosityLevel, XfaLayer, applyOpacity, build, createValidAbsoluteUrl, fetchData, findContrastColor, getDocument, getFilenameFromUrl, getPdfFilenameFromUrl, getRGB, getRGBA, getUuid, isDataScheme, isPdfFile, isValidExplicitDest, makeArr, makeMap, makeObj, makeSet, noContextMenu, normalizeUnicode, renderRichText, setLayerDimensions, shadow, stopEvent, updateUrlHash, version };
+const __webpack_exports__version = (/* inlined export .version */"6.5.10");
+export { AbortException, AnnotationEditorLayer, AnnotationEditorParamsType, AnnotationEditorType, AnnotationEditorUIManager, AnnotationLayer, AnnotationMode, AnnotationType, CSSConstants, ColorPicker, DOMSVGFactory, DrawLayer, FeatureTest, GlobalWorkerOptions, ImageKind, InvalidPDFException, MathClamp, OPS, OutputScale, PDFDataRangeTransport, PDFDateString, PDFWorker, PasswordException, PasswordResponses, PermissionFlag, PixelsPerInch, RenderingCancelledException, ResponseException, SignatureExtractor, SupportedImageMimeTypes, TextLayer, TextLayerImages, TouchManager, Util, VerbosityLevel, XfaLayer, applyOpacity, build, createValidAbsoluteUrl, fetchData, findContrastColor, getDocument, getFilenameFromUrl, getPdfFilenameFromUrl, getRGB, getRGBA, getUuid, isDataScheme, isPdfFile, isValidExplicitDest, makeArr, makeMap, makeObj, makeSet, noContextMenu, normalizeUnicode, renderRichText, setLayerDimensions, shadow, stopEvent, updateUrlHash, __webpack_exports__version as version };

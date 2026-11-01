@@ -57,7 +57,6 @@ import mozilla.components.browser.state.selector.findTabOrCustomTab
 import mozilla.components.browser.state.state.SessionState
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.feature.ipprotection.store.IPProtectionAction
-import mozilla.components.feature.ipprotection.store.state.IPProtectionStatus
 import mozilla.components.feature.ipprotection.store.state.isEligible
 import mozilla.components.lib.state.ext.consumeFlow
 import mozilla.components.lib.state.ext.observeAsComposableState
@@ -74,6 +73,7 @@ import org.mozilla.fenix.components.menu.IPProtectionMenuBinding
 import org.mozilla.fenix.components.menu.compose.MenuDialogBottomSheet
 import org.mozilla.fenix.components.menu.compose.MenuHandleState
 import org.mozilla.fenix.components.menu.store.IPProtectionMenuState
+import org.mozilla.fenix.components.menu.store.IPProtectionMenuStatus
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.ext.runIfFragmentIsAttached
 import org.mozilla.fenix.ipprotection.ui.IPProtectionSnackbarBinding
@@ -456,33 +456,21 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
         recordIPProtectionTelemetry(ipProtectionMenuState.status)
 
         when (ipProtectionMenuState.status) {
-            IPProtectionStatus.AuthRequired,
-            IPProtectionStatus.AwaitingService -> store.dispatch(TrustPanelAction.Navigate.IPProtectionSettings)
+            IPProtectionMenuStatus.AuthRequired -> store.dispatch(TrustPanelAction.Navigate.IPProtectionSettings)
 
-            IPProtectionStatus.Disabled,
-            IPProtectionStatus.Activating,
-            IPProtectionStatus.Enabled,
-            IPProtectionStatus.DataLimitReached,
-            IPProtectionStatus.ConnectionError ->
-                components.ipProtection.store.dispatch(IPProtectionAction.ActivationAction.Toggle)
-
-            IPProtectionStatus.Unavailable,
-            IPProtectionStatus.Uninitialized -> Unit
+            else -> components.ipProtection.store.dispatch(IPProtectionAction.Toggle)
         }
     }
 
-    private fun recordIPProtectionTelemetry(status: IPProtectionStatus) {
+    private fun recordIPProtectionTelemetry(status: IPProtectionMenuStatus) {
         when (status) {
-            IPProtectionStatus.Disabled -> Vpn.trustPanelTurnedOn.record()
-            IPProtectionStatus.Enabled -> Vpn.trustPanelTurnedOff.record()
-            IPProtectionStatus.AuthRequired -> Vpn.trustPanelTryItTapped.record()
+            IPProtectionMenuStatus.Disabled -> Vpn.trustPanelTurnedOn.record()
+            IPProtectionMenuStatus.Enabled -> Vpn.trustPanelTurnedOff.record()
+            IPProtectionMenuStatus.AuthRequired -> Vpn.trustPanelTryItTapped.record()
 
-            IPProtectionStatus.Unavailable,
-            IPProtectionStatus.Uninitialized,
-            IPProtectionStatus.AwaitingService,
-            IPProtectionStatus.DataLimitReached,
-            IPProtectionStatus.ConnectionError,
-            IPProtectionStatus.Activating -> Unit
+            IPProtectionMenuStatus.DataLimitReached,
+            IPProtectionMenuStatus.ConnectionError,
+            IPProtectionMenuStatus.Activating -> Unit
         }
     }
 

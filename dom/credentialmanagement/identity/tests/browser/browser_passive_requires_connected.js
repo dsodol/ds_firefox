@@ -36,13 +36,6 @@ add_task(
       Services.io.newURI("https://example.com"),
       {}
     );
-    registerCleanupFunction(() => {
-      for (let perm of Services.perms.getAllForPrincipal(rpPrincipal)) {
-        if (perm.type.startsWith("credential-allow-silent-access")) {
-          Services.perms.removePermission(perm);
-        }
-      }
-    });
 
     // Set two accounts as registered
     IdentityCredentialStorageService.setState(

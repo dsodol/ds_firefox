@@ -8,7 +8,6 @@ import androidx.compose.runtime.Immutable
 import org.mozilla.fenix.tabgroups.EditTabGroup
 import org.mozilla.fenix.tabstray.data.TabGroupTheme
 import org.mozilla.fenix.tabstray.data.TabsTrayItem.TabGroup
-import org.mozilla.fenix.tabstray.data.nextOrDefault
 
 /**
  * Value type that represents the form state when creating or editing a Tab Group.
@@ -55,7 +54,7 @@ internal fun newTabGroupForm(existingGroups: List<TabGroup>, isStarterTabGroup: 
         tabGroupId = null,
         name = "",
         nextTabGroupNumber = existingGroups.size + 1,
-        theme = existingGroups.maxByOrNull { it.lastModified }?.theme.nextOrDefault(),
+        theme = existingGroups.maxByOrNull { it.lastModified }?.theme?.next() ?: TabGroupTheme.default,
         edited = false,
         isStarterTabGroup = isStarterTabGroup,
     )

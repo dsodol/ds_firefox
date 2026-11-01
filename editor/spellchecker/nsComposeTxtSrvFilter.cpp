@@ -57,7 +57,7 @@ bool nsComposeTxtSrvFilter::Skip(nsINode* aNode) const {
 // static
 UniquePtr<nsComposeTxtSrvFilter> nsComposeTxtSrvFilter::CreateHelper(
     bool aIsForMail) {
-  auto filter = std::make_unique<nsComposeTxtSrvFilter>();
+  auto filter = MakeUnique<nsComposeTxtSrvFilter>();
   filter->Init(aIsForMail);
   return filter;
 }

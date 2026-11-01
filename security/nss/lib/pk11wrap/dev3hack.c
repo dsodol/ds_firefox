@@ -245,6 +245,12 @@ nssSlot_IsLoggedIn(NSSSlot *slot)
     return PK11_IsLoggedIn(slot->pk11slot, NULL);
 }
 
+NSSTrustDomain *
+nssToken_GetTrustDomain(NSSToken *token)
+{
+    return token->trustDomain;
+}
+
 NSS_EXTERN PRStatus
 nssTrustDomain_RemoveTokenCertsFromCache(
     NSSTrustDomain *td,

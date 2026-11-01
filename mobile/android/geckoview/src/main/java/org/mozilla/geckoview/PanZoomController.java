@@ -325,7 +325,7 @@ public class PanZoomController {
 
     @WrapForJNI(calledFrom = "ui")
     private native @InputResult int handleMouseEvent(
-        int action, long time, int metaState, float x, float y, int buttons, int toolType);
+        int action, long time, int metaState, float x, float y, int buttons);
 
     @WrapForJNI(calledFrom = "ui")
     private native void handleDragEvent(
@@ -480,8 +480,7 @@ public class PanZoomController {
         event.getMetaState(),
         x,
         y,
-        event.getButtonState(),
-        event.getToolType(0));
+        event.getButtonState());
   }
 
   /**

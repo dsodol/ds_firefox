@@ -15,7 +15,6 @@ import java.net.URL
 import java.security.InvalidParameterException
 import java.util.UUID
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import mozilla.components.ExperimentalAndroidComponentsApi
 import mozilla.components.browser.state.action.BrowserAction
@@ -109,7 +108,6 @@ class SitePermissionsFeatureTest {
     private val captureActionsMiddleware = CaptureActionsMiddleware<BrowserState, BrowserAction>()
 
     private val testDispatcher = StandardTestDispatcher()
-    private val testScope = TestScope(testDispatcher)
 
     companion object {
         const val SESSION_ID = "testSessionId"
@@ -156,8 +154,8 @@ class SitePermissionsFeatureTest {
                     onShouldShowRequestPermissionRationale = { false },
                     store = browserStore,
                     sessionId = SESSION_ID,
-                    coroutineScope = testScope,
                     mainDispatcher = testDispatcher,
+                    ioDispatcher = testDispatcher,
                 )
             )
     }
@@ -362,7 +360,7 @@ class SitePermissionsFeatureTest {
         // then
         verify(mockAppPermissionRequest).reject()
         verify(sitePermissionFeature, times(2))
-            .storeSitePermissions(eq(selectedTab.content), eq(mockAppPermissionRequest), eq(BLOCKED), any())
+            .storeSitePermissions(selectedTab.content, mockAppPermissionRequest, BLOCKED)
         verify(sitePermissionFeature).consumeAppPermissionRequest(mockAppPermissionRequest)
     }
 
@@ -376,8 +374,7 @@ class SitePermissionsFeatureTest {
         sitePermissionFeature.onContentPermissionGranted(mockPermissionRequest, true)
 
         // then
-        verify(sitePermissionFeature)
-            .storeSitePermissions(eq(selectedTab.content), eq(mockPermissionRequest), eq(ALLOWED), any())
+        verify(sitePermissionFeature).storeSitePermissions(selectedTab.content, mockPermissionRequest, ALLOWED)
     }
 
     @Test
@@ -389,8 +386,7 @@ class SitePermissionsFeatureTest {
         sitePermissionFeature.onContentPermissionGranted(mockPermissionRequest, false)
 
         // then
-        verify(sitePermissionFeature, never())
-            .storeSitePermissions(eq(selectedTab.content), eq(mockPermissionRequest), eq(ALLOWED), any())
+        verify(sitePermissionFeature, never()).storeSitePermissions(selectedTab.content, mockPermissionRequest, ALLOWED)
     }
 
     @Test
@@ -418,9 +414,7 @@ class SitePermissionsFeatureTest {
     fun `GIVEN a permission prompt WHEN one permission is allowed THEN emit a fact`() {
         CollectionProcessor.withFactCollection { facts ->
             doNothing().`when`(sitePermissionFeature).consumePermissionRequest(any(), any())
-            doNothing()
-                .`when`(sitePermissionFeature)
-                .onContentPermissionGranted(eq(mockPermissionRequest), eq(true), any())
+            doNothing().`when`(sitePermissionFeature).onContentPermissionGranted(mockPermissionRequest, true)
             doReturn(listOf(ContentCrossOriginStorageAccess())).`when`(mockPermissionRequest).permissions
             doReturn(mockPermissionRequest).`when`(sitePermissionFeature).findRequestedPermission(anyString())
 
@@ -684,10 +678,9 @@ class SitePermissionsFeatureTest {
         verify(mockPermissionRequest).reject()
         verify(sitePermissionFeature)
             .storeSitePermissions(
-                eq(selectedTab.content),
-                eq(mockPermissionRequest),
-                eq(BLOCKED),
-                any(),
+                selectedTab.content,
+                mockPermissionRequest,
+                BLOCKED,
             )
     }
 
@@ -703,10 +696,9 @@ class SitePermissionsFeatureTest {
 
         verify(sitePermissionFeature, never())
             .storeSitePermissions(
-                eq(selectedTab.content),
-                eq(mockPermissionRequest),
-                eq(BLOCKED),
-                any(),
+                selectedTab.content,
+                mockPermissionRequest,
+                BLOCKED,
             )
     }
 
@@ -722,10 +714,9 @@ class SitePermissionsFeatureTest {
 
         verify(sitePermissionFeature, never())
             .storeSitePermissions(
-                eq(selectedTab.content),
-                eq(mockPermissionRequest),
-                eq(ALLOWED),
-                any(),
+                selectedTab.content,
+                mockPermissionRequest,
+                ALLOWED,
             )
     }
 
@@ -784,6 +775,7 @@ class SitePermissionsFeatureTest {
             sitePermissionFeature.onContentPermissionRequested(
                 mockPermissionRequest,
                 URL,
+                this,
             )
 
             // then
@@ -813,6 +805,7 @@ class SitePermissionsFeatureTest {
             sitePermissionFeature.onContentPermissionRequested(
                 mockPermissionRequest,
                 URL,
+                this,
             )
 
             // then
@@ -835,6 +828,7 @@ class SitePermissionsFeatureTest {
         sitePermissionFeature.onContentPermissionRequested(
             mockPermissionRequest,
             URL,
+            this,
         )
 
         // then
@@ -862,6 +856,7 @@ class SitePermissionsFeatureTest {
             sitePermissionFeature.onContentPermissionRequested(
                 mockPermissionRequest,
                 URL,
+                this,
             )
 
             // then
@@ -891,6 +886,7 @@ class SitePermissionsFeatureTest {
             sitePermissionFeature.onContentPermissionRequested(
                 mockPermissionRequest,
                 URL,
+                this,
             )
 
             // then
@@ -1815,12 +1811,10 @@ class SitePermissionsFeatureTest {
             spy(
                 SitePermissionsFeature(
                     context = testContext,
-                    storage = mockStorage,
                     onNeedToRequestPermissions = mock(),
                     onShouldShowRequestPermissionRationale = { false },
                     store = browserStore,
                     fragmentManager = mockFragmentManager,
-                    coroutineScope = testScope,
                     shouldHide = { true },
                 )
             )
@@ -1845,12 +1839,10 @@ class SitePermissionsFeatureTest {
             spy(
                 SitePermissionsFeature(
                     context = testContext,
-                    storage = mockStorage,
                     onNeedToRequestPermissions = mock(),
                     onShouldShowRequestPermissionRationale = { false },
                     store = browserStore,
                     fragmentManager = mockFragmentManager,
-                    coroutineScope = testScope,
                     shouldHide = { false },
                 )
             )

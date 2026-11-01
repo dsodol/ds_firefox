@@ -24,11 +24,9 @@
       addContent: async () => {
         // Add an LCP element, but have it be small enough to not trigger the
         // Soft Navigation heuristics.
-        const icp_promise = getNextEntry('interaction-contentful-paint');
-        addTextParagraphToMain("Lorem Ipsu");
-        await icp_promise;
+        await addTextParagraphToMain("Lorem Ipsu");
         // Add a smaller element that gets us over that threshold.
-        addTextParagraphToMain("m");
+        await addTextParagraphToMain("m");
       },
       });
   </script>

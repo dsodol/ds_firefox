@@ -5,10 +5,7 @@
 /// <reference path="./panel-list.tagmap.d.ts" />
 
 import { checkAccessKeys } from "chrome://global/content/elements/accesskey-check.mjs";
-import {
-  assignAutoAccessKeys,
-  findItemForKey,
-} from "chrome://global/content/elements/auto-accesskey.mjs";
+import { assignAutoAccessKeys } from "chrome://global/content/elements/auto-accesskey.mjs";
 
 export class PanelList extends HTMLElement {
   static get observedAttributes() {
@@ -505,11 +502,6 @@ export class PanelList extends HTMLElement {
 
     switch (e.type) {
       case "resize":
-        // Resize events of in-process subframes bubble up to chrome windows.
-        if (e.target == window) {
-          this.hide();
-        }
-        break;
       case "scroll":
         if (!inPanelList) {
           this.hide();
@@ -621,14 +613,15 @@ export class PanelList extends HTMLElement {
   }
 
   /**
-   * Selects the visible, enabled item that findItemForKey picks for the
-   * pressed key, by accesskey or else by label. When one item matches, it is
-   * activated; when several do, each press moves to the next one without
-   * activating it, as in a `menupopup`. A menu listing names a user chose - a
-   * container, a bookmark - can only be reached by keyboard through label
-   * matches, having no message to take an accesskey from.
+   * Selects the visible, enabled item with the pressed key as its accesskey,
+   * or else the item whose label starts with that letter, among the items that
+   * carry no accesskey of their own. When one item matches, it is activated;
+   * when several do, each press moves to the next one without activating it,
+   * as in a `menupopup`. A menu listing names a user chose - a container, a
+   * bookmark - can only be reached by keyboard through first letters, having
+   * no message to take an accesskey from.
    *
-   * Label matches stand aside while an editable field outside the panel has
+   * First letters stand aside while an editable field outside the panel has
    * focus. A panel-list that stays open over a focused field, as the
    * Smartbar's mention panel does, filters itself from what the field
    * receives, so the keystroke belongs to the field. Any other focus outside
@@ -667,47 +660,48 @@ export class PanelList extends HTMLElement {
     ) {
       return false;
     }
-    let deepest = chain.at(-1);
-    let result = findItemForKey(this.getMenuItems(), key, {
-      getLabel: item => item.label?.textContent ?? item.textContent,
-      current: focused,
-      matchLabels:
-        !!focused ||
-        !(
-          deepest?.isContentEditable ||
-          ["input", "textarea", "select"].includes(deepest?.localName)
-        ),
-    });
-    if (!result) {
+    let letter = key.toLowerCase();
+    let items = [
+      ...this.querySelectorAll("panel-item:not([hidden]):not([disabled])"),
+    ];
+    let isMatch = item =>
+      item.getAttribute("accesskey")?.toLowerCase() === letter;
+    let matches = items.filter(isMatch);
+    if (!matches.length) {
+      let deepest = chain.at(-1);
+      if (
+        !focused &&
+        (deepest?.isContentEditable ||
+          ["input", "textarea", "select"].includes(deepest?.localName))
+      ) {
+        return false;
+      }
+      // TODO(bug 2076174): Match the first character in the label that a key
+      // press can type.
+      isMatch = item =>
+        !item.hasAttribute("accesskey") &&
+        (item.label?.textContent ?? item.textContent)
+          .trim()
+          .charAt(0)
+          .toLowerCase() === letter;
+      matches = items.filter(isMatch);
+    }
+    if (!matches.length) {
       return false;
     }
-    if (result.activate) {
-      result.item.click();
+    if (matches.length == 1) {
+      matches[0].click();
       return true;
     }
-    result.item.focus();
+    // Several items share the key, so move to the next one after the focused
+    // item without activating it, wrapping around.
+    let after =
+      items.findIndex(item => item == focused || item.contains(focused)) + 1;
+    let match = items.slice(after).find(isMatch) ?? matches[0];
+    match.focus();
     // Arrow navigation resumes from wherever the walker last stopped.
-    this.focusWalker.currentNode = result.item;
+    this.focusWalker.currentNode = match;
     return true;
-  }
-
-  /**
-   * Returns the items that keyboard navigation in this list reaches, in order,
-   * like XULPopupElement.getMenuItems.
-   *
-   * @param {object} [options]
-   * @param {boolean} [options.includeDisabled]
-   *   Whether to include disabled items, which keyboard navigation skips.
-   * @returns {Element[]}
-   */
-  getMenuItems({ includeDisabled = false } = {}) {
-    return [
-      ...this.querySelectorAll(
-        includeDisabled
-          ? "panel-item:not([hidden])"
-          : "panel-item:not([hidden]):not([disabled])"
-      ),
-    ];
   }
 
   /**
@@ -908,6 +902,7 @@ export class PanelItem extends HTMLElement {
       "badge-type",
       "shortcut",
       "aria-haspopup",
+      "aria-keyshortcuts",
     ];
   }
 
@@ -1058,7 +1053,8 @@ export class PanelItem extends HTMLElement {
     } else if (
       name === "type" ||
       name === "disabled" ||
-      name === "aria-haspopup"
+      name === "aria-haspopup" ||
+      name === "aria-keyshortcuts"
     ) {
       this.#setButtonAttributes();
     } else if (name === "badge-type") {
@@ -1085,6 +1081,14 @@ export class PanelItem extends HTMLElement {
     } else {
       this.button.removeAttribute("aria-haspopup");
     }
+    if (this.hasAttribute("aria-keyshortcuts")) {
+      this.button.setAttribute(
+        "aria-keyshortcuts",
+        this.getAttribute("aria-keyshortcuts")
+      );
+    } else {
+      this.button.removeAttribute("aria-keyshortcuts");
+    }
   }
 
   #updateBadge() {
@@ -1106,6 +1110,7 @@ export class PanelItem extends HTMLElement {
         this.#shortcut = document.createElement("span");
         this.#shortcut.className = "shortcut";
         this.#shortcut.setAttribute("part", "shortcut");
+        this.#shortcut.setAttribute("aria-hidden", "true");
         (this.#badge ?? this.label).after(this.#shortcut);
       }
       this.#shortcut.textContent = this.getAttribute("shortcut");

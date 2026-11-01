@@ -65,7 +65,6 @@ rtc_library("read_auth_file") {
     "turnserver/read_auth_file.h",
   ]
   deps = [
-    "../rtc_base:span_helpers",
     "../rtc_base:stringutils",
     "//third_party/abseil-cpp/absl/strings:string_view",
   ]
@@ -801,7 +800,6 @@ if (is_linux || is_chromeos || is_win) {
       "//third_party/abseil-cpp/absl/strings:string_view",
     ]
   }
-
   rtc_executable("turnserver") {
     testonly = true
     sources = [ "turnserver/turnserver_main.cc" ]
@@ -823,7 +821,6 @@ if (is_linux || is_chromeos || is_win) {
       "//third_party/abseil-cpp/absl/strings",
     ]
   }
-
   rtc_executable("stunserver") {
     testonly = true
     sources = [ "stunserver/stunserver_main.cc" ]

@@ -29,14 +29,12 @@ class TestProvider extends SiteRuleProvider {
 
   constructor({
     rule = null,
-    held = 0,
     writable = false,
     throws = false,
     throwsOnInit = false,
   } = {}) {
     super();
     this.rule = rule;
-    this.held = held;
     this.writable = writable;
     this.throws = throws;
     this.throwsOnInit = throwsOnInit;
@@ -63,10 +61,6 @@ class TestProvider extends SiteRuleProvider {
 
   canSet(principal) {
     return this.writable && !!principal;
-  }
-
-  count(rule) {
-    return rule === this.rule ? this.held : 0;
   }
 }
 
@@ -213,32 +207,13 @@ add_task(function test_lifecycle() {
 });
 
 /**
- * hasRule asks every provider for its own tally rather than resolving
- * principals, so a site a higher-precedence provider would mask still counts.
- */
-add_task(function test_hasRule() {
-  const holding = new TestProvider({ rule: "rule", held: 1 });
-
-  Assert.ok(
-    managerOf(new TestProvider({ rule: "other" }), holding).hasRule("rule"),
-    "a rule held by any provider is found"
-  );
-  Assert.ok(
-    !managerOf(abstaining(), holding).hasRule("other"),
-    "a rule no provider holds is not"
-  );
-  Assert.equal(holding.inits, 2, "hasRule inits the manager");
-});
-
-/**
- * The base class is a usable no-op: it abstains, holds nothing, refuses writes,
- * and refuses to pretend a write happened.
+ * The base class is a usable no-op: it abstains, refuses writes, and refuses to
+ * pretend a write happened.
  */
 add_task(function test_base_class_defaults() {
   const base = new SiteRuleProvider();
 
   Assert.equal(base.getRule(PRINCIPAL), null, "the base class abstains");
-  Assert.equal(base.count("rule"), 0, "the base class holds nothing");
   Assert.ok(!base.canSet(PRINCIPAL), "the base class is read-only");
   Assert.throws(
     () => base.setRule(PRINCIPAL, "rule"),

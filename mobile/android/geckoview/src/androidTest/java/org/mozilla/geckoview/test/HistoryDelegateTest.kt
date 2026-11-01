@@ -354,13 +354,9 @@ class HistoryDelegateTest : BaseSessionTest() {
     @Test
     fun flushSessionStateTriggersHistoryChange() {
         mainSession.loadTestPath(HELLO_HTML_PATH)
-        mainSession.waitForPageStop()
         mainSession.loadTestPath(HELLO2_HTML_PATH)
-        mainSession.waitForPageStop()
 
-        mainSession.flushSessionState()
-
-        sessionRule.waitUntilCalled(
+        sessionRule.delegateUntilTestEnd(
             object : HistoryDelegate {
                 @AssertCalled(count = 1)
                 override fun onHistoryStateChange(
@@ -385,5 +381,8 @@ class HistoryDelegateTest : BaseSessionTest() {
                 }
             }
         )
+
+        sessionRule.waitForPageStops(2)
+        mainSession.flushSessionState()
     }
 }

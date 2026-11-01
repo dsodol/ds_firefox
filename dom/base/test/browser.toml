@@ -9,11 +9,6 @@ support-files = [
   "file_blocking_image.html",
   "file_bug902350.html",
   "file_bug902350_frame.html",
-  "file_process_script_dynamic_import.js",
-  "file_process_script_dynamic_import.sys.mjs",
-  "file_precompiled_script_dynamic_import.js",
-  "file_subscript_dynamic_import.js",
-  "file_subscript_dynamic_import.sys.mjs",
   "file_bug1011748_redirect.sjs",
   "file_bug1011748_OK.sjs",
   "file_bug1303838.html",
@@ -43,9 +38,6 @@ support-files = [
   "file_use_counter_svg_fill_pattern_internal.svg",
   "file_use_counter_svg_fill_pattern_data.svg",
   "file_use_counter_speculationrules.html",
-  "file_use_counter_speculationrules_header.html",
-  "file_use_counter_speculationrules_header.html^headers^",
-  "file_use_counter_speculationrules_header.sjs",
   "file_webaudio_startstop.html",
   "file_use_counter_sanitizer_config.html",
   "file_use_counter_sanitizer_default.html",
@@ -60,6 +52,9 @@ prefs = [
 ]
 
 ["browser_aboutnewtab_process_selection.js"]
+skip-if = [
+  "os == 'mac' && os_version == '10.15' && arch == 'x86_64'", # bug 1618098
+]
 
 ["browser_blocking_image.js"]
 
@@ -71,6 +66,9 @@ tags = "mcb"
 ["browser_bug1058164.js"]
 
 ["browser_bug1303838.js"]
+skip-if = [
+  "os == 'mac' && os_version == '10.15' && arch == 'x86_64' && opt", # Bug 1703712
+]
 
 ["browser_bug1554070.js"]
 support-files = [
@@ -111,8 +109,6 @@ support-files = ["file_bug1703472.html"]
 
 ["browser_messagemanager_loadprocessscript.js"]
 
-["browser_messagemanager_loadprocessscript_dynamic_import.js"]
-
 ["browser_messagemanager_targetframeloader.js"]
 
 ["browser_messagemanager_unload.js"]
@@ -123,7 +119,6 @@ skip-if = [
 ["browser_multiple_popups.js"]
 skip-if = [
   "socketprocess_networking",
-  "macos_vm", # Bug 2084943 - fails only on the macOS tart VMs
 ]
 support-files = ["browser_multiple_popups.html"]
 
@@ -147,14 +142,6 @@ support-files = [
 
 ["browser_outline_refocus.js"]
 
-["browser_page_load_event_prefetch.js"]
-# All channels: the test enables the prefs it needs.
-support-files = [
-  "file_pageload_prefetch_plain.html",
-  "file_pageload_prefetch_source.html",
-  "file_pageload_prefetch_target.sjs",
-]
-
 ["browser_page_load_event_telemetry.js"]
 skip-if = [
   "!nightly_build", # Page load events are only consistently sent in nightly.
@@ -167,8 +154,6 @@ support-files = [
   "file_pageload_prefetch_source.html",
   "file_pageload_prefetch_target.sjs",
 ]
-
-["browser_sizeToContent_tab.js"]
 
 ["browser_speculation_rules_hover_delays.js"]
 support-files = [

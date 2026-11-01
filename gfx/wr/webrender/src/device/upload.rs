@@ -441,7 +441,6 @@ impl<'a> TextureUploader<'a> {
             assert!(stride >= 0);
             stride as usize
         });
-        assert!(src_stride >= width_bytes);
         let src_size = (rect.height() as usize - 1) * src_stride + width_bytes;
         assert!(src_size <= len * mem::size_of::<T>());
 

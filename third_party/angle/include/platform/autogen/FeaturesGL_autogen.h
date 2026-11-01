@@ -254,8 +254,8 @@ struct FeaturesGL : FeatureSetBase
         &members,
     };
 
-    FeatureInfo resetBaseLevelForASTCImage = {
-        "resetBaseLevelForASTCImage",
+    FeatureInfo resetBaseLevelForASTCSubImage = {
+        "resetBaseLevelForASTCSubImage",
         FeatureCategory::OpenGLWorkarounds,
         &members,
     };
@@ -266,32 +266,14 @@ struct FeaturesGL : FeatureSetBase
         &members,
     };
 
-    FeatureInfo resetTexStorage2DBaseLevel = {
-        "resetTexStorage2DBaseLevel",
-        FeatureCategory::OpenGLWorkarounds,
-        &members,
-    };
-
     FeatureInfo useTempForNonZeroBaseLevelGenMipmapUsingCopyImageSubData = {
         "useTempForNonZeroBaseLevelGenMipmapUsingCopyImageSubData",
         FeatureCategory::OpenGLWorkarounds,
         &members,
     };
 
-    FeatureInfo recreateTextureOnTexImage3dDepthIncrease = {
-        "recreateTextureOnTexImage3dDepthIncrease",
-        FeatureCategory::OpenGLWorkarounds,
-        &members,
-    };
-
     FeatureInfo limitMax3dArrayTextureSizeTo1024 = {
         "limitMax3dArrayTextureSizeTo1024",
-        FeatureCategory::OpenGLWorkarounds,
-        &members,
-    };
-
-    FeatureInfo roundUp3dTextureSizeToPOTForLimit = {
-        "roundUp3dTextureSizeToPOTForLimit",
         FeatureCategory::OpenGLWorkarounds,
         &members,
     };
@@ -716,6 +698,12 @@ struct FeaturesGL : FeatureSetBase
         &members,
     };
 
+    FeatureInfo expandFragmentOutputsToVec4 = {
+        "expandFragmentOutputsToVec4",
+        FeatureCategory::OpenGLWorkarounds,
+        &members,
+    };
+
     FeatureInfo recreateMipmapLevelsBeforeGenerate = {
         "recreateMipmapLevelsBeforeGenerate",
         FeatureCategory::OpenGLWorkarounds,
@@ -736,12 +724,6 @@ struct FeaturesGL : FeatureSetBase
 
     FeatureInfo disableClearTexture = {
         "disableClearTexture",
-        FeatureCategory::OpenGLWorkarounds,
-        &members,
-    };
-
-    FeatureInfo flushBeforeGenerateMipmap = {
-        "flushBeforeGenerateMipmap",
         FeatureCategory::OpenGLWorkarounds,
         &members,
     };
@@ -772,30 +754,6 @@ struct FeaturesGL : FeatureSetBase
 
     FeatureInfo reattachTextureToFboAfterLayerIncrease = {
         "reattachTextureToFboAfterLayerIncrease",
-        FeatureCategory::OpenGLWorkarounds,
-        &members,
-    };
-
-    FeatureInfo uploadOversizedMipLevelsViaUnpackBuffer = {
-        "uploadOversizedMipLevelsViaUnpackBuffer",
-        FeatureCategory::OpenGLWorkarounds,
-        &members,
-    };
-
-    FeatureInfo validateState = {
-        "validateState",
-        FeatureCategory::OpenGLFeatures,
-        &members,
-    };
-
-    FeatureInfo finishBeforeBlitFramebufferMultiAttachment = {
-        "finishBeforeBlitFramebufferMultiAttachment",
-        FeatureCategory::OpenGLWorkarounds,
-        &members,
-    };
-
-    FeatureInfo useTexSubImageForClientDataNpotUploads = {
-        "useTexSubImageForClientDataNpotUploads",
         FeatureCategory::OpenGLWorkarounds,
         &members,
     };

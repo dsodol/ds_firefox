@@ -20,6 +20,7 @@ only-for-attributes:
     - shippable
 
 task-defaults:
+    run-on-repo-type: [hg]
     task-context:
         from-parameters:
             release-type: release_type

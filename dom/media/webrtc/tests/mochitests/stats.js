@@ -106,7 +106,7 @@ const statsExpectedByType = {
       "retransmittedBytesSent",
       "transportId",
     ],
-    optional: ["nackCount", "qpSum", "rid", "rtxSsrc", "targetBitrate"],
+    optional: ["nackCount", "qpSum", "rid", "rtxSsrc"],
     localAudioOnly: [],
     localVideoOnly: [
       "framesEncoded",
@@ -119,8 +119,9 @@ const statsExpectedByType = {
       "framesSent",
       "hugeFramesSent",
       "totalEncodeTime",
+      "totalEncodedBytesTarget",
     ],
-    unimplemented: ["mediaTrackId", "sliCount"],
+    unimplemented: ["mediaTrackId", "sliCount", "targetBitrate"],
     deprecated: ["isRemote"],
   },
   "remote-inbound-rtp": {
@@ -1153,16 +1154,6 @@ function pedanticChecks(report) {
         }
       }
 
-      // targetBitrate is only present once the bitrate allocator has told the
-      // encoder what to aim for, so it may be absent early in a call.
-      if (stat.targetBitrate !== undefined) {
-        ok(
-          stat.targetBitrate > 0,
-          `${stat.type}.targetBitrate is a sane number for a short ` +
-            `${stat.kind} test. value=${stat.targetBitrate}`
-        );
-      }
-
       // qpSum
       // This is supported for all of our vpx codecs and AV1 (on the encode
       // side, see bug 1519590)
@@ -1272,6 +1263,13 @@ function pedanticChecks(report) {
           stat.totalEncodeTime >= 0,
           `${stat.type}.totalEncodeTime is a sane number for a short ` +
             `${stat.kind} test. value=${stat.totalEncodeTime}`
+        );
+
+        // totalEncodedBytesTarget
+        ok(
+          stat.totalEncodedBytesTarget > 1000,
+          `${stat.type}.totalEncodedBytesTarget is a sane number for a short ` +
+            `${stat.kind} test. value=${stat.totalEncodedBytesTarget}`
         );
       }
     } else if (stat.type == "remote-outbound-rtp") {

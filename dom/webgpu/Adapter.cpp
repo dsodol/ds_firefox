@@ -12,13 +12,10 @@
 #include "SupportedFeatures.h"
 #include "SupportedLimits.h"
 #include "ipc/WebGPUChild.h"
-#include "mozilla/Assertions.h"
-#include "mozilla/ErrorResult.h"
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/WebGPUBinding.h"
 #include "mozilla/webgpu/ffi/wgpu.h"
-#include "nsDebug.h"
 
 namespace mozilla::webgpu {
 
@@ -263,24 +260,8 @@ Adapter::Adapter(Instance* const aParent, WebGPUChild* const aChild,
       mLimits(new SupportedLimits(this, aInfo->limits)),
       mInfo(new AdapterInfo(this, aInfo)),
       mInfoInner(aInfo) {
-  // It's onerous to plumb an `ErrorResult` in from outside in this case, and we
-  // don't really need to. `NS_ERROR_UNEXPECTED` means the JS scope we need is
-  // unavailable, which content can provoke by exhausting the JS stack; see
-  // bug 2074842.
-  const auto addFeature = [&](const dom::GPUFeatureName aFeature) {
-    IgnoredErrorResult rv;
-    mFeatures->Add(aFeature, rv);
-    if (rv.Failed()) {
-      if (rv.ErrorCodeIs(NS_ERROR_UNEXPECTED)) {
-        NS_WARNING(
-            "`Adapter::Adapter`: failed to add feature: got "
-            "`NS_ERROR_UNEXPECTED`");
-      } else {
-        MOZ_CRASH_UNSAFE_PRINTF("`Adapter::Adapter`: failed to add feature: %d",
-                                rv.ErrorCodeAsInt());
-      }
-    }
-  };
+  ErrorResult ignoredRv;  // It's onerous to plumb this in from outside in this
+                          // case, and we don't really need to.
 
   static const auto FEATURE_BY_BIT = []() {
     auto ret =
@@ -317,7 +298,7 @@ Adapter::Adapter(Instance* const aParent, WebGPUChild* const aChild,
 
     const auto featureForBit = FEATURE_BY_BIT.find(bit);
     if (featureForBit != FEATURE_BY_BIT.end()) {
-      addFeature(featureForBit->second);
+      mFeatures->Add(featureForBit->second, ignoredRv);
     } else {
       // One of two cases:
       //
@@ -338,7 +319,7 @@ Adapter::Adapter(Instance* const aParent, WebGPUChild* const aChild,
   // > Core-defaulting adapters *always* support the
   // > `"core-features-and-limits"` feature. It is *automatically enabled* on
   // > devices created from such adapters.
-  addFeature(dom::GPUFeatureName::Core_features_and_limits);
+  mFeatures->Add(dom::GPUFeatureName::Core_features_and_limits, ignoredRv);
 
   // We clamp limits to defaults when requestDevice is called, but
   // we return the actual limits when only requestAdapter is called.

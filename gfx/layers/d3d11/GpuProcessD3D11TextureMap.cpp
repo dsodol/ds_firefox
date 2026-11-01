@@ -275,7 +275,7 @@ void GpuProcessD3D11TextureMap::PostUpdateTextureDataTask(
       return;
     }
 
-    auto updatingTexture = std::make_unique<UpdatingTextureHolder>(
+    auto updatingTexture = MakeUnique<UpdatingTextureHolder>(
         aTextureId, aTextureHost, aWrappedTextureHost, aAllocator);
 
     mWaitingTextures.emplace(aTextureId);

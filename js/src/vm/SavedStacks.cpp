@@ -577,7 +577,7 @@ SavedFrame* SavedFrame::create(JSContext* cx) {
   cx->check(global);
 
   // Ensure that we don't try to capture the stack again in the
-  // `SavedStacks::buildAllocationMetadata` for this new SavedFrame object, and
+  // `SavedStacksMetadataBuilder` for this new SavedFrame object, and
   // accidentally cause O(n^2) behavior.
   SavedStacks::AutoReentrancyGuard guard(cx->realm()->savedStacks());
 
@@ -1978,8 +1978,9 @@ void SavedStacks::setSamplingProbability(double probability) {
   bernoulli.setProbability(probability);
 }
 
-SavedFrame* SavedStacks::buildAllocationMetadata(
-    JSContext* cx, HandleObject target, AutoEnterOOMUnsafeRegion& oomUnsafe) {
+JSObject* SavedStacks::MetadataBuilder::build(
+    JSContext* cx, HandleObject target,
+    AutoEnterOOMUnsafeRegion& oomUnsafe) const {
   RootedObject obj(cx, target);
 
   SavedStacks& stacks = cx->realm()->savedStacks();
@@ -1989,12 +1990,12 @@ SavedFrame* SavedStacks::buildAllocationMetadata(
 
   Rooted<SavedFrame*> frame(cx);
   if (!stacks.saveCurrentStack(cx, &frame)) {
-    oomUnsafe.crash("SavedStacks::buildAllocationMetadata");
+    oomUnsafe.crash("SavedStacksMetadataBuilder");
   }
 
   if (!DebugAPI::onLogAllocationSite(cx, obj, frame,
                                      mozilla::TimeStamp::Now())) {
-    oomUnsafe.crash("SavedStacks::buildAllocationMetadata");
+    oomUnsafe.crash("SavedStacksMetadataBuilder");
   }
 
   auto recordAllocationCallback =
@@ -2017,6 +2018,8 @@ SavedFrame* SavedStacks::buildAllocationMetadata(
   MOZ_ASSERT_IF(frame, !frame->is<WrapperObject>());
   return frame;
 }
+
+const SavedStacks::MetadataBuilder SavedStacks::metadataBuilder;
 
 /* static */
 constinit ReconstructedSavedFramePrincipals

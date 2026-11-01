@@ -22,7 +22,6 @@
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
 #include "absl/strings/match.h"
-#include "absl/strings/string_view.h"
 #include "api/scoped_refptr.h"
 #include "api/test/metrics/chrome_perf_dashboard_metrics_exporter.h"
 #include "api/test/metrics/global_metrics_logger_and_exporter.h"
@@ -74,11 +73,8 @@ const char* const kPathDelimiter = "\\";
 const char* const kPathDelimiter = "/";
 #endif
 
-std::string JoinFilename(absl::string_view directory,
-                         absl::string_view filename) {
-  webrtc::StringBuilder sb;
-  sb << directory << kPathDelimiter << filename;
-  return sb.Release();
+std::string JoinFilename(std::string directory, std::string filename) {
+  return directory + kPathDelimiter + filename;
 }
 
 // FrameAnalyzerMetricsExporter is a fork of

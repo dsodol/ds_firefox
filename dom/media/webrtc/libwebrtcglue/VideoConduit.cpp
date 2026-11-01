@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -82,6 +81,7 @@
 #include "mozilla/ReentrantMonitor.h"
 #include "mozilla/ReverseIterator.h"
 #include "mozilla/StateWatching.h"
+#include "mozilla/UniquePtr.h"
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/RTCStatsReportBinding.h"
 #include "mozilla/fallible.h"
@@ -397,9 +397,9 @@ WebrtcVideoConduit::WebrtcVideoConduit(
       INIT_CANONICAL(mReceivingSize, mFrameRecvThread, {}),
       mWatchManager(this, mCall->mCallThread),
       mMutex("WebrtcVideoConduit::mMutex"),
-      mDecoderFactory(std::make_unique<WebrtcVideoDecoderFactory>(
+      mDecoderFactory(MakeUnique<WebrtcVideoDecoderFactory>(
           mCallThread.get(), aPCHandle, aRecvTrackingId)),
-      mEncoderFactory(std::make_unique<WebrtcVideoEncoderFactory>(
+      mEncoderFactory(MakeUnique<WebrtcVideoEncoderFactory>(
           mCallThread.get(), std::move(aPCHandle))),
       mRecvSinkProxy(this),
       mSendSinkProxy(this),
@@ -1719,7 +1719,8 @@ void WebrtcVideoConduit::OnRtcpReceived(webrtc::CopyOnWriteBuffer&& aPacket) {
   MOZ_ASSERT(mCallThread->IsOnCurrentThread());
 
   if (mCall->Call()) {
-    mCall->Call()->Receiver()->DeliverRtcpPacket(std::move(aPacket));
+    mCall->Call()->Receiver()->DeliverRtcpPacket(
+        std::forward<webrtc::CopyOnWriteBuffer>(aPacket));
   }
 }
 
@@ -2149,15 +2150,6 @@ void WebrtcVideoConduit::GenerateKeyFrame(const Maybe<std::string>& aRid,
         // videoEncoder.
 
         mSendStream->GenerateKeyFrame(rids);
-      }));
-}
-
-void WebrtcVideoConduit::GenerateKeyFrames(std::vector<std::string> aRids) {
-  mCallThread->Dispatch(NS_NewRunnableFunction(
-      __func__, [this, self = RefPtr(this), rids = std::move(aRids)] {
-        if (mSendStream) {
-          mSendStream->GenerateKeyFrame(rids);
-        }
       }));
 }
 

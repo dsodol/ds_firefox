@@ -97,7 +97,7 @@ git clone hg::https://hg.mozilla.org/projects/nss
 
 :::
 
-## Build with gyp and ninja
+## [Build with gyp and ninja](#build)
 
 :::{container}
 Build NSS and NSPR using our build script from the `nss` directory:

@@ -1,6 +1,5 @@
-use super::Rb;
-use crate::{storage::Array, traits::*};
-use alloc::collections::BTreeSet;
+use crate::RingBuffer;
+use alloc::{collections::BTreeSet, vec, vec::Vec};
 use core::cell::RefCell;
 
 #[derive(Debug)]
@@ -18,7 +17,7 @@ impl<'a> Dropper<'a> {
     }
 }
 
-impl Drop for Dropper<'_> {
+impl<'a> Drop for Dropper<'a> {
     fn drop(&mut self) {
         if !self.set.borrow_mut().remove(&self.id) {
             panic!("value {} already removed", self.id);
@@ -30,79 +29,212 @@ impl Drop for Dropper<'_> {
 fn single() {
     let set = RefCell::new(BTreeSet::new());
 
-    let mut rb = Rb::<Array<Dropper, 3>>::default();
+    let cap = 3;
+    let buf = RingBuffer::new(cap);
 
     assert_eq!(set.borrow().len(), 0);
 
     {
-        let (mut prod, mut cons) = rb.split_ref();
+        let (mut prod, mut cons) = buf.split();
 
-        prod.try_push(Dropper::new(&set, 1)).unwrap();
+        prod.push(Dropper::new(&set, 1)).unwrap();
         assert_eq!(set.borrow().len(), 1);
-        prod.try_push(Dropper::new(&set, 2)).unwrap();
+        prod.push(Dropper::new(&set, 2)).unwrap();
         assert_eq!(set.borrow().len(), 2);
-        prod.try_push(Dropper::new(&set, 3)).unwrap();
+        prod.push(Dropper::new(&set, 3)).unwrap();
         assert_eq!(set.borrow().len(), 3);
 
-        cons.try_pop().unwrap();
+        cons.pop().unwrap();
         assert_eq!(set.borrow().len(), 2);
-        cons.try_pop().unwrap();
+        cons.pop().unwrap();
         assert_eq!(set.borrow().len(), 1);
 
-        prod.try_push(Dropper::new(&set, 4)).unwrap();
+        prod.push(Dropper::new(&set, 4)).unwrap();
         assert_eq!(set.borrow().len(), 2);
     }
 
-    drop(rb);
     assert_eq!(set.borrow().len(), 0);
 }
 
-// TODO: Use transactions.
 #[test]
-fn transaction() {
+fn multiple_each() {
     let set = RefCell::new(BTreeSet::new());
 
-    let mut rb = Rb::<Array<Dropper, 5>>::default();
+    let cap = 5;
+    let buf = RingBuffer::new(cap);
 
     assert_eq!(set.borrow().len(), 0);
+
     {
-        let (mut prod, mut cons) = rb.split_ref();
+        let (mut prod, mut cons) = buf.split();
         let mut id = 0;
         let mut cnt = 0;
-        fn assert_cnt(cnt: usize, n: usize, cons: &impl Consumer, set: &RefCell<BTreeSet<i32>>) {
-            assert_eq!(cnt, n);
-            assert_eq!(cnt, cons.occupied_len());
-            assert_eq!(cnt, set.borrow().len());
-        }
 
-        for _ in 0..4 {
-            id += 1;
-            cnt += 1;
-            prod.try_push(Dropper::new(&set, id)).unwrap();
-        }
-        assert_cnt(cnt, 4, &cons, &set);
+        assert_eq!(
+            prod.push_each(|| {
+                if cnt < 4 {
+                    id += 1;
+                    cnt += 1;
+                    Some(Dropper::new(&set, id))
+                } else {
+                    None
+                }
+            }),
+            4
+        );
+        assert_eq!(cnt, 4);
+        assert_eq!(cnt, set.borrow().len());
 
-        cnt -= cons.skip(2);
-        assert_cnt(cnt, 2, &cons, &set);
+        assert_eq!(
+            cons.pop_each(
+                |_| {
+                    cnt -= 1;
+                    true
+                },
+                Some(2)
+            ),
+            2
+        );
+        assert_eq!(cnt, 2);
+        assert_eq!(cnt, set.borrow().len());
 
-        while !prod.is_full() {
-            id += 1;
-            cnt += 1;
-            prod.try_push(Dropper::new(&set, id)).unwrap();
-        }
-        assert_cnt(cnt, 5, &cons, &set);
+        assert_eq!(
+            prod.push_each(|| {
+                id += 1;
+                cnt += 1;
+                Some(Dropper::new(&set, id))
+            }),
+            3
+        );
+        assert_eq!(cnt, 5);
+        assert_eq!(cnt, set.borrow().len());
 
-        cnt -= cons.clear();
-        assert_cnt(cnt, 0, &cons, &set);
+        assert_eq!(
+            cons.pop_each(
+                |_| {
+                    cnt -= 1;
+                    true
+                },
+                None
+            ),
+            5
+        );
+        assert_eq!(cnt, 0);
+        assert_eq!(cnt, set.borrow().len());
 
-        while !prod.is_full() {
-            id += 1;
-            cnt += 1;
-            prod.try_push(Dropper::new(&set, id)).unwrap();
-        }
-        assert_cnt(cnt, 5, &cons, &set);
+        assert_eq!(
+            prod.push_each(|| {
+                id += 1;
+                cnt += 1;
+                Some(Dropper::new(&set, id))
+            }),
+            5
+        );
+        assert_eq!(cnt, 5);
+        assert_eq!(cnt, set.borrow().len());
     }
 
-    drop(rb);
     assert_eq!(set.borrow().len(), 0);
+}
+
+/// Test the `pop_each` with internal function that returns false
+#[test]
+fn pop_each_test1() {
+    let cap = 10usize;
+    let (mut producer, mut consumer) = RingBuffer::new(cap).split();
+
+    for i in 0..cap {
+        producer.push((i, vec![0u8; 1000])).unwrap();
+    }
+
+    for _ in 0..cap {
+        let removed = consumer.pop_each(|_val| -> bool { false }, None);
+        assert_eq!(removed, 1);
+    }
+
+    assert_eq!(consumer.len(), 0);
+}
+
+/// Test the `pop_each` with capped pop
+#[test]
+fn pop_each_test2() {
+    let cap = 10usize;
+    let (mut producer, mut consumer) = RingBuffer::new(cap).split();
+
+    for i in 0..cap {
+        producer.push((i, vec![0u8; 1000])).unwrap();
+    }
+
+    for _ in 0..cap {
+        let removed = consumer.pop_each(|_val| -> bool { true }, Some(1));
+        assert_eq!(removed, 1);
+    }
+
+    assert_eq!(consumer.len(), 0);
+}
+
+/// Test the `push_each` with internal function that adds only 1 element.
+#[test]
+fn push_each_test1() {
+    let cap = 10usize;
+    let (mut producer, mut consumer) = RingBuffer::new(cap).split();
+
+    for i in 0..cap {
+        let mut count = 0;
+        // Add 1 element at a time
+        let added = producer.push_each(|| -> Option<(usize, Vec<u8>)> {
+            if count == 0 {
+                count += 1;
+                Some((i, vec![0u8; 1000]))
+            } else {
+                None
+            }
+        });
+        assert_eq!(added, 1);
+    }
+
+    for _ in 0..cap {
+        consumer.pop().unwrap();
+    }
+
+    assert_eq!(consumer.len(), 0);
+}
+
+/// Test the `push_each` with split internal buffer
+#[test]
+fn push_each_test2() {
+    let cap = 10usize;
+    let cap_half = 5usize;
+    let (mut producer, mut consumer) = RingBuffer::new(cap).split();
+
+    // Fill the entire buffer
+    for i in 0..cap {
+        producer.push((i, vec![0u8; 1000])).unwrap();
+    }
+
+    // Remove half elements
+    for _ in 0..cap_half {
+        consumer.pop().unwrap();
+    }
+
+    // Re add half elements one by one and check the return count.
+    for i in 0..cap_half {
+        let mut count = 0;
+        // Add 1 element at a time
+        let added = producer.push_each(|| -> Option<(usize, Vec<u8>)> {
+            if count == 0 {
+                count += 1;
+                Some((i, vec![0u8; 1000]))
+            } else {
+                None
+            }
+        });
+        assert_eq!(added, 1);
+    }
+
+    for _ in 0..cap {
+        consumer.pop().unwrap();
+    }
+
+    assert_eq!(consumer.len(), 0);
 }

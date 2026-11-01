@@ -112,12 +112,10 @@ class ShortcutsTest {
         browserScreen {}
             .clearBrowsingData {
                 verifyPageShortcutExists(webPage.title)
-                verifyPageShortcutsAreCentered()
             }
             .clickPageShortcut(webPage.title) {}
             .openSearchBar {
                 verifySearchSuggestionsContain(webPage.title)
-                verifyPageShortcutsAreCentered()
             }
     }
 }

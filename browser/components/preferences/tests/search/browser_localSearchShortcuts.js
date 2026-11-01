@@ -2,7 +2,8 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 /**
- * Checks the local shortcut rows in the engines list of the search pane.
+ * Checks the local shortcut rows in the engines list of the search pane
+ * with the settings redesign enabled.
  */
 
 "use strict";

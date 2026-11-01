@@ -8,7 +8,6 @@
 #include <string.h>
 
 #include <algorithm>
-#include <memory>
 #include <regex>
 #include <string>
 #include <vector>
@@ -2239,7 +2238,7 @@ bool GLContext::IsValidOwningThread() const {
 
 GLBlitHelper* GLContext::BlitHelper() {
   if (!mBlitHelper) {
-    mBlitHelper = std::make_unique<GLBlitHelper>(this);
+    mBlitHelper.reset(new GLBlitHelper(this));
   }
 
   return mBlitHelper.get();
@@ -2247,7 +2246,7 @@ GLBlitHelper* GLContext::BlitHelper() {
 
 GLReadTexImageHelper* GLContext::ReadTexImageHelper() {
   if (!mReadTexImageHelper) {
-    mReadTexImageHelper = std::make_unique<GLReadTexImageHelper>(this);
+    mReadTexImageHelper = MakeUnique<GLReadTexImageHelper>(this);
   }
 
   return mReadTexImageHelper.get();
@@ -2489,7 +2488,7 @@ UniquePtr<Texture> CreateTexture(GLContext& gl, const gfx::IntSize& size) {
   const GLenum target = LOCAL_GL_TEXTURE_2D;
   const GLenum format = LOCAL_GL_RGBA;
 
-  auto tex = std::make_unique<Texture>(gl);
+  auto tex = MakeUnique<Texture>(gl);
   ScopedBindTexture autoTex(&gl, tex->name, target);
 
   gl.fTexParameteri(target, LOCAL_GL_TEXTURE_MIN_FILTER, LOCAL_GL_LINEAR);
@@ -2717,7 +2716,7 @@ void GLContext::BeforeGLCall_Debug(const char* const funcName) const {
   }
 
   MOZ_ASSERT(!mDebugErrorScope);
-  mDebugErrorScope = std::make_unique<LocalErrorScope>(*this);
+  mDebugErrorScope.reset(new LocalErrorScope(*this));
 }
 
 void GLContext::AfterGLCall_Debug(const char* const funcName) const {

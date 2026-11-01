@@ -24,11 +24,9 @@ import {
  * @typedef {import("../../aiwindow/ui/components/smartwindow-panel-list/smartwindow-panel-list.mjs").SmartwindowPanelList} SmartwindowPanelList
  */
 
-const { XPCOMUtils } = ChromeUtils.importESModule(
-  "resource://gre/modules/XPCOMUtils.sys.mjs"
-);
+const lazy = {};
 
-const lazy = XPCOMUtils.declareLazy({
+ChromeUtils.defineESModuleGetters(lazy, {
   AIWindowUI:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindowUI.sys.mjs",
   MENTION_TYPE:
@@ -354,7 +352,7 @@ function setupMentionsPlugin(editorElement, panelList) {
       node.attrs.label,
     ],
     nodeView: node => [
-      "smartwindow-chip",
+      "ai-website-chip",
       {
         ...(node.attrs.type == CONTEXT_MENTION_TYPE.TAB_GROUP
           ? { isTabGroup: true, tabGroupColor: node.attrs.color ?? "" }
@@ -521,7 +519,7 @@ function setupMentionsPlugin(editorElement, panelList) {
     capture: true,
   });
   editorElement.addEventListener(
-    "smartwindow-chip:disconnected",
+    "ai-website-chip:disconnected",
     handleChipDisconnected
   );
 

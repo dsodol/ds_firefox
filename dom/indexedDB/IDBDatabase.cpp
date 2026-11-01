@@ -275,7 +275,7 @@ void IDBDatabase::EnterSetVersionTransaction(uint64_t aNewVersion) {
   MOZ_ASSERT(mSpec);
   MOZ_ASSERT(!mPreviousSpec);
 
-  mPreviousSpec = std::make_unique<DatabaseSpec>(*mSpec);
+  mPreviousSpec = MakeUnique<DatabaseSpec>(*mSpec);
 
   mSpec->metadata().version() = aNewVersion;
 }

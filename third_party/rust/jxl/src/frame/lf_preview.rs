@@ -7,7 +7,6 @@ use crate::api::{
     JxlColorProfile, JxlColorType, JxlDataFormat, JxlOutputBuffer, JxlParallelRunner,
     JxlPixelFormat,
 };
-use crate::color::tf::TransferFunction;
 use crate::error::Result;
 use crate::frame::Frame;
 use crate::headers::Orientation;
@@ -16,9 +15,12 @@ use crate::image::{DataTypeTag, Rect};
 use crate::render::buffer_splitter::{BufferSplitter, OutputChannelRef, SaveStageBufferInfo};
 use crate::render::low_memory_pipeline::row_buffers::RowBuffer;
 use crate::render::save::SaveStage;
-use crate::render::stages::{OutputColorInfo, Upsample8x, XybColorConvertStage};
+use crate::render::stages::{
+    ConvertF32ToF16Stage, ConvertF32ToU8Stage, ConvertF32ToU16Stage, FromLinearStage,
+    OutputColorInfo, TransferFunction, Upsample8x, XybStage,
+};
 use crate::render::{Channels, ChannelsMut, RenderPipelineInOutStage, RenderPipelineInPlaceStage};
-use crate::util::mirror;
+use crate::util::{SmallVec, f16, mirror};
 
 impl Frame {
     #[allow(clippy::too_many_arguments)]
@@ -35,7 +37,11 @@ impl Frame {
         output_tf: &TransferFunction,
     ) -> Result<()> {
         let save_stage = SaveStage::new(
-            &[0, 1, 2],
+            if color_type.has_alpha() {
+                &[0, 1, 2, 3]
+            } else {
+                &[0, 1, 2]
+            },
             orientation,
             0,
             color_type,
@@ -44,18 +50,47 @@ impl Frame {
         );
         let len = rect.size.0;
         let ulen = len * 8;
-        let mut scratch = [
-            RowBuffer::new(DataTypeTag::F32, 0, 0, 0, ulen)?,
-            RowBuffer::new(DataTypeTag::F32, 0, 0, 0, ulen)?,
-            RowBuffer::new(DataTypeTag::F32, 0, 0, 0, ulen)?,
-            RowBuffer::new(DataTypeTag::F32, 0, 0, 0, ulen)?,
-        ];
+        enum DataFormatConverter {
+            U8(ConvertF32ToU8Stage),
+            U16(ConvertF32ToU16Stage),
+            F16(ConvertF32ToF16Stage),
+            None,
+        }
+        let (converter, constant_alpha) = match data_format {
+            JxlDataFormat::U8 { bit_depth } => {
+                let alpha = ((1u16 << bit_depth) - 1) as u8;
+                (
+                    DataFormatConverter::U8(ConvertF32ToU8Stage::new(0, bit_depth)),
+                    RowBuffer::new_filled(DataTypeTag::U8, ulen, &alpha.to_ne_bytes())?,
+                )
+            }
+            JxlDataFormat::U16 { bit_depth, .. } => {
+                let alpha = ((1u32 << bit_depth) - 1) as u16;
+                (
+                    DataFormatConverter::U16(ConvertF32ToU16Stage::new(0, bit_depth)),
+                    RowBuffer::new_filled(DataTypeTag::U16, ulen, &alpha.to_ne_bytes())?,
+                )
+            }
+            JxlDataFormat::F16 { .. } => (
+                DataFormatConverter::F16(ConvertF32ToF16Stage::new(0)),
+                RowBuffer::new_filled(
+                    DataTypeTag::F16,
+                    ulen,
+                    &(f16::from_f32(1.0).to_bits().to_ne_bytes()),
+                )?,
+            ),
+            JxlDataFormat::F32 { .. } => (
+                DataFormatConverter::None,
+                RowBuffer::new_filled(DataTypeTag::F32, ulen, &1.0f32.to_ne_bytes())?,
+            ),
+        };
 
         let upsample_stage = Upsample8x::new(&self.decoder_state.file_header.transform_data, 0);
+        let mut upsample_state = upsample_stage.init_local_state()?.unwrap();
 
-        let mut stage_color_info = output_color_info.clone();
-        stage_color_info.tf = output_tf.clone();
-        let xyb_stage = XybColorConvertStage::new(0, stage_color_info);
+        let xyb_stage = XybStage::new(0, output_color_info.clone());
+
+        let from_linear_stage = FromLinearStage::new(0, output_tf.clone());
 
         let mut lf_rows = [
             RowBuffer::new(DataTypeTag::F32, 2, 0, 0, len)?,
@@ -68,6 +103,12 @@ impl Frame {
             RowBuffer::new(DataTypeTag::F32, 0, 3, 3, ulen)?,
             RowBuffer::new(DataTypeTag::F32, 0, 3, 3, ulen)?,
             RowBuffer::new(DataTypeTag::F32, 0, 3, 3, ulen)?,
+        ];
+
+        let mut output_rows = [
+            RowBuffer::new(data_format.data_type(), 0, 0, 0, ulen)?,
+            RowBuffer::new(data_format.data_type(), 0, 0, 0, ulen)?,
+            RowBuffer::new(data_format.data_type(), 0, 0, 0, ulen)?,
         ];
 
         // At this point, we already verified that lf_frame or lf_frame_data are present.
@@ -111,33 +152,37 @@ impl Frame {
 
             // Upsample.
             for c in 0..3 {
-                let x0_off = RowBuffer::x0_offset::<f32>();
-                let lf_row_ref = &lf_rows[c];
-                let input_channels = Channels::from_row_buffers(
-                    std::slice::from_ref(&lf_row_ref),
-                    x0_off,
-                    y + LF_ROW_OFFSET,
-                    lf_size.1 + LF_ROW_OFFSET + 2,
-                    2,
+                let off = RowBuffer::x0_offset::<f32>() - 2;
+                let input_rows_refs = [
+                    &lf_rows[c].get_row::<f32>(y + LF_ROW_OFFSET - 2)[off..],
+                    &lf_rows[c].get_row::<f32>(y + LF_ROW_OFFSET - 1)[off..],
+                    &lf_rows[c].get_row::<f32>(y + LF_ROW_OFFSET)[off..],
+                    &lf_rows[c].get_row::<f32>(y + LF_ROW_OFFSET + 1)[off..],
+                    &lf_rows[c].get_row::<f32>(y + LF_ROW_OFFSET + 2)[off..],
+                ]
+                .into_iter()
+                .collect();
+                let input_channels = Channels::new(input_rows_refs, 1, 5);
+
+                let mut output_rows_refs = SmallVec::new();
+                upsampled_rows[c].get_rows_mut(
+                    y * 8..y * 8 + 8,
+                    RowBuffer::x0_offset::<f32>(),
+                    &mut output_rows_refs,
                 );
-                let mut output_channels = ChannelsMut::from_row_buffers(
-                    std::slice::from_mut(&mut upsampled_rows[c]),
-                    x0_off,
-                    y * 8,
-                    8,
-                );
+                let mut output_channels = ChannelsMut::new(output_rows_refs, 1, 8);
 
                 upsample_stage.process_row_chunk(
                     (0, 0),
                     len,
                     &input_channels,
                     &mut output_channels,
-                    None,
+                    Some(upsample_state.as_mut()),
                     false,
                 );
             }
 
-            // un-XYB and save.
+            // un-XYB, convert and save.
             for uy in y * 8..y * 8 + 8 {
                 // XYB
                 let [x, y, b] = &mut upsampled_rows;
@@ -148,17 +193,79 @@ impl Frame {
                     &mut b.get_row_mut(uy)[off..],
                 ];
                 xyb_stage.process_row_chunk((0, 0), ulen, &mut rows, None, false);
+                from_linear_stage.process_row_chunk((0, 0), ulen, &mut rows, None, false);
 
-                let input_channels = match color_type {
-                    JxlColorType::Bgr | JxlColorType::Bgra => {
-                        [&upsampled_rows[2], &upsampled_rows[1], &upsampled_rows[0]]
+                macro_rules! convert {
+                    ($s: expr, $t: ty) => {
+                        for c in 0..3 {
+                            let input_rows_refs = std::iter::once(
+                                &upsampled_rows[c].get_row(uy)[RowBuffer::x0_offset::<f32>()..],
+                            )
+                            .collect();
+                            let input_channels = Channels::new(input_rows_refs, 1, 1);
+                            let mut output_rows_refs = SmallVec::new();
+                            output_rows[c].get_rows_mut(
+                                uy..uy + 1,
+                                RowBuffer::x0_offset::<$t>(),
+                                &mut output_rows_refs,
+                            );
+                            let mut output_channels = ChannelsMut::new(output_rows_refs, 1, 1);
+                            $s.process_row_chunk(
+                                (0, 0),
+                                ulen,
+                                &input_channels,
+                                &mut output_channels,
+                                None,
+                                false,
+                            );
+                        }
+                    };
+                }
+
+                // Convert
+                let save_input = match &converter {
+                    DataFormatConverter::U8(s) => {
+                        convert!(s, u8);
+                        &output_rows
                     }
-                    _ => [&upsampled_rows[0], &upsampled_rows[1], &upsampled_rows[2]],
+                    DataFormatConverter::U16(s) => {
+                        convert!(s, u16);
+                        &output_rows
+                    }
+                    DataFormatConverter::F16(s) => {
+                        convert!(s, f16);
+                        &output_rows
+                    }
+                    DataFormatConverter::None => &upsampled_rows,
+                };
+
+                let input_no_alpha = match color_type {
+                    JxlColorType::Bgr | JxlColorType::Bgra => {
+                        [&save_input[2], &save_input[1], &save_input[0]]
+                    }
+                    _ => [&save_input[0], &save_input[1], &save_input[2]],
+                };
+                let input_alpha = match color_type {
+                    JxlColorType::Bgra => [
+                        &save_input[2],
+                        &save_input[1],
+                        &save_input[0],
+                        &constant_alpha,
+                    ],
+                    _ => [
+                        &save_input[0],
+                        &save_input[1],
+                        &save_input[2],
+                        &constant_alpha,
+                    ],
                 };
 
                 save_stage.save_lowmem(
-                    &input_channels,
-                    &mut scratch,
+                    if color_type.has_alpha() {
+                        &input_alpha
+                    } else {
+                        &input_no_alpha
+                    },
                     output_buffers,
                     upsampled_rect.size,
                     uy,
@@ -199,6 +306,10 @@ impl Frame {
         }) else {
             return Ok(false);
         };
+
+        if output_tf.is_linear() {
+            return Ok(false);
+        }
 
         let image_metadata = &self.decoder_state.file_header.image_metadata;
         if !image_metadata.xyb_encoded || !image_metadata.extra_channel_info.is_empty() {

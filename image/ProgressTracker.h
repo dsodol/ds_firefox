@@ -110,7 +110,11 @@ class ProgressTracker : public mozilla::SupportsWeakPtr {
     MutexAutoLock lock(mMutex);
     return mImage;
   }
-  already_AddRefed<Image> GetImage() const;
+  already_AddRefed<Image> GetImage() const {
+    MutexAutoLock lock(mMutex);
+    RefPtr<Image> image = mImage;
+    return image.forget();
+  }
 
   // Get the current image status (as in imgIRequest).
   uint32_t GetImageStatus() const;

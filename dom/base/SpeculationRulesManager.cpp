@@ -48,12 +48,9 @@ void SpeculationRulesManager::StartPrefetch(Document* aDocument,
     }
   }
 
-  auto referrerPolicy = static_cast<ReferrerPolicy>(aCand.referrer_policy);
-  if (referrerPolicy == ReferrerPolicy::_empty) {
-    referrerPolicy = aDocument->GetReferrerPolicy();
-  }
   nsCOMPtr<nsIReferrerInfo> referrerInfo =
-      new ReferrerInfo(aDocument->GetDocumentURIAsReferrer(), referrerPolicy);
+      new ReferrerInfo(aDocument->GetDocumentURIAsReferrer(),
+                       static_cast<ReferrerPolicy>(aCand.referrer_policy));
 
   nsString noVarySearchHint;
   if (!aCand.no_vary_search_hint.IsVoid()) {

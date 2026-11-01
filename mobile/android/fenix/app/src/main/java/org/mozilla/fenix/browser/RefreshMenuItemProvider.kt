@@ -5,10 +5,8 @@
 package org.mozilla.fenix.browser
 
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -16,7 +14,6 @@ import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.menu.data.MenuItem
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.store.MenuEvent
 import mozilla.components.compose.menu.ui.MenuItemIconRes
@@ -45,19 +42,15 @@ class RefreshMenuItemProvider(
     private val stopLoading: SessionUseCases.StopLoadingUseCase,
     scope: CoroutineScope,
 ) : MenuItemProvider {
-    override val itemsFlow: StateFlow<List<MenuItem>> =
-        if (target == MenuTarget.CustomizeMenu) {
-            MutableStateFlow(listOf(DEFAULT_MENU_ITEM)).asStateFlow()
-        } else {
-            browserStore.stateFlow
-                .distinctUntilChangedBy { target.browserSessionFrom(it)?.content?.loading }
-                .map { listOfNotNull(it.refreshItem()) }
-                .stateIn(
-                    scope = scope,
-                    started = SharingStarted.Eagerly,
-                    initialValue = listOfNotNull(browserStore.state.refreshItem()),
-                )
-        }
+    override val itemFlow: StateFlow<MenuItem?> =
+        browserStore.stateFlow
+            .distinctUntilChangedBy { target.browserSessionFrom(it)?.content?.loading }
+            .map { it.refreshItem() }
+            .stateIn(
+                scope = scope,
+                started = SharingStarted.Eagerly,
+                initialValue = browserStore.state.refreshItem(),
+            )
 
     override fun handles(event: MenuEvent) = event is MenuAction.Navigate.Reload || event == MenuAction.Navigate.Stop
 
@@ -90,23 +83,17 @@ class RefreshMenuItemProvider(
         target.browserSessionFrom(this)?.content?.let { content ->
             if (content.loading) {
                 StandardMenuItem(
-                    title = MenuItemTitle(Text.Resource(R.string.browser_menu_stop)),
+                    title = Text.Resource(R.string.browser_menu_stop),
                     icon = MenuItemIconRes(iconsR.drawable.mozac_ic_cross_24),
                     onClickEvent = MenuAction.Navigate.Stop,
                 )
             } else {
-                DEFAULT_MENU_ITEM.copy(
+                StandardMenuItem(
+                    title = Text.Resource(R.string.browser_menu_refresh),
+                    icon = MenuItemIconRes(iconsR.drawable.mozac_ic_arrow_clockwise_24),
                     onClickEvent = MenuAction.Navigate.Reload(bypassCache = false),
                     onLongClickEvent = MenuAction.Navigate.Reload(bypassCache = true),
                 )
             }
         }
-
-    companion object {
-        private val DEFAULT_MENU_ITEM =
-            StandardMenuItem(
-                title = MenuItemTitle(Text.Resource(R.string.browser_menu_refresh)),
-                icon = MenuItemIconRes(iconsR.drawable.mozac_ic_arrow_clockwise_24),
-            )
-    }
 }

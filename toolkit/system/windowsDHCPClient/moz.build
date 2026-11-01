@@ -19,9 +19,3 @@ XPCOM_MANIFESTS += [
 ]
 
 FINAL_LIBRARY = "xul"
-
-SOURCE_HEADERS += [
-    "DHCPUtils.h",
-    "nsWindowsDHCPClient.h",
-    "WindowsNetworkFunctionsWrapper.h",
-]

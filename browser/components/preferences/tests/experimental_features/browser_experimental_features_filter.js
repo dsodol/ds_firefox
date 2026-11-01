@@ -127,13 +127,10 @@ add_task(async function testFilterFeatures() {
 
   info(`Resetted the search`);
 
-  let experimentalCategory = doc.getElementById("category-experimental");
-  experimentalCategory.scrollIntoView();
-
   // Clearing the search returns to the previously viewed (experimental) pane;
   // click it explicitly to be robust regardless of the restored pane.
   EventUtils.synthesizeMouseAtCenter(
-    experimentalCategory,
+    doc.getElementById("category-experimental"),
     {},
     gBrowser.contentWindow
   );
@@ -161,8 +158,6 @@ add_task(async function testFilterFeatures() {
       );
     }
 
-    let categoryElement = doc.getElementById(category);
-    categoryElement.scrollIntoView();
     // Check that switching to a non-find-in-page category changes item
     // visibility appropriately.
     EventUtils.synthesizeMouseAtCenter(

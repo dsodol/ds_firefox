@@ -1592,6 +1592,12 @@ struct FeaturesVk : FeatureSetBase
         &members,
     };
 
+    FeatureInfo supportsGlobalPriorityQuery = {
+        "supportsGlobalPriorityQuery",
+        FeatureCategory::VulkanFeatures,
+        &members,
+    };
+
     FeatureInfo supportsBufferDeviceAddress = {
         "supportsBufferDeviceAddress",
         FeatureCategory::VulkanFeatures,
@@ -1703,36 +1709,6 @@ struct FeaturesVk : FeatureSetBase
     FeatureInfo initializeColorAttachmentWithWhite = {
         "initializeColorAttachmentWithWhite",
         FeatureCategory::VulkanWorkarounds,
-        &members,
-    };
-
-    FeatureInfo enableAlphaChannelImages = {
-        "enableAlphaChannelImages",
-        FeatureCategory::VulkanWorkarounds,
-        &members,
-    };
-
-    FeatureInfo preferPrecomputedVertexTransform = {
-        "preferPrecomputedVertexTransform",
-        FeatureCategory::VulkanFeatures,
-        &members,
-    };
-
-    FeatureInfo debugSupportsClFp64 = {
-        "debugSupportsClFp64",
-        FeatureCategory::VulkanFeatures,
-        &members,
-    };
-
-    FeatureInfo supportsClFp16 = {
-        "supportsClFp16",
-        FeatureCategory::VulkanFeatures,
-        &members,
-    };
-
-    FeatureInfo supportsClFp64 = {
-        "supportsClFp64",
-        FeatureCategory::VulkanFeatures,
         &members,
     };
 

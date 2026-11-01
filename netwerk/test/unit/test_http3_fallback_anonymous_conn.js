@@ -4,6 +4,8 @@
 
 "use strict";
 
+/* import-globals-from head_http3.js */
+
 const { NodeHTTP2Server } = ChromeUtils.importESModule(
   "resource://testing-common/NodeServer.sys.mjs"
 );
@@ -41,13 +43,18 @@ add_setup(async function setup() {
 });
 
 add_task(async function test_fallback() {
-  let server = new NodeHTTP2Server();
-  await server.startWithNoResponseUdpPort();
+  // We only need the `noResponsePort`, not the masque proxy.
+  const { noResponsePort } = await create_masque_proxy_server();
 
   Services.prefs.setCharPref(
     "network.http.http3.alt-svc-mapping-for-testing",
-    `alt1.example.com;h3=:${server.port()}`
+    `alt1.example.com;h3=:${noResponsePort}`
   );
+
+  let server = new NodeHTTP2Server();
+  await server.start(noResponsePort);
+
+  Assert.equal(server.port(), noResponsePort);
 
   await server.registerPathHandler("/request1", (req, resp) => {
     resp.writeHead(200);

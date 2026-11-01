@@ -38,20 +38,19 @@ bool SipccSdpMediaSection::Load(sdp_t* sdp, const uint16_t level,
                                 InternalResults& results) {
   switch (sdp_get_media_type(sdp, level)) {
     case SDP_MEDIA_AUDIO:
-      mMediaTypeInfo = {.type = kAudio};
+      mMediaType = kAudio;
       break;
     case SDP_MEDIA_VIDEO:
-      mMediaTypeInfo = {.type = kVideo};
+      mMediaType = kVideo;
       break;
     case SDP_MEDIA_APPLICATION:
-      mMediaTypeInfo = {.type = kApplication};
+      mMediaType = kApplication;
       break;
     case SDP_MEDIA_TEXT:
-      mMediaTypeInfo = {.type = kText};
+      mMediaType = kText;
       break;
 
     default:
-      // Unknown media types are not supported using SIPCC
       results.AddParseError(sdp_get_media_line_number(sdp, level),
                             "Unsupported media section type");
       return false;
@@ -262,8 +261,7 @@ bool SipccSdpMediaSection::LoadConnection(sdp_t* sdp, uint16_t level,
   if (numAddr < 0) {
     numAddr = 0;
   }
-  mConnection =
-      std::make_unique<SdpConnection>(addrType, address, ttl, numAddr);
+  mConnection = MakeUnique<SdpConnection>(addrType, address, ttl, numAddr);
   return true;
 }
 

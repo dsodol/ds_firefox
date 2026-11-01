@@ -28,7 +28,6 @@ const DEFAULT_CONSTANTS = {
     WEEKLY: "weekly",
   },
   isMonitorRegionSupported: true,
-  isBlocked: false,
   smartWindowSupportUrl: "https://support.mozilla.org/kb/smart-window",
 };
 
@@ -98,13 +97,6 @@ export class AITasks extends MozLitElement {
     this.boundHandleMonitorOpen = this.handleMonitorOpen.bind(this);
     this.boundHandleMonitorSubmit = this.handleMonitorSubmit.bind(this);
     this.boundHandleMonitorCancel = this.handleMonitorCancel.bind(this);
-    this.boundHandleBlockedStateChanged =
-      this.handleBlockedStateChanged.bind(this);
-
-    window.addEventListener(
-      "SmartWindowTasks:BlockedStateChanged",
-      this.boundHandleBlockedStateChanged
-    );
 
     // Listen for events bubbling up from the create dialog and from
     // monitors-display > agent-monitor-item
@@ -202,11 +194,6 @@ export class AITasks extends MozLitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
 
-    window.removeEventListener(
-      "SmartWindowTasks:BlockedStateChanged",
-      this.boundHandleBlockedStateChanged
-    );
-
     // Remove event listeners
     this.removeEventListener(
       "agent-monitor-item:delete",
@@ -258,18 +245,6 @@ export class AITasks extends MozLitElement {
 
   get #dialog() {
     return this.shadowRoot.querySelector("dialog");
-  }
-
-  /**
-   * Refreshes the page when Smart Window is blocked or unblocked in AI
-   * Controls.
-   */
-  async handleBlockedStateChanged() {
-    await this.#initializeActor();
-    if (this._constants.isBlocked) {
-      this.closeDialog();
-    }
-    await this.loadMonitors();
   }
 
   // ===== Dialog Management =====
@@ -531,15 +506,11 @@ export class AITasks extends MozLitElement {
           : nothing}
       </dialog>
 
-      ${this._constants.isBlocked || !this.isMonitorRegionSupported
+      ${!this.isMonitorRegionSupported
         ? html`
             <div class="unavailable-wrapper">
               <div class="unavailable-container">
-                <h2
-                  data-l10n-id=${this._constants.isBlocked
-                    ? "ai-tasks-blocked-title"
-                    : "ai-tasks-no-monitors-title"}
-                ></h2>
+                <h2 data-l10n-id="ai-tasks-no-monitors-title"></h2>
                 <p data-l10n-id="ai-tasks-no-monitors-message">
                   <a
                     href=${this._constants.smartWindowSupportUrl}

@@ -98,10 +98,6 @@ export const TOKEN_CATEGORIES = [
     purposes: [PURPOSE.SEMANTIC, PURPOSE.STORYBOOK],
   },
   {
-    categoryName: "motion",
-    purposes: [PURPOSE.SEMANTIC, PURPOSE.STORYBOOK],
-  },
-  {
     categoryName: "opacity",
     purposes: [PURPOSE.SEMANTIC, PURPOSE.STORYBOOK],
   },

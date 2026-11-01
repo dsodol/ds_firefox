@@ -9,11 +9,9 @@
 #include <cstdint>
 
 #include "ImageContainer.h"
-#include "ImagePixelFormat.h"
 #include "Point.h"  // mozilla::gfx::IntSize
 #include "Rect.h"   // mozilla::gfx::IntRect
 #include "mozilla/AlreadyAddRefed.h"
-#include "mozilla/gfx/Types.h"
 #include "nsTArray.h"
 
 // A helper object to generate of different YUV planes.
@@ -23,10 +21,7 @@ class YUVBufferGenerator {
     uint8_t mY;
     uint8_t mCb;
     uint8_t mCr;
-    uint8_t mA;
   };
-
-  enum class Alpha : bool { No, Yes };
 
   enum class ChannelColorIndex : std::size_t {
     Black,
@@ -36,9 +31,9 @@ class YUVBufferGenerator {
   // 8-bit limited-range values from ITU-R BT.601-7, Table 4 and section 2.5:
   // https://www.itu.int/dms_pubrec/itu-r/rec/bt/r-rec-bt.601-7-201103-i!!pdf-e.pdf
   inline static constexpr ChannelColor kChannelColors[] = {
-      {0x10, 0x80, 0x80, 0xFF},  // Black
-      {0xEB, 0x80, 0x80, 0xFF},  // White
-      {0x51, 0x5A, 0xF0, 0xFF},  // Red
+      {0x10, 0x80, 0x80},  // Black
+      {0xEB, 0x80, 0x80},  // White
+      {0x51, 0x5A, 0xF0},  // Red
   };
 
   bool Init(
@@ -51,30 +46,12 @@ class YUVBufferGenerator {
       const ChannelColor& aColor =
           kChannelColors[static_cast<std::size_t>(ChannelColorIndex::Black)]);
   mozilla::gfx::IntSize GetSize() const;
-
-  already_AddRefed<mozilla::layers::Image> GenerateImage(
-      mozilla::ImagePixelFormat aFormat);
-  already_AddRefed<mozilla::layers::Image> GeneratePlanarImage(
-      mozilla::gfx::ChromaSubsampling aSubsampling,
-      mozilla::gfx::ColorDepth aDepth = mozilla::gfx::ColorDepth::COLOR_8,
-      Alpha aAlpha = Alpha::No);
-  already_AddRefed<mozilla::layers::Image> GenerateI420Image() {
-    return GenerateImage(mozilla::ImagePixelFormat::I420);
-  }
-  already_AddRefed<mozilla::layers::Image> GenerateNV12Image() {
-    return GenerateImage(mozilla::ImagePixelFormat::NV12);
-  }
-  already_AddRefed<mozilla::layers::Image> GenerateNV21Image() {
-    return GenerateImage(mozilla::ImagePixelFormat::NV21);
-  }
+  already_AddRefed<mozilla::layers::Image> GenerateI420Image();
+  already_AddRefed<mozilla::layers::Image> GenerateNV12Image();
+  already_AddRefed<mozilla::layers::Image> GenerateNV21Image();
 
  private:
-  enum class ChromaOrder { CbCr, CrCb };
-
-  already_AddRefed<mozilla::layers::Image> GenerateInterleavedImage(
-      ChromaOrder aOrder);
-  static void FillPlane(uint8_t* aPlane, size_t aBytes, uint16_t aValue,
-                        size_t aBytesPerSample);
+  void FillI420SourceBuffer();
   void FillNVSourceBuffer(uint8_t aFirstChromaValue,
                           uint8_t aSecondChromaValue);
 

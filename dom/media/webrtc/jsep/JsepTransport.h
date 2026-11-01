@@ -20,7 +20,7 @@ class JsepDtlsTransport {
  public:
   JsepDtlsTransport() : mRole(kJsepDtlsInvalidRole) {}
 
-  virtual ~JsepDtlsTransport() = default;
+  virtual ~JsepDtlsTransport() {}
 
   enum Role { kJsepDtlsClient, kJsepDtlsServer, kJsepDtlsInvalidRole };
 
@@ -39,9 +39,9 @@ class JsepDtlsTransport {
 
 class JsepIceTransport {
  public:
-  JsepIceTransport() = default;
+  JsepIceTransport() {}
 
-  virtual ~JsepIceTransport() = default;
+  virtual ~JsepIceTransport() {}
 
   const std::string& GetUfrag() const { return mUfrag; }
   const std::string& GetPassword() const { return mPwd; }
@@ -61,7 +61,7 @@ class JsepTransport {
 
   JsepTransport(const JsepTransport& orig) { *this = orig; }
 
-  ~JsepTransport() = default;
+  ~JsepTransport() {}
 
   JsepTransport& operator=(const JsepTransport& orig) {
     if (this != &orig) {

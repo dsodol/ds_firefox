@@ -97,14 +97,13 @@ fn make_and_run_simple_pipeline_impl<InputT: ImageDataType, OutputT: ImageDataTy
         .iter()
         .map(|x| stage.uses_channel(*x))
         .collect();
-    let channel_types = vec![(InputT::DATA_TYPE_ID, None); input_images.len()];
     let mut pipeline = RenderPipelineBuilder::<SimpleRenderPipeline>::new_with_chunk_size(
-        &channel_types,
+        input_images.len(),
         image_size,
         downsampling_shift,
         LOG_GROUP_SIZE,
         chunk_size,
-        Arc::new(BufferRecycler::new()),
+        Arc::new(BufferRecycler::new(1 << LOG_GROUP_SIZE)),
     )
     .add_stage_internal(stage);
 

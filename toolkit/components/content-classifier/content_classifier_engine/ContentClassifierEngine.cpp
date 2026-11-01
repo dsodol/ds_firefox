@@ -7,7 +7,6 @@
 #include "ContentClassifierService.h"
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/extensions/WebExtensionPolicy.h"
-#include "mozilla/net/ChannelClassifierUtils.h"
 #include "mozilla/net/UrlClassifierCommon.h"
 #include "nsIEffectiveTLDService.h"
 #include "nsNetUtil.h"
@@ -87,8 +86,6 @@ ContentClassifierRequest::ContentClassifierRequest(nsIChannel* aChannel)
   rv = aChannel->GetLoadInfo(getter_AddRefs(loadInfo));
   if (NS_FAILED(rv)) return;
 
-  mPassiveContent = net::ChannelClassifierUtils::IsPassiveContent(aChannel);
-
   ExtContentPolicyType contentPolicyType =
       loadInfo->GetExternalContentPolicyType();
   switch (contentPolicyType) {
@@ -137,7 +134,6 @@ ContentClassifierRequest::ContentClassifierRequest(nsIChannel* aChannel)
   mPrivateBrowsing = NS_UsePrivateBrowsing(aChannel);
 
   mIsNonRecommendedAddon = IsNonRecommendedAddonFromLoadInfo(loadInfo);
-  mAddonMayLoad = net::UrlClassifierCommon::AddonMayLoad(aChannel, uri);
 
   // Unwrap nested URI schemes (jar:, view-source:, ...) before looking
   // at the host, mirroring AsyncUrlChannelClassifier::FeatureData::
@@ -254,9 +250,7 @@ ContentClassifierRequest::ContentClassifierRequest(
       mThirdPartyToSource(true),
       mPrivateBrowsing(aPrivateBrowsing),
       mValid(false),
-      mIsNonRecommendedAddon(aIsNonRecommendedAddon),
-      mPassiveContent(aRequestType.EqualsLiteral("image") ||
-                      aRequestType.EqualsLiteral("media")) {
+      mIsNonRecommendedAddon(aIsNonRecommendedAddon) {
   if (!IsValidRequestType(aRequestType)) return;
 
   nsCOMPtr<nsIURI> uri;

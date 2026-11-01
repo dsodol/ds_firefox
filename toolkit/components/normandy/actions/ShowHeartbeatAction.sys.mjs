@@ -11,8 +11,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   ConfigSearchEngine:
     "moz-src:///toolkit/components/search/ConfigSearchEngine.sys.mjs",
-  ClientEnvironmentBase:
-    "resource://gre/modules/components-utils/ClientEnvironment.sys.mjs",
+  ClientEnvironment: "resource://normandy/lib/ClientEnvironment.sys.mjs",
   Heartbeat: "resource://normandy/lib/Heartbeat.sys.mjs",
   NormandyUtils: "resource://normandy/lib/NormandyUtils.sys.mjs",
   ProfilesDatastoreService:
@@ -153,7 +152,7 @@ export class ShowHeartbeatAction extends BaseAction {
   generateSurveyId(recipe) {
     const { includeTelemetryUUID, surveyId } = recipe.arguments;
     if (includeTelemetryUUID) {
-      return `${surveyId}::${lazy.ClientEnvironmentBase.legacyRandomizationId}`;
+      return `${surveyId}::${lazy.ClientEnvironment.userId}`;
     }
     return surveyId;
   }
@@ -172,7 +171,7 @@ export class ShowHeartbeatAction extends BaseAction {
       return postAnswerUrl;
     }
 
-    const userId = lazy.ClientEnvironmentBase.legacyRandomizationId;
+    const userId = lazy.ClientEnvironment.userId;
     const searchEngine = await lazy.SearchService.getDefault();
     const searchEngineId =
       searchEngine instanceof lazy.ConfigSearchEngine ? searchEngine.id : null;

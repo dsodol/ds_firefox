@@ -18,7 +18,7 @@ namespace mozilla::dom {
 
 /* static */
 UniquePtr<TestFunctions> TestFunctions::Constructor(GlobalObject& aGlobal) {
-  return std::make_unique<TestFunctions>();
+  return MakeUnique<TestFunctions>();
 }
 
 /* static */

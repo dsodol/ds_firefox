@@ -36,7 +36,6 @@
     /* GL_OES_point_sprite */                                                                      \
     /* GL_OES_query_matrix */                                                                      \
     GLbitfield queryMatrixx(GLfixed *mantissa, GLint *exponent);                                   \
-    /* GL_OES_stencil8 */                                                                          \
     /* GL_OES_texture_cube_map */                                                                  \
     void getTexGenfv(GLenum coord, GLenum pname, GLfloat *params);                                 \
     void getTexGeniv(GLenum coord, GLenum pname, GLint *params);                                   \
@@ -599,8 +598,6 @@
     /* GL_ANGLE_texture_compression_dxt5 */                                                        \
     /* GL_ANGLE_texture_multisample */                                                             \
     /* GL_ANGLE_texture_rectangle */                                                               \
-    /* GL_ANGLE_trim_memory */                                                                     \
-    void trimMemory(MemoryTrimLevel trimLevelPacked);                                              \
     /* GL_ANGLE_vulkan_image */                                                                    \
     void acquireTextures(GLuint numTextures, const TextureID *texturesPacked,                      \
                          const GLenum *layouts);                                                   \
@@ -625,6 +622,7 @@
                         GLint xoffset, GLint yoffset, GLint x, GLint y, GLint width, GLint height, \
                         GLboolean unpackFlipY, GLboolean unpackPremultiplyAlpha,                   \
                         GLboolean unpackUnmultiplyAlpha);                                          \
+    /* GL_CHROMIUM_framebuffer_mixed_samples */                                                    \
     /* GL_CHROMIUM_lose_context */                                                                 \
     void loseContext(GraphicsResetStatus currentPacked, GraphicsResetStatus otherPacked);
 

@@ -4,8 +4,6 @@
 
 #include "Request.h"
 
-#include <memory>
-
 #include "js/Value.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/StaticPrefs_dom.h"
@@ -292,7 +290,7 @@ SafeRefPtr<Request> Request::Constructor(
       if (doc) {
         request->SetEnvironmentReferrerPolicy(doc->GetReferrerPolicy());
 
-        principalInfo = std::make_unique<mozilla::ipc::PrincipalInfo>();
+        principalInfo.reset(new mozilla::ipc::PrincipalInfo());
         nsresult rv =
             PrincipalToPrincipalInfo(doc->NodePrincipal(), principalInfo.get());
         if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -309,8 +307,8 @@ SafeRefPtr<Request> Request::Constructor(
     if (worker) {
       worker->AssertIsOnWorkerThread();
       request->SetEnvironmentReferrerPolicy(worker->GetReferrerPolicy());
-      principalInfo = std::make_unique<mozilla::ipc::PrincipalInfo>(
-          worker->GetPrincipalInfo());
+      principalInfo =
+          MakeUnique<mozilla::ipc::PrincipalInfo>(worker->GetPrincipalInfo());
       coep = worker->GetEmbedderPolicy();
       // For dedicated worker, the response must respect the owner's COEP.
       if (coep == nsILoadInfo::EMBEDDER_POLICY_NULL &&

@@ -53,8 +53,8 @@ UniquePtr<RenderCompositor> RenderCompositorANGLE::Create(
     return nullptr;
   }
 
-  auto compositor =
-      std::make_unique<RenderCompositorANGLE>(aWidget, std::move(gl));
+  UniquePtr<RenderCompositorANGLE> compositor =
+      MakeUnique<RenderCompositorANGLE>(aWidget, std::move(gl));
   if (!compositor->Initialize(aError)) {
     return nullptr;
   }
@@ -165,9 +165,11 @@ bool RenderCompositorANGLE::Initialize(nsACString& aError) {
     }
   }
 
-  mSyncObject = RenderThread::Get()->SingletonGLSyncObject();
-  if (!mSyncObject) {
-    aError.Assign("RcANGLE(no SyncObject)"_ns);
+  mSyncObject = layers::SyncObjectHost::CreateSyncObjectHost(mDevice);
+  if (!mSyncObject->Init()) {
+    // Some errors occur. Clear the mSyncObject here.
+    // Then, there will be no texture synchronization.
+    aError.Assign("RcANGLE(create SyncObject failed)"_ns);
     return false;
   }
 
@@ -437,6 +439,15 @@ bool RenderCompositorANGLE::BeginFrame() {
     return false;
   }
 
+  if (RenderThread::Get()->SyncObjectNeeded() && mSyncObject) {
+    if (!mSyncObject->Synchronize(/* aFallible */ true)) {
+      // It's timeout or other error. Handle the device-reset here.
+      RenderThread::Get()->HandleDeviceReset(
+          gfx::DeviceResetDetectPlace::WR_SYNC_OBJRCT,
+          gfx::DeviceResetReason::UNKNOWN);
+      return false;
+    }
+  }
   return true;
 }
 

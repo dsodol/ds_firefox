@@ -366,16 +366,6 @@ class gfxUserFontSet {
     // Clear everything so that we don't leak URIs and Principals.
     static void Shutdown();
 
-#if MOZ_FONTATIONS
-    static void PrefChangedCallback(const char* aPref, void* aClosure) {
-      if (!strcmp(aPref, "gfx.font_rendering.fontations.enabled")) {
-        if (sUserFonts) {
-          sUserFonts->Clear();
-        }
-      }
-    }
-#endif
-
     // Memory-reporting support.
     class MemoryReporter final : public nsIMemoryReporter {
      private:
@@ -717,8 +707,7 @@ class gfxUserFontEntry : public gfxFontEntry {
 
   // attempt to load the next resource in the src list.
   void LoadNextSrc();
-  void DoContinueLoad();
-  void ScheduleContinueLoad();
+  void ContinueLoad();
   void DoLoadNextSrc(bool aIsContinue);
 
   // change the load state

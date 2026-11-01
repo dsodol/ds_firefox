@@ -301,6 +301,7 @@ skip-if = [
 
 ["test_blob_uri_blocks_modals.html"]
 skip-if = [
+  "asan", # alert should be blocked by CSP - got false, expected true
   "http2",
   "http3",
   "xorigin",
@@ -383,6 +384,9 @@ skip-if = [
 ["test_bug1452037.html"]
 
 ["test_bug1505412.html"]
+skip-if = [
+  "opt",
+]
 
 ["test_bug1579094.html"]
 

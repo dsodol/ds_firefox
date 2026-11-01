@@ -13,33 +13,15 @@ use std::ops::BitOr;
 ///
 /// Can be used with the `Parser::reset` method to restore that state.
 /// Should only be used with the `Parser` instance it came from.
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ParserState {
     pub(crate) position: usize,
-    pub(crate) current_line_start_position: u32,
-    /// Current line number shifted by `Self::BLOCK_TYPE_BITS`, with the low 2 bits holding the
-    /// `BlockType` discriminant of the block the last returned token opened (if any).
-    line_number_and_block_type: u32,
-}
-
-impl fmt::Debug for ParserState {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ParserState")
-            .field("position", &self.position)
-            .field(
-                "current_line_start_position",
-                &self.current_line_start_position,
-            )
-            .field("current_line_number", &self.line_number())
-            .field("at_start_of", &self.at_start_of())
-            .finish()
-    }
+    pub(crate) current_line_start_position: usize,
+    pub(crate) current_line_number: u32,
+    pub(crate) at_start_of: Option<BlockType>,
 }
 
 impl ParserState {
-    const BLOCK_TYPE_BITS: u32 = 2;
-    const BLOCK_TYPE_MASK: u32 = (1 << Self::BLOCK_TYPE_BITS) - 1;
-
     /// The position from the start of the input, counted in UTF-8 bytes.
     #[inline]
     pub fn position(&self) -> SourcePosition {
@@ -50,41 +32,9 @@ impl ParserState {
     #[inline]
     pub fn source_location(&self) -> SourceLocation {
         SourceLocation {
-            line: self.line_number(),
-            column: (self.position as u32)
-                .wrapping_sub(self.current_line_start_position)
-                .wrapping_add(1),
+            line: self.current_line_number,
+            column: (self.position - self.current_line_start_position + 1) as u32,
         }
-    }
-
-    #[inline]
-    pub(crate) fn line_number(&self) -> u32 {
-        self.line_number_and_block_type >> Self::BLOCK_TYPE_BITS
-    }
-
-    #[inline]
-    pub(crate) fn advance_line_number(&mut self, count: u32) {
-        self.line_number_and_block_type += count << Self::BLOCK_TYPE_BITS;
-    }
-
-    #[inline]
-    pub(crate) fn at_start_of(&self) -> Option<BlockType> {
-        let block_type = (self.line_number_and_block_type & Self::BLOCK_TYPE_MASK) as u8;
-        BlockType::from_byte(block_type)
-    }
-
-    #[inline]
-    pub(crate) fn set_at_start_of(&mut self, block_type: BlockType) {
-        debug_assert!(self.at_start_of().is_none());
-        self.line_number_and_block_type |= block_type as u32;
-        debug_assert_eq!(self.at_start_of(), Some(block_type));
-    }
-
-    #[inline]
-    pub(crate) fn take_at_start_of(&mut self) -> Option<BlockType> {
-        let block_type = self.at_start_of();
-        self.line_number_and_block_type &= !Self::BLOCK_TYPE_MASK;
-        block_type
     }
 }
 
@@ -291,35 +241,20 @@ struct CachedToken<'i> {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-#[repr(u8)]
 pub(crate) enum BlockType {
-    // NOTE: We rely on the discriminants being 1, 2, 3 for the `ParserState`
-    // bit packing (and from_byte).
-    Parenthesis = 1,
+    Parenthesis,
     SquareBracket,
     CurlyBracket,
 }
 
 impl BlockType {
-    #[inline]
-    fn from_byte(b: u8) -> Option<BlockType> {
-        let ty = match b {
-            1 => BlockType::Parenthesis,
-            2 => BlockType::SquareBracket,
-            3 => BlockType::CurlyBracket,
-            _ => return None,
-        };
-        debug_assert_eq!(ty as u8, b);
-        Some(ty)
-    }
-
     fn closing(token: &Token) -> Option<BlockType> {
-        Some(match *token {
-            Token::CloseParenthesis => BlockType::Parenthesis,
-            Token::CloseSquareBracket => BlockType::SquareBracket,
-            Token::CloseCurlyBracket => BlockType::CurlyBracket,
-            _ => return None,
-        })
+        match *token {
+            Token::CloseParenthesis => Some(BlockType::Parenthesis),
+            Token::CloseSquareBracket => Some(BlockType::SquareBracket),
+            Token::CloseCurlyBracket => Some(BlockType::CurlyBracket),
+            _ => None,
+        }
     }
 }
 
@@ -1004,7 +939,7 @@ pub fn parse_nested_block<'i, F, T, E>(
 where
     F: FnOnce(&mut Parser<'i>) -> Result<T, ParseError<E>>,
 {
-    let block_type = parser.state.take_at_start_of().expect(
+    let block_type = parser.state.at_start_of.take().expect(
         "\
          A nested parser can only be created when a Function, \
          ParenthesisBlock, SquareBracketBlock, or CurlyBracketBlock \
@@ -1045,7 +980,7 @@ impl Parser<'_> {
         // FIXME: have a special-purpose tokenizer method for this that does less work.
         while !self.is_eof() {
             let token = self.next_unchecked();
-            if let Some(nested_block_type) = self.state.take_at_start_of() {
+            if let Some(nested_block_type) = self.state.at_start_of.take() {
                 stack.push(nested_block_type);
                 continue;
             }

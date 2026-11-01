@@ -97,9 +97,11 @@ class MicrosurveyBottomSheetFragment : BottomSheetDialogFragment() {
                     },
                     onCloseButtonClicked = {
                         microsurveyMessageController.onMicrosurveyDismissed(it.id)
+                        requireComponents.settings.shouldShowMicrosurveyPrompt = false
                         closeBottomSheet()
                     },
                     onSubmitButtonClicked = { answer ->
+                        requireComponents.settings.shouldShowMicrosurveyPrompt = false
                         microsurveyMessageController.onSurveyCompleted(it.id, answer)
                     },
                 )

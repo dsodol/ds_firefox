@@ -9,7 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useSelector } from "react-redux";
+import { batch, useSelector } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import {
   PREF_CLOCKS_SIZE,
@@ -154,16 +154,18 @@ function Clocks({ dispatch, handleUserInteraction, widgetEnabledMap }) {
 
   const handleChangeSize = useCallback(
     newSize => {
-      dispatch(
-        ac.OnlyToMain({
-          type: at.SET_PREF,
-          data: { name: PREF_CLOCKS_SIZE, value: newSize },
-        })
-      );
-      recordUserAction(USER_ACTION_TYPES.CHANGE_SIZE, {
-        source: CLOCK_WIDGET_SOURCE.CONTEXT_MENU,
-        value: newSize,
-        size: newSize,
+      batch(() => {
+        dispatch(
+          ac.OnlyToMain({
+            type: at.SET_PREF,
+            data: { name: PREF_CLOCKS_SIZE, value: newSize },
+          })
+        );
+        recordUserAction(USER_ACTION_TYPES.CHANGE_SIZE, {
+          source: CLOCK_WIDGET_SOURCE.CONTEXT_MENU,
+          value: newSize,
+          size: newSize,
+        });
       });
       handleClocksInteraction();
       closeContextMenu();
@@ -173,15 +175,17 @@ function Clocks({ dispatch, handleUserInteraction, widgetEnabledMap }) {
 
   const handleToggleHourFormat = useCallback(() => {
     const nextFormat = use12HourFormat ? "24" : "12";
-    dispatch(
-      ac.OnlyToMain({
-        type: at.SET_PREF,
-        data: { name: PREF_CLOCKS_HOUR_FORMAT, value: nextFormat },
-      })
-    );
-    recordUserAction(USER_ACTION_TYPES.CHANGE_HOUR_FORMAT, {
-      source: CLOCK_WIDGET_SOURCE.CONTEXT_MENU,
-      value: nextFormat,
+    batch(() => {
+      dispatch(
+        ac.OnlyToMain({
+          type: at.SET_PREF,
+          data: { name: PREF_CLOCKS_HOUR_FORMAT, value: nextFormat },
+        })
+      );
+      recordUserAction(USER_ACTION_TYPES.CHANGE_HOUR_FORMAT, {
+        source: CLOCK_WIDGET_SOURCE.CONTEXT_MENU,
+        value: nextFormat,
+      });
     });
     handleClocksInteraction();
     closeContextMenu();
@@ -291,28 +295,30 @@ function Clocks({ dispatch, handleUserInteraction, widgetEnabledMap }) {
     zone => {
       const existingClock =
         editingClockIndex !== null ? clockZones[editingClockIndex] : null;
-      dispatch(
-        ac.OnlyToMain({
-          type: at.SET_PREF,
-          data: {
-            name: PREF_CLOCKS_ZONES,
-            value: JSON.stringify(
-              buildNextClockZones(clockZones, editingClockIndex, zone)
-            ),
-          },
-        })
-      );
-      recordUserAction(
-        editingClockIndex !== null
-          ? USER_ACTION_TYPES.EDIT_CLOCK
-          : USER_ACTION_TYPES.ADD_CLOCK,
-        { source: formSource }
-      );
-      if (zone.label && !existingClock?.label) {
-        recordUserAction(USER_ACTION_TYPES.ADD_NICKNAME, {
-          source: formSource,
-        });
-      }
+      batch(() => {
+        dispatch(
+          ac.OnlyToMain({
+            type: at.SET_PREF,
+            data: {
+              name: PREF_CLOCKS_ZONES,
+              value: JSON.stringify(
+                buildNextClockZones(clockZones, editingClockIndex, zone)
+              ),
+            },
+          })
+        );
+        recordUserAction(
+          editingClockIndex !== null
+            ? USER_ACTION_TYPES.EDIT_CLOCK
+            : USER_ACTION_TYPES.ADD_CLOCK,
+          { source: formSource }
+        );
+        if (zone.label && !existingClock?.label) {
+          recordUserAction(USER_ACTION_TYPES.ADD_NICKNAME, {
+            source: formSource,
+          });
+        }
+      });
       if (formSource === CLOCK_WIDGET_SOURCE.MANAGE) {
         setActivePanel(CLOCKS_PANEL.EDIT);
         resetAddClockForm();
@@ -338,16 +344,18 @@ function Clocks({ dispatch, handleUserInteraction, widgetEnabledMap }) {
       if (clockZones.length <= 1) {
         return;
       }
-      dispatch(
-        ac.OnlyToMain({
-          type: at.SET_PREF,
-          data: {
-            name: PREF_CLOCKS_ZONES,
-            value: JSON.stringify(removeClockZoneAtIndex(clockZones, index)),
-          },
-        })
-      );
-      recordUserAction(USER_ACTION_TYPES.REMOVE_CLOCK, { source });
+      batch(() => {
+        dispatch(
+          ac.OnlyToMain({
+            type: at.SET_PREF,
+            data: {
+              name: PREF_CLOCKS_ZONES,
+              value: JSON.stringify(removeClockZoneAtIndex(clockZones, index)),
+            },
+          })
+        );
+        recordUserAction(USER_ACTION_TYPES.REMOVE_CLOCK, { source });
+      });
       handleClocksInteraction();
     },
     [clockZones, dispatch, recordUserAction, handleClocksInteraction]

@@ -172,13 +172,12 @@ export const SpecialMessageActions = {
    * requiring the site to be open or previously visited.
    *
    * Returns true if the tab was newly created and pinned, null if a Taskbar
-   * Tab for this URL already existed, or false if an error occurred or the
-   * user declined the OS pin prompt.
+   * Tab for this URL already existed, or false if an error occurred.
    *
-   * Waits for the pin attempt, including the Windows 11 OS pin dialog, to
-   * complete. If the user declines and the Taskbar Tab was created by this
-   * call, it is deleted along with its shortcut, so the site is not treated
-   * as already pinned and can be offered again later.
+   * NOTE: findOrCreateTaskbarTab resolves once the taskbar tab is registered,
+   * not once it has actually been pinned. The internal pin step (and the
+   * Windows 11 OS pin dialog) runs after the promise settles, so we return
+   * before the user has accepted or rejected the OS prompt.
    *
    * @param {object} data
    * @param {string} data.url - The URL of the web app (HTTP/HTTPS only).
@@ -207,18 +206,10 @@ export const SpecialMessageActions = {
     };
 
     try {
-      let { created, taskbarTab, pin } =
-        await lazy.TaskbarTabs.findOrCreateTaskbarTab(uri, 0, {
-          manifest,
-          ensurePinned: true,
-        });
-      let { rejected } = await pin;
-      if (rejected) {
-        if (created) {
-          await lazy.TaskbarTabs.removeTaskbarTab(taskbarTab.id);
-        }
-        return false;
-      }
+      let { created } = await lazy.TaskbarTabs.findOrCreateTaskbarTab(uri, 0, {
+        manifest,
+        ensurePinned: true,
+      });
       // If an existing tab is found, don't report that one was created.
       return created ? true : null;
     } catch (e) {
@@ -457,7 +448,6 @@ export const SpecialMessageActions = {
     const allowedSetOnImpressionPrefs = [
       "termsofuse.firstAcceptedDate",
       "termsofuse.acceptedDate",
-      "browser.startup.couldRestoreSession.count",
     ];
 
     // allowedPrefs above is the in-tree baseline. It can be extended off-train
@@ -894,7 +884,6 @@ export const SpecialMessageActions = {
         lazy.MigrationUtils.showMigrationWizard(window, {
           entrypoint: lazy.MigrationUtils.MIGRATION_ENTRYPOINTS.NEWTAB,
           migratorKey: action.data?.source,
-          tabModal: action.data?.tabModal,
         });
         break;
       case "OPEN_PRIVATE_BROWSER_WINDOW":
@@ -1214,9 +1203,6 @@ export const SpecialMessageActions = {
         await window.PanelUI.showSubView(panel_id, anchor);
         break;
       }
-      case "SELECT_AND_MARK_MENU_ITEM":
-        await window.PanelUI.selectAndMarkItem([...action.data.itemIds]);
-        break;
       case "CREATE_TASKBAR_TAB": {
         let currentTab = window.gBrowser.selectedTab;
         await lazy.TaskbarTabs.moveTabIntoTaskbarTab(currentTab);

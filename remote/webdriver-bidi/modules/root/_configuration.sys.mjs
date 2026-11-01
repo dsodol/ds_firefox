@@ -62,8 +62,7 @@ ChromeUtils.defineLazyGetter(lazy, "logger", () =>
 const NULL = Symbol("NULL");
 
 // Apply here only the configurations that will be initialized in the parent process,
-// except from `device-pixel-ratio-override` and `viewport-override` which are
-// handled separately.
+// except from `viewport-override` which is handled separately.
 const CONFIGURATIONS_TO_APPLY = [
   SessionDataCategory.DownloadBehaviorOverride,
   SessionDataCategory.LocaleOverride,
@@ -142,14 +141,19 @@ class _ConfigurationModule extends RootBiDiModule {
         }
       );
 
-      // setViewport replaces the previous item, so there is at most one item
-      // per user context. Its value is null if the viewport was reset.
-      const viewport = sessionData[0]?.value;
-      if (!viewport) {
+      if (!sessionData.length) {
         return;
       }
 
-      const { height, width } = viewport;
+      const lastViewportItem = sessionData.findLast(
+        item => item.value.viewport !== undefined
+      );
+
+      if (!lastViewportItem || !lastViewportItem.value.viewport) {
+        return;
+      }
+
+      const { height, width } = lastViewportItem.value.viewport;
       subject.style.setProperty("height", height + "px");
       subject.style.setProperty("width", width + "px");
 
@@ -219,13 +223,15 @@ class _ConfigurationModule extends RootBiDiModule {
     for (const { category, contextDescriptor, value } of sessionDataItems) {
       if (
         !CONFIGURATIONS_TO_APPLY.includes(category) &&
-        category !== SessionDataCategory.DevicePixelRatioOverride
+        category !== SessionDataCategory.ViewportOverride
       ) {
         continue;
       }
 
-      if (category === SessionDataCategory.DevicePixelRatioOverride) {
-        devicePixelRatioOverride = value;
+      if (category === SessionDataCategory.ViewportOverride) {
+        if (value.devicePixelRatio !== undefined) {
+          devicePixelRatioOverride = value.devicePixelRatio;
+        }
       } else {
         configurationMap[category][contextDescriptor.type] = value;
       }
@@ -708,7 +714,14 @@ class _ConfigurationModule extends RootBiDiModule {
           lazy.pprint`Expected elements of "userContexts" to be a string, got ${userContextId}`
         );
 
-        const internalId = this._getUserContextInternalId(userContextId);
+        const internalId =
+          lazy.UserContextManager.getInternalIdById(userContextId);
+
+        if (internalId === null) {
+          throw new lazy.error.NoSuchUserContextError(
+            `User context with id: ${userContextId} doesn't exist`
+          );
+        }
 
         userContexts.add(internalId);
 

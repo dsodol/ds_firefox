@@ -2074,7 +2074,7 @@ NS_IMETHODIMP GfxInfoBase::KillGPUProcessForTests() {
     return NS_ERROR_NOT_INITIALIZED;
   }
 
-  gpm->KillProcessForTesting();
+  gpm->KillProcess();
   return NS_OK;
 }
 

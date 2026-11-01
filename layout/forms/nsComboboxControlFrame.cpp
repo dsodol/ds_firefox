@@ -37,7 +37,8 @@ using namespace mozilla::gfx;
 
 nsComboboxControlFrame* NS_NewComboboxControlFrame(PresShell* aPresShell,
                                                    ComputedStyle* aStyle) {
-  return new nsComboboxControlFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      nsComboboxControlFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsComboboxControlFrame)
@@ -280,7 +281,8 @@ void ComboboxLabelFrame::Reflow(nsPresContext* aPresContext,
 
 nsIFrame* NS_NewComboboxLabelFrame(PresShell* aPresShell,
                                    ComputedStyle* aStyle) {
-  return new ComboboxLabelFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      ComboboxLabelFrame(aStyle, aPresShell->GetPresContext());
 }
 
 void nsComboboxControlFrame::Destroy(DestroyContext& aContext) {

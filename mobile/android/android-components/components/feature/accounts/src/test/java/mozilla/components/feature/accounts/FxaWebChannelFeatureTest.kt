@@ -852,7 +852,7 @@ class FxaWebChannelFeatureTest {
                 eq(null),
                 entrypointCaptor.capture(),
                 scopesCaptor.capture(),
-                eq("sync"),
+                eq(""),
             )
         assertEquals("webchannel-pairing", entrypointCaptor.value.entryName)
         assertEquals(

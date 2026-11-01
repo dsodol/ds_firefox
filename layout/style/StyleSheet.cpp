@@ -1083,14 +1083,7 @@ dom::MediaList* StyleSheet::Media() {
 
 JSObject* StyleSheet::WrapObject(JSContext* aCx,
                                  JS::Handle<JSObject*> aGivenProto) {
-  // An imported sheet may be kept alive only by an import rule awaiting
-  // deletion by the cycle collector, and Wrap() might GC.
-  JS::Rooted<JSObject*> result(aCx);
-  {
-    RefPtr kungFuDeathGrip{this};
-    result = dom::CSSStyleSheet_Binding::Wrap(aCx, this, aGivenProto);
-  }
-  return result;
+  return dom::CSSStyleSheet_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 void StyleSheet::FixUpRuleListAfterContentsChangeIfNeeded(bool aFromClone) {

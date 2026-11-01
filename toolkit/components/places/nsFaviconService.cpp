@@ -586,8 +586,8 @@ RefPtr<mozilla::places::BoolPromise> nsFaviconService::AsyncTryCopyFavicons(
   nsCOMPtr<nsIURI> fromPageURI = GetExposableURI(aFromPageURI);
   nsCOMPtr<nsIURI> toPageURI = GetExposableURI(aToPageURI);
 
-  if (!net::SchemeIsHttpOrHttps(fromPageURI) ||
-      !net::SchemeIsHttpOrHttps(toPageURI)) {
+  if ((!fromPageURI->SchemeIs("http") && !fromPageURI->SchemeIs("https")) ||
+      (!toPageURI->SchemeIs("http") && !toPageURI->SchemeIs("https"))) {
     promise->Resolve(false, __func__);
     return promise;
   }

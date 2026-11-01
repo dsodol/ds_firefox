@@ -10,12 +10,6 @@ loader.lazyRequireGetter(
   "resource://devtools/shared/protocol.js",
   true
 );
-loader.lazyRequireGetter(
-  this,
-  "readSourceResponse",
-  "resource://devtools/client/fronts/source.js",
-  true
-);
 
 /**
  * A Target represents a debuggable context. It can be a browser tab, a tab on
@@ -274,34 +268,21 @@ function TargetMixin(parentClass) {
     /**
      * This method gets the source content for a given resource.
      *
-     * @param {string} resourceType - The resource type for which to get the source content.
-     * @param {string} [resourceId] - The ID of the resource actor. Optional if not applicable (e.g for html resources).
+     * @param {object} resourceActor - The resource actor for which to get the source content.
+     *                                 This is the actor created by the create...Actor api's in create.js.
      * @returns {Promise<{source: string, contentType: string}>}
      */
-    async getSourceContentForResource(resourceType, resourceId) {
+    async getSourceContentForResource(resourceActor) {
       const { resourceCommand } = this.commands;
-      // @backward-compat { version 160 } `getSourceContentForResource` on the window global target actor is not supported on older servers.
-      // The `if` check for the trait as well as the fallback code (resourceType `switch check below) can be removed when 160 is no longer on
-      // the release channel.
-      if (this.getTrait("supportsGetSourceContentForResource")) {
-        const response = await super.getSourceContentForResource(
-          resourceType,
-          resourceId
-        );
-        // The source is transfered as a front, either an array buffer for wasm
-        // binaries or a long string for everything else.
-        return response ? readSourceResponse(response) : null;
-      }
-
-      switch (resourceType) {
+      switch (resourceActor.sourceObject.type) {
         case resourceCommand.TYPES.STYLESHEET: {
           const stylesheetsFront = await this.getFront("stylesheets");
-          const sourceStr = await stylesheetsFront.getText(resourceId);
+          const sourceStr = await stylesheetsFront.getText(resourceActor.id);
           return { source: await sourceStr.string(), contentType: "text/css" };
         }
         case resourceCommand.TYPES.SOURCE: {
           const sourceFront = this.threadFront.source({
-            actor: resourceId,
+            actor: resourceActor.id,
           });
           const { source, contentType } = await sourceFront.source();
           return { source, contentType };

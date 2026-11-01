@@ -580,7 +580,6 @@ class FxaWebChannelFeature(
                 // need isn't something the content knows to request.
                 val authUrl =
                     accountManager.beginAuthentication(
-                        service = FxaService.Sync.identifier,
                         entrypoint = PairingWebChannelEntryPoint,
                         authScopes = PAIRING_OAUTH_SCOPES,
                     )

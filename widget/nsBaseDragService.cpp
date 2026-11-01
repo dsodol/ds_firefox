@@ -1500,7 +1500,7 @@ nsBaseDragSession::DispatchToDropTargetAndResumeEndDragSession(
 
   nsEventStatus status = nsEventStatus_eIgnore;
   RefPtr<PresShell> ps = delayedDropFrame->PresContext()->GetPresShell();
-  auto event = std::make_unique<WidgetDragEvent>(
+  auto event = MakeUnique<WidgetDragEvent>(
       true, aShouldDrop ? eDrop : eDragExit, aWidget);
   event->mRefPoint = aPt;
   ps->HandleEventWithTarget(event.get(), delayedDropFrame, delayedDropTarget,

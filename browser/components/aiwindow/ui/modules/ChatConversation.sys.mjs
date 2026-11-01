@@ -129,15 +129,6 @@ export class ChatConversation extends Conversation {
   lastSubmitType = null;
 
   /**
-   * Transient (not persisted): where the most recent user submission asked
-   * for an AI Tab page from (tab_list or tab_group), or null when it was typed
-   * in the chat. Reported by AI Tab telemetry.
-   *
-   * @type {?string}
-   */
-  aitabSource = null;
-
-  /**
    * Transient (not persisted): browser_action_submit telemetry context for
    * manage_tabs confirmation, keyed by toolCallId. Stashed when a tab action
    * is deferred for user confirmation and consumed when it resolves.
@@ -971,11 +962,9 @@ export class ChatConversation extends Conversation {
    * @returns {URL|null}
    */
   getMostRecentPageVisited() {
-    const message = this.messages.findLast(m =>
-      m.pageUrl?.protocol.startsWith("http")
-    );
+    const sites = this.getSitesList();
 
-    return message?.pageUrl ?? null;
+    return sites.length ? sites.pop() : null;
   }
 
   /**

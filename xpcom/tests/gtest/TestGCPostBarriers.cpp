@@ -7,14 +7,13 @@
  * implemented for nsTArrays that contain JavaScript Values.
  */
 
-#include <memory>
-
 #include "gtest/gtest.h"
 #include "js/HeapAPI.h"
 #include "js/PropertyAndElement.h"  // JS_GetProperty, JS_SetProperty
 #include "js/TracingAPI.h"
 #include "jsapi.h"
 #include "mozilla/CycleCollectedJSContext.h"
+#include "mozilla/UniquePtr.h"
 #include "nsTArray.h"
 
 using namespace mozilla;
@@ -38,7 +37,7 @@ template <class ArrayT>
 static void TestGrow(JSContext* cx) {
   JS_GC(cx);
 
-  auto array = std::make_unique<ArrayT>();
+  auto array = MakeUnique<ArrayT>();
   ASSERT_TRUE(array != nullptr);
 
   JS_AddExtraGCRootsTracer(cx, TraceArray<ArrayT>, array.get());
@@ -82,7 +81,7 @@ template <class ArrayT>
 static void TestShrink(JSContext* cx) {
   JS_GC(cx);
 
-  auto array = std::make_unique<ArrayT>();
+  auto array = MakeUnique<ArrayT>();
   ASSERT_TRUE(array != nullptr);
 
   JS_AddExtraGCRootsTracer(cx, TraceArray<ArrayT>, array.get());

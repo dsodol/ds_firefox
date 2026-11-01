@@ -17,13 +17,12 @@ struct PairSet : ValueBase
   using PairValueRecord = GPOS_impl::PairValueRecord<Types>;
 
   protected:
-  typename Types::HBUINT
-                        len;    /* Number of PairValueRecords */
+  HBUINT16              len;    /* Number of PairValueRecords */
   PairValueRecord       firstPairValueRecord;
                                 /* Array of PairValueRecords--ordered
                                  * by GlyphID of the second glyph */
   public:
-  DEFINE_SIZE_MIN (Types::HBUINT::static_size);
+  DEFINE_SIZE_MIN (2);
 
   static size_t get_size (unsigned len1, unsigned len2)
   {
@@ -100,7 +99,7 @@ struct PairSet : ValueBase
     unsigned record_size = get_size (valueFormats);
 
     const PairValueRecord *record = &firstPairValueRecord;
-    unsigned count = (unsigned) len;
+    unsigned count = len;
     for (unsigned i = 0; i < count; i++)
     {
       if (c->glyph_set->has (record->secondGlyph))
@@ -122,7 +121,7 @@ struct PairSet : ValueBase
 
     const PairValueRecord *record = hb_bsearch (buffer->info[pos].codepoint,
                                                 &firstPairValueRecord,
-                                                (unsigned) len,
+                                                len,
                                                 record_size);
     if (record)
     {

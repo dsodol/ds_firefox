@@ -10,21 +10,19 @@ import { UrlbarContentUtils } from "chrome://browser/content/urlbar/UrlbarConten
 import UrlbarPrefs from "chrome://browser/content/urlbar/UrlbarContentPrefs.mjs";
 import { SearchEngineStore } from "chrome://browser/content/urlbar/SearchEngineStore.mjs";
 
-const { XPCOMUtils } =
-  typeof ChromeUtils == "undefined"
-    ? { XPCOMUtils: null }
-    : ChromeUtils.importESModule("resource://gre/modules/XPCOMUtils.sys.mjs");
+const lazy = typeof ChromeUtils != "undefined" ? {} : null;
 
-const lazy = XPCOMUtils?.declareLazy({
-  UrlbarParentController:
-    "moz-src:///browser/components/urlbar/UrlbarParentController.sys.mjs",
-});
+if (lazy) {
+  ChromeUtils.defineESModuleGetters(lazy, {
+    UrlbarParentController:
+      "moz-src:///browser/components/urlbar/UrlbarParentController.sys.mjs",
+  });
+}
 
 /**
  * @import {TelemetryEvent} from "moz-src:///browser/components/urlbar/UrlbarParentController.sys.mjs"
  * @import {UrlbarView} from "chrome://browser/content/urlbar/UrlbarView.mjs"
  * @import {SmartbarInput} from "moz-src:///browser/components/urlbar/content/SmartbarInput.mjs"
- * @import {UrlbarParent} from "moz-src:///browser/components/urlbar/actors/UrlbarParent.sys.mjs"
  */
 
 /**
@@ -76,8 +74,7 @@ export class UrlbarChildController {
    */
   #listeners = new Set();
 
-  /** @type {"arrow"|"tab"|"none"} */
-  #userSelectionBehavior = "none";
+  #userSelectionBehavior = /** @type {"arrow"|"tab"|"none"} */ ("none");
 
   /**
    * The id of the query the listeners are still hearing about. Notifications
@@ -116,11 +113,7 @@ export class UrlbarChildController {
       : new lazy.UrlbarParentController({
           sapName: options.input.sapName,
           isPrivate: options.input.isPrivate,
-          actor: /** @type {UrlbarParent} */ (
-            options.input.browserWindow.windowGlobalChild.parentActor.getActor(
-              "Urlbar"
-            )
-          ),
+          actor: options.input.window.windowGlobalChild.getActor("Urlbar"),
         });
     this.#parentController.setChild(this);
 
@@ -129,6 +122,14 @@ export class UrlbarChildController {
 
   get input() {
     return this.#input;
+  }
+
+  /**
+   * The window the input lives in. For a chrome `<moz-urlbar>` this is the
+   * browser window; for a content-process one it's the content window.
+   */
+  get window() {
+    return this.#input.window;
   }
 
   get view() {
@@ -437,7 +438,7 @@ export class UrlbarChildController {
             this.view.close();
           } else if (
             // An in-page urlbar returns focus to the host page.
-            !this.#input.browserWindow?.gBrowser &&
+            !this.window.gBrowser &&
             UrlbarPrefs.get("focusContentDocumentOnEsc") &&
             !this.input.searchMode &&
             this.input.value == ""
@@ -445,18 +446,18 @@ export class UrlbarChildController {
             this.input.blur();
           } else if (
             // A chrome urlbar moves focus into the content document instead.
-            this.#input.browserWindow?.gBrowser &&
+            this.window.gBrowser &&
             UrlbarPrefs.get("focusContentDocumentOnEsc") &&
             !this.input.searchMode &&
             (this.input.sapName == "searchbar"
               ? this.input.value == ""
               : this.input.getAttribute("pageproxystate") == "valid" ||
                 (this.input.value == "" &&
-                  this.#input.browserWindow.isBlankPageURL(
-                    this.#input.browserWindow.gBrowser.currentURI.spec
+                  this.window.isBlankPageURL(
+                    this.window.gBrowser.currentURI.spec
                   )))
           ) {
-            this.#input.browserWindow.gBrowser.selectedBrowser.focus();
+            this.window.gBrowser.selectedBrowser.focus();
           } else {
             this.input.handleRevert();
           }
@@ -829,7 +830,7 @@ export class UrlbarChildController {
     if (
       where == "tab" &&
       reuseEmpty &&
-      this.#input.browserWindow?.gBrowser?.selectedTab.isEmpty
+      this.window.gBrowser?.selectedTab.isEmpty
     ) {
       where = "current";
     }

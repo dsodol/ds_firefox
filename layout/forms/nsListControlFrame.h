@@ -51,6 +51,8 @@ class nsListControlFrame final : public mozilla::ScrollContainerFrame {
   void Init(nsIContent* aContent, nsContainerFrame* aParent,
             nsIFrame* aPrevInFlow) final;
 
+  bool ReflowFinished() final;
+
   mozilla::dom::HTMLOptionElement* GetCurrentOption() const;
 
 #ifdef DEBUG_FRAME_DUMP
@@ -74,6 +76,7 @@ class nsListControlFrame final : public mozilla::ScrollContainerFrame {
   nscoord GetBSizeOfARow();
 
   MOZ_CAN_RUN_SCRIPT_BOUNDARY void OnSelectionReset();
+  void OptionsAdded();
 
   /**
    * Returns the HTMLOptionElement for a given index in mContent's collection.
@@ -156,9 +159,15 @@ class nsListControlFrame final : public mozilla::ScrollContainerFrame {
   uint32_t mNumDisplayRows = 0;
   nscoord mBSizeOfARow = -1;
 
+  bool mNeedToReset : 1;
+  bool mPostChildrenLoadedReset : 1;
+
   // True if we're in the middle of a reflow and might need a second
   // pass.  This only happens for auto heights.
-  bool mMightNeedSecondPass : 1 = false;
+  bool mMightNeedSecondPass : 1;
+
+  // True if our reflow got interrupted.
+  bool mReflowWasInterrupted : 1;
 };
 
 #endif /* nsListControlFrame_h_ */

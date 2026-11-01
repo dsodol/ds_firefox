@@ -1,6 +1,6 @@
 <!-- go/cmark -->
 
-<!--* freshness: {owner: 'danilchap' reviewed: '2026-10-06'} *-->
+<!--* freshness: {owner: 'danilchap' reviewed: '2026-04-02'} *-->
 
 # Using Abseil in WebRTC
 

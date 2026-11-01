@@ -15,7 +15,6 @@
 #include "nss_scoped_ptrs.h"
 #include "pk11pub.h"
 #include "testvectors_base/test-structs.h"
-#include "pk11_import.h"
 
 namespace nss_test {
 
@@ -30,7 +29,7 @@ struct RsaOaepTestVector {
 class RsaOaepWycheproofTest : public ::testing::Test {
  protected:
   void Run(const std::string& file) {
-    WycheproofHeader(file, "RSAES-OAEP", "rsaes_oaep_decrypt_schema_v1.json",
+    WycheproofHeader(file, "RSAES-OAEP", "rsaes_oaep_decrypt_schema.json",
                      [this](JsonReader& r) { RunGroup(r); });
   }
 
@@ -76,8 +75,8 @@ class RsaOaepWycheproofTest : public ::testing::Test {
         break;
       }
 
-      if (n == "keySize" || n == "privateKey" || n == "privateKeyJwk" ||
-          n == "privateKeyPem" || n == "source") {
+      if (n == "d" || n == "e" || n == "keysize" || n == "n" ||
+          n == "privateKeyJwk" || n == "privateKeyPem") {
         r.SkipValue();
       } else if (n == "privateKeyPkcs8") {
         std::vector<uint8_t> priv_key = r.ReadHex();
@@ -110,7 +109,7 @@ class RsaOaepWycheproofTest : public ::testing::Test {
     EXPECT_NE(nullptr, slot);
 
     SECKEYPrivateKey* key = nullptr;
-    SECStatus rv = nss_test::ImportDERPrivateKeyInfoAndReturnKey(
+    SECStatus rv = PK11_ImportDERPrivateKeyInfoAndReturnKey(
         slot.get(), &pkcs8_item, nullptr, nullptr, false, false, KU_ALL, &key,
         nullptr);
     EXPECT_EQ(SECSuccess, rv);
@@ -218,7 +217,7 @@ TEST(Pkcs11RsaOaepTest, TestOaepWrapUnwrap) {
 
   SECKEYPublicKey* p_pub_tmp = nullptr;
   priv.reset(PK11_GenerateKeyPair(slot.get(), CKM_RSA_PKCS_KEY_PAIR_GEN,
-                                  &rsa_params, &p_pub_tmp, false, PK11_IsFIPS(),
+                                  &rsa_params, &p_pub_tmp, false, false,
                                   nullptr));
   pub.reset(p_pub_tmp);
 
@@ -241,11 +240,11 @@ TEST(Pkcs11RsaOaepTest, TestOaepWrapUnwrap) {
   PK11SymKey* p_unwrapped_tmp = nullptr;
 
   // Extract key's value in order to validate decryption worked.
-  rv = nss_test::ExtractKeyValue(to_wrap.get());
+  rv = PK11_ExtractKeyValue(to_wrap.get());
   ASSERT_EQ(rv, SECSuccess);
 
   // References owned by PKCS#11 layer; no need to scope and free.
-  SECItem* expectedItem = nss_test::GetKeyData(to_wrap.get());
+  SECItem* expectedItem = PK11_GetKeyData(to_wrap.get());
 
   // This assumes CKM_RSA_PKCS and doesn't understand OAEP.
   // CKM_RSA_PKCS cannot safely return errors, however, as it can lead
@@ -260,11 +259,11 @@ TEST(Pkcs11RsaOaepTest, TestOaepWrapUnwrap) {
   ASSERT_NE(p_unwrapped_tmp, nullptr);
   ScopedPK11SymKey fakeUnwrapped;
   fakeUnwrapped.reset(p_unwrapped_tmp);
-  rv = nss_test::ExtractKeyValue(fakeUnwrapped.get());
+  rv = PK11_ExtractKeyValue(fakeUnwrapped.get());
   ASSERT_EQ(rv, SECSuccess);
 
   // References owned by PKCS#11 layer; no need to scope and free.
-  SECItem* fakeItem = nss_test::GetKeyData(fakeUnwrapped.get());
+  SECItem* fakeItem = PK11_GetKeyData(fakeUnwrapped.get());
   ASSERT_NE(SECITEM_CompareItem(fakeItem, expectedItem), 0);
 
   ScopedPK11SymKey unwrapped;
@@ -275,11 +274,11 @@ TEST(Pkcs11RsaOaepTest, TestOaepWrapUnwrap) {
 
   unwrapped.reset(p_unwrapped_tmp);
 
-  rv = nss_test::ExtractKeyValue(unwrapped.get());
+  rv = PK11_ExtractKeyValue(unwrapped.get());
   ASSERT_EQ(rv, SECSuccess);
 
   // References owned by PKCS#11 layer; no need to scope and free.
-  SECItem* actualItem = nss_test::GetKeyData(unwrapped.get());
+  SECItem* actualItem = PK11_GetKeyData(unwrapped.get());
 
   ASSERT_EQ(SECITEM_CompareItem(actualItem, expectedItem), 0);
 }

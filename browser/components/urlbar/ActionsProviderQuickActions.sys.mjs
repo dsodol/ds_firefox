@@ -3,13 +3,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { ActionsProvider } from "moz-src:///browser/components/urlbar/ActionsProvider.sys.mjs";
-import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 /**
  * @import {ActionsResult} from "moz-src:///browser/components/urlbar/ActionsProvider.sys.mjs"
  */
 
-const lazy = XPCOMUtils.declareLazy({
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
   QuickActionsLoaderDefault:
     "moz-src:///browser/components/urlbar/QuickActionsLoaderDefault.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
@@ -52,12 +52,7 @@ class ProviderQuickActions extends ActionsProvider {
     return "ActionsProviderQuickActions";
   }
 
-  /**
-   * @param {UrlbarQueryContext} queryContext
-   * @param {UrlbarParentController} _controller
-   * @returns {boolean}
-   */
-  isActive(queryContext, _controller) {
+  isActive(queryContext) {
     return (
       queryContext.sapName == "urlbar" &&
       lazy.UrlbarPrefs.get(ENABLED_PREF) &&
@@ -68,12 +63,7 @@ class ProviderQuickActions extends ActionsProvider {
     );
   }
 
-  /**
-   * @param {UrlbarQueryContext} queryContext
-   * @param {UrlbarParentController} _controller
-   * @returns {Promise<ActionsResult[]>}
-   */
-  async queryActions(queryContext, _controller) {
+  async queryActions(queryContext) {
     let input = queryContext.trimmedLowerCaseSearchString;
     let results = await this.getActions({ input });
 

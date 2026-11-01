@@ -21,6 +21,7 @@ import mozilla.components.browser.state.search.SearchEngine
 import mozilla.components.browser.state.state.selectedOrDefaultSearchEngine
 import mozilla.components.feature.search.ext.waitForSelectedOrDefaultSearchEngine
 import mozilla.components.feature.search.telemetry.SearchProviderModel
+import mozilla.components.feature.search.telemetry.SerpTelemetryRepository
 import mozilla.components.service.glean.net.ConceptFetchHttpUploader
 import mozilla.components.support.base.log.logger.Logger
 import mozilla.components.support.utils.Browsers
@@ -136,7 +137,12 @@ class GleanMetricsService(
 
         if (telemetryEnabled) {
             serviceScope.launch {
-                val providerList = components.serpTelemetryRepository.updateProviderList()
+                val providerList =
+                    SerpTelemetryRepository(
+                            collectionName = COLLECTION_NAME,
+                            remoteSettingsService = context.components.remoteSettingsService,
+                        )
+                        .updateProviderList()
                 installSearchTelemetryExtensions(components, providerList)
             }
         }

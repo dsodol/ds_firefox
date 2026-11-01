@@ -10,7 +10,6 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import mozilla.appservices.fxaclient.FxaServer
 import mozilla.components.concept.sync.FxAEntryPoint
-import mozilla.components.service.fxa.FxaService
 import mozilla.components.service.fxa.ServerConfig
 import mozilla.components.service.fxa.manager.FxaAccountManager
 import mozilla.components.support.test.any
@@ -73,13 +72,7 @@ class FirefoxAccountsAuthFeatureTest {
                 capturedUrl = url
             }
 
-        feature.beginPairingAuthentication(
-            context = context,
-            pairingUrl = scannedUrl,
-            entrypoint = testEntrypoint,
-            service = FxaService.Sync.identifier,
-            scopes = scopes,
-        )
+        feature.beginPairingAuthentication(context, scannedUrl, testEntrypoint, scopes)
         testDispatcher.scheduler.advanceUntilIdle()
         return capturedUrl
     }

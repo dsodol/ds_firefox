@@ -32,7 +32,7 @@
 #  include "PDMFactory.h"
 #  include "WMFDecoderModule.h"
 #endif
-#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WMF_CDM)
+#ifdef MOZ_WIDGET_ANDROID
 #  include "mozilla/gfx/gfxVars.h"
 #endif
 
@@ -341,20 +341,6 @@ static bool IsMFCDMAllowedByOrigin(const Maybe<nsCString>& aOrigin) {
       isFound ? "" : "by default ");
   return isAllowed;
 }
-
-// The media engine only decodes video in hardware, so it refuses every stream
-// when hardware video decoding is unavailable. Offering a CDM that lives in it
-// would let the page set keys for playback that cannot start.
-static bool CanUseHardwareVideoDecodingForMFCDM() {
-  if (gfx::gfxVars::CanUseHardwareVideoDecoding() ||
-      StaticPrefs::media_wmf_media_engine_bypass_gfx_blocklist()) {
-    return true;
-  }
-  EME_LOG(
-      "MediaKeySystemAccess::CanUseHardwareVideoDecodingForMFCDM, Media "
-      "Foundation CDMs are unavailable without hardware video decoding");
-  return false;
-}
 #endif
 
 static RefPtr<KeySystemConfig::SupportedConfigsPromise>
@@ -371,8 +357,7 @@ GetSupportedKeySystemConfigs(const nsAString& aKeySystem,
         aKeySystem, DecryptionInfo::Software, aIsPrivateBrowsing});
   }
 #ifdef MOZ_WMF_CDM
-  if (IsMFCDMAllowedByOrigin(aOrigin) &&
-      CanUseHardwareVideoDecodingForMFCDM()) {
+  if (IsMFCDMAllowedByOrigin(aOrigin)) {
     if (IsPlayReadyEnabled()) {
       // PlayReady software and hardware
       if (aKeySystem.EqualsLiteral(kPlayReadyKeySystemName) ||

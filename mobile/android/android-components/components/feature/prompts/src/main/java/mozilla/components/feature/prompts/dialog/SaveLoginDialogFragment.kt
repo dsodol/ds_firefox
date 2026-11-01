@@ -21,7 +21,6 @@ import androidx.annotation.VisibleForTesting
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.content.ContextCompat
 import androidx.core.widget.ImageViewCompat
-import androidx.lifecycle.lifecycleScope
 import com.google.android.material.R as materialR
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -122,10 +121,8 @@ internal class SaveLoginDialogFragment : PromptDialogFragment() {
          * If an implementation of [LoginExceptions] is hooked up to [PromptFeature], we will not
          * show this save login dialog for any origin saved as an exception.
          */
-        lifecycleScope.launch {
-            val isException = feature?.loginExceptionStorage?.isLoginExceptionByOrigin(origin) == true
-
-            if (isException) {
+        CoroutineScope(IO).launch {
+            if (feature?.loginExceptionStorage?.isLoginExceptionByOrigin(origin) == true) {
                 feature?.onCancel(sessionId, promptRequestUID)
                 dismiss()
             }
@@ -149,7 +146,7 @@ internal class SaveLoginDialogFragment : PromptDialogFragment() {
             setOnClickListener {
                 if (this.text == context?.getString(R.string.mozac_feature_prompt_never_save)) {
                     emitNeverSaveFact()
-                    CoroutineScope(Main).launch {
+                    CoroutineScope(IO).launch {
                         feature?.loginExceptionStorage?.addLoginException(origin)
                     }
                 }

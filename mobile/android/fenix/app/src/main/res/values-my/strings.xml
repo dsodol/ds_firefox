@@ -77,7 +77,11 @@
   <string name="home_screen_shortcut_open_new_private_tab_2">တစ်ကိုယ်ရေသုံး တပ်ဗ်အသစ်</string>
   <!-- Button text for showing all the tabs in the tabs tray -->
   <string name="recent_tabs_show_all">အားလုံးကို ပြပါ</string>
-  <!-- Content description (not visible, for screen readers etc.): Navigate backward (browsing history) -->
+  <!--
+    Browser Fragment
+
+    Content description (not visible, for screen readers etc.): Navigate backward (browsing history)
+  -->
   <string name="browser_menu_back">နောက်သို့</string>
   <!-- Content description (not visible, for screen readers etc.): Navigate forward (browsing history) -->
   <string name="browser_menu_forward">ရှေ့သို့</string>
@@ -171,11 +175,7 @@
     Title for the settings page
   -->
   <string name="settings">အပြင်အဆင်များ</string>
-  <!--
-    Preferences
-
-    Preference category for general settings
-  -->
+  <!-- Preference category for general settings -->
   <string name="preferences_category_general">အထွေထွေ</string>
   <!-- Preference category for all links about Fenix -->
   <string name="preferences_category_about">အကြောင်းအရာ</string>

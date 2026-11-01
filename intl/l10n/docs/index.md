@@ -21,4 +21,5 @@ overview
 fluent/index
 migrations/index
 singlel10nsource
+glossary
 ```

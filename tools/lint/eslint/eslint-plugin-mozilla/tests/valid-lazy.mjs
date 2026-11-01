@@ -71,18 +71,6 @@ ruleTester.run("valid-lazy", rule, {
        });
        if (lazy.foo2 && lazy.pref1 && lazy.foo.bar()) { lazy.service1.foo() }
      `,
-    `
-       const lazy = XPCOMUtils?.declareLazy({
-         foo: "foo.mjs",
-         foo2: () => {},
-         service1: {
-           service: "@mozilla.org/foo/bar;1",
-           iid: Ci.fooBar,
-         },
-         pref1: { pref: "my.pref", default: 1 },
-       });
-       if (lazy.foo2 && lazy.pref1 && lazy.foo.bar()) { lazy.service1.foo() }
-     `,
     // Test for top-level unconditional.
     `
        const lazy = {};

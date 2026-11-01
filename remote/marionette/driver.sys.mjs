@@ -2738,7 +2738,7 @@ export class GeckoDriver {
         this.#dialog = lazy.modal.findPrompt(this.#curBrowser);
       }
 
-      lazy.registerCommandsActor(this.currentSession);
+      lazy.registerCommandsActor(this.currentSession.id);
       lazy.enableEventsActor();
 
       Services.obs.addObserver(this.#observer, TOPIC_BROWSER_READY);

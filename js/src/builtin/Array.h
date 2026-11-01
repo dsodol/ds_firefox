@@ -166,8 +166,7 @@ extern bool IsCrossRealmArrayConstructor(JSContext* cx, JSObject* obj,
 
 extern bool ObjectMayHaveExtraIndexedOwnProperties(JSObject* obj);
 
-inline bool ObjectMayHaveExtraIndexedProperties(JSObject* obj);
-extern bool ObjectMayHaveExtraIndexedPropertiesSlow(JSObject* obj);
+extern bool ObjectMayHaveExtraIndexedProperties(JSObject* obj);
 
 extern bool PrototypeMayHaveIndexedProperties(NativeObject* obj);
 

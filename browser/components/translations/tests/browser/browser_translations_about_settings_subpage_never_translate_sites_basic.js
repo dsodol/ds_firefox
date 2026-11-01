@@ -14,7 +14,9 @@ add_task(async function test_never_translate_sites_prepopulated() {
   const expectedSites = TranslationsSettingsTestUtils.sortOrigins(siteOrigins);
 
   const { cleanup, translationsSettingsTestUtils } =
-    await setupAboutPreferences(LANGUAGE_PAIRS, {});
+    await setupAboutPreferences(LANGUAGE_PAIRS, {
+      prefs: [["browser.settings-redesign.enabled", true]],
+    });
 
   info("Adding never-translate site permissions before opening settings");
   for (const origin of siteOrigins) {
@@ -81,7 +83,9 @@ add_task(async function test_never_translate_sites_delete_and_empty_state() {
     TranslationsSettingsTestUtils.sortOrigins(initialSites);
 
   const { cleanup, translationsSettingsTestUtils } =
-    await setupAboutPreferences(LANGUAGE_PAIRS, {});
+    await setupAboutPreferences(LANGUAGE_PAIRS, {
+      prefs: [["browser.settings-redesign.enabled", true]],
+    });
 
   info("Adding never-translate site permissions before opening settings");
   for (const origin of initialSites) {
@@ -203,7 +207,9 @@ add_task(async function test_never_translate_sites_sorted_ignoring_scheme() {
   const expectedSites = TranslationsSettingsTestUtils.sortOrigins(siteOrigins);
 
   const { cleanup, translationsSettingsTestUtils } =
-    await setupAboutPreferences(LANGUAGE_PAIRS, {});
+    await setupAboutPreferences(LANGUAGE_PAIRS, {
+      prefs: [["browser.settings-redesign.enabled", true]],
+    });
 
   info("Adding never-translate site permissions before opening settings");
   for (const origin of siteOrigins) {

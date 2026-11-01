@@ -432,8 +432,7 @@ void IdleSchedulerParent::EnsureStarvationTimer() {
   }
 }
 
-void IdleSchedulerParent::StarvationCallback(nsITimer* /*aTimer*/,
-                                             void* /*aData*/) {
+void IdleSchedulerParent::StarvationCallback(nsITimer* aTimer, void* aData) {
   RefPtr<IdleSchedulerParent> idleRequester = sIdleAndGCRequests.getFirst();
   while (idleRequester) {
     if (idleRequester->IsWaitingForIdle()) {

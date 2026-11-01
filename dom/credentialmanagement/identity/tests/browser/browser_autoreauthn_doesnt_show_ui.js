@@ -22,13 +22,6 @@ add_task(async function test_auto_reauthentication_doesnt_show_ui() {
     Services.io.newURI("https://example.com"),
     {}
   );
-  registerCleanupFunction(() => {
-    for (let perm of Services.perms.getAllForPrincipal(rpPrincipal)) {
-      if (perm.type.startsWith("credential-allow-silent-access")) {
-        Services.perms.removePermission(perm);
-      }
-    }
-  });
 
   let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, TEST_URL);
 

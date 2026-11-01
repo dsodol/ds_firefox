@@ -20,7 +20,7 @@ namespace mozilla::intl {
 /*static*/ Result<UniquePtr<NumberRangeFormat>, ICUError>
 NumberRangeFormat::TryCreate(std::string_view aLocale,
                              const NumberRangeFormatOptions& aOptions) {
-  auto nrf = std::make_unique<NumberRangeFormat>();
+  UniquePtr<NumberRangeFormat> nrf = MakeUnique<NumberRangeFormat>();
   MOZ_TRY(nrf->initialize(aLocale, aOptions));
   return nrf;
 }

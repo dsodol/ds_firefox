@@ -39,14 +39,9 @@ pub fn make_cc_newreno() -> ClassicCongestionController<ClassicSlowStart, NewRen
 
 /// Helper to create `ClassicCongestionController` with Cubic for tests.
 pub fn make_cc_cubic() -> ClassicCongestionController<ClassicSlowStart, Cubic> {
-    make_cc_cubic_with(Cubic::default())
-}
-
-/// Helper to create `ClassicCongestionController` with the given Cubic instance for tests.
-pub fn make_cc_cubic_with(cubic: Cubic) -> ClassicCongestionController<ClassicSlowStart, Cubic> {
     ClassicCongestionController::new(
         ClassicSlowStart::default(),
-        cubic,
+        Cubic::default(),
         Pmtud::new(IP_ADDR, MTU),
         true,
     )

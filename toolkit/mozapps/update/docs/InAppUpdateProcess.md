@@ -31,7 +31,8 @@ The error codes used for failure status can be found
 ## Documentation
 
 - [MAR files](MarFiles.md)
-- {doc}`Update pings </toolkit/components/telemetry/obsolete/collection/update-ping>`
+- [Update
+  pings](https://firefox-source-docs.mozilla.org/toolkit/components/telemetry/telemetry/data/update-ping.html)
 
 ## Detailed Update Steps
 

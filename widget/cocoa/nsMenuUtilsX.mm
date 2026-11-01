@@ -110,14 +110,14 @@ unsigned int nsMenuUtilsX::MacModifiersForGeckoModifiers(
   return macModifiers;
 }
 
-already_AddRefed<nsMenuBarX> nsMenuUtilsX::GetHiddenWindowMenuBar() {
+nsMenuBarX* nsMenuUtilsX::GetHiddenWindowMenuBar() {
   if (gfxPlatform::IsHeadless()) {
     return nullptr;
   }
-  nsCOMPtr<nsIWidget> hiddenWindowWidget =
-      nsCocoaUtils::GetHiddenWindowWidget();
-  if (hiddenWindowWidget) {
-    return static_cast<nsCocoaWindow*>(hiddenWindowWidget.get())->GetMenuBar();
+  nsIWidget* hiddenWindowWidgetNoCOMPtr = nsCocoaUtils::GetHiddenWindowWidget();
+  if (hiddenWindowWidgetNoCOMPtr) {
+    return static_cast<nsCocoaWindow*>(hiddenWindowWidgetNoCOMPtr)
+        ->GetMenuBar();
   }
   return nullptr;
 }

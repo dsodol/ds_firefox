@@ -117,15 +117,15 @@ class nsFrameList {
   }
 
   /**
-   * Infallibly allocate a nsFrameList from the frame arena.
+   * Infallibly allocate a nsFrameList from the shell arena.
    */
-  void* operator new(size_t sz);
+  void* operator new(size_t sz, mozilla::PresShell* aPresShell);
 
   /**
-   * Deallocate this list that was allocated from the frame arena.
+   * Deallocate this list that was allocated from the shell arena.
    * The list is required to be empty.
    */
-  void Delete();
+  void Delete(mozilla::PresShell* aPresShell);
 
   /**
    * For each frame in this list: remove it from the list then call
@@ -460,18 +460,20 @@ class FrameChildList {
 };
 
 /**
- * Simple "auto_ptr" for nsFrameLists allocated from the frame arena.
+ * Simple "auto_ptr" for nsFrameLists allocated from the shell arena.
  * The frame list given to the constructor will be deallocated (if non-null)
  * in the destructor.  The frame list must then be empty.
  */
 class MOZ_RAII AutoFrameListPtr final {
  public:
-  explicit AutoFrameListPtr(nsFrameList* aFrameList) : mFrameList(aFrameList) {}
+  AutoFrameListPtr(nsPresContext* aPresContext, nsFrameList* aFrameList)
+      : mPresContext(aPresContext), mFrameList(aFrameList) {}
   ~AutoFrameListPtr();
   operator nsFrameList*() const { return mFrameList; }
   nsFrameList* operator->() const { return mFrameList; }
 
  private:
+  nsPresContext* mPresContext;
   nsFrameList* mFrameList;
 };
 

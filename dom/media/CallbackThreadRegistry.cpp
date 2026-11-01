@@ -10,7 +10,7 @@
 namespace mozilla {
 struct CallbackThreadRegistrySingleton {
   CallbackThreadRegistrySingleton()
-      : mRegistry(std::make_unique<CallbackThreadRegistry>()) {
+      : mRegistry(MakeUnique<CallbackThreadRegistry>()) {
     NS_DispatchToMainThread(
         NS_NewRunnableFunction(__func__, [registry = &mRegistry] {
           const auto phase = ShutdownPhase::XPCOMShutdownFinal;

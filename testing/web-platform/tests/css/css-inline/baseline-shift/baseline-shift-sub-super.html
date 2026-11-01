@@ -19,16 +19,14 @@
     const $sub = document.getElementById('sub');
     const $super = document.getElementById('super');
 
-    promise_setup(() => document.fonts.ready);
-
-    promise_test(async () => {
+    test(() => {
       assert_greater_than(
         $sub.getBoundingClientRect().top,
         $baseline.getBoundingClientRect().top
       );
     }, "baseline-shift: sub is below baseline");
 
-    promise_test(async () => {
+    test(() => {
       assert_less_than(
         $super.getBoundingClientRect().top,
         $baseline.getBoundingClientRect().top

@@ -11,7 +11,7 @@ import androidx.room.Insert
 /** Internal DAO for accessing [TabEntity] instances. */
 @Dao
 internal interface TabDao {
-    @Insert suspend fun insertTab(tab: TabEntity): Long
+    @Insert fun insertTab(tab: TabEntity): Long
 
-    @Delete suspend fun deleteTab(tab: TabEntity)
+    @Delete fun deleteTab(tab: TabEntity)
 }

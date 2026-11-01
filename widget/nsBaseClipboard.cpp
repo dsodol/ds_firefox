@@ -28,7 +28,6 @@
 #include "nsError.h"
 #include "nsFocusManager.h"
 #include "nsIClipboardOwner.h"
-#include "nsIMutableArray.h"
 #include "nsIPromptService.h"
 #include "nsISupportsPrimitives.h"
 #include "nsXPCOM.h"
@@ -120,7 +119,7 @@ class UserConfirmationRequest final
     MOZ_ASSERT(!aFlavorList.IsEmpty());
     MOZ_ASSERT(aCallback);
     mPendingClipboardGetRequests.AppendElement(
-        std::make_unique<ClipboardGetRequest>(aFlavorList, aCallback));
+        mozilla::MakeUnique<ClipboardGetRequest>(aFlavorList, aCallback));
   }
 
   void RejectPendingClipboardGetRequests(nsresult aError) {
@@ -336,16 +335,17 @@ NS_IMETHODIMP nsBaseClipboard::AsyncSetData(
 
 nsBaseClipboard::nsBaseClipboard(const ClipboardCapabilities& aClipboardCaps)
     : mClipboardCaps(aClipboardCaps) {
+  using mozilla::MakeUnique;
   // Initialize clipboard cache.
-  mCaches[kGlobalClipboard] = std::make_unique<ClipboardCache>();
+  mCaches[kGlobalClipboard] = MakeUnique<ClipboardCache>();
   if (mClipboardCaps.supportsSelectionClipboard()) {
-    mCaches[kSelectionClipboard] = std::make_unique<ClipboardCache>();
+    mCaches[kSelectionClipboard] = MakeUnique<ClipboardCache>();
   }
   if (mClipboardCaps.supportsFindClipboard()) {
-    mCaches[kFindClipboard] = std::make_unique<ClipboardCache>();
+    mCaches[kFindClipboard] = MakeUnique<ClipboardCache>();
   }
   if (mClipboardCaps.supportsSelectionCache()) {
-    mCaches[kSelectionCache] = std::make_unique<ClipboardCache>();
+    mCaches[kSelectionCache] = MakeUnique<ClipboardCache>();
   }
 }
 

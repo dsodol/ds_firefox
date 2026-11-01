@@ -23,7 +23,7 @@ function createTemporarySaveDirectory() {
   }
 
   Services.prefs.setIntPref("browser.download.folderList", 2);
-  Services.prefs.setCharPref("browser.download.dir", saveDir.path);
+  Services.prefs.setCharPref("browser.download.dir", saveDir);
   info("return from createTempSaveDir: " + saveDir.path);
   return saveDir;
 }

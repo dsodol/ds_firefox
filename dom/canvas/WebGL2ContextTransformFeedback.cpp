@@ -27,6 +27,8 @@ void WebGL2Context::BindTransformFeedback(WebGLTransformFeedback* tf) {
   if (IsContextLost()) return;
   funcScope.mBindFailureGuard = true;
 
+  if (tf && !ValidateObject("tf", *tf)) return;
+
   if (mBoundTransformFeedback->mIsActive &&
       !mBoundTransformFeedback->mIsPaused) {
     ErrorInvalidOperation(
@@ -82,6 +84,8 @@ void WebGL2Context::TransformFeedbackVaryings(
     GLenum bufferMode) const {
   const FuncScope funcScope(*this, "transformFeedbackVaryings");
   if (IsContextLost()) return;
+
+  if (!ValidateObject("program", program)) return;
 
   program.TransformFeedbackVaryings(varyings, bufferMode);
 }

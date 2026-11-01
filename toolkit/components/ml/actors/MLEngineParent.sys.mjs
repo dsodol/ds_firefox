@@ -698,7 +698,7 @@ export class MLEngineParent extends JSProcessActorParent {
    *
    * @param {string} featureId - id of the feature
    * @param {string} taskName - name of the inference task
-   * @param {string|null} [modelId] - name of the model id
+   * @param {string|null} modelId - name of the model id
    * @returns {Promise<RemoteSettingsInferenceOptions | { runtimeFilename: string }>}
    */
 
@@ -1351,28 +1351,13 @@ export class MLEngine {
         if (this.#port && this.#port.onmessage) {
           this.#port.removeEventListener("message", this.#port.onmessage);
         }
-      } catch (e) {
-        lazy.console.warn("Failed to remove port message listener", e);
-      }
+      } catch {}
       try {
-        this.#port?.postMessage({
-          type: "EnginePort:Terminate",
-          shutdown: true,
-          replacement: false,
-        });
-      } catch (e) {
-        lazy.console.warn("Failed to send terminate message to port", e);
-      }
-      try {
-        this.discardPort();
-      } catch (e) {
-        lazy.console.warn("Failed to discard port", e);
-      }
+        this.#port?.close?.();
+      } catch {}
       try {
         childPort.close();
-      } catch (e) {
-        lazy.console.warn("Failed to close child port", e);
-      }
+      } catch {}
       this.#port = null;
 
       // Make sure the awaiting code is released
@@ -1436,20 +1421,11 @@ export class MLEngine {
         break;
       }
       case "EnginePort:RunResponse": {
-        const {
-          response,
-          error,
-          errorDetails,
-          requestId,
-          resourcesBefore,
-          resourcesAfter,
-        } = data;
+        const { response, error, requestId, resourcesBefore, resourcesAfter } =
+          data;
         const request = this.#requests.get(requestId);
         if (request) {
           if (error) {
-            if (errorDetails && typeof error === "object") {
-              Object.assign(error, errorDetails);
-            }
             this.telemetry.recordRunInferenceFailure(error);
             request.reject(error);
           } else if (response) {

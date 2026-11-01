@@ -428,6 +428,7 @@ class SelectionActionDelegateTest : BaseSessionTest() {
         mainSession.waitForPageStop()
 
         // Select allow
+        val result = GeckoResult<Void>()
         mainSession.delegateDuringNextWait(
             object : SelectionActionDelegate, PromptDelegate {
                 @AssertCalled(count = 1)
@@ -450,13 +451,14 @@ class SelectionActionDelegateTest : BaseSessionTest() {
                     prompt: PromptDelegate.AlertPrompt,
                 ): GeckoResult<PromptDelegate.PromptResponse> {
                     assertThat("Message should match", "allow", equalTo(prompt.message))
+                    result.complete(null)
                     return GeckoResult.fromValue(prompt.dismiss())
                 }
             }
         )
 
         mainSession.synthesizeTap(50, 50) // Provides user activation.
-        mainSession.waitUntilCalled(PromptDelegate::class, "onAlertPrompt")
+        sessionRule.waitForResult(result)
     }
 
     @WithDisplay(width = 100, height = 100)
@@ -471,6 +473,7 @@ class SelectionActionDelegateTest : BaseSessionTest() {
         mainSession.waitForPageStop()
 
         // Select deny
+        val result = GeckoResult<Void>()
         mainSession.delegateDuringNextWait(
             object : SelectionActionDelegate, PromptDelegate {
                 @AssertCalled(count = 1, order = [1])
@@ -492,13 +495,14 @@ class SelectionActionDelegateTest : BaseSessionTest() {
                     prompt: PromptDelegate.AlertPrompt,
                 ): GeckoResult<PromptDelegate.PromptResponse> {
                     assertThat("Message should match", "deny", equalTo(prompt.message))
+                    result.complete(null)
                     return GeckoResult.fromValue(prompt.dismiss())
                 }
             }
         )
 
         mainSession.synthesizeTap(50, 50) // Provides user activation.
-        mainSession.waitUntilCalled(PromptDelegate::class, "onAlertPrompt")
+        sessionRule.waitForResult(result)
     }
 
     @WithDisplay(width = 100, height = 100)
@@ -512,6 +516,7 @@ class SelectionActionDelegateTest : BaseSessionTest() {
         mainSession.loadUri(url)
         mainSession.waitForPageStop()
 
+        val result = GeckoResult<Void>()
         val permissionResult = GeckoResult<AllowOrDeny>()
         mainSession.delegateDuringNextWait(
             object : SelectionActionDelegate {
@@ -525,13 +530,14 @@ class SelectionActionDelegateTest : BaseSessionTest() {
                         perm.type,
                         equalTo(SelectionActionDelegate.PERMISSION_CLIPBOARD_READ),
                     )
+                    result.complete(null)
                     return permissionResult
                 }
             }
         )
 
         mainSession.synthesizeTap(50, 50) // Provides user activation.
-        mainSession.waitUntilCalled(SelectionActionDelegate::class, "onShowClipboardPermissionRequest")
+        sessionRule.waitForResult(result)
 
         mainSession.delegateDuringNextWait(
             object : SelectionActionDelegate {
@@ -558,6 +564,7 @@ class SelectionActionDelegateTest : BaseSessionTest() {
         mainSession.loadUri(url)
         mainSession.waitForPageStop()
 
+        val result = GeckoResult<Void>()
         val permissionResult = GeckoResult<AllowOrDeny>()
         mainSession.delegateDuringNextWait(
             object : SelectionActionDelegate {
@@ -571,13 +578,14 @@ class SelectionActionDelegateTest : BaseSessionTest() {
                         perm.type,
                         equalTo(SelectionActionDelegate.PERMISSION_CLIPBOARD_READ),
                     )
+                    result.complete(null)
                     return permissionResult
                 }
             }
         )
 
         mainSession.synthesizeTap(50, 50) // Provides user activation.
-        mainSession.waitUntilCalled(SelectionActionDelegate::class, "onShowClipboardPermissionRequest")
+        sessionRule.waitForResult(result)
 
         mainSession.delegateDuringNextWait(
             object : SelectionActionDelegate {

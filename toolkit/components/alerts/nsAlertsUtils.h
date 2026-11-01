@@ -29,10 +29,5 @@ class nsAlertsUtils final {
    * is not actionable.
    */
   static nsresult GetOrigin(nsIPrincipal* aPrincipal, nsACString& aOrigin);
-
-  /**
-   * Returns whether the application has any browser windows open.
-   */
-  static bool HasOpenBrowserWindows();
 };
 #endif /* nsAlertsUtils_h */

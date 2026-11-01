@@ -10,7 +10,10 @@
 add_task(async function test_always_translate_languages_observe_pref_changes() {
   const { cleanup, translationsSettingsTestUtils } =
     await setupAboutPreferences(LANGUAGE_PAIRS, {
-      prefs: [[ALWAYS_TRANSLATE_LANGS_PREF, ""]],
+      prefs: [
+        ["browser.settings-redesign.enabled", true],
+        [ALWAYS_TRANSLATE_LANGS_PREF, ""],
+      ],
     });
 
   const document = gBrowser.selectedBrowser.contentDocument;
@@ -136,6 +139,7 @@ add_task(async function test_always_translate_languages_simulated_stealing() {
   const { cleanup, translationsSettingsTestUtils } =
     await setupAboutPreferences(LANGUAGE_PAIRS, {
       prefs: [
+        ["browser.settings-redesign.enabled", true],
         [NEVER_TRANSLATE_LANGS_PREF, "es,fr"],
         [ALWAYS_TRANSLATE_LANGS_PREF, ""],
       ],

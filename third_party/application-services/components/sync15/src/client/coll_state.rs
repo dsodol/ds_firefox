@@ -203,7 +203,6 @@ mod tests {
                 declined: vec![],
             },
             global_timestamp: ServerTimestamp::default(),
-            meta_timestamp: ServerTimestamp::default(),
             keys,
             keys_timestamp: ServerTimestamp::default(),
         }

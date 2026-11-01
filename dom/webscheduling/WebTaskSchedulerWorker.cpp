@@ -53,8 +53,8 @@ bool WebTaskWorkerRunnable::WorkerRun(JSContext* aCx,
   return true;
 }
 
-nsresult WebTaskSchedulerWorker::SetTimeoutForDelayedTask(WebTask* aTask,
-                                                          uint64_t aDelay) {
+nsresult WebTaskSchedulerWorker::SetTimeoutForDelayedTask(
+    WebTask* aTask, uint64_t aDelay, EventQueuePriority aPriority) {
   if (mWorkerIsShuttingDown) {
     return NS_ERROR_ABORT;
   }
@@ -71,7 +71,7 @@ nsresult WebTaskSchedulerWorker::SetTimeoutForDelayedTask(WebTask* aTask,
     return NS_ERROR_UNEXPECTED;
   }
   RefPtr<DelayedWebTaskHandler> handler =
-      new DelayedWebTaskHandler(cx, this, aTask);
+      new DelayedWebTaskHandler(cx, this, aTask, aPriority);
   ErrorResult rv;
 
   int32_t delay = aDelay > INT32_MAX ? INT32_MAX : (int32_t)aDelay;

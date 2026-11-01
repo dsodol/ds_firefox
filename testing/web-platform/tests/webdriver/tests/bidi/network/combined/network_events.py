@@ -53,37 +53,29 @@ async def test_cors_preflight_request(bidi_session, url, wait_for_bidi_events, f
 
     await wait_for_bidi_events(events, 6, timeout=2)
 
-    preflight_events = [e for e in events if e["request"]["method"] == "OPTIONS"]
-    actual_events = [e for e in events if e["request"]["method"] == "GET"]
-    assert len(preflight_events) == 3
-    assert len(actual_events) == 3
-
-    # Check that the actual request is only sent once the CORS preflight
-    # response is received. The preflight response body might still be loading
-    # at that point, so its responseCompleted event can be received later:
-    # https://fetch.spec.whatwg.org/#http-fetch
-    assert events.index(actual_events[0]) > events.index(preflight_events[1])
+    # Check that all events for the CORS preflight request are received before
+    # receiving events for the actual request
 
     # Preflight beforeRequestSent
     assert_before_request_sent_event(
-        preflight_events[0], expected_event={"request": {"method": "OPTIONS", "url": fetch_url}}
+        events[0], expected_event={"request": {"method": "OPTIONS", "url": fetch_url}}
     )
     # Preflight responseStarted
     assert_response_event(
-        preflight_events[1], expected_event={"request": {"method": "OPTIONS", "url": fetch_url}}
+        events[1], expected_event={"request": {"method": "OPTIONS", "url": fetch_url}}
     )  # Preflight responseCompleted
     assert_response_event(
-        preflight_events[2], expected_event={"request": {"method": "OPTIONS", "url": fetch_url}}
+        events[2], expected_event={"request": {"method": "OPTIONS", "url": fetch_url}}
     )  # Actual request beforeRequestSent
     assert_before_request_sent_event(
-        actual_events[0], expected_event={"request": {"method": "GET", "url": fetch_url}}
+        events[3], expected_event={"request": {"method": "GET", "url": fetch_url}}
     )
     # Actual request responseStarted
     assert_response_event(
-        actual_events[1], expected_event={"request": {"method": "GET", "url": fetch_url}}
+        events[4], expected_event={"request": {"method": "GET", "url": fetch_url}}
     )  # Actual request responseCompleted
     assert_response_event(
-        actual_events[2], expected_event={"request": {"method": "GET", "url": fetch_url}}
+        events[5], expected_event={"request": {"method": "GET", "url": fetch_url}}
     )
 
     remove_before_request_sent_listener()

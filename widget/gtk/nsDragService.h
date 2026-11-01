@@ -140,7 +140,7 @@ class nsDragSession : public nsBaseDragSession {
              const mozilla::LayoutDeviceIntPoint& aWindowPoint =
                  mozilla::LayoutDeviceIntPoint(),
              guint aTime = 0);
-    virtual ~DragTask();
+    virtual ~DragTask() = default;
 
     virtual void Reset() = 0;
     virtual uintptr_t GetContextID() = 0;

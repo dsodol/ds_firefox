@@ -17,7 +17,6 @@ import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.createTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.text.Text
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.ui.MenuItemIconRes
 import mozilla.components.compose.menu.ui.MenuItemState
@@ -47,7 +46,7 @@ class OpenInAppMenuItemProviderTest {
 
             assertEquals(
                 expectedItem(title = Text.Resource(R.string.browser_menu_open_in_fenix, listOf(APP_NAME))),
-                provider.itemsFlow.value.single(),
+                provider.itemFlow.value,
             )
         }
 
@@ -58,7 +57,7 @@ class OpenInAppMenuItemProviderTest {
 
             assertEquals(
                 expectedItem(title = Text.Resource(R.string.browser_menu_open_app_link)),
-                provider.itemsFlow.value.single(),
+                provider.itemFlow.value,
             )
         }
 
@@ -71,7 +70,7 @@ class OpenInAppMenuItemProviderTest {
                 title = Text.Resource(R.string.browser_menu_open_app_link),
                 state = MenuItemState.DISABLED,
             ),
-            provider.itemsFlow.value.single(),
+            provider.itemFlow.value,
         )
     }
 
@@ -84,7 +83,7 @@ class OpenInAppMenuItemProviderTest {
                 title = Text.Resource(R.string.browser_menu_open_app_link),
                 state = MenuItemState.DISABLED,
             ),
-            provider.itemsFlow.value.single(),
+            provider.itemFlow.value,
         )
     }
 
@@ -98,7 +97,7 @@ class OpenInAppMenuItemProviderTest {
                     title = Text.Resource(R.string.browser_menu_open_in_fenix, listOf(APP_NAME)),
                     isHighlighted = true,
                 ),
-                provider.itemsFlow.value.single(),
+                provider.itemFlow.value,
             )
         }
 
@@ -115,7 +114,7 @@ class OpenInAppMenuItemProviderTest {
                 title = Text.Resource(R.string.browser_menu_open_app_link),
                 state = MenuItemState.DISABLED,
             ),
-            provider.itemsFlow.value.single(),
+            provider.itemFlow.value,
         )
     }
 
@@ -161,7 +160,7 @@ class OpenInAppMenuItemProviderTest {
         listOf(true, false).forEach { hasExternalApp ->
             val provider = provider(appLinksUseCases = appLinksUseCases(hasExternalApp = hasExternalApp))
 
-            val events = provider.itemsFlow.value.single().reachableEvents()
+            val events = requireNotNull(provider.itemFlow.value).reachableEvents()
 
             assertTrue(events.all { provider.handles(it) }, "Not all of $events are handled")
             assertFalse(provider.handles(MenuAction.Navigate.Settings))
@@ -226,7 +225,7 @@ class OpenInAppMenuItemProviderTest {
         isHighlighted: Boolean = false,
     ) =
         StandardMenuItem(
-            title = MenuItemTitle(title),
+            title = title,
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_more_grid_24, isHighlighted = isHighlighted),
             onClickEvent = MenuAction.OpenInApp,
             state = state,

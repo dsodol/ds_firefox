@@ -130,15 +130,15 @@ mozilla::ipc::IPCResult WebGLParent::RecvWaitForTxn(
 
 IPCResult WebGLParent::RecvGetFrontBufferSnapshot(
     webgl::FrontBufferSnapshotIpc* const ret) {
-  return GetFrontBufferSnapshot(ret);
+  return GetFrontBufferSnapshot(ret, this);
 }
 
 IPCResult WebGLParent::GetFrontBufferSnapshot(
-    webgl::FrontBufferSnapshotIpc* const ret) {
+    webgl::FrontBufferSnapshotIpc* const ret, IProtocol* aProtocol) {
   AUTO_PROFILER_LABEL("WebGLParent::GetFrontBufferSnapshot", GRAPHICS);
   *ret = {};
   if (!mHost) {
-    return IPC_FAIL(this, "HostWebGLContext is not initialized.");
+    return IPC_FAIL(aProtocol, "HostWebGLContext is not initialized.");
   }
 
   const bool ok = [&]() {
@@ -148,23 +148,18 @@ IPCResult WebGLParent::GetFrontBufferSnapshot(
       const auto byteSize = 4 * surfSize.x * surfSize.y;
       const auto byteStride = 4 * surfSize.x;
 
-      auto handle = mozilla::ipc::shared_memory::Create(byteSize);
-      auto mapping = handle.Map();
-      if (!handle || !mapping) {
+      auto shmem = webgl::RaiiShmem::Alloc(aProtocol, byteSize);
+      if (!shmem) {
         NS_WARNING("Failed to alloc shmem for RecvGetFrontBufferSnapshot.");
         return false;
       }
-      const mozilla::Range<uint8_t> range{mapping.DataAs<uint8_t>(),
-                                          mapping.Size()};
-      ret->surfSize = surfSize;
-      ret->byteStride = byteStride;
-      ret->shmem = std::move(handle);
+      const auto range = shmem.ByteRange();
+      *ret = {surfSize, byteStride, Some(shmem.Extract())};
 
       if (!mHost->FrontBufferSnapshotInto(Some(range))) {
         gfxCriticalNote << "WebGLParent::RecvGetFrontBufferSnapshot: "
                            "FrontBufferSnapshotInto(some) failed after "
                            "FrontBufferSnapshotInto(none)";
-        ret->shmem = {};
         return false;
       }
     }

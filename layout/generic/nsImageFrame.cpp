@@ -368,8 +368,8 @@ static bool SizeDependsOnIntrinsicSize(const ReflowInput& aReflowInput) {
 }
 
 nsIFrame* NS_NewImageFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
-  return new nsImageFrame(aStyle, aPresShell->GetPresContext(),
-                          nsImageFrame::Kind::ImageLoadingContent);
+  return new (aPresShell) nsImageFrame(aStyle, aPresShell->GetPresContext(),
+                                       nsImageFrame::Kind::ImageLoadingContent);
 }
 
 static bool ShouldCreateImageFrameForContentProperty(
@@ -383,31 +383,33 @@ nsIFrame* NS_NewXULImageFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
   auto kind = ShouldCreateImageFrameForContentProperty(*aStyle)
                   ? nsImageFrame::Kind::ContentProperty
                   : nsImageFrame::Kind::XULImage;
-  return new nsImageFrame(aStyle, aPresShell->GetPresContext(), kind);
+  return new (aPresShell)
+      nsImageFrame(aStyle, aPresShell->GetPresContext(), kind);
 }
 
 nsIFrame* NS_NewImageFrameForContentProperty(PresShell* aPresShell,
                                              ComputedStyle* aStyle) {
-  return new nsImageFrame(aStyle, aPresShell->GetPresContext(),
-                          nsImageFrame::Kind::ContentProperty);
+  return new (aPresShell) nsImageFrame(aStyle, aPresShell->GetPresContext(),
+                                       nsImageFrame::Kind::ContentProperty);
 }
 
 nsIFrame* NS_NewImageFrameForGeneratedContentIndex(PresShell* aPresShell,
                                                    ComputedStyle* aStyle) {
-  return new nsImageFrame(aStyle, aPresShell->GetPresContext(),
-                          nsImageFrame::Kind::ContentPropertyAtIndex);
+  return new (aPresShell)
+      nsImageFrame(aStyle, aPresShell->GetPresContext(),
+                   nsImageFrame::Kind::ContentPropertyAtIndex);
 }
 
 nsIFrame* NS_NewImageFrameForListStyleImage(PresShell* aPresShell,
                                             ComputedStyle* aStyle) {
-  return new nsImageFrame(aStyle, aPresShell->GetPresContext(),
-                          nsImageFrame::Kind::ListStyleImage);
+  return new (aPresShell) nsImageFrame(aStyle, aPresShell->GetPresContext(),
+                                       nsImageFrame::Kind::ListStyleImage);
 }
 
 nsIFrame* NS_NewImageFrameForViewTransition(PresShell* aPresShell,
                                             ComputedStyle* aStyle) {
-  return new nsImageFrame(aStyle, aPresShell->GetPresContext(),
-                          nsImageFrame::Kind::ViewTransition);
+  return new (aPresShell) nsImageFrame(aStyle, aPresShell->GetPresContext(),
+                                       nsImageFrame::Kind::ViewTransition);
 }
 
 bool nsImageFrame::ShouldShowBrokenImageIcon() const {
@@ -449,7 +451,8 @@ bool nsImageFrame::ShouldShowBrokenImageIcon() const {
 
 nsImageFrame* nsImageFrame::CreateContinuingFrame(
     mozilla::PresShell* aPresShell, ComputedStyle* aStyle) const {
-  return new nsImageFrame(aStyle, aPresShell->GetPresContext(), mKind);
+  return new (aPresShell)
+      nsImageFrame(aStyle, aPresShell->GetPresContext(), mKind);
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsImageFrame)
@@ -2235,7 +2238,7 @@ ImgDrawResult nsImageFrame::DisplayAltFeedbackWithoutLayer(
           rect, PresContext()->AppUnitsPerDevPixel());
       dest = wr::ToLayoutRect(devPxRect);
 
-      aBuilder.PushEllipse(dest, wrBounds, isBackfaceVisible, color);
+      aBuilder.PushRoundedRect(dest, wrBounds, isBackfaceVisible, color);
     }
 
     // Reduce the inner rect by the width of the icon, and leave an
@@ -2887,7 +2890,7 @@ nsresult nsImageFrame::HandleEvent(nsPresContext* aPresContext,
           NS_ENSURE_SUCCESS(rv, rv);
 
           spec += nsPrintfCString("?%d,%d", p.x.value, p.y.value);
-          rv = NS_NewURI(getter_AddRefs(uri), spec);
+          rv = NS_MutateURI(uri).SetSpec(spec).Finalize(uri);
           NS_ENSURE_SUCCESS(rv, rv);
 
           if (aEvent->mMessage == ePointerClick &&

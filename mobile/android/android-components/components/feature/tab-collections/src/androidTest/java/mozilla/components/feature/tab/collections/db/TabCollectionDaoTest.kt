@@ -11,7 +11,7 @@ import androidx.test.core.app.ApplicationProvider
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -42,7 +42,7 @@ class TabCollectionDaoTest {
     }
 
     @Test
-    fun testInsertingAndReadingCollections() = runTest {
+    fun testInsertingAndReadingCollections() {
         val collection1 = TabCollectionEntity(title = "Collection One", updatedAt = 10)
         val collection2 = TabCollectionEntity(title = "Collection Two", updatedAt = 50)
 
@@ -61,7 +61,7 @@ class TabCollectionDaoTest {
     }
 
     @Test
-    fun testUpdatingCollections() = runTest {
+    fun testUpdatingCollections() {
         val collection1 = TabCollectionEntity(title = "Collection One", createdAt = 10)
         val collection2 = TabCollectionEntity(title = "Collection Two", createdAt = 50)
 
@@ -85,7 +85,7 @@ class TabCollectionDaoTest {
     }
 
     @Test
-    fun testRemovingCollections() = runTest {
+    fun testRemovingCollections() {
         val collection1 = TabCollectionEntity(title = "Collection One", updatedAt = 10)
         val collection2 = TabCollectionEntity(title = "Collection Two", updatedAt = 50)
         val collection3 = TabCollectionEntity(title = "Collection Three", updatedAt = 75)
@@ -108,7 +108,7 @@ class TabCollectionDaoTest {
     }
 
     @Test
-    fun testGettingCollections() = runTest {
+    fun testGettingCollections() = runBlocking {
         val collection1 = TabCollectionEntity(title = "Collection One", updatedAt = 10)
         val collection2 = TabCollectionEntity(title = "Collection Two", updatedAt = 50)
 
@@ -124,7 +124,7 @@ class TabCollectionDaoTest {
     }
 
     @Test
-    fun testGettingCollectionsList() = runTest {
+    fun testGettingCollectionsList() = runBlocking {
         val collection1 = TabCollectionEntity(title = "Collection One", updatedAt = 10)
         val collection2 = TabCollectionEntity(title = "Collection Two", updatedAt = 50)
 
@@ -139,7 +139,7 @@ class TabCollectionDaoTest {
     }
 
     @Test
-    fun testCountingTabCollections() = runTest {
+    fun testCountingTabCollections() {
         assertEquals(0, tabCollectionDao.countTabCollections())
 
         val collection1 = TabCollectionEntity(title = "Collection One", createdAt = 10)

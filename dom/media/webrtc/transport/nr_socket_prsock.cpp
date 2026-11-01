@@ -1112,7 +1112,7 @@ NS_IMETHODIMP NrUdpSocketIpc::CallListenerReceivedData(
     }
   }
 
-  auto buf = std::make_unique<MediaPacket>();
+  auto buf = MakeUnique<MediaPacket>();
   buf->Copy(data.Elements(), data.Length());
   RefPtr msg = MakeRefPtr<nr_udp_message>(addr, std::move(buf));
 
@@ -1301,7 +1301,7 @@ int NrUdpSocketIpc::sendto(const void* msg, size_t len, int flags,
     return R_WOULDBLOCK;
   }
 
-  auto buf = std::make_unique<MediaPacket>();
+  auto buf = MakeUnique<MediaPacket>();
   buf->Copy(static_cast<const uint8_t*>(msg), len);
 
   RUN_ON_THREAD(

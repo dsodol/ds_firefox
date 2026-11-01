@@ -1,8 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
-import { useCallback, useContext, useEffect, useRef } from "react";
-import { SpaceActiveContext } from "./SpaceActiveContext";
+import { useCallback, useEffect, useRef } from "react";
 
 /**
  * A custom react hook that sets up an IntersectionObserver to observe a single
@@ -20,11 +19,7 @@ import { SpaceActiveContext } from "./SpaceActiveContext";
 function useIntersectionObserver(callback, threshold = 0.3) {
   const elementsRef = useRef([]);
   const triggeredElements = useRef(new WeakSet());
-  const spaceActive = useContext(SpaceActiveContext);
   useEffect(() => {
-    if (!spaceActive) {
-      return undefined;
-    }
     const observer = new IntersectionObserver(
       entries => {
         entries.forEach(entry => {
@@ -49,7 +44,7 @@ function useIntersectionObserver(callback, threshold = 0.3) {
 
     // Cleanup function to disconnect observer on unmount
     return () => observer.disconnect();
-  }, [callback, threshold, spaceActive]);
+  }, [callback, threshold]);
 
   return elementsRef;
 }

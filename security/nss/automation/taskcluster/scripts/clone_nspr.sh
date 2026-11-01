@@ -5,13 +5,20 @@
 #
 # Clone NSPR into ./nspr (or $1) and check out the revision CI is pinned to.
 #
+# CI used to build whatever happened to be on NSPR's main branch, so an NSPR
+# landing could break NSS CI without any NSS change. Move the pin deliberately
+# instead, by editing NSPR_REVISION below.
+#
+# The pin is currently NSPR_4_40_RTM. A tag or a branch name works here as well
+# as a commit id.
+#
 # This is not automation/release/nspr-version.txt, which records the *minimum*
 # NSPR version NSS supports and is used when building release archives.
 
 set -e
 
 NSPR_REPOSITORY=${NSPR_REPOSITORY:-https://github.com/mozilla/nspr}
-NSPR_REVISION=${NSPR_REVISION:-nspr4}
+NSPR_REVISION=${NSPR_REVISION:-NSPR_4_40_RTM}
 
 nspr_dir=${1:-nspr}
 

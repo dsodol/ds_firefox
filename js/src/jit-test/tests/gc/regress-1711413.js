@@ -1,6 +1,6 @@
 // Required --no-threads to crash.
 
-enableTrackAllocations();
+enableShellAllocationMetadataBuilder();
 newGlobal({newCompartment:true});
 gcslice(1);
 nukeAllCCWs();

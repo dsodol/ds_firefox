@@ -242,8 +242,8 @@ CacheLoadHandler::CacheLoadHandler(ThreadSafeWorkerRef* aWorkerRef,
   AssertIsOnMainThread();
 
   // Worker scripts are always decoded as UTF-8 per spec.
-  mDecoder = std::make_unique<ScriptDecoder>(
-      UTF_8_ENCODING, ScriptDecoder::BOMHandling::Remove);
+  mDecoder = MakeUnique<ScriptDecoder>(UTF_8_ENCODING,
+                                       ScriptDecoder::BOMHandling::Remove);
 }
 
 void CacheLoadHandler::Fail(nsresult aRv) {
@@ -441,7 +441,7 @@ void CacheLoadHandler::ResolvedCallback(JSContext* aCx,
   mChannelInfo = response->GetChannelInfo();
   const UniquePtr<PrincipalInfo>& pInfo = response->GetPrincipalInfo();
   if (pInfo) {
-    mPrincipalInfo = std::make_unique<PrincipalInfo>(*pInfo);
+    mPrincipalInfo = mozilla::MakeUnique<PrincipalInfo>(*pInfo);
   }
 
   if (!inputStream) {
@@ -634,8 +634,8 @@ nsresult CacheLoadHandler::DataReceivedFromCache(
     // XXX: force the partitionedPrincipal to be equal to the response one.
     // This is OK for now because we don't want to expose partitionedPrincipal
     // functionality in ServiceWorkers yet.
-    rv = mWorkerRef->Private()->SetPrincipalsOnMainThread(
-        responsePrincipal, responsePrincipal, loadGroup);
+    rv = mWorkerRef->Private()->SetPrincipalsAndCSPOnMainThread(
+        responsePrincipal, responsePrincipal, loadGroup, nullptr);
     MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
 
     rv = mWorkerRef->Private()->SetCSPFromHeaderValues(
@@ -664,9 +664,8 @@ nsresult CacheLoadHandler::DataReceived() {
       // XHR Params Allowed
       mWorkerRef->Private()->SetXHRParamsAllowed(parent->XHRParamsAllowed());
 
-      // Set Policy-Container
-      nsresult rv = mWorkerRef->Private()->SetPolicyContainerOnMainThread(
-          parent->GetPolicyContainer());
+      // Set ContentSecurityPolicy
+      nsresult rv = mWorkerRef->Private()->SetCsp(parent->GetCsp());
       NS_ENSURE_SUCCESS(rv, rv);
     }
   }

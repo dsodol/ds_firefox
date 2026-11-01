@@ -13,7 +13,6 @@
 #include "mozilla/ipc/Endpoint.h"
 #include "mozilla/ipc/ProtocolTypes.h"
 #include "mozilla/ipc/ProtocolUtils.h"  // for IToplevelProtocol
-#include "mozilla/layers/LayerTreeLog.h"
 
 using mozilla::dom::GamepadHandle;
 
@@ -97,8 +96,6 @@ void VRManagerParent::Bind(Endpoint<PVRManagerParent>&& aEndpoint) {
   mCompositorThreadHolder = CompositorThreadHolder::GetSingleton();
 
   RegisterWithManager();
-  LAYERTREE_LOG("VR manager bound, namespace {}, content {}", mNamespace,
-                mChildId);
 }
 
 /*static*/
@@ -150,8 +147,6 @@ void VRManagerParent::Shutdown() {
 }
 
 void VRManagerParent::ActorDestroy(ActorDestroyReason why) {
-  LAYERTREE_LOG("VR manager namespace {} destroyed, reason {}", mNamespace,
-                fmt::enums::format_as(why));
   UnregisterFromManager();
   mCompositorThreadHolder = nullptr;
 }

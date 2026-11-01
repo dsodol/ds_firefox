@@ -13,7 +13,6 @@ add_setup(async function init() {
     locale: "en-US",
     skipSuggestReset: true,
   });
-  UrlbarTestUtils.stubLocale("en-US");
 
   Assert.equal(
     new Intl.Locale(Services.locale.appLocaleAsBCP47).getWeekInfo().firstDay,

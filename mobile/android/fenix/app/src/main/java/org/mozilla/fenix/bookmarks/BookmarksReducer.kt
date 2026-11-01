@@ -259,7 +259,6 @@ private fun BookmarksState.handleEditBookmarkAction(action: EditBookmarkAction):
                         it.copy(
                             bookmark = it.bookmark.copy(url = action.url),
                             edited = true,
-                            urlText = action.url,
                         )
                     }
             )

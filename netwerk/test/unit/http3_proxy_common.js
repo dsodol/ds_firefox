@@ -43,6 +43,7 @@ function channelOpenPromise(chan, flags) {
 let pps = Cc["@mozilla.org/network/protocol-proxy-service;1"].getService();
 let proxyHost;
 let proxyPort;
+let noResponsePort;
 let proxyAuth;
 let proxyFilter;
 
@@ -62,7 +63,8 @@ async function setup_http3_proxy() {
   addCertFromFile(certdb, "proxy-ca.pem", "CTu,u,u");
 
   proxyHost = "foo.example.com";
-  ({ masqueProxyPort: proxyPort } = await create_masque_proxy_server());
+  ({ masqueProxyPort: proxyPort, noResponsePort } =
+    await create_masque_proxy_server());
   proxyAuth = "";
 
   Assert.notEqual(proxyPort, null);
@@ -357,8 +359,10 @@ async function test_http_connect_fallback() {
     ""
   );
 
+  let proxyPort = noResponsePort;
   let proxy = new NodeHTTP2ProxyServer();
-  await proxy.startWithNoResponseUdpPort(() => proxy.startWithoutProxyFilter());
+  await proxy.startWithoutProxyFilter(proxyPort);
+  Assert.equal(proxyPort, proxy.port());
   dump(`proxy port=${proxy.port()}\n`);
 
   let server = new NodeHTTP2Server();
@@ -501,6 +505,9 @@ async function test_inner_connection_fallback(ServerClass) {
   // Register the connect-udp proxy.
   pps.registerFilter(proxyFilter, 10);
 
+  let httpsProxy = new NodeHTTP2ProxyServer();
+  await httpsProxy.startWithoutProxyFilter(proxyPort);
+
   // The H3 attempt must get no response while the TCP fallback reaches server.
   let server = new ServerClass();
   await server.startWithNoResponseUdpPort();
@@ -522,6 +529,7 @@ async function test_inner_connection_fallback(ServerClass) {
   });
   registerCleanupFunction(async () => {
     await server.stop();
+    await httpsProxy.stop();
   });
 
   Services.prefs.setCharPref(
@@ -547,6 +555,7 @@ async function test_inner_connection_fallback(ServerClass) {
     Assert.equal(buf, `fallback${i + 1}`);
   }
   await server.stop();
+  await httpsProxy.stop();
 
   pps.unregisterFilter(proxyFilter);
 }

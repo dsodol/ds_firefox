@@ -858,7 +858,7 @@ TString DecorateVariableIfNeeded(const TVariable &variable)
               qualifier == EvqParamIn || qualifier == EvqParamOut || qualifier == EvqParamInOut ||
               qualifier == EvqParamConst))
     {
-        return Decorate(variable.name()) + '_' + str(variable.uniqueId().get());
+        return Decorate(variable.name()) + str(variable.uniqueId().get());
     }
     else
     {
@@ -887,8 +887,14 @@ TString TypeString(const TType &type)
     const TStructure *structure = type.getStruct();
     if (structure)
     {
-        ASSERT(structure->symbolType() != SymbolType::Empty);
-        return StructNameString(*structure);
+        if (structure->symbolType() != SymbolType::Empty)
+        {
+            return StructNameString(*structure);
+        }
+        else  // Nameless structure, define in place
+        {
+            return StructureHLSL::defineNameless(*structure);
+        }
     }
     else if (type.isMatrix())
     {
@@ -974,7 +980,10 @@ TString TypeString(const TType &type)
 
 TString StructNameString(const TStructure &structure)
 {
-    ASSERT(structure.symbolType() != SymbolType::Empty);
+    if (structure.symbolType() == SymbolType::Empty)
+    {
+        return "";
+    }
 
     // For structures at global scope we use a consistent
     // translation so that we can link between shader stages.
@@ -991,7 +1000,10 @@ TString QualifiedStructNameString(const TStructure &structure,
                                   bool useStd140Packing,
                                   bool forcePadding)
 {
-    ASSERT(structure.symbolType() != SymbolType::Empty);
+    if (structure.symbolType() == SymbolType::Empty)
+    {
+        return "";
+    }
 
     TString prefix = "";
 

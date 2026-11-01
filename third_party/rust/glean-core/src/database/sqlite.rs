@@ -32,7 +32,7 @@ use crate::Lifetime;
 use crate::Result;
 use crate::{Glean, JsonValue};
 
-use super::{ConnExt, StoredSubmittedPingHandler, EMPTY_LABEL};
+use super::{ConnExt, StoredSubmittedPingHandler};
 
 mod connection;
 mod schema;
@@ -51,18 +51,6 @@ fn consts_are_correct() {
         DEFAULT_TABLE,
         &IN_MEMORY_TABLE[(IN_MEMORY_TABLE.len() - DEFAULT_TABLE.len())..]
     );
-}
-
-// Database-conformant label:
-// * empty string if no label given
-// * `DEL` character if an empty label is given
-// * otherwise the (already validated) label
-fn database_label(label: Option<&str>) -> &str {
-    match label {
-        None => "",
-        Some("") => EMPTY_LABEL,
-        Some(label) => label,
-    }
 }
 
 #[derive(Debug)]
@@ -445,9 +433,7 @@ impl Database {
             "INSERT INTO lifetime_ping.telemetry SELECT * FROM telemetry WHERE lifetime = 'ping'";
         let res = self.conn.write(|tx| tx.execute_one(copy_sql));
         if let Err(err) = res {
-            log::error!(
-                "Could not load ping lifetime data into memory: {err:?}. Disabling ping lifetime IO delay."
-            );
+            log::error!("Could not load ping lifetime data into memory: {err:?}. Disabling ping lifetime IO delay.");
             self.delay_ping_lifetime_io = false;
         }
     }
@@ -480,16 +466,16 @@ impl Database {
         let table = self.table_for_lifetime(lifetime);
 
         let iter_sql = format!(
-            "
-            SELECT
-                id,
-                value,
-                labels
-            FROM {table}
-            WHERE
-                lifetime = ?1
-                AND ping = ?2
-            "
+            r#"
+                SELECT
+                    id,
+                    value,
+                    labels
+                FROM {table}
+                WHERE
+                    lifetime = ?1
+                    AND ping = ?2
+            "#
         );
 
         self.conn.read(|conn| {
@@ -510,16 +496,8 @@ impl Database {
                 let Ok((metric_id, labels, metric)) = row else {
                     continue;
                 };
-                let label_vec;
-                let labels = if labels.is_empty() {
-                    &[]
-                } else if labels == EMPTY_LABEL {
-                    &[""]
-                } else {
-                    label_vec = labels.split(RECORD_SEPARATOR).collect::<Vec<_>>();
-                    &*label_vec
-                };
-                transaction_fn(metric_id.as_bytes(), labels, &metric);
+                let labels = labels.split(RECORD_SEPARATOR).collect::<Vec<_>>();
+                transaction_fn(metric_id.as_bytes(), &labels, &metric);
             }
 
             Ok(())
@@ -536,16 +514,16 @@ impl Database {
 
         // TODO(bug 2048194): Remove the `LIMIT 1` and error out when more than 1 row is returned.
         let get_metric_sql = format!(
-            "
-            SELECT
-                value
-            FROM {table}
-            WHERE
-                id = ?1
-                AND ping = ?2
-                AND labels = ?3
-            LIMIT 1
-            "
+            r#"
+                SELECT
+                    value
+                FROM {table}
+                WHERE
+                    id = ?1
+                    AND ping = ?2
+                    AND labels = ?3
+                LIMIT 1
+            "#
         );
 
         let metric_identifier = &data.base_identifier();
@@ -555,8 +533,7 @@ impl Database {
                 let labels = data.check_labels(tx);
 
                 let mut stmt = tx.prepare_cached(&get_metric_sql)?;
-                let label = database_label(labels.label());
-                stmt.query_one([metric_identifier, storage_name, label], |row| {
+                stmt.query_one([metric_identifier, storage_name, labels.label()], |row| {
                     let blob: Vec<u8> = row.get(0)?;
                     let blob: Metric =
                         rmp_serde::from_slice(&blob).map_err(|_| FromSqlError::InvalidType)?;
@@ -589,14 +566,14 @@ impl Database {
         let table = self.table_for_lifetime(lifetime);
 
         let has_metric_sql = format!(
-            "
-            SELECT id
-            FROM {table}
-            WHERE
-                lifetime = ?1
-                AND ping = ?2
-                AND id = ?3
-            "
+            r#"
+                SELECT id
+                FROM {table}
+                WHERE
+                    lifetime = ?1
+                    AND ping = ?2
+                    AND id = ?3
+            "#
         );
 
         self.conn
@@ -630,7 +607,7 @@ impl Database {
                         data.inner.lifetime,
                         ping_name,
                         &name,
-                        database_label(labels.label()),
+                        labels.label(),
                         value,
                     ) {
                         log::error!(
@@ -670,15 +647,15 @@ impl Database {
         let table = self.table_for_lifetime(lifetime);
 
         let insert_sql = format!(
-            "
-            INSERT INTO
-                {table} (id, ping, lifetime, labels, value)
-            VALUES
-                (?1, ?2, ?3, ?4,  ?5)
-            ON CONFLICT(id, ping, labels) DO UPDATE SET
-                lifetime = excluded.lifetime,
-                value = excluded.value
-            "
+            r#"
+                INSERT INTO
+                    {table} (id, ping, lifetime, labels, value)
+                VALUES
+                    (?1, ?2, ?3, ?4,  ?5)
+                ON CONFLICT(id, ping, labels) DO UPDATE SET
+                    lifetime = excluded.lifetime,
+                    value = excluded.value
+            "#
         );
 
         {
@@ -737,7 +714,7 @@ impl Database {
                     data.inner.lifetime,
                     ping_name,
                     &name,
-                    database_label(labels.label()),
+                    labels.label(),
                     &mut transform,
                 ) {
                     log::error!(
@@ -781,16 +758,16 @@ impl Database {
 
         // TODO(bug 2048194): Remove the `LIMIT 1` and error out when more than 1 row is returned.
         let value_sql = format!(
-            "
-            SELECT value
-            FROM {table}
-            WHERE
-                id = ?1
-                AND ping = ?2
-                AND lifetime = ?3
-                AND labels = ?4
-            LIMIT 1
-            "
+            r#"
+        SELECT value
+        FROM {table}
+        WHERE
+            id = ?1
+            AND ping = ?2
+            AND lifetime = ?3
+            AND labels = ?4
+        LIMIT 1
+        "#
         );
 
         let new_value = {
@@ -812,15 +789,15 @@ impl Database {
         };
 
         let insert_sql = format!(
-            "
-            INSERT INTO
-                {table} (id, ping, lifetime, labels, value)
-            VALUES
-                (?1, ?2, ?3, ?4, ?5)
-            ON CONFLICT(id, ping, labels) DO UPDATE SET
-                lifetime = excluded.lifetime,
-                value = excluded.value
-            "
+            r#"
+                    INSERT INTO
+                        {table} (id, ping, lifetime, labels, value)
+                    VALUES
+                        (?1, ?2, ?3, ?4, ?5)
+                    ON CONFLICT(id, ping, labels) DO UPDATE SET
+                        lifetime = excluded.lifetime,
+                        value = excluded.value
+                    "#
         );
 
         {
@@ -1081,17 +1058,17 @@ impl Database {
 
 impl StoredSubmittedPingHandler for Database {
     fn get_all_submitted_pings(&self) -> Vec<crate::SubmittedPing> {
-        let get_all_submitted_pings_sql = "
-            SELECT
-                document_id,
-                ping,
-                date_submitted,
-                date_uploaded,
-                upload_failed,
-                payload
-            FROM submitted_pings
-            ORDER BY date_submitted DESC
-        ";
+        let get_all_submitted_pings_sql = r#"
+        SELECT
+            document_id,
+            ping,
+            date_submitted,
+            date_uploaded,
+            upload_failed,
+            payload
+        FROM submitted_pings
+        ORDER BY date_submitted DESC
+        "#;
         self.conn
             .read(|conn| {
                 let Ok(mut stmt) = conn.prepare_cached(get_all_submitted_pings_sql) else {
@@ -1119,19 +1096,19 @@ impl StoredSubmittedPingHandler for Database {
     }
 
     fn get_submitted_pings_by_name(&self, ping: &str) -> Vec<crate::SubmittedPing> {
-        let get_submitted_pings_sql = "
-            SELECT
-                document_id,
-                ping,
-                date_submitted,
-                date_uploaded,
-                upload_failed,
-                payload
-            FROM submitted_pings
-            WHERE
-                ping = ?1
-            ORDER BY date_submitted DESC
-        ";
+        let get_submitted_pings_sql = r#"
+        SELECT
+            document_id,
+            ping,
+            date_submitted,
+            date_uploaded,
+            upload_failed,
+            payload
+        FROM submitted_pings
+        WHERE
+            ping = ?1
+        ORDER BY date_submitted DESC
+        "#;
         self.conn
             .read(|conn| {
                 let Ok(mut stmt) = conn.prepare_cached(get_submitted_pings_sql) else {
@@ -1194,18 +1171,18 @@ impl StoredSubmittedPingHandler for Database {
         payload: JsonValue,
     ) -> Result<()> {
         self.conn.write(|tx| {
-            let insert_sql = "
-                INSERT INTO
-                    submitted_pings (document_id, ping, date_submitted, date_uploaded, upload_failed, payload)
-                VALUES
-                    (?1, ?2, ?3, ?4, ?5, ?6)
-                ON CONFLICT(document_id) DO UPDATE SET
-                    ping = excluded.ping,
-                    date_submitted = excluded.date_submitted,
-                    date_uploaded = excluded.date_uploaded,
-                    upload_failed = excluded.upload_failed,
-                    payload = excluded.payload
-            ";
+            let insert_sql = r#"
+            INSERT INTO
+                submitted_pings (document_id, ping, date_submitted, date_uploaded, upload_failed, payload)
+            VALUES
+                (?1, ?2, ?3, ?4, ?5, ?6)
+            ON CONFLICT(document_id) DO UPDATE SET
+                ping = excluded.ping,
+                date_submitted = excluded.date_submitted,
+                date_uploaded = excluded.date_uploaded,
+                upload_failed = excluded.upload_failed,
+                payload = excluded.payload
+            "#;
             let mut stmt = tx.prepare_cached(insert_sql)?;
             stmt.execute(params![
                 document_id,

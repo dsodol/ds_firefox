@@ -7,12 +7,15 @@
 
 #include "mozilla/gfx/Point.h"
 #include "mozilla/layers/LayersSurfaces.h"
-#include "mozilla/webgpu/FrontBufferSnapshot.h"
 #include "mozilla/webgpu/WebGPUTypes.h"
 #include "mozilla/webgpu/ffi/wgpu.h"
 #include "nsTArray.h"
 
 namespace mozilla {
+
+namespace ipc {
+class Shmem;
+}
 
 namespace layers {
 class TextureHost;
@@ -42,7 +45,7 @@ class SharedTexture {
 
   virtual Maybe<layers::SurfaceDescriptor> ToSurfaceDescriptor() = 0;
 
-  virtual FrontBufferSnapshot GetSnapshot() { return {}; }
+  virtual void GetSnapshot(const ipc::Shmem& aDestShmem, size_t aDestStride) {}
 
   virtual SharedTextureDMABuf* AsSharedTextureDMABuf() { return nullptr; }
 

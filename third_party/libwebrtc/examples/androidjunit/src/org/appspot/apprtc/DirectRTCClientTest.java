@@ -20,7 +20,6 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
-import android.os.Build;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -115,16 +114,14 @@ public class DirectRTCClientTest {
   @SuppressWarnings("deprecation")
   @Test
   public void testDirectRTCClient() {
-    int port = 8888 + Build.VERSION.SDK_INT;
-    server.connectToRoom(
-        new AppRTCClient.RoomConnectionParameters(ROOM_URL, "0.0.0.0:" + port, LOOPBACK));
+    server.connectToRoom(new AppRTCClient.RoomConnectionParameters(ROOM_URL, "0.0.0.0", LOOPBACK));
     try {
       Thread.sleep(SERVER_WAIT);
     } catch (InterruptedException e) {
       fail(e.getMessage());
     }
     client.connectToRoom(
-        new AppRTCClient.RoomConnectionParameters(ROOM_URL, "127.0.0.1:" + port, LOOPBACK));
+        new AppRTCClient.RoomConnectionParameters(ROOM_URL, "127.0.0.1", LOOPBACK));
     verify(serverEvents, timeout(NETWORK_TIMEOUT))
         .onConnectedToRoom(any(AppRTCClient.SignalingParameters.class));
 
@@ -151,7 +148,6 @@ public class DirectRTCClientTest {
     client.disconnectFromRoom();
     verify(clientEvents, timeout(NETWORK_TIMEOUT)).onChannelClose();
     verify(serverEvents, timeout(NETWORK_TIMEOUT)).onChannelClose();
-    server.disconnectFromRoom();
 
     verifyNoMoreInteractions(clientEvents);
     verifyNoMoreInteractions(serverEvents);

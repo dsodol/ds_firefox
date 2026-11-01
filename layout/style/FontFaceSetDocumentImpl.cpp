@@ -142,7 +142,7 @@ uint64_t FontFaceSetDocumentImpl::GetInnerWindowID() {
 
 FontVisibilityProvider* FontFaceSetDocumentImpl::GetFontVisibilityProvider()
     const {
-  mozilla::AssertIsMainThreadOrServoFFILocked();
+  mozilla::AssertIsMainThreadOrServoFontMetricsLocked();
   if (!mDocument) {
     return nullptr;
   }

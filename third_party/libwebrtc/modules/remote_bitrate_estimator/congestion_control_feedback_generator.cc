@@ -129,17 +129,12 @@ void CongestionControlFeedbackGenerator::CalculateNextPossibleSendTime(
   TimeDelta time_since_last_sent = last_feedback_sent_time_.IsFinite()
                                        ? now - last_feedback_sent_time_
                                        : TimeDelta::Zero();
-  last_feedback_sent_time_ = now;
   DataRate max_feedback_rate = kMaxFeedbackRate;
 
   if (is_bandwidth_limited_ && max_feedback_fraction_.Get() > 0.0 &&
       send_bandwidth_estimate_.has_value() &&
-      send_bandwidth_estimate_->IsFinite()) {
-    if (send_bandwidth_estimate_->IsZero()) {
-      next_possible_feedback_send_time_ =
-          last_feedback_sent_time_ + max_time_between_feedback_.Get();
-      return;
-    }
+      send_bandwidth_estimate_->IsFinite() &&
+      *send_bandwidth_estimate_ > DataRate::Zero()) {
     max_feedback_rate =
         *send_bandwidth_estimate_ * max_feedback_fraction_.Get();
   }
@@ -147,6 +142,7 @@ void CongestionControlFeedbackGenerator::CalculateNextPossibleSendTime(
   send_rate_debt_ = debt_payed > send_rate_debt_ ? DataSize::Zero()
                                                  : send_rate_debt_ - debt_payed;
   send_rate_debt_ += feedback_size;
+  last_feedback_sent_time_ = now;
   next_possible_feedback_send_time_ =
       now + std::clamp(send_rate_debt_ / max_feedback_rate,
                        min_time_between_feedback_.Get(),

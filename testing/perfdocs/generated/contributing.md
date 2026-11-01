@@ -33,6 +33,6 @@ For more information, please reach out to :mhentges in #cia
 
 As Raptor is a Mozilla project we follow the general Python coding style:
 
-- {doc}`/code-quality/coding-style/coding_style_python`
+- <https://firefox-source-docs.mozilla.org/code-quality/coding-style/coding_style_python.html>
 
 [black](https://github.com/psf/black/) is the tool used to reformat the Python code.

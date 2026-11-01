@@ -9,7 +9,8 @@ use std::path::Path;
 use crate::error::Error;
 use crate::image::Image;
 use crate::tests::decode::{
-    DecodeParams, compare_frames, compute_tile_quartiles, decode, image_size,
+    DecodeParams, compare_frames, compute_tile_quartiles, decode, decode_32bit, decode_internal,
+    image_size,
 };
 
 fn clone_images(imgs: &[Image<f32>]) -> Vec<Image<f32>> {
@@ -28,19 +29,12 @@ pub fn run(path: &Path, expected_checkpoints: &[(usize, [f32; 4])]) {
     let file = std::fs::read(path).unwrap();
 
     // 1. One-shot decode in 16-bit (normal) and 32-bit mode
-    let frames_16 = decode(&file, Default::default()).unwrap();
+    let (_, frames_16) = decode(&file).unwrap();
     if frames_16.is_empty() {
         return;
     }
 
-    let frames_32 = decode(
-        &file,
-        DecodeParams {
-            disable_16bit_modular_buffers: true,
-            ..Default::default()
-        },
-    )
-    .unwrap();
+    let (_, frames_32) = decode_32bit(&file).unwrap();
 
     assert_eq!(
         frames_16.len(),
@@ -72,7 +66,7 @@ pub fn run(path: &Path, expected_checkpoints: &[(usize, [f32; 4])]) {
             }
             Ok(())
         };
-    let _ = decode(
+    let _ = decode_internal(
         &file,
         DecodeParams {
             chunk_size,
@@ -92,7 +86,7 @@ pub fn run(path: &Path, expected_checkpoints: &[(usize, [f32; 4])]) {
             }
             Ok(())
         };
-    let _ = decode(
+    let _ = decode_internal(
         &file,
         DecodeParams {
             chunk_size,

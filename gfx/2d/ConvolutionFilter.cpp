@@ -11,7 +11,7 @@
 namespace mozilla::gfx {
 
 ConvolutionFilter::ConvolutionFilter()
-    : mFilter(std::make_unique<skia::SkConvolutionFilter1D>()) {}
+    : mFilter(MakeUnique<skia::SkConvolutionFilter1D>()) {}
 
 ConvolutionFilter::~ConvolutionFilter() = default;
 

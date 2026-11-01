@@ -19,14 +19,7 @@ class UnscaledFontFreeType : public UnscaledFont {
  public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(UnscaledFontFreeType, override)
   explicit UnscaledFontFreeType(const RefPtr<SharedFTFace>& aFace)
-      : mFace(aFace) {
-    if (mFace) {
-      if (mFace->GetFilename()) {
-        mFile = mFace->GetFilename();
-      }
-      mIndex = mFace->GetFaceIndex();
-    }
-  }
+      : mFace(aFace), mIndex(aFace ? aFace->GetFaceIndex() : 0) {}
   explicit UnscaledFontFreeType(const char* aFile, uint32_t aIndex = 0,
                                 RefPtr<SharedFTFace> aFace = nullptr)
       : mFace(std::move(aFace)), mFile(aFile), mIndex(aIndex) {}
@@ -64,13 +57,13 @@ class UnscaledFontFreeType : public UnscaledFont {
  protected:
   RefPtr<SharedFTFace> mFace;
   std::string mFile;
-  uint32_t mIndex = 0;
+  uint32_t mIndex;
 
   friend class ScaledFontFreeType;
   friend class ScaledFontFontconfig;
 
   static void GetVariationSettingsFromFace(
-      std::vector<wr::FontVariation>* aVariations, SharedFTFace* aFace);
+      std::vector<wr::FontVariation>* aVariations, FT_Face aFace);
 
   static void ApplyVariationsToFace(const wr::FontVariation* aVariations,
                                     uint32_t aNumVariations, FT_Face aFace);

@@ -15,8 +15,6 @@ head = "head.js"
 
 ["test_permmanager_getAllByTypes.js"]
 
-["test_permmanager_getAllForOriginAttributesPattern.js"]
-
 ["test_permmanager_getAllForPrincipal.js"]
 
 ["test_permmanager_getAllWithTypePrefix.js"]
@@ -93,8 +91,6 @@ run-if = [
 ["test_permmanager_notifications.js"]
 
 ["test_permmanager_oa_strip.js"]
-
-["test_permmanager_policy.js"]
 
 ["test_permmanager_reentrant_removal.js"]
 

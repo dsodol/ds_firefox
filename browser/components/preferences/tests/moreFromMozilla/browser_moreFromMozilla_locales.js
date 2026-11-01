@@ -3,36 +3,52 @@
 
 "use strict";
 
-add_task(async function test_email_link_visible_for_supported_locale() {
-  await clearPolicies();
+add_task(async function test_send_to_device_email_link_for_supported_locale() {
+  // Email is supported for Brazilian Portuguese
+  const supportedLocale = "pt-BR";
   const initialLocale = Services.locale.appLocaleAsBCP47;
-  setLocale("pt-BR");
+  setLocale(supportedLocale);
 
-  await getPromoCards();
-  let win = gBrowser.contentWindow;
-  let emailLinkControl = await settingControlRenders(
-    "firefoxMobilePromoLink",
-    win
-  );
-  ok(!emailLinkControl.hidden, "Email link is visible for pt-BR locale");
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.preferences.moreFromMozilla.template", "simple"]],
+  });
 
+  await openPreferencesViaOpenPreferencesAPI("paneMoreFromMozilla", {
+    leaveOpen: true,
+  });
+
+  let doc = gBrowser.contentDocument;
+  let emailLink = doc.getElementById("simple-qr-code-send-email");
+
+  ok(!BrowserTestUtils.isHidden(emailLink), "Email link should be visible");
+
+  await SpecialPowers.popPrefEnv();
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
-  setLocale(initialLocale);
+  setLocale(initialLocale); // revert changes to language
 });
 
-add_task(async function test_email_link_hidden_for_unsupported_locale() {
-  await clearPolicies();
-  const initialLocale = Services.locale.appLocaleAsBCP47;
-  setLocale("af");
+add_task(
+  async function test_send_to_device_email_link_for_unsupported_locale() {
+    // Email is not supported for Afrikaans
+    const unsupportedLocale = "af";
+    const initialLocale = Services.locale.appLocaleAsBCP47;
+    setLocale(unsupportedLocale);
 
-  await getPromoCards();
-  let win = gBrowser.contentWindow;
-  let emailLinkControl = await settingControlRenders(
-    "firefoxMobilePromoLink",
-    win
-  );
-  ok(emailLinkControl.hidden, "Email link is hidden for unsupported locale");
+    await SpecialPowers.pushPrefEnv({
+      set: [["browser.preferences.moreFromMozilla.template", "simple"]],
+    });
 
-  BrowserTestUtils.removeTab(gBrowser.selectedTab);
-  setLocale(initialLocale);
-});
+    await openPreferencesViaOpenPreferencesAPI("paneMoreFromMozilla", {
+      leaveOpen: true,
+    });
+
+    let doc = gBrowser.contentDocument;
+    let emailLink = doc.getElementById("simple-qr-code-send-email");
+
+    ok(BrowserTestUtils.isHidden(emailLink), "Email link should be hidden");
+
+    await SpecialPowers.popPrefEnv(); // revert changes to language
+    BrowserTestUtils.removeTab(gBrowser.selectedTab);
+    setLocale(initialLocale);
+  }
+);

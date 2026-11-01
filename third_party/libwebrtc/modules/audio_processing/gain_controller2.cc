@@ -219,7 +219,7 @@ void GainController2::Process(bool input_volume_changed, AudioBuffer* audio) {
   float target_speech_probability = speech_probability;
   if (speech_level_estimator_) {
     speech_level_estimator_->Update(audio_levels.rms_dbfs, speech_probability);
-    if (!speech_level_estimator_->IsTargetSpeakerActive()) {
+    if (speech_level_estimator_->IsBackgroundSpeaker()) {
       target_speech_probability = 0.0f;
     }
     speech_level =

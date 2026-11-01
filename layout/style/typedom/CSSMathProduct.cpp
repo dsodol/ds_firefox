@@ -16,7 +16,6 @@
 #include "mozilla/dom/CSSNumericValue.h"
 #include "mozilla/dom/CSSNumericValueBinding.h"
 #include "nsString.h"
-#include "nsTArray.h"
 
 namespace mozilla::dom {
 
@@ -30,17 +29,6 @@ CSSMathProduct::CSSMathProduct(
 
 // static
 RefPtr<CSSMathProduct> CSSMathProduct::Create(
-    nsCOMPtr<nsISupports> aParent, UniquePtr<StyleNumericType> aNumericType,
-    nsTArray<RefPtr<CSSNumericValue>> aValues) {
-  auto array = MakeRefPtr<CSSNumericArray>(aParent, std::move(aValues));
-
-  return MakeRefPtr<CSSMathProduct>(std::move(aParent),
-                                    WrapMovingNotNull(std::move(aNumericType)),
-                                    std::move(array));
-}
-
-// static
-RefPtr<CSSMathProduct> CSSMathProduct::Create(
     nsCOMPtr<nsISupports> aParent, const StyleMathProduct& aMathProduct) {
   nsTArray<RefPtr<CSSNumericValue>> values;
 
@@ -48,9 +36,13 @@ RefPtr<CSSMathProduct> CSSMathProduct::Create(
     values.AppendElement(CSSNumericValue::Create(aParent, value));
   }
 
-  return Create(std::move(aParent),
-                std::make_unique<StyleNumericType>(aMathProduct.numeric_type),
-                std::move(values));
+  auto array = MakeRefPtr<CSSNumericArray>(aParent, std::move(values));
+
+  return MakeRefPtr<CSSMathProduct>(
+      std::move(aParent),
+      WrapMovingNotNull(
+          MakeUnique<StyleNumericType>(aMathProduct.numeric_type)),
+      std::move(array));
 }
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED_0(CSSMathProduct, CSSMathValue)
@@ -89,8 +81,16 @@ already_AddRefed<CSSMathProduct> CSSMathProduct::Constructor(
 
   // Step 3.
 
-  auto numericType = MultiplyTypes(values, aRv);
-  if (aRv.Failed()) {
+  AutoTArray<const StyleNumericType*, 8> numericTypes;
+  numericTypes.SetCapacity(values.Length());
+
+  for (const auto& value : values) {
+    numericTypes.AppendElement(&value->GetNumericType());
+  }
+
+  auto numericType = MakeUnique<StyleNumericType>();
+  if (!Servo_NumericType_MultiplyTypes(&numericTypes, numericType.get())) {
+    aRv.ThrowTypeError("Incompatible types");
     return nullptr;
   }
 

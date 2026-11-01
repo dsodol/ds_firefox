@@ -8,10 +8,8 @@ import android.database.sqlite.SQLiteException
 import java.io.File
 import java.io.IOException
 import java.util.UUID
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import mozilla.components.browser.state.state.recover.RecoverableTab
 import mozilla.components.browser.state.state.recover.TabState
@@ -28,7 +26,6 @@ import mozilla.components.support.utils.DateTimeProvider
 import mozilla.components.support.utils.DefaultDateTimeProvider
 import org.mozilla.fenix.components.TabCollectionStorage
 import org.mozilla.fenix.tabstray.data.TabGroupTheme
-import org.mozilla.fenix.tabstray.data.nextOrDefault
 
 private const val BREADCRUMB_CATEGORY = "CollectionsToTabGroupsMigration"
 
@@ -86,15 +83,7 @@ class CollectionsToTabGroupsMigration(
             data = mapOf("collections" to pendingCollections.size.toString()),
         )
 
-        var lastUsedTheme = getLastUsedTabGroupTheme()
-        val results = pendingCollections.map { collection ->
-            val theme = lastUsedTheme.nextOrDefault()
-            migrateCollection(collection = collection, theme = theme).also { result ->
-                if (result == MigrationResult.TAB_GROUP_CREATED) {
-                    lastUsedTheme = theme
-                }
-            }
-        }
+        val results = pendingCollections.map { collection -> migrateCollection(collection = collection) }
         val migratedAllCollections = results.all {
             it == MigrationResult.TAB_GROUP_CREATED || it == MigrationResult.NO_TABS_TO_MIGRATE
         }
@@ -129,26 +118,6 @@ class CollectionsToTabGroupsMigration(
         }
 
     /**
-     * Returns the [TabGroupTheme] of the most recently modified [TabGroup] or null if there are no tab groups or the
-     * tab group storage could not be read.
-     */
-    @Suppress("TooGenericExceptionCaught")
-    private suspend fun getLastUsedTabGroupTheme(): TabGroupTheme? =
-        try {
-            tabGroupRepository.tabGroupDataFlow
-                .first()
-                .tabGroups
-                .maxByOrNull { it.lastModified }
-                ?.theme
-                ?.let { theme -> TabGroupTheme.entries.find { it.name == theme } }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            reportFailure(message = "Unable to fetch the last used tab group theme", throwable = e)
-            null
-        }
-
-    /**
      * Migrates a single [TabCollection] to a [TabGroup] and returns the [MigrationResult].
      *
      * The broad exception catch is deliberate to handle unexpected exceptions. Restoring a tab reads and deserializes
@@ -157,13 +126,12 @@ class CollectionsToTabGroupsMigration(
      * next retry.
      *
      * @param collection The [TabCollection] to migrate.
-     * @param theme The [TabGroupTheme] to use for the new [TabGroup].
      * @return The [MigrationResult] for the given [collection].
      */
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun migrateCollection(collection: TabCollection, theme: TabGroupTheme): MigrationResult =
+    private suspend fun migrateCollection(collection: TabCollection): MigrationResult =
         try {
-            val result = migrateCollectionToTabGroup(collection = collection, theme = theme)
+            val result = migrateCollectionToTabGroup(collection = collection)
 
             if (result != MigrationResult.FAILED) {
                 // Only record the collection as migrated once it succeeded, so a failed collection is retried.
@@ -179,8 +147,8 @@ class CollectionsToTabGroupsMigration(
             MigrationResult.FAILED
         }
 
-    /** Migrates a [TabCollection] to a closed [TabGroup] with the given [theme] and returns the [MigrationResult]. */
-    private suspend fun migrateCollectionToTabGroup(collection: TabCollection, theme: TabGroupTheme): MigrationResult =
+    /** Migrates a [TabCollection] to a closed [TabGroup] and returns the [MigrationResult]. */
+    private suspend fun migrateCollectionToTabGroup(collection: TabCollection): MigrationResult =
         withContext(ioDispatcher) {
             val recoverableTabs =
                 collection.tabs.map { tab ->
@@ -197,7 +165,7 @@ class CollectionsToTabGroupsMigration(
                     tabGroup =
                         TabGroup(
                             title = collection.title,
-                            theme = theme.name,
+                            theme = TabGroupTheme.default.name,
                             closed = true,
                             lastModified = dateTimeProvider.currentTimeMillis(),
                             tabIds = recoverableTabs.map { it.state.id },

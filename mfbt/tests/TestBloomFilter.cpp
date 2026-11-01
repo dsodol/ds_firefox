@@ -5,11 +5,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <memory>
-
 #include "mozilla/Assertions.h"
 #include "mozilla/BloomFilter.h"
 #include "mozilla/HashFunctions.h"
+#include "mozilla/UniquePtr.h"
 
 using mozilla::BitBloomFilter;
 using mozilla::CountingBloomFilter;
@@ -25,7 +24,7 @@ class FilterChecker {
 };
 
 void testBitBloomFilter() {
-  const auto filter = std::make_unique<BitBloomFilter<12, FilterChecker>>();
+  const auto filter = mozilla::MakeUnique<BitBloomFilter<12, FilterChecker>>();
   MOZ_RELEASE_ASSERT(filter);
 
   FilterChecker one(1);
@@ -55,7 +54,7 @@ void testLargeBitBloomFilter() {
   using Filter = BitBloomFilter<18, FilterChecker>;
   static_assert(sizeof(Filter) == 32 * 1024);
 
-  const auto filter = std::make_unique<Filter>();
+  const auto filter = mozilla::MakeUnique<Filter>();
   MOZ_RELEASE_ASSERT(filter);
 
   constexpr uint32_t EntryCount = 17124;
@@ -74,7 +73,7 @@ void testLargeBitBloomFilter() {
 
 void testCountingBloomFilter() {
   const auto filter =
-      std::make_unique<CountingBloomFilter<12, FilterChecker>>();
+      mozilla::MakeUnique<CountingBloomFilter<12, FilterChecker>>();
   MOZ_RELEASE_ASSERT(filter);
 
   FilterChecker one(1);

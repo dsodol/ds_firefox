@@ -275,14 +275,9 @@ class TextOverflow final {
       mEdgeAligned = false;
     }
 
-    bool IsIStartSuppressed() { return mTextOverflowStyle->IsClip(); }
-    bool IsIEndSuppressed() {
-      if (mBlockEllipsis) {
-        // if mBlockEllipsis is no-ellipis or otherwise invalid, it should be
-        // suppressed.
-        return !HasBlockEllipsis();
-      }
-      return IsIStartSuppressed();
+    inline bool IsIStartSuppressed() { return mTextOverflowStyle->IsClip(); }
+    inline bool IsIEndSuppressed() {
+      return IsIStartSuppressed() && !HasBlockEllipsis();
     }
 
     /**

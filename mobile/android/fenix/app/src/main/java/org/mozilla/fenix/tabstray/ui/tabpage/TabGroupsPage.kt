@@ -28,7 +28,6 @@ import mozilla.components.ui.icons.R as iconsR
 import org.mozilla.fenix.R
 import org.mozilla.fenix.compose.BetaLabel
 import org.mozilla.fenix.home.collections.CollectionsMigrationPromoCard
-import org.mozilla.fenix.home.collections.CollectionsMigrationPromoSource
 import org.mozilla.fenix.tabstray.TabsTrayTestTag
 import org.mozilla.fenix.tabstray.data.TabGroupTheme
 import org.mozilla.fenix.tabstray.data.TabsTrayItem
@@ -69,7 +68,6 @@ internal fun TabGroupsPage(
 
             if (state.showCollectionsMigrationCard) {
                 CollectionsMigrationPromoCard(
-                    source = CollectionsMigrationPromoSource.TABS_TRAY,
                     modifier =
                         Modifier.padding(
                                 start = FirefoxTheme.layout.space.dynamic200,

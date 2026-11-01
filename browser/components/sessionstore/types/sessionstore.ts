@@ -21,8 +21,6 @@ type SavedTabGroupStateData =
 type SavedGroupTabStateData =
   import("../TabGroupState.sys.mjs").SavedGroupTabStateData;
 
-type SessionWriteStep = import("../SessionWriter.sys.mjs").SessionWriteStep;
-
 type SessionStoreLogger =
   typeof import("../SessionLogger.sys.mjs").sessionStoreLogger;
 type TabMetricsContext =

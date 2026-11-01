@@ -71,7 +71,7 @@ class RangeMap final {
    public:
     explicit PolicyInfo(const Range& aRange)
         : Range(aRange),
-          mPolicy(std::make_unique<VMSharingPolicyUnique<MMPolicyT>>()) {}
+          mPolicy(MakeUnique<VMSharingPolicyUnique<MMPolicyT>>()) {}
 
     PolicyInfo(const PolicyInfo&) = delete;
     PolicyInfo& operator=(const PolicyInfo&) = delete;

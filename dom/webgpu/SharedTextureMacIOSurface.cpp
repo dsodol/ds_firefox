@@ -43,7 +43,7 @@ UniquePtr<SharedTextureMacIOSurface> SharedTextureMacIOSurface::Create(
   MOZ_ASSERT(fencesHolderMap);
   fencesHolderMap->Register(fencesHolderId);
 
-  return std::make_unique<SharedTextureMacIOSurface>(
+  return MakeUnique<SharedTextureMacIOSurface>(
       aParent, aDeviceId, aWidth, aHeight, aFormat, aUsage, std::move(surface),
       fencesHolderId);
 }
@@ -100,33 +100,31 @@ SharedTextureMacIOSurface::ToSurfaceDescriptor() {
       Some(mFencesHolderId)));
 }
 
-FrontBufferSnapshot SharedTextureMacIOSurface::GetSnapshot() {
-  const size_t bytesPerRow = static_cast<size_t>(mWidth) * 4;
-  auto handle = ipc::shared_memory::Create(bytesPerRow * mHeight);
-  auto mapping = handle.Map();
-  if (!handle || !mapping) {
-    return {};
-  }
-
+void SharedTextureMacIOSurface::GetSnapshot(const ipc::Shmem& aDestShmem,
+                                            size_t aDestStride) {
   if (!mSurface->Lock()) {
     gfxCriticalNoteOnce << "Failed to lock MacIOSurface";
-    return {};
+    return;
   }
 
   const size_t src_stride = mSurface->GetBytesPerRow();
   uint8_t* src = (uint8_t*)mSurface->GetBaseAddress();
-  uint8_t* dst = mapping.DataAs<uint8_t>();
+  uint8_t* dst = aDestShmem.get<uint8_t>();
 
+  const size_t bytesPerRow = static_cast<size_t>(mWidth) * 4;
   MOZ_RELEASE_ASSERT(src_stride >= bytesPerRow);
+  MOZ_RELEASE_ASSERT(aDestStride >= bytesPerRow);
 
   for (uint32_t y = 0; y < mHeight; y++) {
     memcpy(dst, src, bytesPerRow);
+    if (bytesPerRow < aDestStride) {
+      memset(dst + bytesPerRow, 0, aDestStride - bytesPerRow);
+    }
     src += src_stride;
-    dst += bytesPerRow;
+    dst += aDestStride;
   }
 
   mSurface->Unlock();
-  return {std::move(handle), mWidth, mHeight, bytesPerRow};
 }
 
 }  // namespace mozilla::webgpu

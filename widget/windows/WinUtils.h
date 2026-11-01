@@ -32,7 +32,6 @@
 #endif
 #include "mozilla/EventForwards.h"
 #include "mozilla/LazyIdleThread.h"
-#include "mozilla/MozPromise.h"
 #include "mozilla/Printf.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/Vector.h"
@@ -704,10 +703,10 @@ class FaviconHelper {
   static const char kShortcutCacheDir[];
   static nsresult ObtainCachedIconFile(
       nsCOMPtr<nsIURI> aFaviconPageURI, nsString& aICOFilePath,
-      nsISerialEventTarget* aIOThread, bool aURLShortcut,
+      RefPtr<LazyIdleThread>& aIOThread, bool aURLShortcut,
       already_AddRefed<nsIRunnable> aRunnable = nullptr);
   static RefPtr<ObtainCachedIconFileAsyncPromise> ObtainCachedIconFileAsync(
-      nsCOMPtr<nsIURI> aFaviconPageURI, nsISerialEventTarget* aIOThread,
+      nsCOMPtr<nsIURI> aFaviconPageURI, RefPtr<LazyIdleThread>& aIOThread,
       IconCacheDir aCacheDir);
 
   static nsresult GetOutputIconPath(nsCOMPtr<nsIURI> aFaviconPageURI,

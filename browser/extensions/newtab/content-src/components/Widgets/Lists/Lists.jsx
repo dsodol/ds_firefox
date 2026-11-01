@@ -9,7 +9,7 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import { useSelector } from "react-redux";
+import { useSelector, batch } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import { WIDGET_REGISTRY, resolveWidgetSize } from "common/WidgetsRegistry.mjs";
 import { WidgetCelebration } from "../WidgetCelebration";
@@ -362,15 +362,17 @@ function Lists({
           tasks: [formattedTask, ...lists[selected].tasks],
         },
       };
-      dispatch(
-        ac.AlsoToMain({
-          type: at.WIDGETS_LISTS_UPDATE,
-          data: { lists: updatedLists },
-        })
-      );
-      recordUserAction(USER_ACTION_TYPES.TASK_CREATE, {
-        source: "widget",
-        legacy: true,
+      batch(() => {
+        dispatch(
+          ac.AlsoToMain({
+            type: at.WIDGETS_LISTS_UPDATE,
+            data: { lists: updatedLists },
+          })
+        );
+        recordUserAction(USER_ACTION_TYPES.TASK_CREATE, {
+          source: "widget",
+          legacy: true,
+        });
       });
       setNewTask("");
     }
@@ -430,19 +432,21 @@ function Lists({
       },
     };
 
-    dispatch(
-      ac.AlsoToMain({
-        type: at.WIDGETS_LISTS_UPDATE,
-        data: { lists: updatedLists },
-      })
-    );
-    if (userAction) {
-      recordUserAction(userAction, {
-        source: "widget",
-        legacy: true,
-        alsoToMain: true,
-      });
-    }
+    batch(() => {
+      dispatch(
+        ac.AlsoToMain({
+          type: at.WIDGETS_LISTS_UPDATE,
+          data: { lists: updatedLists },
+        })
+      );
+      if (userAction) {
+        recordUserAction(userAction, {
+          source: "widget",
+          legacy: true,
+          alsoToMain: true,
+        });
+      }
+    });
     handleListInteraction();
   }
 
@@ -457,15 +461,17 @@ function Lists({
         [type]: updatedTasks,
       },
     };
-    dispatch(
-      ac.AlsoToMain({
-        type: at.WIDGETS_LISTS_UPDATE,
-        data: { lists: updatedLists },
-      })
-    );
-    recordUserAction(USER_ACTION_TYPES.TASK_DELETE, {
-      source: "widget",
-      legacy: true,
+    batch(() => {
+      dispatch(
+        ac.AlsoToMain({
+          type: at.WIDGETS_LISTS_UPDATE,
+          data: { lists: updatedLists },
+        })
+      );
+      recordUserAction(USER_ACTION_TYPES.TASK_DELETE, {
+        source: "widget",
+        legacy: true,
+      });
     });
     handleListInteraction();
   }
@@ -509,21 +515,23 @@ function Lists({
         },
       };
 
-      dispatch(
-        ac.AlsoToMain({
-          type: at.WIDGETS_LISTS_UPDATE,
-          data: { lists: newLists },
-        })
-      );
-      dispatch(
-        ac.AlsoToMain({
-          type: at.WIDGETS_LISTS_CHANGE_SELECTED,
-          data: id,
-        })
-      );
-      recordUserAction(USER_ACTION_TYPES.LIST_CREATE, {
-        source: "widget",
-        legacy: true,
+      batch(() => {
+        dispatch(
+          ac.AlsoToMain({
+            type: at.WIDGETS_LISTS_UPDATE,
+            data: { lists: newLists },
+          })
+        );
+        dispatch(
+          ac.AlsoToMain({
+            type: at.WIDGETS_LISTS_CHANGE_SELECTED,
+            data: id,
+          })
+        );
+        recordUserAction(USER_ACTION_TYPES.LIST_CREATE, {
+          source: "widget",
+          legacy: true,
+        });
       });
       handleListInteraction();
       return;
@@ -537,15 +545,17 @@ function Lists({
           label: trimmedLabel,
         },
       };
-      dispatch(
-        ac.AlsoToMain({
-          type: at.WIDGETS_LISTS_UPDATE,
-          data: { lists: updatedLists },
-        })
-      );
-      recordUserAction(USER_ACTION_TYPES.LIST_EDIT, {
-        source: "widget",
-        legacy: true,
+      batch(() => {
+        dispatch(
+          ac.AlsoToMain({
+            type: at.WIDGETS_LISTS_UPDATE,
+            data: { lists: updatedLists },
+          })
+        );
+        recordUserAction(USER_ACTION_TYPES.LIST_EDIT, {
+          source: "widget",
+          legacy: true,
+        });
       });
       setIsEditing(false);
       handleListInteraction();
@@ -583,21 +593,23 @@ function Lists({
       }
       const listKeys = Object.keys(updatedLists);
       const key = listKeys[listKeys.length - 1];
-      dispatch(
-        ac.AlsoToMain({
-          type: at.WIDGETS_LISTS_UPDATE,
-          data: { lists: updatedLists },
-        })
-      );
-      dispatch(
-        ac.AlsoToMain({
-          type: at.WIDGETS_LISTS_CHANGE_SELECTED,
-          data: key,
-        })
-      );
-      recordUserAction(USER_ACTION_TYPES.LIST_DELETE, {
-        source: "widget",
-        legacy: true,
+      batch(() => {
+        dispatch(
+          ac.AlsoToMain({
+            type: at.WIDGETS_LISTS_UPDATE,
+            data: { lists: updatedLists },
+          })
+        );
+        dispatch(
+          ac.AlsoToMain({
+            type: at.WIDGETS_LISTS_CHANGE_SELECTED,
+            data: key,
+          })
+        );
+        recordUserAction(USER_ACTION_TYPES.LIST_DELETE, {
+          source: "widget",
+          legacy: true,
+        });
       });
     }
     handleListInteraction();
@@ -639,16 +651,18 @@ function Lists({
 
   const handleChangeSize = useCallback(
     size => {
-      dispatch(
-        ac.OnlyToMain({
-          type: at.SET_PREF,
-          data: { name: PREF_WIDGETS_LISTS_SIZE, value: size },
-        })
-      );
-      recordUserAction(USER_ACTION_TYPES.CHANGE_SIZE, {
-        source: "context_menu",
-        value: size,
-        size,
+      batch(() => {
+        dispatch(
+          ac.OnlyToMain({
+            type: at.SET_PREF,
+            data: { name: PREF_WIDGETS_LISTS_SIZE, value: size },
+          })
+        );
+        recordUserAction(USER_ACTION_TYPES.CHANGE_SIZE, {
+          source: "context_menu",
+          value: size,
+          size,
+        });
       });
     },
     [dispatch, recordUserAction]

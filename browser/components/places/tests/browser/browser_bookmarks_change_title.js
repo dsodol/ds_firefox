@@ -112,11 +112,10 @@ add_task(async function test_change_title_from_Toolbar() {
 
       let editBookmarkDialogTitle =
         dialogWin.document.getElementById("titleText");
+      let bundle = dialogWin.document.getElementById("stringBundle");
 
       Assert.equal(
-        await dialogWin.document.l10n.formatValue(
-          "bookmark-properties-title-edit-bookmark"
-        ),
+        bundle.getString("dialogTitleEditBookmark2"),
         editBookmarkDialogTitle.textContent
       );
 

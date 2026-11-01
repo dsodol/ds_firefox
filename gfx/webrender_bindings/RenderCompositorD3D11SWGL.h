@@ -41,8 +41,6 @@ class RenderCompositorD3D11SWGL : public RenderCompositorLayersSWGL {
 
   bool BeginFrame() override;
 
-  bool SurfaceOriginIsTopLeft() override { return true; }
-
   bool MaybeReadback(const gfx::IntSize& aReadbackSize,
                      const wr::ImageFormat& aReadbackFormat,
                      const Range<uint8_t>& aReadbackBuffer,

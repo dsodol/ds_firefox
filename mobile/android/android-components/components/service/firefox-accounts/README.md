@@ -242,7 +242,7 @@ Once the configuration is available and an account instance was created, the aut
 
 ```kotlin
 launch {
-    val url = accountManager.beginAuthentication(service = "sync", entrypoint = entrypoint)
+    val url = accountManager.beginAuthentication(entrypoint = entrypoint)
     url?.let { openWebView(it) }
 }
 ```

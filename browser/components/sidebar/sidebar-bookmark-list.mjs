@@ -192,10 +192,6 @@ export class SidebarBookmarkList extends SidebarTabList {
   /**
    * Renders a bookmark item as a row, folder, or separator.
    *
-   * Folders deliberately have no explicit aria-expanded: the summary's expanded
-   * state comes from its details element, and an attribute updated by a later
-   * render would briefly contradict it when a folder collapses.
-   *
    * @param {SidebarBookmarkItem} tabItem
    * @param {number} i
    * @returns {TemplateResult}
@@ -225,11 +221,8 @@ export class SidebarBookmarkList extends SidebarTabList {
       if (!tabItem.children.length) {
         return html`<div
           class="bookmark-folder-label"
-          role="treeitem"
+          role="listitem"
           aria-label=${title}
-          aria-level=${this.level}
-          aria-posinset=${i + 1}
-          aria-setsize=${this.tabItems.length}
           data-folder-kind=${ifDefined(folderKind)}
           tabindex=${tabIndex}
           draggable="true"
@@ -256,10 +249,6 @@ export class SidebarBookmarkList extends SidebarTabList {
           <summary
             draggable="true"
             part="summary"
-            role="treeitem"
-            aria-level=${this.level}
-            aria-posinset=${i + 1}
-            aria-setsize=${this.tabItems.length}
             tabindex=${tabIndex}
             data-guid=${tabItem.guid}
             @auxclick=${e => this.#onFolderAuxClick(e, tabItem.guid)}
@@ -274,7 +263,6 @@ export class SidebarBookmarkList extends SidebarTabList {
           </summary>
           <div id="content">
             <sidebar-bookmark-list
-              .level=${this.level + 1}
               maxTabsLength="-1"
               secondaryActionClass="delete-button"
               .tabItems=${tabItem.children}
@@ -303,10 +291,7 @@ export class SidebarBookmarkList extends SidebarTabList {
         .indicators=${tabItem.indicators}
         .primaryL10nArgs=${ifDefined(tabItem.primaryL10nArgs)}
         .primaryL10nId=${tabItem.primaryL10nId}
-        role="treeitem"
-        aria-level=${this.level}
-        aria-posinset=${i + 1}
-        aria-setsize=${this.tabItems.length}
+        role="listitem"
         .searchQuery=${ifDefined(this.searchQuery)}
         .secondaryActionClass=${ifDefined(
           this.secondaryActionClass ?? tabItem.secondaryActionClass
@@ -356,7 +341,7 @@ export class SidebarBookmarkList extends SidebarTabList {
       <div
         id="fxview-tab-list"
         class="fxview-tab-list"
-        role=${this.level > 1 ? "group" : "tree"}
+        role="list"
         @keydown=${this.handleFocusElementInRow}
         @dragstart=${this.#onDragStart}
         @dragover=${this.#onDragOver}

@@ -56,7 +56,7 @@ RtpParameters CreateRtpParametersWithOneEncoding() {
   return parameters;
 }
 
-RtpParameters CreateRtpParametersWithEncodings(const StreamParams& sp) {
+RtpParameters CreateRtpParametersWithEncodings(StreamParams sp) {
   std::vector<uint32_t> primary_ssrcs;
   sp.GetPrimarySsrcs(&primary_ssrcs);
   size_t encoding_count = primary_ssrcs.size();
@@ -73,7 +73,7 @@ RtpParameters CreateRtpParametersWithEncodings(const StreamParams& sp) {
   }
 
   RtpParameters parameters;
-  parameters.encodings = std::move(encodings);
+  parameters.encodings = encodings;
   parameters.rtcp.cname = sp.cname;
   return parameters;
 }
@@ -270,8 +270,7 @@ RTCError CheckRtpParametersValues(const RtpParameters& rtp_parameters,
     }
   }
 
-  return CheckScalabilityModeValues(rtp_parameters, send_codecs,
-                                    std::move(send_codec));
+  return CheckScalabilityModeValues(rtp_parameters, send_codecs, send_codec);
 }
 
 RTCError CheckRtpParametersInvalidModificationAndValues(
@@ -322,8 +321,8 @@ RTCError CheckRtpParametersInvalidModificationAndValues(
         << "Attempted to set RtpParameters with modified SSRC");
   }
 
-  return CheckRtpParametersValues(rtp_parameters, send_codecs,
-                                  std::move(send_codec), field_trials);
+  return CheckRtpParametersValues(rtp_parameters, send_codecs, send_codec,
+                                  field_trials);
 }
 
 CompositeMediaEngine::CompositeMediaEngine(

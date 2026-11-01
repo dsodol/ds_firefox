@@ -76,7 +76,7 @@ class SwapChainD3D : angle::NonCopyable
     const GLenum mDepthBufferFormat;
 
     HANDLE mShareHandle;
-    angle::ComPtr<IUnknown> mD3DTexture;
+    IUnknown *mD3DTexture;
 };
 
 }  // namespace rx

@@ -13,6 +13,10 @@ add_task(async function test_defaultdownload() {
     },
   });
 
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.settings-redesign.enabled", true]],
+  });
+
   await BrowserTestUtils.withNewTab(
     "about:preferences#downloads",
     async browser => {
@@ -50,6 +54,10 @@ add_task(async function test_download() {
     policies: {
       DownloadDirectory: "${home}/Documents",
     },
+  });
+
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.settings-redesign.enabled", true]],
   });
 
   await BrowserTestUtils.withNewTab(

@@ -57,14 +57,6 @@ version = "1.4.2"
 features = ["derive"]
 optional = true
 
-[dependencies.bytemuck]
-version = "1.22"
-features = [
-    "extern_crate_alloc",
-    "min_const_generics",
-    "derive",
-]
-
 [dependencies.hashbrown]
 version = "0.17"
 features = [
@@ -90,9 +82,8 @@ features = [
 optional = true
 default-features = false
 
-[dev-dependencies.strum]
-version = "0.28"
-features = ["derive"]
+[dependencies.thiserror]
+version = "2.0.12"
 default-features = false
 
 [lints.clippy]

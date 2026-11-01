@@ -72,7 +72,8 @@ perf arguments:
                         docs for mach try perf for examples of how to build your own, along with the interface.
   --comparator-args [ARG=VALUE ...]
                         Arguments provided to the base, and new revision setup stages of the comparator.
-  --variants [ ...]     Select variants to display in the selector from: bytecode-cached, live-sites, profiling, swr
+  --variants [ ...]     Select variants to display in the selector from: fission, bytecode-cached, live-sites, profiling,
+                        swr
   --platforms [ ...]    Select specific platforms to target. Available platforms: android-a55, android, windows, linux,
                         macosx, desktop
   --apps [ ...]         Select specific applications to target from: firefox, chrome, geckoview, fenix, chrome-m, safari,
@@ -256,7 +257,7 @@ Chrome tests are disabled by default as they are often unneeded and waste our li
 
 ## Variants
 
-If you are looking for any variants (e.g. bytecode-cached, live-sites), use the `--variants` options like so `./mach try perf --variants live-sites`. This will select all possible categories that could have live-sites tests.
+If you are looking for any variants (e.g. no-fission, bytecode-cached, live-sites), use the `--variants` options like so `./mach try perf --variants live-sites`. This will select all possible categories that could have live-sites tests.
 
 ```{image} ./variants-try-perf.png
 :align: center

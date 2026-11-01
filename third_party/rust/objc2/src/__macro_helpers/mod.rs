@@ -3,7 +3,6 @@ pub use core::cell::UnsafeCell;
 pub use core::cmp::{Eq, PartialEq};
 pub use core::convert::AsRef;
 pub use core::default::Default;
-pub use core::ffi::CStr;
 pub use core::fmt;
 pub use core::hash::{Hash, Hasher};
 pub use core::marker::{PhantomData, Sized};
@@ -14,9 +13,6 @@ pub use core::primitive::{bool, isize, str, u8};
 pub use core::{compile_error, concat, env, module_path, panic, stringify};
 // TODO: Use `core::cell::LazyCell`
 pub use std::sync::Once;
-
-#[cfg(feature = "unstable-darwin-objc")]
-pub use core::os::darwin::objc as core_darwin_objc;
 
 mod cache;
 mod class;
@@ -39,8 +35,8 @@ pub use self::class::{DoesNotImplDrop, MainThreadOnlyDoesNotImplSendSync, ValidT
 pub use self::common_selectors::{alloc_sel, dealloc_sel, init_sel, new_sel};
 pub use self::convert::{ConvertArgument, ConvertArguments, ConvertReturn, TupleExtender};
 pub use self::define_class::{
-    class_c_name, define_class, ClassBuilderHelper, ClassProtocolMethodsBuilder,
-    MaybeOptionRetained, MessageReceiveRetained, RetainedReturnValue, ThreadKindAutoTraits,
+    ClassBuilderHelper, ClassProtocolMethodsBuilder, MaybeOptionRetained, MessageReceiveRetained,
+    RetainedReturnValue, ThreadKindAutoTraits,
 };
 pub use self::defined_ivars::DefinedIvarsHelper;
 pub use self::image_info::ImageInfo;

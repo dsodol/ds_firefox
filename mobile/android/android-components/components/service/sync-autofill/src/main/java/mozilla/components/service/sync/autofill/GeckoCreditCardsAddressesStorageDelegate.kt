@@ -7,12 +7,15 @@ package mozilla.components.service.sync.autofill
 import mozilla.components.concept.storage.Address
 import mozilla.components.concept.storage.CreditCard
 import mozilla.components.concept.storage.CreditCardEntry
+import mozilla.components.concept.storage.CreditCardNumber
 import mozilla.components.concept.storage.CreditCardValidationDelegate
 import mozilla.components.concept.storage.CreditCardsAddressesStorage
 import mozilla.components.concept.storage.CreditCardsAddressesStorageDelegate
+import mozilla.components.concept.storage.ManagedKey
 import mozilla.components.concept.storage.NewCreditCardFields
 import mozilla.components.concept.storage.UpdatableAddressFields
 import mozilla.components.concept.storage.UpdatableCreditCardFields
+import mozilla.components.support.ktx.kotlin.last4Digits
 
 /**
  * [CreditCardsAddressesStorageDelegate] implementation.
@@ -28,6 +31,19 @@ class GeckoCreditCardsAddressesStorageDelegate(
     private val isCreditCardAutofillEnabled: () -> Boolean = { false },
     private val isAddressAutofillEnabled: () -> Boolean = { false },
 ) : CreditCardsAddressesStorageDelegate {
+
+    override suspend fun getOrGenerateKey(): ManagedKey {
+        val crypto = storage.value.getCreditCardCrypto()
+        return crypto.getOrGenerateKey()
+    }
+
+    override suspend fun decrypt(
+        key: ManagedKey,
+        encryptedCardNumber: CreditCardNumber.Encrypted,
+    ): CreditCardNumber.Plaintext? {
+        val crypto = storage.value.getCreditCardCrypto()
+        return crypto.decrypt(key, encryptedCardNumber)
+    }
 
     override suspend fun onAddressesFetch(): List<Address> =
         if (!isAddressAutofillEnabled()) {
@@ -72,7 +88,8 @@ class GeckoCreditCardsAddressesStorageDelegate(
                 storage.value.addCreditCard(
                     NewCreditCardFields(
                         billingName = creditCard.name,
-                        cardNumber = creditCard.number,
+                        plaintextCardNumber = CreditCardNumber.Plaintext(creditCard.number),
+                        cardNumberLast4 = creditCard.number.last4Digits(),
                         expiryMonth = creditCard.expiryMonth.toLong(),
                         expiryYear = creditCard.expiryYear.toLong(),
                         cardType = creditCard.cardType,
@@ -85,7 +102,8 @@ class GeckoCreditCardsAddressesStorageDelegate(
                     creditCardFields =
                         UpdatableCreditCardFields(
                             billingName = creditCard.name,
-                            cardNumber = creditCard.number,
+                            cardNumber = CreditCardNumber.Plaintext(creditCard.number),
+                            cardNumberLast4 = creditCard.number.last4Digits(),
                             expiryMonth = creditCard.expiryMonth.toLong(),
                             expiryYear = creditCard.expiryYear.toLong(),
                             cardType = creditCard.cardType,

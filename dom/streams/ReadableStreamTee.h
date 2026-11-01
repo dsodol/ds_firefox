@@ -28,7 +28,8 @@ class ReadableStreamDefaultTeeSourceAlgorithms final
       ReadableStreamDefaultTeeSourceAlgorithms, UnderlyingSourceAlgorithmsBase)
 
   ReadableStreamDefaultTeeSourceAlgorithms(TeeState* aTeeState,
-                                           TeeBranch aBranch);
+                                           TeeBranch aBranch)
+      : mTeeState(aTeeState), mBranch(aBranch) {}
 
   MOZ_CAN_RUN_SCRIPT void StartCallback(
       JSContext* aCx, ReadableStreamControllerBase& aController,
@@ -45,7 +46,7 @@ class ReadableStreamDefaultTeeSourceAlgorithms final
       ErrorResult& aRv) override;
 
  protected:
-  ~ReadableStreamDefaultTeeSourceAlgorithms();
+  ~ReadableStreamDefaultTeeSourceAlgorithms() override = default;
 
  private:
   // Virtually const, but is cycle collected
@@ -62,7 +63,8 @@ struct ReadableStreamDefaultTeeReadRequest final : public ReadRequest {
 
   RefPtr<TeeState> mTeeState;
 
-  explicit ReadableStreamDefaultTeeReadRequest(TeeState* aTeeState);
+  explicit ReadableStreamDefaultTeeReadRequest(TeeState* aTeeState)
+      : mTeeState(aTeeState) {}
 
   void ChunkSteps(JSContext* aCx, JS::Handle<JS::Value> aChunk,
                   ErrorResult& aRv) override;

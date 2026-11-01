@@ -9,7 +9,6 @@ stylelint:
         - 'package.json'
         - '**/.stylelintrc.js'
         - '.stylelintignore'
-        - 'stylelint-rollouts.config.js'
         - 'tools/lint/stylelint/**'
     type: external
     payload: stylelint:lint

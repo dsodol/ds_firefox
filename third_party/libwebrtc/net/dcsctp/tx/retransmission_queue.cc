@@ -282,7 +282,7 @@ bool RetransmissionQueue::HandleSack(Timestamp now, const SackChunk& sack) {
   MaybeExitFastRecovery(cumulative_tsn_ack);
 
   OutstandingData::AckInfo ack_info = outstanding_data_.HandleSack(
-      now, cumulative_tsn_ack, sack.gap_ack_blocks(), is_in_fast_recovery());
+      cumulative_tsn_ack, sack.gap_ack_blocks(), is_in_fast_recovery());
 
   // Add lifecycle events for delivered messages.
   for (LifecycleId lifecycle_id : ack_info.acked_lifecycle_ids) {
@@ -356,7 +356,7 @@ void RetransmissionQueue::UpdateRTT(Timestamp now,
   }
 }
 
-void RetransmissionQueue::HandleT3RtxTimerExpiry(Timestamp now) {
+void RetransmissionQueue::HandleT3RtxTimerExpiry() {
   size_t old_cwnd = cwnd_;
   size_t old_unacked_packet_bytes = unacked_packet_bytes();
   // https://tools.ietf.org/html/rfc4960#section-6.3.3
@@ -385,7 +385,7 @@ void RetransmissionQueue::HandleT3RtxTimerExpiry(Timestamp now) {
   // T3-rtx timer expired but did not fit in one MTU (rule E3 above) should be
   // marked for retransmission and sent as soon as cwnd allows (normally, when a
   // SACK arrives)."
-  outstanding_data_.NackAll(now);
+  outstanding_data_.NackAll();
 
   // https://tools.ietf.org/html/rfc4960#section-6.3.3
   // "Start the retransmission timer T3-rtx on the destination address
@@ -401,15 +401,14 @@ void RetransmissionQueue::HandleT3RtxTimerExpiry(Timestamp now) {
 }
 
 std::vector<std::pair<TSN, Data>>
-RetransmissionQueue::GetChunksForFastRetransmit(Timestamp now,
-                                                size_t bytes_in_packet) {
+RetransmissionQueue::GetChunksForFastRetransmit(size_t bytes_in_packet) {
   RTC_DCHECK(outstanding_data_.has_data_to_be_fast_retransmitted());
   RTC_DCHECK(IsDivisibleBy4(bytes_in_packet));
   std::vector<std::pair<TSN, Data>> to_be_sent;
   size_t old_unacked_packet_bytes = unacked_packet_bytes();
 
   to_be_sent =
-      outstanding_data_.GetChunksToBeFastRetransmitted(now, bytes_in_packet);
+      outstanding_data_.GetChunksToBeFastRetransmitted(bytes_in_packet);
   RTC_DCHECK(!to_be_sent.empty());
 
   // https://tools.ietf.org/html/rfc4960#section-7.2.4
@@ -481,7 +480,7 @@ std::vector<std::pair<TSN, Data>> RetransmissionQueue::GetChunksToSend(
                                      max_packet_bytes_allowed_by_rwnd),
                             bytes_remaining_in_packet));
 
-  to_be_sent = outstanding_data_.GetChunksToBeRetransmitted(now, max_bytes);
+  to_be_sent = outstanding_data_.GetChunksToBeRetransmitted(max_bytes);
 
   size_t bytes_retransmitted = absl::c_accumulate(
       to_be_sent, 0, [&](size_t r, const std::pair<TSN, Data>& d) {

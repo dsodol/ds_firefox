@@ -4,8 +4,6 @@
 
 #include "GMPTimerParent.h"
 
-#include <memory>
-
 #include "GMPLog.h"
 #include "nsComponentManagerUtils.h"
 
@@ -35,7 +33,7 @@ mozilla::ipc::IPCResult GMPTimerParent::RecvSetTimer(
   }
 
   nsresult rv;
-  auto ctx = std::make_unique<Context>();
+  UniquePtr<Context> ctx(new Context());
 
   rv = NS_NewTimerWithFuncCallback(
       getter_AddRefs(ctx->mTimer), &GMPTimerParent::GMPTimerExpired, ctx.get(),

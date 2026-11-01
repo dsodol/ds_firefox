@@ -5,6 +5,7 @@
 package mozilla.components.feature.recentlyclosed
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import mozilla.components.browser.state.action.BrowserAction
@@ -25,7 +26,7 @@ import mozilla.components.lib.state.Store
 class RecentlyClosedMiddleware(
     private val storage: Lazy<Storage>,
     private val maxSavedTabs: Int,
-    private val scope: CoroutineScope,
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
 ) : Middleware<BrowserState, BrowserAction> {
 
     override fun invoke(

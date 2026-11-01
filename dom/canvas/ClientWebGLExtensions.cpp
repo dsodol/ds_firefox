@@ -6,7 +6,7 @@
 
 namespace mozilla {
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(ClientWebGLExtensionBase, mContext)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(ClientWebGLExtensionBase)
 
 DEFINE_WEBGL_EXTENSION_GOOP(ANGLE_instanced_arrays,
                             WebGLExtensionInstancedArrays)

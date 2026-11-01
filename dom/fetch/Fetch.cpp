@@ -517,7 +517,7 @@ already_AddRefed<Promise> FetchRequest(nsIGlobalObject* aGlobal,
       internalRequest->SetInterceptionContentPolicyType(
           inputInReq->InterceptionContentPolicyType());
       internalRequest->SetInterceptionTriggeringPrincipalInfo(
-          std::make_unique<mozilla::ipc::PrincipalInfo>(
+          MakeUnique<mozilla::ipc::PrincipalInfo>(
               *(inputInReq->GetInterceptionTriggeringPrincipalInfo().get())));
       if (!inputInReq->InterceptionRedirectChain().IsEmpty()) {
         internalRequest->SetInterceptionRedirectChain(
@@ -1866,8 +1866,7 @@ EmptyBody::EmptyBody(nsIGlobalObject* aGlobal,
       mMixedCaseMimeType(aMixedCaseMimeType),
       mBodyStream(std::move(aBodyStream)) {
   if (aPrincipalInfo) {
-    mPrincipalInfo =
-        std::make_unique<mozilla::ipc::PrincipalInfo>(*aPrincipalInfo);
+    mPrincipalInfo = MakeUnique<mozilla::ipc::PrincipalInfo>(*aPrincipalInfo);
   }
 }
 

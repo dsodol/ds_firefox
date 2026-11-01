@@ -2,9 +2,8 @@ import pytest
 
 URL = "https://milkbarstore.com/products/assorted-cookie-tin"
 ADD_TO_CART_CSS = "#ProductSubmitButton-pdp__main"
-VIEW_CART_CSS = ".show-cart[data-item-count='1']"
-INCREASE_QUANTITY_CSS = "quantity-input [name=plus]"
-QUANTITY_WRAPPER_CSS = "quantity-input"
+INCREASE_QUANTITY_CSS = ".quantity-wrapper button.change-quantity.inc"
+QUANTITY_WRAPPER_CSS = ".quantity-wrapper"
 
 
 async def do_cart_quantities_appear(client):
@@ -13,17 +12,31 @@ async def do_cart_quantities_appear(client):
     client.hide_elements("[id^=alia-root]")
     await client.navigate(URL, wait="none")
     client.await_css(ADD_TO_CART_CSS, is_displayed=True).click()
-    client.soft_click(client.await_css(VIEW_CART_CSS, is_displayed=True, timeout=3))
-    client.await_css(INCREASE_QUANTITY_CSS, is_displayed=True)
+    inc = client.await_css(INCREASE_QUANTITY_CSS, is_displayed=True)
     await client.stall(1)
     pre = client.await_css(QUANTITY_WRAPPER_CSS).screenshot()
-    client.await_css(INCREASE_QUANTITY_CSS, is_displayed=True).click()
+    inc.click()
     await client.stall(1)
     post = client.await_css(QUANTITY_WRAPPER_CSS).screenshot()
     return pre != post
 
 
+@pytest.mark.skip_platforms("android")
+@pytest.mark.asyncio
+@pytest.mark.with_interventions
+async def test_enabled(client):
+    assert await do_cart_quantities_appear(client)
+
+
+@pytest.mark.skip_platforms("android")
 @pytest.mark.asyncio
 @pytest.mark.without_interventions
-async def test_regression(client):
+async def test_disabled(client):
+    assert not await do_cart_quantities_appear(client)
+
+
+@pytest.mark.only_platforms("android")
+@pytest.mark.asyncio
+@pytest.mark.without_interventions
+async def test_works_on_android(client):
     assert await do_cart_quantities_appear(client)

@@ -2070,13 +2070,6 @@ class MacroAssembler : public MacroAssemblerSpecific {
   inline void branchTestNull(Condition cond, const ValueOperand& value,
                              Label* label) PER_SHARED_ARCH;
 
-  // Branch if the value is null or undefined (Equal) or neither (NotEqual).
-  inline void branchTestNullOrUndefined(Condition cond, Register tag,
-                                        Label* label) PER_SHARED_ARCH;
-  inline void branchTestNullOrUndefined(Condition cond,
-                                        const ValueOperand& value,
-                                        Label* label) PER_ARCH;
-
   // Clobbers the ScratchReg on x64.
   inline void branchTestObject(Condition cond, const Address& address,
                                Label* label) PER_SHARED_ARCH;
@@ -4045,42 +4038,38 @@ class MacroAssembler : public MacroAssemblerSpecific {
       DEFINED_ON(riscv64);
 
   // `ptr` will always be updated.
-  FaultingCodeRange wasmUnalignedLoad(const wasm::MemoryAccessDesc& access,
-                                      Register memoryBase, Register ptr,
-                                      Register ptrScratch, Register output,
-                                      Register tmp) DEFINED_ON(mips64);
+  void wasmUnalignedLoad(const wasm::MemoryAccessDesc& access,
+                         Register memoryBase, Register ptr, Register ptrScratch,
+                         Register output, Register tmp) DEFINED_ON(mips64);
 
   // MIPS: `ptr` will always be updated.
-  FaultingCodeRange wasmUnalignedLoadFP(const wasm::MemoryAccessDesc& access,
-                                        Register memoryBase, Register ptr,
-                                        Register ptrScratch,
-                                        FloatRegister output, Register tmp1)
+  void wasmUnalignedLoadFP(const wasm::MemoryAccessDesc& access,
+                           Register memoryBase, Register ptr,
+                           Register ptrScratch, FloatRegister output,
+                           Register tmp1) DEFINED_ON(mips64);
+
+  // `ptr` will always be updated.
+  void wasmUnalignedLoadI64(const wasm::MemoryAccessDesc& access,
+                            Register memoryBase, Register ptr,
+                            Register ptrScratch, Register64 output,
+                            Register tmp) DEFINED_ON(mips64);
+
+  // MIPS: `ptr` will always be updated.
+  void wasmUnalignedStore(const wasm::MemoryAccessDesc& access, Register value,
+                          Register memoryBase, Register ptr,
+                          Register ptrScratch, Register tmp) DEFINED_ON(mips64);
+
+  // `ptr` will always be updated.
+  void wasmUnalignedStoreFP(const wasm::MemoryAccessDesc& access,
+                            FloatRegister floatValue, Register memoryBase,
+                            Register ptr, Register ptrScratch, Register tmp)
       DEFINED_ON(mips64);
 
   // `ptr` will always be updated.
-  FaultingCodeRange wasmUnalignedLoadI64(const wasm::MemoryAccessDesc& access,
-                                         Register memoryBase, Register ptr,
-                                         Register ptrScratch, Register64 output,
-                                         Register tmp) DEFINED_ON(mips64);
-
-  // MIPS: `ptr` will always be updated.
-  FaultingCodeRange wasmUnalignedStore(const wasm::MemoryAccessDesc& access,
-                                       Register value, Register memoryBase,
-                                       Register ptr, Register ptrScratch,
-                                       Register tmp) DEFINED_ON(mips64);
-
-  // `ptr` will always be updated.
-  FaultingCodeRange wasmUnalignedStoreFP(const wasm::MemoryAccessDesc& access,
-                                         FloatRegister floatValue,
-                                         Register memoryBase, Register ptr,
-                                         Register ptrScratch, Register tmp)
+  void wasmUnalignedStoreI64(const wasm::MemoryAccessDesc& access,
+                             Register64 value, Register memoryBase,
+                             Register ptr, Register ptrScratch, Register tmp)
       DEFINED_ON(mips64);
-
-  // `ptr` will always be updated.
-  FaultingCodeRange wasmUnalignedStoreI64(const wasm::MemoryAccessDesc& access,
-                                          Register64 value, Register memoryBase,
-                                          Register ptr, Register ptrScratch,
-                                          Register tmp) DEFINED_ON(mips64);
 
   // wasm specific methods, used in both the wasm baseline compiler and ion.
 

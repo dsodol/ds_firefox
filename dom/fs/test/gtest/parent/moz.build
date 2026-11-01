@@ -20,8 +20,3 @@ LOCAL_INCLUDES += [
     "/dom/fs/parent",
     "/dom/fs/test/gtest",
 ]
-
-SOURCE_HEADERS += [
-    "FileSystemParentTest.h",
-    "FileSystemParentTestHelpers.h",
-]

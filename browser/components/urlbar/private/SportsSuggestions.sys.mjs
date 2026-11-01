@@ -205,7 +205,7 @@ export class SportsSuggestions extends RealtimeSuggestProvider {
     });
 
     // Compute the date chiclet components.
-    let partsArray = new Intl.DateTimeFormat(lazy.UrlbarShared.locale(), {
+    let partsArray = new Intl.DateTimeFormat(undefined, {
       month: "short",
       day: "numeric",
       timeZone: zonedNow.timeZoneId,

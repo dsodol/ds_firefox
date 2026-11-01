@@ -34,7 +34,7 @@ class NativeWindow11Win32 : public NativeWindow11
                             UINT width,
                             UINT height,
                             UINT samples,
-                            angle::ComPtr<IDXGISwapChain> *swapChain) override;
+                            IDXGISwapChain **swapChain) override;
 
     void commitChange() override;
 
@@ -43,9 +43,9 @@ class NativeWindow11Win32 : public NativeWindow11
   private:
     bool mDirectComposition;
     bool mHasAlpha;
-    angle::ComPtr<IDCompositionDevice> mDevice;
-    angle::ComPtr<IDCompositionTarget> mCompositionTarget;
-    angle::ComPtr<IDCompositionVisual> mVisual;
+    IDCompositionDevice *mDevice;
+    IDCompositionTarget *mCompositionTarget;
+    IDCompositionVisual *mVisual;
 };
 
 }  // namespace rx

@@ -270,7 +270,7 @@ Promise* FontFace::GetLoaded(ErrorResult& aRv) {
 }
 
 void FontFace::MaybeResolve() {
-  gfxFontUtils::AssertSafeThreadOrServoFFILocked();
+  gfxFontUtils::AssertSafeThreadOrServoFontMetricsLocked();
   MOZ_ASSERT(!NS_IsMainThread() || nsContentUtils::IsSafeToRunScript());
   MOZ_ASSERT(!gfxFontUtils::CurrentServoStyleSet());
 
@@ -281,7 +281,7 @@ void FontFace::MaybeResolve() {
 
 void FontFace::MaybeReject(FontFaceLoadedRejectReason aReason,
                            nsCString&& aMessage) {
-  gfxFontUtils::AssertSafeThreadOrServoFFILocked();
+  gfxFontUtils::AssertSafeThreadOrServoFontMetricsLocked();
   MOZ_ASSERT(!NS_IsMainThread() || nsContentUtils::IsSafeToRunScript());
   MOZ_ASSERT(!gfxFontUtils::CurrentServoStyleSet());
 
@@ -295,7 +295,7 @@ void FontFace::MaybeReject(FontFaceLoadedRejectReason aReason,
         break;
     }
   } else if (!mLoadedRejection) {
-    mLoadedRejection = std::make_unique<FontFaceLoadedRejection>(
+    mLoadedRejection = MakeUnique<FontFaceLoadedRejection>(
         FontFaceLoadedRejection{aReason, std::move(aMessage)});
   }
 }

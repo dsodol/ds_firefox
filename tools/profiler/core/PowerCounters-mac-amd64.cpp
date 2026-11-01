@@ -401,7 +401,7 @@ class RAPL {
 PowerCounters::PowerCounters() {
   // RAPL values are global, so only sample them on the parent.
   if (XRE_IsParentProcess()) {
-    mRapl = std::make_unique<RAPL>(mCounters);
+    mRapl = mozilla::MakeUnique<RAPL>(mCounters);
   }
 }
 

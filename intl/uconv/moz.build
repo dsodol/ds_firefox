@@ -28,8 +28,3 @@ XPCOM_MANIFESTS += [
 ]
 
 FINAL_LIBRARY = "xul"
-
-SOURCE_HEADERS += [
-    "nsConverterOutputStream.h",
-    "nsScriptableUConv.h",
-]

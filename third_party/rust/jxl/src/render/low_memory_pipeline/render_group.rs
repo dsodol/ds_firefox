@@ -96,6 +96,7 @@ impl<'a> BufferFiller<'a> {
             ty,
             downsample: (dx, dy),
         } = rp.shared.channel_info[0][c];
+        let ty = ty.expect("Channel info should be populated at this point");
 
         let scaled_y_border = rp.input_border_pixels[c].1 << dy;
         let stage_vy_start = vyrange.start as isize - scaled_y_border as isize;
@@ -423,13 +424,16 @@ impl LowMemoryRenderPipeline {
                     Stage::Save(s) => {
                         // Find buffers for channels that will be saved.
                         // Channel ordering is handled in stage_input_buffer_index construction.
-                        let input_data: ChannelVec<_> = self.stage_input_buffer_index[i]
+                        let mut input_data: ChannelVec<_> = self.stage_input_buffer_index[i]
                             .iter()
                             .map(|(si, ci)| &data.row_buffers[*si][*ci])
                             .collect();
+                        // Append opaque alpha buffer if fill_opaque_alpha is set
+                        if let Some(ref alpha_buf) = self.opaque_alpha_buffers[i] {
+                            input_data.push(alpha_buf);
+                        }
                         s.save_lowmem(
                             &input_data,
-                            data.save_scratch.as_mut().unwrap(),
                             &mut *buffers,
                             (xsize >> dx, num_rows >> dy),
                             y,
@@ -445,16 +449,10 @@ impl LowMemoryRenderPipeline {
                     Stage::InOut(s) => {
                         let borderx = s.border().0 as usize;
                         let bordery = s.border().1 as isize;
-                        let prev = std::mem::replace(&mut previous_call_was_previous_row[i], true);
-                        let iy_range = if prev {
-                            bordery..=bordery
-                        } else {
-                            -bordery..=bordery
-                        };
                         // Apply x padding.
                         if start_of_row && borderx != 0 {
                             for (si, ci) in self.stage_input_buffer_index[i].iter() {
-                                for iy in iy_range.clone() {
+                                for iy in -bordery..=bordery {
                                     let y = mirror(y as isize + iy, shifted_ysize);
                                     apply_x_padding(
                                         s.input_type(),
@@ -469,7 +467,7 @@ impl LowMemoryRenderPipeline {
                         }
                         if end_of_row && borderx != 0 {
                             for (si, ci) in self.stage_input_buffer_index[i].iter() {
-                                for iy in iy_range.clone() {
+                                for iy in -bordery..=bordery {
                                     let y = mirror(y as isize + iy, shifted_ysize);
                                     apply_x_padding(
                                         s.input_type(),
@@ -488,6 +486,7 @@ impl LowMemoryRenderPipeline {
                             .iter()
                             .map(|(si, ci)| &inb[*si][*ci])
                             .collect();
+                        let prev = std::mem::replace(&mut previous_call_was_previous_row[i], true);
                         s.run_stage_on(
                             ExtraInfo {
                                 xsize: shifted_xsize,
@@ -569,13 +568,16 @@ impl LowMemoryRenderPipeline {
                     Stage::Save(s) => {
                         // Find buffers for channels that will be saved.
                         // Channel ordering is handled in stage_input_buffer_index construction.
-                        let input_data: ChannelVec<_> = self.stage_input_buffer_index[i]
+                        let mut input_data: ChannelVec<_> = self.stage_input_buffer_index[i]
                             .iter()
                             .map(|(si, ci)| &data.row_buffers[*si][*ci])
                             .collect();
+                        // Append opaque alpha buffer if fill_opaque_alpha is set
+                        if let Some(ref alpha_buf) = self.opaque_alpha_buffers[i] {
+                            input_data.push(alpha_buf);
+                        }
                         s.save_lowmem(
                             &input_data,
-                            data.save_scratch.as_mut().unwrap(),
                             &mut *buffers,
                             (xsize, ysize),
                             y,

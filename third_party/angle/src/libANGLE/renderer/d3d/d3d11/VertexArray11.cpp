@@ -14,7 +14,6 @@
 #include "libANGLE/renderer/d3d/IndexBuffer.h"
 #include "libANGLE/renderer/d3d/d3d11/Buffer11.h"
 #include "libANGLE/renderer/d3d/d3d11/Context11.h"
-#include "libANGLE/renderer/renderer_utils.h"
 
 using namespace angle;
 
@@ -265,8 +264,8 @@ angle::Result VertexArray11::updateDirtyAttribs(const gl::Context *context,
         translatedAttrib->bufferBindingPointer =
             &getBufferBindingPointer(translatedAttrib->attribute->bindingIndex);
         translatedAttrib->currentValueType = currentValue.Type;
-        translatedAttrib->divisor          = GetMultiviewAdjustedDivisor(
-            mAppliedNumViewsToDivisor, translatedAttrib->binding->getDivisor());
+        translatedAttrib->divisor =
+            translatedAttrib->binding->getDivisor() * mAppliedNumViewsToDivisor;
 
         switch (mAttributeStorageTypes[dirtyAttribIndex])
         {
@@ -325,8 +324,7 @@ angle::Result VertexArray11::updateDynamicAttribs(const gl::Context *context,
         dynamicAttrib->bufferBindingPointer =
             &getBufferBindingPointer(dynamicAttrib->attribute->bindingIndex);
         dynamicAttrib->currentValueType = currentValue.Type;
-        dynamicAttrib->divisor = GetMultiviewAdjustedDivisor(mAppliedNumViewsToDivisor,
-                                                             dynamicAttrib->binding->getDivisor());
+        dynamicAttrib->divisor = dynamicAttrib->binding->getDivisor() * mAppliedNumViewsToDivisor;
     }
 
     ANGLE_TRY(vertexDataManager->storeDynamicAttribs(context, &mTranslatedAttribs,

@@ -19,13 +19,8 @@ import:
       pdfjs:
         - channel: developer
           value: {
-          download-button: false,
-          open-in-app-button: false
-        }
-        - channel: nightly
-          value: {
-          download-button: false,
-          open-in-app-button: false
+          download-button: true,
+          open-in-app-button: true
         }
   - path: ../../android-components/components/feature/fxsuggest/fxsuggest.fml.yaml
     channel: release
@@ -698,7 +693,7 @@ features:
         description: >
           Whether or not to enable the universal edge-to-edge wallpaper treatment.
         type: Boolean
-        default: true
+        default: false
 
   homepage-hide-frecent-top-sites:
     description: Hides frecent top sites on the homepage.
@@ -831,15 +826,6 @@ features:
           Uses search configuration from remote servers .
         type: Boolean
         default: true
-  search-config-v3:
-    description: Feature to read search configuration from the search-config-v3 collection.
-    variables:
-      enabled:
-        description: >
-          Reads search configuration from the `search-config-v3` Remote Settings
-          collection instead of `search-config-v2`.
-        type: Boolean
-        default: false
   same-document-navigation-overrides-load-type:
     description: Control whether the same document navigation overrides the load type.
     variables:
@@ -880,18 +866,6 @@ features:
         type: Boolean
         default: true
 
-  automotive-sensitive-data:
-    description: >
-      Enables or disables autofill, password management, and password and credit card sync on Android Automotive OS.
-    variables:
-      enabled:
-        description: >
-          Whether password and credit card autofill, password management, and password and credit card sync are
-          enabled on Android Automotive OS. Address autofill is also controlled by this flag. Has no effect on other
-          devices.
-        type: Boolean
-        default: false
-
   app-links:
     description: Control behavior of app links handling in the browser.
     variables:
@@ -899,27 +873,6 @@ features:
         description: Whether to show the new AppLinksPromptFragment dialog when an app link is detected. If false, the old dialog is used.
         type: Boolean
         default: true
-
-  browser-first:
-    description: Feature to enable browser-first handling for YouTube.
-    variables:
-      enabled:
-        description: If true, the feature is enabled.
-        type: Boolean
-        default: false
-    defaults:
-      - channel: release
-        value:
-          enabled: false
-      - channel: beta
-        value:
-          enabled: false
-      - channel: nightly
-        value:
-          enabled: false
-      - channel: developer
-        value:
-          enabled: true
 
   tab-management-enhancements:
     description: Control the visibility of the tab management enhancements.
@@ -1033,7 +986,7 @@ features:
         description: >
           Whether or not to block LNA requests
         type: Boolean
-        default: true
+        default: false
       block-trackers:
         description: >
           Whether or not to block trackers
@@ -1043,7 +996,7 @@ features:
         description: >
           Whether or not to turn on local network / device access blocking
         type: Boolean
-        default: true
+        default: false
       block-insecure-contexts:
         description: >
           Whether or not LNA requests coming from insecure contexts should be
@@ -1247,14 +1200,6 @@ features:
         type: Boolean
         default: false
 
-  homepage-wrexham-widget:
-    description: Feature to enable Homepage Wrexham Widget for users on Firefox for Android.
-    variables:
-      enabled:
-        description: If true, Homepage Wrexham Widget is enabled.
-        type: Boolean
-        default: false
-
   webcompat-reporter-enhancements:
     description: Feature to enable WebCompat Reporter enhancements for users on Firefox Android.
     variables:
@@ -1334,18 +1279,16 @@ features:
         default: false
 
   pairing-signin-prompt:
-    description: >
-      Controls the Sync sign-in card shown during initial onboarding to users who installed Firefox
-      through a pairing link.
+    description: Controls the day 1 sign-in prompt for users who installed Firefox through a pairing link.
     variables:
       enabled:
-        description: Whether the Sync sign-in card can be shown during initial onboarding.
+        description: Whether the day 1 sign-in prompt can be shown.
         type: Boolean
         default: false
       campaign-utm-content:
         description: The "utm_content" value used to identify installs from the pairing campaign.
         type: String
-        default: "DTM_SYNC_PAIR_V2"
+        default: ""
 
   pdf-viewer:
     description: Feature for the PDF viewer tools for users on Firefox for Android.
@@ -1354,13 +1297,6 @@ features:
         description: If true, the Android PDF UI tools are shown.
         type: Boolean
         default: false
-    defaults:
-      - channel: developer
-        value:
-          android-ui-tools: true
-      - channel: nightly
-        value:
-          android-ui-tools: true
 
   tab-reload-cover:
     description: >
@@ -1390,14 +1326,6 @@ features:
       - channel: developer
         value:
           enabled: true
-
-  account-sync-decouple:
-    description: Control the "sync & account decoupling" feature
-    variables:
-      enabled:
-        description: If true, the flows for enabling sync & account decoupling are enabled.
-        type: Boolean
-        default: false
 
   wayback-machine:
     description: >

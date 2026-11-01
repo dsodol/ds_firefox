@@ -25,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
-import kotlin.time.Instant
 import mozilla.components.ExperimentalAndroidComponentsApi
 import mozilla.components.compose.base.annotation.FlexibleWindowLightDarkPreview
 import mozilla.components.compose.base.theme.AcornTheme
@@ -35,13 +34,10 @@ import mozilla.components.feature.ipprotection.store.IPProtectionStore
 import mozilla.components.feature.ipprotection.store.state.AccountState
 import mozilla.components.feature.ipprotection.store.state.AccountStatus
 import mozilla.components.feature.ipprotection.store.state.Authorized
-import mozilla.components.feature.ipprotection.store.state.DataVolume
 import mozilla.components.feature.ipprotection.store.state.EligibilityStatus
 import mozilla.components.feature.ipprotection.store.state.IPProtectionState
 import mozilla.components.feature.ipprotection.store.state.PendingActivationRequest
-import mozilla.components.feature.ipprotection.store.state.UsageQuota
-import mozilla.components.feature.ipprotection.store.state.gigabytes
-import mozilla.components.feature.ipprotection.store.state.used
+import mozilla.components.feature.ipprotection.store.state.usedDataGb
 import mozilla.components.lib.state.ext.observeAsComposableState
 
 /**
@@ -131,36 +127,22 @@ fun IPProtectionStateDebugContent(
 
 @Composable
 private fun DataUsageSection(state: IPProtectionState) {
-    val quota = state.usageQuota
-    val unlimited = stringResource(R.string.mozac_feature_ipprotection_unlimited)
     DebugSection(title = stringResource(R.string.mozac_feature_ipprotection_data_usage)) {
         DebugRow(
             stringResource(R.string.mozac_feature_ipprotection_remainingdatabytes),
-            when (quota) {
-                is UsageQuota.Metered -> quota.remaining.bytes.toString()
-                is UsageQuota.Unmetered -> unlimited
-                null -> "null"
-            },
+            state.remainingDataBytes.toString(),
         )
         DebugRow(
             stringResource(R.string.mozac_feature_ipprotection_maxdatabytes),
-            when (quota) {
-                is UsageQuota.Metered -> quota.max.bytes.toString()
-                is UsageQuota.Unmetered -> unlimited
-                null -> "null"
-            },
+            state.maxDataBytes.toString(),
         )
         DebugRow(
             stringResource(R.string.mozac_feature_ipprotection_useddatagb),
-            when (quota) {
-                is UsageQuota.Metered -> "%.2fGB".format(quota.used.gigabytes)
-                is UsageQuota.Unmetered -> unlimited
-                null -> "null"
-            },
+            "%.2fGB".format(state.usedDataGb),
         )
         DebugRow(
             stringResource(R.string.mozac_feature_ipprotection_resetdate),
-            quota?.resetTime?.toString() ?: "null",
+            state.resetDate ?: "null",
         )
     }
 }
@@ -228,12 +210,9 @@ private fun IPProtectionStateDebugPreview() {
                     eligibilityStatus = EligibilityStatus.Eligible,
                     proxyStatus = Authorized.Active,
                     serviceStatus = ServiceState.Ready,
-                    usageQuota =
-                        UsageQuota.Metered(
-                            resetTime = Instant.parse("2026-06-01T00:00:00Z"),
-                            remaining = DataVolume(bytes = 2_000_000_000L),
-                            max = DataVolume(bytes = 5_000_000_000L),
-                        ),
+                    remainingDataBytes = 2_000_000_000L,
+                    maxDataBytes = 5_000_000_000L,
+                    resetDate = "2026-06-01",
                     accountState = AccountState(status = AccountStatus.EnrolledAndEntitled),
                     lastError = "invalid_response",
                     pendingActivationRequest = PendingActivationRequest.Activate(null),

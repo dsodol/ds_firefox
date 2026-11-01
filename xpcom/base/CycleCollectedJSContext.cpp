@@ -397,9 +397,8 @@ js::UniquePtr<JS::JobQueue::SavedJobQueue>
 CycleCollectedJSContext::saveJobQueue(JSContext* cx) {
   auto saved = js::MakeUnique<SavedMicroTaskQueue>(this);
   if (!saved) {
-    // When std::make_unique's allocation fails, the SavedMicroTaskQueue
-    // constructor is never called, so mPendingMicroTaskRunnables is still
-    // initialized.
+    // When MakeUnique's allocation fails, the SavedMicroTaskQueue constructor
+    // is never called, so mPendingMicroTaskRunnables is still initialized.
     JS_ReportOutOfMemory(cx);
     return nullptr;
   }
@@ -841,8 +840,8 @@ static void MaybeGetFlowMarker(
   if (profiler_is_active_and_unpaused() &&
       profiler_feature_active(ProfilerFeature::Flows)) {
     uint64_t flowId = 0;
-    // This only returns false when the microtask won't run (dead wrapper) or
-    // has no flow, so we can elide the marker if it does fail.
+    // Since this only returns false when the microtask won't run (dead wrapper)
+    // we can elide the marker if it does fail.
     if (AsJSMicroTask(aMicroTask).getFlowId(&flowId)) {
       aTerminatingMarker.emplace("RunMicroTask",
                                  mozilla::baseprofiler::category::OTHER,
@@ -1396,10 +1395,8 @@ NS_IMETHODIMP CycleCollectedJSContext::NotifyUnhandledRejections::Run() {
     // pre-existing behavior where FlushRejections reported before handling
     // could occur. Only preventDefault() suppresses the console report.
     if (!defaultPrevented && !suppressReporting) {
-      AutoJSAPI jsapi;
-      jsapi.Init();
-      JSAutoRealm ar(jsapi.cx(), promiseObj);
-      Promise::ReportRejectedPromise(jsapi.cx(), promiseObj);
+      JSAutoRealm ar(cccx->Context(), promiseObj);
+      Promise::ReportRejectedPromise(cccx->Context(), promiseObj);
     }
 
     // Remove from the pending table. May already be removed if the
@@ -1437,10 +1434,8 @@ nsresult CycleCollectedJSContext::NotifyUnhandledRejections::Cancel() {
       }
 
       if (!suppressReporting) {
-        AutoJSAPI jsapi;
-        jsapi.Init();
-        JSAutoRealm ar(jsapi.cx(), promiseObj);
-        Promise::ReportRejectedPromise(jsapi.cx(), promiseObj);
+        JSAutoRealm ar(cccx->Context(), promiseObj);
+        Promise::ReportRejectedPromise(cccx->Context(), promiseObj);
       }
     }
 

@@ -6,7 +6,7 @@ import React, { useRef } from "react";
 import { Localized } from "./MSLocalized";
 
 export const TileButton = props => {
-  const { content, handleAction, inputName, inert } = props;
+  const { content, handleAction, inputName } = props;
   const ref = useRef(null);
 
   if (!content) {
@@ -29,7 +29,6 @@ export const TileButton = props => {
         onClick={onClick}
         value="tile_button"
         ref={ref}
-        inert={inert ? "" : undefined}
         className={`${content.style} tile-button slim`}
       />
     </Localized>

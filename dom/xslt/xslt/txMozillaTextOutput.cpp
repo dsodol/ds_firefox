@@ -217,8 +217,7 @@ nsresult txMozillaTextOutput::createResultDocument(bool aLoadedAsData) {
     }
 
     rv = mTextParent->AsElement()->SetAttr(kNameSpaceID_None, nsGkAtoms::id,
-                                           u"transformiixResult"_ns, false,
-                                           IsKnownNewAttr::Yes);
+                                           u"transformiixResult"_ns, false);
     NS_ENSURE_SUCCESS(rv, rv);
 
     body->AppendChildTo(mTextParent, false, error);

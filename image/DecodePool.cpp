@@ -18,10 +18,8 @@
 #include "mozilla/StaticPrefs_image.h"
 #include "mozilla/TaskController.h"
 #include "mozilla/TimeStamp.h"
-#include "mozilla/gfx/Logging.h"
 #include "nsCOMPtr.h"
 #include "nsIObserverService.h"
-#include "nsIURI.h"
 #include "nsThreadManager.h"
 #include "nsThreadUtils.h"
 #include "nsXPCOMCIDInternal.h"
@@ -124,15 +122,6 @@ DecodePool::Observe(nsISupports*, const char* aTopic, const char16_t*) {
   {
     MutexAutoLock lock(mMutex);
     ioThread.swap(mIOThread);
-#ifdef XP_WIN
-    if (mShellCallStart) {
-      gfxCriticalNote << "ImageIO shell call in flight for "
-                      << (AwakeTimeStamp::Now() - *mShellCallStart).ToSeconds()
-                      << "s"
-                      << (mShellCallStartedInShutdown ? ", started in shutdown"
-                                                      : "");
-    }
-#endif
   }
 
   if (ioThread) {
@@ -183,13 +172,13 @@ void DecodePool::AsyncRun(IDecodingTask* aTask) {
       MakeAndAddRef<DecodingTask>((RefPtr<IDecodingTask>(aTask))));
 }
 
-bool DecodePool::SyncRunIfPreferred(IDecodingTask* aTask, nsIURI* aURI) {
+bool DecodePool::SyncRunIfPreferred(IDecodingTask* aTask,
+                                    const nsCString& aURI) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aTask);
 
-  AUTO_PROFILER_LABEL_DYNAMIC_NSCSTRING(
-      "DecodePool::SyncRunIfPreferred", GRAPHICS,
-      aURI ? aURI->GetSpecOrDefault() : nsCString());
+  AUTO_PROFILER_LABEL_DYNAMIC_NSCSTRING("DecodePool::SyncRunIfPreferred",
+                                        GRAPHICS, aURI);
 
   if (aTask->ShouldPreferSyncRun()) {
     aTask->Run();
@@ -200,13 +189,13 @@ bool DecodePool::SyncRunIfPreferred(IDecodingTask* aTask, nsIURI* aURI) {
   return false;
 }
 
-void DecodePool::SyncRunIfPossible(IDecodingTask* aTask, nsIURI* aURI) {
+void DecodePool::SyncRunIfPossible(IDecodingTask* aTask,
+                                   const nsCString& aURI) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aTask);
 
-  AUTO_PROFILER_LABEL_DYNAMIC_NSCSTRING(
-      "DecodePool::SyncRunIfPossible", GRAPHICS,
-      aURI ? aURI->GetSpecOrDefault() : nsCString());
+  AUTO_PROFILER_LABEL_DYNAMIC_NSCSTRING("DecodePool::SyncRunIfPossible",
+                                        GRAPHICS, aURI);
 
   aTask->Run();
 }
@@ -216,27 +205,6 @@ already_AddRefed<nsISerialEventTarget> DecodePool::GetIOEventTarget() {
   nsCOMPtr<nsISerialEventTarget> target = mIOThread;
   return target.forget();
 }
-
-#ifdef XP_WIN
-/* static */ void DecodePool::NoteShellCallStarted() {
-  if (!sSingleton) {
-    return;
-  }
-  MutexAutoLock lock(sSingleton->mMutex);
-  sSingleton->mShellCallStart = Some(AwakeTimeStamp::Now());
-  sSingleton->mShellCallStartedInShutdown =
-      AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdownConfirmed);
-}
-
-/* static */ void DecodePool::NoteShellCallFinished() {
-  if (!sSingleton) {
-    return;
-  }
-  MutexAutoLock lock(sSingleton->mMutex);
-  sSingleton->mShellCallStart.reset();
-  sSingleton->mShellCallStartedInShutdown = false;
-}
-#endif
 
 }  // namespace image
 }  // namespace mozilla

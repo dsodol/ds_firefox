@@ -5,7 +5,6 @@
 package org.mozilla.fenix.translations
 
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -17,7 +16,6 @@ import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.menu.data.MenuItem
 import mozilla.components.compose.menu.data.MenuItemBadge
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.store.MenuEvent
 import mozilla.components.compose.menu.ui.MenuItemIconRes
@@ -51,22 +49,18 @@ class TranslationsMenuItemProvider(
     scope: CoroutineScope,
     private val isFeatureEnabled: Boolean = FxNimbus.features.translations.value().mainFlowBrowserMenuEnabled,
 ) : MenuItemProvider {
-    override val itemsFlow: StateFlow<List<MenuItem>> =
-        if (target == MenuTarget.CustomizeMenu) {
-            MutableStateFlow(listOf(DEFAULT_MENU_ITEM))
-        } else {
-            combine(browserStore.stateFlow, translationsSettings.isEnabled) { state, isEnabled ->
-                    listOfNotNull(state.translationsItem(isEnabled = isEnabled))
-                }
-                .stateIn(
-                    scope = scope,
-                    started = SharingStarted.Eagerly,
-                    // Whether the user turned translations off is only known after reading it from disk, until then
-                    // they are assumed to still be on - as in the menu this replaces. Nothing is shown anyway for as
-                    // long as the engine has not reported that it supports this device.
-                    initialValue = listOfNotNull(browserStore.state.translationsItem(isEnabled = true)),
-                )
-        }
+    override val itemFlow: StateFlow<MenuItem?> =
+        combine(browserStore.stateFlow, translationsSettings.isEnabled) { state, isEnabled ->
+                state.translationsItem(isEnabled = isEnabled)
+            }
+            .stateIn(
+                scope = scope,
+                started = SharingStarted.Eagerly,
+                // Whether the user turned translations off is only known after reading it from disk, until then they
+                // are assumed to still be on - as in the menu this replaces. Nothing is shown anyway for as long as
+                // the engine has not reported that it supports this device.
+                initialValue = browserStore.state.translationsItem(isEnabled = true),
+            )
 
     /** Translating is only offered for a page that can be translated, and to a user that has the feature enabled. */
     private fun BrowserState.translationsItem(isEnabled: Boolean): MenuItem? {
@@ -96,33 +90,27 @@ class TranslationsMenuItemProvider(
 
         menu.navigate(MenuFragmentDirections.actionMenuFragmentToTranslationsDialogFragment(sessionId = tabId))
     }
-
-    private fun translatedItem(language: String?) =
-        DEFAULT_MENU_ITEM.copy(
-            title = MenuItemTitle(Text.Resource(R.string.browser_menu_translated)),
-            icon = MenuItemIconRes(iconsR.drawable.mozac_ic_translate_active_24),
-            onClickEvent = MenuAction.Navigate.Translate,
-            badge = language?.let { MenuItemBadge(text = Text.String(it), state = MenuItemState.ACTIVE) },
-            state = MenuItemState.ACTIVE,
-        )
-
-    private fun translatableItem(canTranslate: Boolean) =
-        DEFAULT_MENU_ITEM.copy(
-            onClickEvent = MenuAction.Navigate.Translate,
-            state =
-                when (canTranslate) {
-                    true -> MenuItemState.DEFAULT
-                    else -> MenuItemState.DISABLED
-                },
-        )
-
-    companion object {
-        private val DEFAULT_MENU_ITEM =
-            StandardMenuItem(
-                title = MenuItemTitle(Text.Resource(R.string.browser_menu_translate_page_2)),
-                icon = MenuItemIconRes(iconsR.drawable.mozac_ic_translate_24),
-            )
-    }
 }
 
 private fun SessionState.isReaderViewActive() = (this as? TabSessionState)?.readerState?.active == true
+
+private fun translatedItem(language: String?) =
+    StandardMenuItem(
+        title = Text.Resource(R.string.browser_menu_translated),
+        icon = MenuItemIconRes(iconsR.drawable.mozac_ic_translate_active_24),
+        onClickEvent = MenuAction.Navigate.Translate,
+        badge = language?.let { MenuItemBadge(text = Text.String(it), state = MenuItemState.ACTIVE) },
+        state = MenuItemState.ACTIVE,
+    )
+
+private fun translatableItem(canTranslate: Boolean) =
+    StandardMenuItem(
+        title = Text.Resource(R.string.browser_menu_translate_page_2),
+        icon = MenuItemIconRes(iconsR.drawable.mozac_ic_translate_24),
+        onClickEvent = MenuAction.Navigate.Translate,
+        state =
+            when (canTranslate) {
+                true -> MenuItemState.DEFAULT
+                else -> MenuItemState.DISABLED
+            },
+    )

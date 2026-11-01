@@ -12,11 +12,7 @@
 #ifndef TOOLKIT_MOZAPPS_UPDATE_UPDATER_CRCTABLE_H_
 #define TOOLKIT_MOZAPPS_UPDATE_UPDATER_CRCTABLE_H_
 
-#ifdef __cplusplus
-constexpr unsigned int BZ2_crc32Table[256] = {
-#else
-static const unsigned int BZ2_crc32Table[256] = {
-#endif
+unsigned int BZ2_crc32Table[256] = {
 
     /*-- Ugly, innit? --*/
 

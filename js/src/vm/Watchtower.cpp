@@ -4,7 +4,6 @@
 
 #include "vm/Watchtower.h"
 
-#include "builtin/Array.h"
 #include "js/CallAndConstruct.h"
 #include "js/experimental/TypedData.h"
 #include "vm/Compartment.h"
@@ -159,13 +158,6 @@ void MaybePopTypedArrayConstructorSpeciesFuses(JSContext* cx,
   }
 }
 
-static void MaybePopHasNoIndexedPropsFuses(JSContext* cx, NativeObject* nobj) {
-  MOZ_ASSERT(nobj->hasRealmFuseProperty());
-  if (InvalidatingRealmFuse* fuse = MaybeGetHasNoIndexedPropsFuse(nobj)) {
-    fuse->popFuse(cx, nobj->realm()->realmFuses);
-  }
-}
-
 // static
 bool Watchtower::watchPropertyAddSlow(JSContext* cx, Handle<NativeObject*> obj,
                                       HandleId id) {
@@ -186,10 +178,6 @@ bool Watchtower::watchPropertyAddSlow(JSContext* cx, Handle<NativeObject*> obj,
   if (MOZ_UNLIKELY(obj->hasRealmFuseProperty())) {
     if (id.isWellKnownSymbol(JS::SymbolCode::species)) {
       MaybePopTypedArrayConstructorSpeciesFuses(cx, obj);
-    }
-    uint32_t index;
-    if (IdIsIndex(id, &index) && !obj->isIndexed()) {
-      MaybePopHasNoIndexedPropsFuses(cx, obj);
     }
   }
 
@@ -319,7 +307,6 @@ static bool WatchProtoChangeImpl(JSContext* cx, HandleObject obj) {
 
   if (MOZ_UNLIKELY(nobj->hasRealmFuseProperty())) {
     MaybePopTypedArrayConstructorSpeciesFuses(cx, nobj);
-    MaybePopHasNoIndexedPropsFuses(cx, nobj);
   }
 
   return true;
@@ -341,23 +328,6 @@ bool Watchtower::watchProtoChangeSlow(JSContext* cx, HandleObject obj) {
   }
 
   return true;
-}
-
-// static
-bool Watchtower::watchesFirstDenseElementAddSlow(NativeObject* obj) {
-  MOZ_ASSERT(obj->hasRealmFuseProperty());
-
-  // Adding a dense element only matters if it would pop one of the fuses for
-  // indexed properties on prototypes.
-  InvalidatingRealmFuse* fuse = MaybeGetHasNoIndexedPropsFuse(obj);
-  return fuse && fuse->intact();
-}
-
-// static
-void Watchtower::watchFirstDenseElementAddSlow(JSContext* cx,
-                                               NativeObject* obj) {
-  MOZ_ASSERT(watchesFirstDenseElementAdd(obj));
-  MaybePopHasNoIndexedPropsFuses(cx, obj);
 }
 
 void Watchtower::watchGlobalLexicalRedeclaration(JSContext* cx,

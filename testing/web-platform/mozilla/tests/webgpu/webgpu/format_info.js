@@ -90,7 +90,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     r8unorm: {
       color: {
         type: 'float',
-        componentCount: 1,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -104,7 +103,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     r8snorm: {
       color: {
         type: 'float',
-        componentCount: 1,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -117,7 +115,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     r8uint: {
       color: {
         type: 'uint',
-        componentCount: 1,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -131,7 +128,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     r8sint: {
       color: {
         type: 'sint',
-        componentCount: 1,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -146,7 +142,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rg8unorm: {
       color: {
         type: 'float',
-        componentCount: 2,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -160,7 +155,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rg8snorm: {
       color: {
         type: 'float',
-        componentCount: 2,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -173,7 +167,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rg8uint: {
       color: {
         type: 'uint',
-        componentCount: 2,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -187,7 +180,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rg8sint: {
       color: {
         type: 'sint',
-        componentCount: 2,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -202,7 +194,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rgba8unorm: {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -217,7 +208,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     'rgba8unorm-srgb': {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -232,7 +222,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rgba8snorm: {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -245,7 +234,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rgba8uint: {
       color: {
         type: 'uint',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -259,7 +247,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rgba8sint: {
       color: {
         type: 'sint',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -273,7 +260,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     bgra8unorm: {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -288,7 +274,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     'bgra8unorm-srgb': {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -306,7 +291,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     r16unorm: {
       color: {
         type: 'unfilterable-float',
-        componentCount: 1,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -321,7 +305,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     r16snorm: {
       color: {
         type: 'unfilterable-float',
-        componentCount: 1,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -336,7 +319,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     r16uint: {
       color: {
         type: 'uint',
-        componentCount: 1,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -350,7 +332,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     r16sint: {
       color: {
         type: 'sint',
-        componentCount: 1,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -364,7 +345,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     r16float: {
       color: {
         type: 'float',
-        componentCount: 1,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -379,7 +359,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rg16unorm: {
       color: {
         type: 'unfilterable-float',
-        componentCount: 2,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -394,7 +373,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rg16snorm: {
       color: {
         type: 'unfilterable-float',
-        componentCount: 2,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -409,7 +387,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rg16uint: {
       color: {
         type: 'uint',
-        componentCount: 2,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -423,7 +400,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rg16sint: {
       color: {
         type: 'sint',
-        componentCount: 2,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -437,7 +413,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rg16float: {
       color: {
         type: 'float',
-        componentCount: 2,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -452,7 +427,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rgba16unorm: {
       color: {
         type: 'unfilterable-float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -467,7 +441,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rgba16snorm: {
       color: {
         type: 'unfilterable-float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -482,7 +455,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rgba16uint: {
       color: {
         type: 'uint',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -496,7 +468,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rgba16sint: {
       color: {
         type: 'sint',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -510,7 +481,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rgba16float: {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -527,7 +497,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     r32uint: {
       color: {
         type: 'uint',
-        componentCount: 1,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -541,7 +510,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     r32sint: {
       color: {
         type: 'sint',
-        componentCount: 1,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -555,7 +523,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     r32float: {
       color: {
         type: 'unfilterable-float',
-        componentCount: 1,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -570,7 +537,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rg32uint: {
       color: {
         type: 'uint',
-        componentCount: 2,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -584,7 +550,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rg32sint: {
       color: {
         type: 'sint',
-        componentCount: 2,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -598,7 +563,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rg32float: {
       color: {
         type: 'unfilterable-float',
-        componentCount: 2,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -613,7 +577,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rgba32uint: {
       color: {
         type: 'uint',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -627,7 +590,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rgba32sint: {
       color: {
         type: 'sint',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -641,7 +603,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rgba32float: {
       color: {
         type: 'unfilterable-float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: true,
@@ -658,7 +619,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rgb10a2uint: {
       color: {
         type: 'uint',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -672,7 +632,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rgb10a2unorm: {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -686,7 +645,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rg11b10ufloat: {
       color: {
         type: 'float',
-        componentCount: 3,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -703,7 +661,6 @@ const kRegularTextureFormatInfo = formatTableWithDefaults({
     rgb9e5ufloat: {
       color: {
         type: 'float',
-        componentCount: 3,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -821,7 +778,6 @@ const kBCTextureFormatInfo = formatTableWithDefaults({
     'bc1-rgba-unorm': {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -834,7 +790,6 @@ const kBCTextureFormatInfo = formatTableWithDefaults({
     'bc1-rgba-unorm-srgb': {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -848,7 +803,6 @@ const kBCTextureFormatInfo = formatTableWithDefaults({
     'bc2-rgba-unorm': {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -861,7 +815,6 @@ const kBCTextureFormatInfo = formatTableWithDefaults({
     'bc2-rgba-unorm-srgb': {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -875,7 +828,6 @@ const kBCTextureFormatInfo = formatTableWithDefaults({
     'bc3-rgba-unorm': {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -888,7 +840,6 @@ const kBCTextureFormatInfo = formatTableWithDefaults({
     'bc3-rgba-unorm-srgb': {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -902,7 +853,6 @@ const kBCTextureFormatInfo = formatTableWithDefaults({
     'bc4-r-unorm': {
       color: {
         type: 'float',
-        componentCount: 1,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -914,7 +864,6 @@ const kBCTextureFormatInfo = formatTableWithDefaults({
     'bc4-r-snorm': {
       color: {
         type: 'float',
-        componentCount: 1,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -927,7 +876,6 @@ const kBCTextureFormatInfo = formatTableWithDefaults({
     'bc5-rg-unorm': {
       color: {
         type: 'float',
-        componentCount: 2,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -939,7 +887,6 @@ const kBCTextureFormatInfo = formatTableWithDefaults({
     'bc5-rg-snorm': {
       color: {
         type: 'float',
-        componentCount: 2,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -952,7 +899,6 @@ const kBCTextureFormatInfo = formatTableWithDefaults({
     'bc6h-rgb-ufloat': {
       color: {
         type: 'float',
-        componentCount: 3,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -964,7 +910,6 @@ const kBCTextureFormatInfo = formatTableWithDefaults({
     'bc6h-rgb-float': {
       color: {
         type: 'float',
-        componentCount: 3,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -977,7 +922,6 @@ const kBCTextureFormatInfo = formatTableWithDefaults({
     'bc7-rgba-unorm': {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -990,7 +934,6 @@ const kBCTextureFormatInfo = formatTableWithDefaults({
     'bc7-rgba-unorm-srgb': {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1014,7 +957,6 @@ const kETC2TextureFormatInfo = formatTableWithDefaults({
     'etc2-rgb8unorm': {
       color: {
         type: 'float',
-        componentCount: 3,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1027,7 +969,6 @@ const kETC2TextureFormatInfo = formatTableWithDefaults({
     'etc2-rgb8unorm-srgb': {
       color: {
         type: 'float',
-        componentCount: 3,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1041,7 +982,6 @@ const kETC2TextureFormatInfo = formatTableWithDefaults({
     'etc2-rgb8a1unorm': {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1054,7 +994,6 @@ const kETC2TextureFormatInfo = formatTableWithDefaults({
     'etc2-rgb8a1unorm-srgb': {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1068,7 +1007,6 @@ const kETC2TextureFormatInfo = formatTableWithDefaults({
     'etc2-rgba8unorm': {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1081,7 +1019,6 @@ const kETC2TextureFormatInfo = formatTableWithDefaults({
     'etc2-rgba8unorm-srgb': {
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1095,7 +1032,6 @@ const kETC2TextureFormatInfo = formatTableWithDefaults({
     'eac-r11unorm': {
       color: {
         type: 'float',
-        componentCount: 1,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1107,7 +1043,6 @@ const kETC2TextureFormatInfo = formatTableWithDefaults({
     'eac-r11snorm': {
       color: {
         type: 'float',
-        componentCount: 1,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1120,7 +1055,6 @@ const kETC2TextureFormatInfo = formatTableWithDefaults({
     'eac-rg11unorm': {
       color: {
         type: 'float',
-        componentCount: 2,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1132,7 +1066,6 @@ const kETC2TextureFormatInfo = formatTableWithDefaults({
     'eac-rg11snorm': {
       color: {
         type: 'float',
-        componentCount: 2,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1155,7 +1088,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 4,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1170,7 +1102,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 4,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1186,7 +1117,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 4,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1201,7 +1131,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 4,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1217,7 +1146,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 5,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1232,7 +1160,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 5,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1248,7 +1175,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 5,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1263,7 +1189,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 5,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1279,7 +1204,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 6,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1294,7 +1218,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 6,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1310,7 +1233,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 5,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1325,7 +1247,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 5,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1341,7 +1262,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 6,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1356,7 +1276,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 6,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1372,7 +1291,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 8,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1387,7 +1305,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 8,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1403,7 +1320,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 5,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1418,7 +1334,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 5,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1434,7 +1349,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 6,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1449,7 +1363,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 6,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1465,7 +1378,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 8,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1480,7 +1392,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 8,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1496,7 +1407,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 10,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1511,7 +1421,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 10,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1527,7 +1436,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 10,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1542,7 +1450,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 10,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1558,7 +1465,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 12,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1573,7 +1479,6 @@ const kASTCTextureFormatInfo = formatTableWithDefaults({
       blockHeight: 12,
       color: {
         type: 'float',
-        componentCount: 4,
         copySrc: true,
         copyDst: true,
         storage: false,
@@ -1646,8 +1551,6 @@ export const kAllTextureFormats = keysOf(kAllTextureFormatInfo);
 
 
 /** Per GPUTextureFormat-per-aspect info for color aspects. */
-
-
 
 
 
@@ -1762,7 +1665,6 @@ export const kAllTextureFormats = keysOf(kAllTextureFormatInfo);
  * These are also usable before or during a test
  *
  * * isColorTextureFormat
- * * isColorTextureFormatWithAlpha
  * * isDepthTextureFormat
  * * isStencilTextureFormat
  * * isDepthOrStencilTextureFormat
@@ -2426,10 +2328,6 @@ export function isColorTextureFormat(format) {
   return !!kTextureFormatInfo[format].color;
 }
 
-export function isColorTextureFormatWithAlpha(format) {
-  return isColorTextureFormat(format) && kTextureFormatInfo[format].color?.componentCount === 4;
-}
-
 export function isDepthTextureFormat(format) {
   return !!kTextureFormatInfo[format].depth;
 }
@@ -2498,9 +2396,6 @@ format)
   }
   if (is32Float(format)) {
     return hasFeature(features, 'float32-blendable');
-  }
-  if (isTextureFormatTier1EnablesRenderAttachmentBlendableMultisample(format)) {
-    return hasFeature(features, 'texture-formats-tier1');
   }
   return !!kAllTextureFormatInfo[format].colorRender?.blend;
 }

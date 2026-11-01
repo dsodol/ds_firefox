@@ -144,7 +144,6 @@
   };
 
   // .dat format (html5lib-tests):
-  //   #description     appended to the test name
   //   #data            input HTML
   //   #errors / #new-errors / #errors-new  parsing errors (ignored here)
   //   #script-on / #script-off            scripting requirement (we honor #script-off)
@@ -178,7 +177,7 @@
       const line = fileLines[i] + (i === fileLines.length - 1 ? "" : "\n");
       const heading = isSectionHeading(line);
       if (heading) {
-        if (data && (heading === "description" || (heading === "data" && key !== "description"))) {
+        if (data && heading === "data") {
           if (key !== null && data[key].length > 0) {
             data[key] = data[key].slice(0, -1);
           }
@@ -195,7 +194,6 @@
     if (data) cases.push(normalise(data));
 
     return cases.map(c => ({
-      description: c["description"],
       data: c["data"] ?? "",
       document: c["document"] ?? "",
       fragment: c["document-fragment"],
@@ -261,12 +259,9 @@
         // go through innerHTML), so we run them in only one wrapper to avoid
         // counting the same assertion three times.
         if (c.fragment !== undefined && runType !== "url") continue;
-        const base = c.fragment !== undefined
+        const name = c.fragment !== undefined
           ? `${escapeForName(c.data)} (innerHTML in ${c.fragment})`
           : escapeForName(c.data);
-        const name = c.description
-          ? `${base}: ${escapeForName(c.description)}`
-          : base;
         // Identical (input, fragment-context) pairs would collide as test
         // names. Upstream html5lib-tests doesn't ship any (after #script-off
         // is filtered out); if that ever changes we want to know rather than

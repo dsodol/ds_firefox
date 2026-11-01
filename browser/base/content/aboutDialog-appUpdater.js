@@ -303,10 +303,11 @@ appUpdater.prototype = {
       return;
     }
 
-    Services.startup.quit(
-      Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart
-    );
-    if (!Services.startup.attemptingQuit) {
+    if (
+      !Services.startup.quit(
+        Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart
+      )
+    ) {
       // Either the user or the hidden window aborted the quit process.
       gAppUpdater.selectPanel("apply");
     }

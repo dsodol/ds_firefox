@@ -67,7 +67,6 @@
 #include "mozilla/GeckoTrace.h"
 #include "mozilla/InitializedOnce.h"
 #include "mozilla/Logging.h"
-#include "mozilla/MathAlgorithms.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/NotNull.h"
@@ -82,7 +81,6 @@
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/StorageOriginAttributes.h"
-#include "mozilla/SyncRunnable.h"
 #include "mozilla/SystemPrincipal.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/dom/FileSystemQuotaClientFactory.h"
@@ -97,20 +95,15 @@
 #include "mozilla/dom/quota/ArtificialFailure.h"
 #include "mozilla/dom/quota/AssertionsImpl.h"
 #include "mozilla/dom/quota/CheckedUnsafePtr.h"
-#include "mozilla/dom/quota/CipherKeyManager.h"
-#include "mozilla/dom/quota/CipherKeyStoreBackend.h"
 #include "mozilla/dom/quota/Client.h"
 #include "mozilla/dom/quota/ClientDirectoryLock.h"
 #include "mozilla/dom/quota/ClientDirectoryLockHandle.h"
 #include "mozilla/dom/quota/Config.h"
 #include "mozilla/dom/quota/Constants.h"
 #include "mozilla/dom/quota/Date.h"
-#include "mozilla/dom/quota/DekNameCodec.h"
 #include "mozilla/dom/quota/DirectoryLockInlines.h"
 #include "mozilla/dom/quota/FileUtils.h"
-#include "mozilla/dom/quota/LockstoreStorageKeyProvider.h"
 #include "mozilla/dom/quota/MozPromiseUtils.h"
-#include "mozilla/dom/quota/NSSCipherStrategy.h"
 #include "mozilla/dom/quota/OriginDirectoryLock.h"
 #include "mozilla/dom/quota/PersistenceType.h"
 #include "mozilla/dom/quota/PrincipalUtils.h"
@@ -1021,23 +1014,6 @@ StaticAutoPtr<nsCString> gBuildId;
 bool gQuotaManagerInitialized = false;
 #endif
 
-// Snapshot of dom.quotaManager.encryption.enabled taken at profile-do-change;
-// runtime changes of the pref are ignored until restart.
-bool gStorageEncryptionEnabled = false;
-StaticAutoPtr<nsCString> gCipherKeyStoreProfileId;
-StaticRefPtr<CipherKeyStoreBackend> gCipherKeyStore;
-
-// The key store is created eagerly at profile-do-change when the pref is on.
-// When the pref is off it is only created if an origin encrypted in an
-// earlier session is opened, so that it stays readable.
-void EnsureCipherKeyStore() {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  if (!gCipherKeyStore && gCipherKeyStoreProfileId) {
-    gCipherKeyStore =
-        LockstoreStorageKeyProvider::Create(*gCipherKeyStoreProfileId);
-  }
-}
 StaticRefPtr<QuotaManager> gInstance;
 mozilla::Atomic<bool> gShutdown(false);
 
@@ -1741,26 +1717,6 @@ QuotaManager::Observer::Observe(nsISupports* aSubject, const char* aTopic,
       return rv;
     }
 
-    gStorageEncryptionEnabled =
-        StaticPrefs::dom_quotaManager_encryption_enabled();
-
-    nsAutoString profileLeaf;
-    rv = baseDir->GetLeafName(profileLeaf);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
-
-    Result<nsCString, nsresult> res =
-        DekNameCodec::ProfileId(NS_ConvertUTF16toUTF8(profileLeaf));
-    if (NS_WARN_IF(res.isErr())) {
-      return res.unwrapErr();
-    }
-    gCipherKeyStoreProfileId = new nsCString(res.unwrap());
-
-    if (gStorageEncryptionEnabled) {
-      EnsureCipherKeyStore();
-    }
-
     return NS_OK;
   }
 
@@ -1836,9 +1792,6 @@ QuotaManager::Observer::Observe(nsISupports* aSubject, const char* aTopic,
     gStorageName = nullptr;
 
     gBuildId = nullptr;
-
-    gCipherKeyStore = nullptr;
-    gCipherKeyStoreProfileId = nullptr;
 
     return NS_OK;
   }
@@ -1920,7 +1873,6 @@ QuotaManager::QuotaManager(const nsAString& aBasePath,
       mCacheRequiresFullScan(false) {
   AssertIsOnOwningThread();
   MOZ_ASSERT(!gInstance);
-  glean::quotamanager::had_temporary_storage_usage_underflow.Set(false);
 }
 
 QuotaManager::~QuotaManager() {
@@ -2793,11 +2745,10 @@ void QuotaManager::InitQuotaForOrigin(
       fullOriginMetadata.mGroup);
 
   auto originInfo = MakeRefPtr<OriginInfo>(
-      groupInfo, aFullOriginMetadata.mOrigin,
-      aFullOriginMetadata.mStorageOrigin, aFullOriginMetadata.mIsPrivate,
-      aFullOriginMetadata.mIsEncrypted, aFullOriginMetadata.mClientUsages,
-      aFullOriginMetadata.mOriginUsage, aFullOriginMetadata.mLastAccessTime,
-      aFullOriginMetadata.mLastMaintenanceDate, aFullOriginMetadata.mPersisted,
+      groupInfo, fullOriginMetadata.mOrigin, fullOriginMetadata.mStorageOrigin,
+      fullOriginMetadata.mIsPrivate, fullOriginMetadata.mClientUsages,
+      fullOriginMetadata.mOriginUsage, fullOriginMetadata.mLastAccessTime,
+      fullOriginMetadata.mLastMaintenanceDate, fullOriginMetadata.mPersisted,
       aDirectoryExists);
 
   // A full directory scan is always performed before InitQuotaForOrigin
@@ -2831,7 +2782,7 @@ void QuotaManager::InitQuotaForOrigin(
   // Origins loaded directly from the storage database are already
   // correct.  Callers pass an active reconciliation map for these, so
   // cacheRowMatches is true and no enqueue happens.
-  if (!aFullOriginMetadata.mIsPrivate && !cacheRowMatches &&
+  if (!cacheRowMatches &&
       (fullOriginMetadata.mDirty || !aCacheMap.IsActive()) &&
       aDirectoryExists && !mUsageModificationDisabled.load()) {
     originInfo->mMetadataDirty = true;
@@ -3671,22 +3622,6 @@ Nullable<bool> QuotaManager::OriginPersisted(
   return Nullable<bool>();
 }
 
-bool QuotaManager::IsOriginEncrypted(const OriginMetadata& aOriginMetadata) {
-  if (aOriginMetadata.mPersistenceType == PERSISTENCE_TYPE_PERSISTENT) {
-    return false;
-  }
-
-  MutexAutoLock lock(mQuotaMutex);
-
-  RefPtr<OriginInfo> originInfo =
-      LockedGetOriginInfo(aOriginMetadata.mPersistenceType, aOriginMetadata);
-  if (originInfo) {
-    return originInfo->IsEncrypted();
-  }
-
-  return mStorageEncryptionEnabled;
-}
-
 void QuotaManager::PersistOrigin(const OriginMetadata& aOriginMetadata) {
   AssertIsOnIOThread();
 
@@ -3946,7 +3881,10 @@ Result<FullOriginMetadata, nsresult> ReadFullOriginMetadataFromMetadataV2File(
 
   FullOriginMetadata fullOriginMetadata;
 
-  QM_TRY(ReadDirectoryMetadataHeader(*binaryStream, fullOriginMetadata));
+  QM_TRY_INSPECT(const OriginStateMetadata& originStateMetadata,
+                 ReadDirectoryMetadataHeader(*binaryStream));
+
+  static_cast<OriginStateMetadata&>(fullOriginMetadata) = originStateMetadata;
 
   // Legacy field, previously used for suffix. This value is no longer used,
   // but still read and discarded to preserve compatibility with older builds
@@ -6144,42 +6082,12 @@ nsresult QuotaManager::EnsureStorageIsInitializedInternal() {
     mStorageConnection = std::move(connection);
     mOriginUpserter = MakeRefPtr<OriginUpserter>(mStorageConnection);
 
-    mCipherKeyStore = gCipherKeyStore;
-    mStorageEncryptionEnabled = gStorageEncryptionEnabled;
-    if (mStorageEncryptionEnabled) {
-      // Fail closed: new origins could not be encrypted without a key store.
-      QM_TRY(OkIf(static_cast<bool>(mCipherKeyStore)), NS_ERROR_NOT_AVAILABLE);
-    }
-
     return NS_OK;
   };
 
   return ExecuteInitialization(
       Initialization::Storage,
       "dom::quota::FirstInitializationAttempt::Storage"_ns, innerFunc);
-}
-
-Result<RefPtr<CipherKeyManager<NSSCipherStrategy>>, nsresult>
-QuotaManager::GetOrCreateCipherKeyManager(const nsACString& aOrigin,
-                                          Client::Type aClientType) {
-  AssertIsOnIOThread();
-
-  if (!mCipherKeyStore) {
-    // LockstoreService can only be created on the main thread.
-    QM_TRY(MOZ_TO_RESULT(SyncRunnable::DispatchToThread(
-        GetMainThreadSerialEventTarget(),
-        NS_NewRunnableFunction("QuotaManager::EnsureCipherKeyStore",
-                               []() { EnsureCipherKeyStore(); }))));
-    mCipherKeyStore = gCipherKeyStore;
-  }
-
-  // An encrypted origin can be neither read nor written without a key store.
-  QM_TRY(OkIf(static_cast<bool>(mCipherKeyStore)), Err(NS_ERROR_NOT_AVAILABLE));
-
-  return RefPtr<CipherKeyManager<NSSCipherStrategy>>(
-      CipherKeyManager<NSSCipherStrategy>::CreatePersistent(
-          "PersistentCipherKeyManager", mCipherKeyStore, aOrigin,
-          Client::TypeToText(aClientType)));
 }
 
 RefPtr<BoolPromise> QuotaManager::TemporaryStorageInitialized() {
@@ -7261,11 +7169,8 @@ QuotaManager::EnsureTemporaryOriginIsInitializedInternal(
       return now;
     }();
 
-    OriginMetadata originMetadataWithEncryption = aOriginMetadata;
-    originMetadataWithEncryption.mIsEncrypted = mStorageEncryptionEnabled;
-
     FullOriginMetadata fullOriginMetadata{
-        originMetadataWithEncryption,
+        aOriginMetadata,
         OriginStateMetadata{
             /* aLastAccessTime */ timestamp,
             /* aLastMaintenanceDate */ Date::FromTimestamp(timestamp).ToDays(),
@@ -7865,8 +7770,7 @@ nsresult QuotaManager::FlagOriginInfoAsDirtyOnDisk(
   auto sharedState = std::make_shared<SharedState>();
 
   RefPtr<OriginInfo> originInfo = aProofOfLock.GetOriginInfo();
-  uint32_t metadataFlags =
-      aStateMetadata.ToMetadataFlags(originInfo->IsEncrypted());
+  uint32_t metadataFlags = aStateMetadata.ToMetadataFlags();
   int64_t lastAccessTime = aStateMetadata.mLastAccessTime;
   nsCOMPtr<nsIRunnable> runnable = NS_NewRunnableFunction(
       "QuotaManager::FlagOriginInfoAsDirtyOnDisk",
@@ -7925,6 +7829,8 @@ void QuotaManager::RegisterDirtyOriginInfo(
   if (originInfo->IsPrivate()) {
     return;
   }
+
+  aProofOfLock.Touch();
 
   auto* message = new UnboundedMPSCQueue<RefPtr<OriginInfo>>::Message();
   message->data = std::move(originInfo);
@@ -8794,26 +8700,6 @@ uint64_t QuotaManager::LockedCollectOriginsForEviction(
   return helper->BlockAndReturnOriginsForEviction(aLocks);
 }
 
-void QuotaManager::LockedMaybeRecordTemporaryStorageUsageUnderflow(
-    StaticString aCallSite) {
-  mQuotaMutex.AssertCurrentThreadOwns();
-
-  if (mTemporaryStorageUsage >= 0) {
-    return;
-  }
-
-  glean::quotamanager::had_temporary_storage_usage_underflow.Set(true);
-
-  if (!ThrottleCounter(mTemporaryStorageUsageUnderflowCount)) {
-    return;
-  }
-
-  glean::quotamanager::TemporaryStorageUsageUnderflowExtra extra;
-  extra.callSite.emplace(aCallSite);
-  extra.magnitude.emplace(FloorLog2(Abs(mTemporaryStorageUsage)));
-  glean::quotamanager::temporary_storage_usage_underflow.Record(Some(extra));
-}
-
 void QuotaManager::LockedRemoveQuotaForRepository(
     PersistenceType aPersistenceType) {
   mQuotaMutex.AssertCurrentThreadOwns();
@@ -9202,11 +9088,6 @@ void QuotaManager::DeleteOriginDirectory(
     // This should never fail if we've closed all storage connections
     // correctly...
     NS_ERROR("Failed to remove directory!");
-  }
-
-  if (mCipherKeyStore) {
-    QM_WARNONLY_TRY(
-        MOZ_TO_RESULT(mCipherKeyStore->Remove(aOriginMetadata.mOrigin)));
   }
 }
 
@@ -9644,9 +9525,6 @@ Result<nsCString, nsresult> QuotaManager::EnsureStorageOriginFromOrigin(
       auto storageOrigin,
       mOriginToStorageOriginMap.TryLookupOrInsertWith(
           aOrigin, [this, &aOrigin]() -> Result<nsCString, nsresult> {
-            // Validate that the origin is well formed. Nothing of it is
-            // carried over into the storage origin, which is entirely
-            // synthesized below.
             OriginAttributes originAttributes;
 
             nsCString originNoSuffix;
@@ -9655,9 +9533,12 @@ Result<nsCString, nsresult> QuotaManager::EnsureStorageOriginFromOrigin(
 
             nsCOMPtr<nsIURI> uri;
             QM_TRY(MOZ_TO_RESULT(
-                NS_NewURI(getter_AddRefs(uri),
-                          kUUIDOriginScheme + "://"_ns +
-                              NSID_TrimBracketsASCII(nsID::GenerateUUID()))));
+                NS_MutateURI(NS_STANDARDURLMUTATOR_CONTRACTID)
+                    .SetSpec(originNoSuffix)
+                    .SetScheme(kUUIDOriginScheme)
+                    .SetHost(NSID_TrimBracketsASCII(nsID::GenerateUUID()))
+                    .SetPort(-1)
+                    .Finalize(uri)));
 
             nsCOMPtr<nsIPrincipal> principal =
                 BasePrincipal::CreateContentPrincipal(uri, OriginAttributes{});

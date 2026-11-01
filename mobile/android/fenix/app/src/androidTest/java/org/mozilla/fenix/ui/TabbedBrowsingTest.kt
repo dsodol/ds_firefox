@@ -8,7 +8,6 @@ import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidCompo
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.customannotations.Converted
-import org.mozilla.fenix.customannotations.Critical
 import org.mozilla.fenix.customannotations.SmokeTest
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.helpers.FenixTestRule
@@ -23,6 +22,7 @@ import org.mozilla.fenix.helpers.TestHelper.mDevice
 import org.mozilla.fenix.helpers.TestHelper.restartApp
 import org.mozilla.fenix.helpers.TestHelper.verifySnackBarText
 import org.mozilla.fenix.helpers.TestHelper.waitForAppWindowToBeUpdated
+import org.mozilla.fenix.helpers.TestHelper.waitUntilSnackbarGone
 import org.mozilla.fenix.helpers.perf.DetectMemoryLeaksRule
 import org.mozilla.fenix.ui.robots.browserScreen
 import org.mozilla.fenix.ui.robots.homeScreen
@@ -62,12 +62,6 @@ class TabbedBrowsingTest {
     // val retryTestRule = RetryTestRule(3)
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/903599
-    @Converted(
-        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.TabbedBrowsingTest#closeAllTabsTest"],
-        bug = 2079703,
-        since = "2026-10",
-    )
-    @Critical
     @Test
     fun closeAllTabsTest() {
         val defaultWebPage = mockWebServer.getGenericAsset(1)
@@ -162,12 +156,6 @@ class TabbedBrowsingTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/903591
-    @Converted(
-        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.TabbedBrowsingTest#closingPrivateTabsTest"],
-        bug = 2079703,
-        since = "2026-10",
-    )
-    @Critical
     @Test
     fun closingPrivateTabsTest() {
         val genericURL = mockWebServer.getGenericAsset(1)
@@ -566,12 +554,6 @@ class TabbedBrowsingTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3024942
-    @Converted(
-        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.TabbedBrowsingTest#verifyTabsTrayListViewTest"],
-        bug = 2079277,
-        since = "2026-10",
-    )
-    @Critical
     @Test
     fun verifyTabsTrayListViewTest() {
         appContext.components.settings.gridTabView = false
@@ -591,16 +573,15 @@ class TabbedBrowsingTest {
                 verifyOpenTabsOrder(title = webPages[1].title, position = 2, isListViewEnabled = true)
                 verifyOpenTabsOrder(title = webPages[2].title, position = 3, isListViewEnabled = true)
                 verifyOpenTabsOrder(title = webPages[3].title, position = 4, isListViewEnabled = true)
+                swipeTabLeft(title = webPages[0].title, isListViewEnabled = true)
+                verifySnackBarText("Tab closed")
+                waitUntilSnackbarGone()
+                verifyNoExistingOpenTabs(webPages[0].title)
+                verifyOpenTabsOrder(title = webPages[1].title, position = 1, isListViewEnabled = true)
             }
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/1126911
-    @Converted(
-        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.TabbedBrowsingTest#verifyTabsTrayGridViewTest"],
-        bug = 2079277,
-        since = "2026-10",
-    )
-    @Critical
     @Test
     fun verifyTabsTrayGridViewTest() {
         appContext.components.settings.gridTabView = true
@@ -620,6 +601,8 @@ class TabbedBrowsingTest {
                 verifyOpenTabsOrder(title = webPages[1].title, position = 2)
                 verifyOpenTabsOrder(title = webPages[2].title, position = 3)
                 verifyOpenTabsOrder(title = webPages[3].title, position = 4)
+                swipeTabLeft(title = webPages[0].title)
+                verifyOpenTabsOrder(title = webPages[1].title, position = 1)
             }
     }
 

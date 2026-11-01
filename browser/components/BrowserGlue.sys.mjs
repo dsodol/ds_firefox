@@ -36,6 +36,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ExtensionsUI: "resource:///modules/ExtensionsUI.sys.mjs",
   FormAutofillUtils: "resource://gre/modules/shared/FormAutofillUtils.sys.mjs",
   Interactions: "moz-src:///browser/components/places/Interactions.sys.mjs",
+  LaunchOnLogin: "resource://gre/modules/LaunchOnLogin.sys.mjs",
   LoginBreaches:
     "moz-src:///browser/components/aboutlogins/LoginBreaches.sys.mjs",
   LoginHelper: "resource://gre/modules/LoginHelper.sys.mjs",
@@ -64,6 +65,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/search/SearchSERPTelemetry.sys.mjs",
   SessionStartup:
     "moz-src:///browser/components/sessionstore/SessionStartup.sys.mjs",
+  SessionWindowUI:
+    "moz-src:///browser/components/sessionstore/SessionWindowUI.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
   SpecialMessageActions:
     "resource://messaging-system/lib/SpecialMessageActions.sys.mjs",
@@ -327,6 +330,9 @@ BrowserGlue.prototype = {
           "os-autostart",
           false
         );
+        if (lazy.LaunchOnLogin.isSupported()) {
+          lazy.StartupOSIntegration.checkForLaunchOnLogin();
+        }
         break;
       }
     }
@@ -511,9 +517,17 @@ BrowserGlue.prototype = {
       return;
     }
 
+    let message = win.gNavigatorBundle.getString(
+      "unsignedAddonsDisabled.message"
+    );
     let buttons = [
       {
-        "l10n-id": "unsigned-addons-disabled-learn-more",
+        label: win.gNavigatorBundle.getString(
+          "unsignedAddonsDisabled.learnMore.label"
+        ),
+        accessKey: win.gNavigatorBundle.getString(
+          "unsignedAddonsDisabled.learnMore.accesskey"
+        ),
         callback() {
           win.BrowserAddonUI.openAddonsMgr(
             "addons://list/extension?unsigned=true"
@@ -525,7 +539,7 @@ BrowserGlue.prototype = {
     win.gNotificationBox.appendNotification(
       "unsigned-addons-disabled",
       {
-        label: { "l10n-id": "unsigned-addons-disabled-message" },
+        label: message,
         priority: win.gNotificationBox.PRIORITY_WARNING_MEDIUM,
       },
       buttons
@@ -790,6 +804,23 @@ BrowserGlue.prototype = {
     }
   },
 
+  _monitorWebcompatReporterPref() {
+    const PREF = "extensions.webcompat-reporter.enabled";
+    const ID = "webcompat-reporter@mozilla.org";
+    Services.prefs.addObserver(PREF, async () => {
+      let addon = await lazy.AddonManager.getAddonByID(ID);
+      if (!addon) {
+        return;
+      }
+      let enabled = Services.prefs.getBoolPref(PREF, false);
+      if (enabled && !addon.isActive) {
+        await addon.enable({ allowSystemAddons: true });
+      } else if (!enabled && addon.isActive) {
+        await addon.disable({ allowSystemAddons: true });
+      }
+    });
+  },
+
   // All initial windows have opened.
   _onWindowsRestored: function BG__onWindowsRestored() {
     if (this._windowsWereRestored) {
@@ -847,6 +878,7 @@ BrowserGlue.prototype = {
     }
 
     lazy.Sanitizer.onStartup();
+    lazy.SessionWindowUI.maybeShowRestoreSessionInfoBar();
     this._scheduleStartupIdleTasks();
     this._lateTasksIdleObserver = (idleService, topic) => {
       if (topic == "idle") {
@@ -862,6 +894,8 @@ BrowserGlue.prototype = {
       this._lateTasksIdleObserver,
       LATE_TASKS_IDLE_TIME_SEC
     );
+
+    this._monitorWebcompatReporterPref();
 
     // Loading the MigrationUtils module does the work of registering the
     // migration wizard JSWindowActor pair. In case nothing else has done
@@ -1476,7 +1510,7 @@ BrowserGlue.prototype = {
     // Use an increasing number to keep track of the current state of the user's
     // profile, so we can move data around as needed as the browser evolves.
     // Completely unrelated to the current Firefox release number.
-    const APP_DATA_VERSION = 184;
+    const APP_DATA_VERSION = 183;
     const PREF = "browser.migration.version";
 
     let profileDataVersion = Services.prefs.getIntPref(PREF, -1);

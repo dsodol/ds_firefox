@@ -47,7 +47,6 @@ impl GradientBuilder {
         start_point: LayoutVector2D,
         end_point: LayoutVector2D,
         extend_mode: di::ExtendMode,
-        alpha_mode: di::AlphaMode,
     ) -> di::Gradient {
         let (start_offset, end_offset) = self.normalize(extend_mode);
         let start_to_end = end_point - start_point;
@@ -56,7 +55,6 @@ impl GradientBuilder {
             start: start_point + start_to_end * start_offset,
             end: start_point + start_to_end * end_offset,
             extend_mode,
-            alpha_mode,
         }
     }
 
@@ -69,7 +67,6 @@ impl GradientBuilder {
         center: LayoutVector2D,
         radius: LayoutSize,
         extend_mode: di::ExtendMode,
-        alpha_mode: di::AlphaMode,
     ) -> di::RadialGradient {
         if radius.width <= 0.0 || radius.height <= 0.0 {
             // The shader cannot handle a non positive radius. So
@@ -87,7 +84,6 @@ impl GradientBuilder {
                 start_offset: 0.0,
                 end_offset: 1.0,
                 extend_mode,
-                alpha_mode,
             };
         }
 
@@ -100,7 +96,6 @@ impl GradientBuilder {
             start_offset,
             end_offset,
             extend_mode,
-            alpha_mode,
         }
     }
 
@@ -110,7 +105,6 @@ impl GradientBuilder {
         center: LayoutVector2D,
         angle: f32,
         extend_mode: di::ExtendMode,
-        alpha_mode: di::AlphaMode,
     ) -> di::ConicGradient {
         let (start_offset, end_offset) =
             self.normalize(extend_mode);
@@ -121,7 +115,6 @@ impl GradientBuilder {
             start_offset,
             end_offset,
             extend_mode,
-            alpha_mode,
         }
     }
 

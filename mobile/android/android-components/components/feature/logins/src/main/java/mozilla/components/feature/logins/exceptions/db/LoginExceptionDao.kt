@@ -15,20 +15,18 @@ import kotlinx.coroutines.flow.Flow
 /** Internal DAO for accessing [LoginExceptionEntity] instances. */
 @Dao
 internal interface LoginExceptionDao {
-    @Insert suspend fun insertLoginException(exception: LoginExceptionEntity): Long
+    @Insert fun insertLoginException(exception: LoginExceptionEntity): Long
 
-    @Delete suspend fun deleteLoginException(exception: LoginExceptionEntity)
+    @Delete fun deleteLoginException(exception: LoginExceptionEntity)
 
     @Transaction @Query("SELECT * FROM logins_exceptions") fun getLoginExceptions(): Flow<List<LoginExceptionEntity>>
 
-    @Transaction
-    @Query("SELECT * FROM logins_exceptions")
-    suspend fun getLoginExceptionsList(): List<LoginExceptionEntity>
+    @Transaction @Query("SELECT * FROM logins_exceptions") fun getLoginExceptionsList(): List<LoginExceptionEntity>
 
-    @Query("DELETE FROM logins_exceptions") suspend fun deleteAllLoginExceptions()
+    @Query("DELETE FROM logins_exceptions") fun deleteAllLoginExceptions()
 
     @Query("SELECT * FROM logins_exceptions WHERE origin = :origin")
-    suspend fun findExceptionByOrigin(origin: String): LoginExceptionEntity?
+    fun findExceptionByOrigin(origin: String): LoginExceptionEntity?
 
     @Transaction
     @Query("SELECT * FROM logins_exceptions")

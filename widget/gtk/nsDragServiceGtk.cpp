@@ -30,20 +30,12 @@ extern mozilla::LazyLogModule gWidgetDragLog;
 #  define LOGDRAGSERVICE(...)
 #endif
 
-nsDragSessionGtk::DragTaskGtk::~DragTaskGtk() = default;
-
-void nsDragSessionGtk::DragTaskGtk::Reset() {
-  mType = eDragTaskNone;
-  mWindow = nullptr;
-  mDragContext = nullptr;
-}
-
 ClipboardTargets nsDragSessionGtk::DragTaskGtk::GetTargets() {
   return ClipboardTargets(gdk_drag_context_list_targets(mDragContext));
 }
 
 nsDragSessionGtk::nsDragSessionGtk() {
-  mRecentTask = std::make_unique<DragTaskGtk>();
+  mRecentTask = MakeUnique<DragTaskGtk>();
 }
 
 NS_IMETHODIMP
@@ -205,8 +197,8 @@ gboolean nsDragSessionGtk::ScheduleMotionEvent(
 
   // Returning TRUE means we'll reply with a status message, unless we first
   // get a leave.
-  auto task = std::make_unique<DragTaskGtk>(eDragTaskMotion, aDragContext,
-                                            aWindow, aWindowPoint, aTime);
+  UniquePtr<DragTaskGtk> task = MakeUnique<DragTaskGtk>(
+      eDragTaskMotion, aDragContext, aWindow, aWindowPoint, aTime);
   return Schedule(std::move(task));
 }
 
@@ -214,8 +206,8 @@ gboolean nsDragSessionGtk::ScheduleDropEvent(nsWindow* aWindow,
                                              GdkDragContext* aDragContext,
                                              LayoutDeviceIntPoint aWindowPoint,
                                              guint aTime) {
-  auto task = std::make_unique<DragTaskGtk>(eDragTaskDrop, aDragContext,
-                                            aWindow, aWindowPoint, aTime);
+  UniquePtr<DragTaskGtk> task = MakeUnique<DragTaskGtk>(
+      eDragTaskDrop, aDragContext, aWindow, aWindowPoint, aTime);
   if (!Schedule(std::move(task))) {
     NS_WARNING("Additional drag drop ignored");
     return FALSE;
@@ -231,7 +223,7 @@ void nsDragSessionGtk::ScheduleLeaveEvent() {
   // We don't know at this stage whether a drop signal will immediately
   // follow.  If the drop signal gets sent it will happen before we return
   // to the main loop and the scheduled leave task will be replaced.
-  auto task = std::make_unique<DragTaskGtk>(eDragTaskLeave);
+  UniquePtr<DragTaskGtk> task = MakeUnique<DragTaskGtk>(eDragTaskLeave);
   if (!Schedule(std::move(task))) {
     NS_WARNING("Drag leave after drop");
   }

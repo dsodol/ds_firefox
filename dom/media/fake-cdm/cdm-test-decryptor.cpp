@@ -424,7 +424,5 @@ void FakeDecryptor::UpdateSession(uint32_t aPromiseId, const char* aSessionId,
                ReportReadRecordContinuation("shutdown-token"));
   } else if (task == "test-op-apis") {
     mozilla::cdmtest::TestOuputProtectionAPIs();
-  } else if (task == "crash") {
-    MOZ_CRASH("Crash requested by the test");
   }
 }

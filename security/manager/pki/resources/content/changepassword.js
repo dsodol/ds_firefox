@@ -6,10 +6,6 @@
 const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
-const lazy = {};
-ChromeUtils.defineESModuleGetters(lazy, {
-  ProfileKekPassword: "resource://gre/modules/ProfileKekPassword.sys.mjs",
-});
 
 ChromeUtils.defineLazyGetter(
   this,
@@ -87,31 +83,11 @@ async function setPassword(event) {
     }
   }
 
-  let kekMoved = false;
   try {
-    // Only the internal key token's password is the primary password the
-    // lockstore KEK follows; any other token here is unrelated to profile
-    // encryption. changePassword cannot be reverted, so the KEK moves first.
-    if (
-      token.isInternalKeyToken &&
-      (!token.hasPassword || (await lazy.ProfileKekPassword.exists()))
-    ) {
-      await lazy.ProfileKekPassword.update(oldpwbox.value, pw1.value);
-      kekMoved = true;
-    }
     await token.changePassword(oldpwbox.value, pw1.value);
     doPrompt(pw1.value == "" ? "pippki-pw-erased-ok" : "pippki-pw-change-ok");
     window.close();
   } catch (e) {
-    // kekMoved is only set once the update resolved, so reaching here with it
-    // set means changePassword is what failed: the token still has the old
-    // password, so put the KEK back under it.
-    if (kekMoved) {
-      await lazy.ProfileKekPassword.update(pw1.value, oldpwbox.value).catch(
-        rollbackError =>
-          console.error("Failed to roll back the lockstore KEK", rollbackError)
-      );
-    }
     let nssErrorsService = Cc["@mozilla.org/nss_errors_service;1"].getService(
       Ci.nsINSSErrorsService
     );
@@ -119,14 +95,7 @@ async function setPassword(event) {
     let badPasswordResult = nssErrorsService.getXPCOMFromNSSError(
       Ci.nsINSSErrorsService.NSS_SEC_ERROR_BASE + 15
     );
-    // The lockstore unlock runs first and reports a wrong password as
-    // NS_ERROR_ABORT rather than the token's bad-password code. Only reachable
-    // with kekMoved unset: past that point the KEK is done with and the token,
-    // which reports failures as NSS codes, is what failed.
-    if (
-      e.result == badPasswordResult ||
-      (!kekMoved && e.result == Cr.NS_ERROR_ABORT)
-    ) {
+    if (e.result == badPasswordResult) {
       oldpwbox.focus();
       oldpwbox.setAttribute("value", "");
       doPrompt("pippki-incorrect-pw");

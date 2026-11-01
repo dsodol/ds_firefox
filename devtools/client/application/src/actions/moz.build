@@ -7,7 +7,6 @@ DevToolsModules(
     "manifest.js",
     "page.js",
     "session-history.js",
-    "speculative-loads.js",
     "ui.js",
     "workers.js",
 )

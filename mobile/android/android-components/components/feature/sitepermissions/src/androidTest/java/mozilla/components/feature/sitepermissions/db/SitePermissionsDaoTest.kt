@@ -8,7 +8,6 @@ import android.content.Context
 import androidx.core.net.toUri
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import kotlinx.coroutines.test.runTest
 import mozilla.components.concept.engine.permission.SitePermissions
 import mozilla.components.concept.engine.permission.SitePermissions.AutoplayStatus
 import mozilla.components.concept.engine.permission.SitePermissions.Status.ALLOWED
@@ -40,7 +39,7 @@ class SitePermissionsDaoTest {
     }
 
     @Test
-    fun testInsertingAndReadingSitePermissions() = runTest {
+    fun testInsertingAndReadingSitePermissions() {
         val origin = insertMockSitePermissions("https://www.mozilla.org")
 
         val siteFromDb = dao.getSitePermissionsBy(origin)!!.toSitePermission()
@@ -52,7 +51,7 @@ class SitePermissionsDaoTest {
     }
 
     @Test
-    fun testRemoveAllSitePermissions() = runTest {
+    fun testRemoveAllSitePermissions() {
         for (index in 1..4) {
             val origin = insertMockSitePermissions("https://www.mozilla$index.org")
 
@@ -69,7 +68,7 @@ class SitePermissionsDaoTest {
     }
 
     @Test
-    fun testUpdateAndDeleteSitePermissions() = runTest {
+    fun testUpdateAndDeleteSitePermissions() {
         val origin = insertMockSitePermissions("https://www.mozilla.org")
         var siteFromDb = dao.getSitePermissionsBy(origin)!!.toSitePermission()
 
@@ -100,7 +99,7 @@ class SitePermissionsDaoTest {
         assertNull(notFoundSitePermissions)
     }
 
-    private suspend fun insertMockSitePermissions(url: String): String {
+    private fun insertMockSitePermissions(url: String): String {
         val origin = url.toUri().host!!
         val sitePermissions =
             SitePermissions(

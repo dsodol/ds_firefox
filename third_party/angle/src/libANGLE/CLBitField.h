@@ -9,7 +9,6 @@
 #define LIBANGLE_CLBITFIELD_H_
 
 #include <angle_cl.h>
-
 #include <ostream>
 
 namespace cl
@@ -68,20 +67,19 @@ class BitField
 
 static_assert(sizeof(BitField) == sizeof(cl_bitfield), "Type size mismatch");
 
-using DeviceType                 = BitField;
-using DeviceFpConfig             = BitField;
-using DeviceExecCapabilities     = BitField;
-using DeviceSvmCapabilities      = BitField;
-using CommandQueueProperties     = BitField;
-using CommandBufferKHRProperties = BitField;
-using DeviceAffinityDomain       = BitField;
-using MemFlags                   = BitField;
-using SVM_MemFlags               = BitField;
-using MemMigrationFlags          = BitField;
-using MapFlags                   = BitField;
-using KernelArgTypeQualifier     = BitField;
-using DeviceAtomicCapabilities   = BitField;
-using DeviceEnqueueCapabilities  = BitField;
+using DeviceType                = BitField;
+using DeviceFpConfig            = BitField;
+using DeviceExecCapabilities    = BitField;
+using DeviceSvmCapabilities     = BitField;
+using CommandQueueProperties    = BitField;
+using DeviceAffinityDomain      = BitField;
+using MemFlags                  = BitField;
+using SVM_MemFlags              = BitField;
+using MemMigrationFlags         = BitField;
+using MapFlags                  = BitField;
+using KernelArgTypeQualifier    = BitField;
+using DeviceAtomicCapabilities  = BitField;
+using DeviceEnqueueCapabilities = BitField;
 
 }  // namespace cl
 

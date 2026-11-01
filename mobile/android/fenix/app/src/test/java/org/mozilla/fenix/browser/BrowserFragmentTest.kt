@@ -249,10 +249,17 @@ class BrowserFragmentTest {
     @Test
     fun `WHEN isPullToRefreshEnabledInBrowser is disabled THEN pull down refresh is disabled`() {
         every { context.components.settings.isPullToRefreshEnabledInBrowser } returns true
-        assertTrue(browserFragment.shouldPullToRefreshBeEnabled())
+        assertTrue(browserFragment.shouldPullToRefreshBeEnabled(false))
 
         every { context.components.settings.isPullToRefreshEnabledInBrowser } returns false
-        assertTrue(!browserFragment.shouldPullToRefreshBeEnabled())
+        assertTrue(!browserFragment.shouldPullToRefreshBeEnabled(false))
+    }
+
+    @Test
+    fun `WHEN in fullscreen THEN pull down refresh is disabled`() {
+        every { context.components.settings.isPullToRefreshEnabledInBrowser } returns true
+        assertTrue(browserFragment.shouldPullToRefreshBeEnabled(false))
+        assertTrue(!browserFragment.shouldPullToRefreshBeEnabled(true))
     }
 
     private fun addAndSelectTab(tab: TabSessionState) {

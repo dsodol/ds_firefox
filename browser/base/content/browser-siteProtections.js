@@ -170,8 +170,8 @@ class ProtectionCategory {
    * Update the category sub view that is shown when users click on the category
    * button.
    */
-  updateSubView() {
-    let { items, anyShimAllowed } = this._generateSubViewListItems();
+  async updateSubView() {
+    let { items, anyShimAllowed } = await this._generateSubViewListItems();
     this.subViewShimAllowHint.hidden = !anyShimAllowed;
 
     this.subViewList.textContent = "";
@@ -204,21 +204,23 @@ class ProtectionCategory {
   /**
    * Create a list of items, each representing a tracker.
    *
-   * @param {object[]} [logs] - Content-blocking logs to build the list from,
-   * oldest first. Defaults to the current page's log.
    * @returns {object} result - An object containing the results.
    * @returns {HTMLDivElement[]} result.items - Generated tracker items. May be
    * empty.
    * @returns {boolean} result.anyShimAllowed - Flag indicating if any of the
    * items have been unblocked by a shim script.
    */
-  _generateSubViewListItems(logs) {
-    logs ??= [JSON.parse(gBrowser.selectedBrowser.getContentBlockingLog())];
+  async _generateSubViewListItems() {
+    let contentBlockingLog = gBrowser.selectedBrowser.getContentBlockingLog();
+    contentBlockingLog = JSON.parse(contentBlockingLog);
     let anyShimAllowed = false;
 
     let fragment = document.createDocumentFragment();
-    for (let [origin, { actions, count }] of this._groupLogsByOrigin(logs)) {
-      let { item, shimAllowed } = this._createListItem(origin, actions, count);
+    for (let [origin, actions] of Object.entries(contentBlockingLog)) {
+      let { item, shimAllowed } = await this._createListItem(origin, actions);
+      if (!item) {
+        continue;
+      }
       anyShimAllowed = anyShimAllowed || shimAllowed;
       fragment.appendChild(item);
     }
@@ -230,65 +232,13 @@ class ProtectionCategory {
   }
 
   /**
-   * Group the origins listed across content-blocking logs, so that a tracker
-   * blocked on several pages of the same site is listed once, with a count of
-   * the pages it appeared on.
-   *
-   * @param {object[]} logs - Content-blocking logs for the visited pages of a single site, oldest-visited page first.
-   * @returns {Map} Maps each origin to its combined actions and the number of logs it was listed in.
-   */
-  _groupLogsByOrigin(logs) {
-    let grouped = new Map();
-    for (let log of logs) {
-      for (let [origin, actions] of Object.entries(log)) {
-        if (!this._isListed(actions)) {
-          continue;
-        }
-        let entry = grouped.get(origin);
-        if (entry) {
-          entry.actions.push(...actions);
-          entry.count++;
-        } else {
-          grouped.set(origin, { actions: [...actions], count: 1 });
-        }
-      }
-    }
-    return grouped;
-  }
-
-  /**
    * Return the number items blocked by this blocker.
    *
-   * @param {object[]} [logs] - Content-blocking logs to count items from,
-   * oldest first. Defaults to the current page's log.
    * @returns {Integer} count - The number of items blocked.
    */
-  getBlockerCount(logs) {
-    logs ??= [JSON.parse(gBrowser.selectedBrowser.getContentBlockingLog())];
-    let count = 0;
-    for (let log of logs) {
-      for (let actions of Object.values(log)) {
-        if (this._isListed(actions)) {
-          count++;
-        }
-      }
-    }
-    return count;
-  }
-
-  /**
-   * Whether an origin's actions from the content-blocking log should be listed
-   * by this blocker.
-   *
-   * @param {Array} actions - Array of [state, blocked] pairs for one origin.
-   * @returns {boolean}
-   */
-  _isListed(actions) {
-    return (
-      actions.some(
-        ([state]) => this.isAllowing(state) && !this.isShimming(state)
-      ) || actions.some(([state]) => this.isBlocking(state))
-    );
+  async getBlockerCount() {
+    let { items } = await this._generateSubViewListItems();
+    return items?.childElementCount ?? 0;
   }
 
   /**
@@ -296,18 +246,23 @@ class ProtectionCategory {
    *
    * @param {string} origin - Origin of the tracker.
    * @param {Array} actions - Array of actions from the content blocking log
-   * associated with the tracking origin. Must be listed by this blocker, as
-   * determined by `_isListed`.
-   * @param {number} [count] - Number of pages the tracker was blocked on.
+   * associated with the tracking origin.
    * @returns {object} result - An object containing the results.
-   * @returns {HTMLDivElement} result.item - Generated item.
-   * @returns {boolean} result.shimAllowed - Flag indicating whether the
+   * @returns {HTMLDListElement} [options.item] - Generated item or null if we
+   * don't have an item for this origin based on the actions log.
+   * @returns {boolean} options.shimAllowed - Flag indicating whether the
    * tracking origin was allowed by a shim script.
    */
-  _createListItem(origin, actions, count = 1) {
+  _createListItem(origin, actions) {
     let isAllowed = actions.some(
       ([state]) => this.isAllowing(state) && !this.isShimming(state)
     );
+    let isDetected =
+      isAllowed || actions.some(([state]) => this.isBlocking(state));
+
+    if (!isDetected) {
+      return {};
+    }
 
     // Create an item to hold the origin label and shim allow indicator. Using
     // an html element here, so we can use CSS flex, which handles the label
@@ -328,11 +283,6 @@ class ProtectionCategory {
     label.setAttribute("crop", "end");
     listItem.append(label);
 
-    if (count > 1) {
-      listItem.classList.add("protections-popup-list-item-with-count");
-      listItem.append(this._getCountLabel(count));
-    }
-
     // Determine whether we should show a shim-allow indicator for this item.
     let shimAllowed = actions.some(([flag]) => flag == this._flags.allow);
     if (shimAllowed) {
@@ -340,21 +290,6 @@ class ProtectionCategory {
     }
 
     return { item: listItem, shimAllowed };
-  }
-
-  /**
-   * Create a label showing how many pages of the site a tracker was blocked on.
-   *
-   * @param {number} count - Number of pages the tracker was blocked on.
-   * @returns {XULElement} - Created element.
-   */
-  _getCountLabel(count) {
-    let label = document.createXULElement("label");
-    label.className = "protections-popup-list-count-label";
-    document.l10n.setAttributes(label, "content-blocking-tracker-count", {
-      count,
-    });
-    return label;
   }
 
   /**
@@ -684,8 +619,11 @@ let TrackingProtection =
       return this.isAllowingLevel1(state) || this.isAllowingLevel2(state);
     }
 
-    updateSubView() {
-      let { items, anyShimAllowed } = this._generateSubViewListItems();
+    async updateSubView() {
+      let previousURI = gBrowser.currentURI.spec;
+      let previousWindow = gBrowser.selectedBrowser.innerWindowID;
+
+      let { items, anyShimAllowed } = await this._generateSubViewListItems();
 
       // If we don't have trackers we would usually not show the menu item
       // allowing the user to show the sub-panel. However, in the edge case
@@ -713,26 +651,39 @@ let TrackingProtection =
         this.subViewList.classList.remove("empty");
       }
 
-      this.subViewShimAllowHint.hidden = !anyShimAllowed;
+      // This might have taken a while. Only update the list if we're still on the same page.
+      if (
+        previousURI == gBrowser.currentURI.spec &&
+        previousWindow == gBrowser.selectedBrowser.innerWindowID
+      ) {
+        this.subViewShimAllowHint.hidden = !anyShimAllowed;
 
-      this.subViewList.textContent = "";
-      this.subViewList.append(items);
-      const l10nId =
-        this.enabled && !gProtectionsHandler.hasException
-          ? "protections-blocking-tracking-content"
-          : "protections-not-blocking-tracking-content";
-      document.l10n.setAttributes(this.subView, l10nId);
+        this.subViewList.textContent = "";
+        this.subViewList.append(items);
+        const l10nId =
+          this.enabled && !gProtectionsHandler.hasException
+            ? "protections-blocking-tracking-content"
+            : "protections-not-blocking-tracking-content";
+        document.l10n.setAttributes(this.subView, l10nId);
+      }
     }
 
-    _isListed(actions) {
-      if (!super._isListed(actions)) {
-        return false;
+    async _createListItem(origin, actions) {
+      // Figure out if this list entry was actually detected by TP or something else.
+      let isAllowed = actions.some(
+        ([state]) => this.isAllowing(state) && !this.isShimming(state)
+      );
+      let isDetected =
+        isAllowed || actions.some(([state]) => this.isBlocking(state));
+
+      if (!isDetected) {
+        return {};
       }
 
       // Because we might use different lists for annotation vs. blocking, we
       // need to make sure that this is a tracker that we would actually have blocked
       // before showing it to the user.
-      return !(
+      if (
         this.annotationsLevel2Enabled &&
         !this.trackingProtectionLevel2Enabled &&
         actions.some(
@@ -742,7 +693,32 @@ let TrackingProtection =
                 .STATE_LOADED_LEVEL_2_TRACKING_CONTENT) !=
             0
         )
+      ) {
+        return {};
+      }
+
+      let listItem = document.createElementNS(
+        "http://www.w3.org/1999/xhtml",
+        "div"
       );
+      listItem.className = "protections-popup-list-item";
+      listItem.classList.toggle("allowed", isAllowed);
+
+      let label = document.createXULElement("label");
+      // Repeat the host in the tooltip in case it's too long
+      // and overflows in our panel.
+      label.tooltipText = origin;
+      label.value = origin;
+      label.className = "protections-popup-list-host-label";
+      label.setAttribute("crop", "end");
+      listItem.append(label);
+
+      let shimAllowed = actions.some(([flag]) => flag == this._flags.allow);
+      if (shimAllowed) {
+        listItem.append(this._getShimAllowIndicator());
+      }
+
+      return { item: listItem, shimAllowed };
     }
   })();
 
@@ -882,47 +858,12 @@ let ThirdPartyCookies =
       return this.prefEnabledValues.includes(this.behaviorPref);
     }
 
-    _generateSubViewListItems(logs) {
-      logs ??= [JSON.parse(gBrowser.selectedBrowser.getContentBlockingLog())];
+    _generateSubViewListItems() {
       let fragment = document.createDocumentFragment();
+      let contentBlockingLog = gBrowser.selectedBrowser.getContentBlockingLog();
+      contentBlockingLog = JSON.parse(contentBlockingLog);
+      let categories = this._processContentBlockingLog(contentBlockingLog);
 
-      // A cookie origin may be blocked on several pages of the same site; group
-      // by origin so it is listed once, with a count of the pages it appeared
-      // on.
-      let grouped = new Map();
-      for (let log of logs) {
-        let categories = this._processContentBlockingLog(log);
-        for (let category of this._categoryNames()) {
-          for (let info of categories[category]) {
-            let entry = grouped.get(info.origin);
-            if (entry) {
-              entry.count++;
-            } else {
-              grouped.set(info.origin, { info, count: 1 });
-            }
-          }
-        }
-      }
-
-      for (let { info, count } of grouped.values()) {
-        fragment.appendChild(this._createCookieListItem(info, count));
-      }
-      return { items: fragment };
-    }
-
-    getBlockerCount(logs) {
-      logs ??= [JSON.parse(gBrowser.selectedBrowser.getContentBlockingLog())];
-      let count = 0;
-      for (let log of logs) {
-        let categories = this._processContentBlockingLog(log);
-        for (let category of this._categoryNames()) {
-          count += categories[category].length;
-        }
-      }
-      return count;
-    }
-
-    _categoryNames() {
       let categoryNames = ["trackers"];
       switch (this.behaviorPref) {
         case Ci.nsICookieService.BEHAVIOR_REJECT:
@@ -931,7 +872,18 @@ let ThirdPartyCookies =
         case Ci.nsICookieService.BEHAVIOR_REJECT_FOREIGN:
           categoryNames.push("thirdParty");
       }
-      return categoryNames;
+
+      for (let category of categoryNames) {
+        let itemsToShow = categories[category];
+
+        if (!itemsToShow.length) {
+          continue;
+        }
+        for (let info of itemsToShow) {
+          fragment.appendChild(this._createListItem(info));
+        }
+      }
+      return { items: fragment };
     }
 
     updateSubView() {
@@ -942,7 +894,16 @@ let ThirdPartyCookies =
 
       this.subViewList.textContent = "";
 
-      for (let category of this._categoryNames()) {
+      let categoryNames = ["trackers"];
+      switch (this.behaviorPref) {
+        case Ci.nsICookieService.BEHAVIOR_REJECT:
+          categoryNames.push("firstParty");
+        // eslint-disable-next-line no-fallthrough
+        case Ci.nsICookieService.BEHAVIOR_REJECT_FOREIGN:
+          categoryNames.push("thirdParty");
+      }
+
+      for (let category of categoryNames) {
         let itemsToShow = categories[category];
 
         if (!itemsToShow.length) {
@@ -971,7 +932,7 @@ let ThirdPartyCookies =
         box.appendChild(label);
 
         for (let info of itemsToShow) {
-          box.appendChild(this._createCookieListItem(info));
+          box.appendChild(this._createListItem(info));
         }
 
         this.subViewList.appendChild(box);
@@ -1174,7 +1135,7 @@ let ThirdPartyCookies =
       return newLog;
     }
 
-    _createCookieListItem({ origin, isAllowed, exceptionState }, count = 1) {
+    _createListItem({ origin, isAllowed, exceptionState }) {
       let listItem = document.createElementNS(
         "http://www.w3.org/1999/xhtml",
         "div"
@@ -1189,11 +1150,6 @@ let ThirdPartyCookies =
       label.className = "protections-popup-list-host-label";
       label.setAttribute("crop", "end");
       listItem.append(label);
-
-      if (count > 1) {
-        listItem.classList.add("protections-popup-list-item-with-count");
-        listItem.append(this._getCountLabel(count));
-      }
 
       if (
         (isAllowed && exceptionState == Services.perms.ALLOW_ACTION) ||
@@ -1378,11 +1334,6 @@ var gProtectionsHandler = {
       matchPatterns: ["https://*.disqus.com/*"],
       shimId: "DisqusEmbed",
       displayName: "Disqus",
-    },
-    {
-      matchPatterns: ["https://*.sendtonews.com/*"],
-      shimId: "SendToNewsEmbed",
-      displayName: "STN Video",
     },
   ],
 
@@ -1727,36 +1678,36 @@ var gProtectionsHandler = {
     );
   },
 
-  showTrackersSubview() {
-    TrackingProtection.updateSubView();
+  async showTrackersSubview() {
+    await TrackingProtection.updateSubView();
     this._protectionsPopupMultiView.showSubView(
       "protections-popup-trackersView"
     );
   },
 
-  showSocialblockerSubview() {
-    SocialTracking.updateSubView();
+  async showSocialblockerSubview() {
+    await SocialTracking.updateSubView();
     this._protectionsPopupMultiView.showSubView(
       "protections-popup-socialblockView"
     );
   },
 
-  showCookiesSubview() {
-    ThirdPartyCookies.updateSubView();
+  async showCookiesSubview() {
+    await ThirdPartyCookies.updateSubView();
     this._protectionsPopupMultiView.showSubView(
       "protections-popup-cookiesView"
     );
   },
 
-  showFingerprintersSubview() {
-    Fingerprinting.updateSubView();
+  async showFingerprintersSubview() {
+    await Fingerprinting.updateSubView();
     this._protectionsPopupMultiView.showSubView(
       "protections-popup-fingerprintersView"
     );
   },
 
-  showCryptominersSubview() {
-    Cryptomining.updateSubView();
+  async showCryptominersSubview() {
+    await Cryptomining.updateSubView();
     this._protectionsPopupMultiView.showSubView(
       "protections-popup-cryptominersView"
     );

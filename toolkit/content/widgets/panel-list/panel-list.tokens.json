@@ -33,17 +33,6 @@
       }
     }
   },
-  "padding": {
-    "block": {
-      "value": {
-        "default": "{panel.padding.block}",
-        "nova": {
-          "comment": "There is no equivalent value for this token in Figma",
-          "value": "{space.small}"
-        }
-      }
-    }
-  },
   "text": {
     "color": {
       "value": "{text.color.@base}"

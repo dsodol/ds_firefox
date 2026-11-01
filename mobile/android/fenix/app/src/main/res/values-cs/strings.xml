@@ -77,11 +77,7 @@
   <string name="about_content" tools:ignore="BrandUsage">Autorem aplikace %1$s je Mozilla.</string>
   <!-- Private Browsing -->
   <string name="private_browsing_common_myths">Časté omyly o fungování anonymního prohlížení</string>
-  <!--
-    Private Browsing
-
-    Text to be announced by the accessibility service to inform the user that the private browsing mode is currently active.
-  -->
+  <!-- Text to be announced by the accessibility service to inform the user that the private browsing mode is currently active. -->
   <string name="private_browsing_a11y_session_announcement">Relace anonymního prohlížení</string>
   <!--
     True Private Browsing Mode
@@ -185,10 +181,8 @@
   <!--
     Browser Fragment
 
-    Label for popup button that appears when long-pressing the main menu. Tapping it allows the user to customize the main menu layout.
+    Content description (not visible, for screen readers etc.): Navigate backward (browsing history)
   -->
-  <string name="customize_menu">Upravit nabídku</string>
-  <!-- Content description (not visible, for screen readers etc.): Navigate backward (browsing history) -->
   <string name="browser_menu_back">Zpět</string>
   <!-- Content description (not visible, for screen readers etc.): Navigate forward (browsing history) -->
   <string name="browser_menu_forward">Vpřed</string>
@@ -319,6 +313,8 @@
   <string name="browser_menu_default_banner_title">Nastavit %1$s jako výchozí</string>
   <!-- Label text within the set as default banner -->
   <string name="browser_menu_default_banner_subtitle_2">Rychlý, soukromý a stvořený pro vás.</string>
+  <!-- Content description (not visible, for screen readers etc.) for the button that dismisses the set as default banner in the menu -->
+  <string name="browser_menu_default_banner_dismiss_promotion">Skrýt nabídku</string>
   <!-- Content description (not visible, for screen readers etc.) for recommended extensions in main menu -->
   <string name="browser_menu_recommended_extensions_content_description">Více informací</string>
   <!--
@@ -729,11 +725,7 @@
     Title for the settings page
   -->
   <string name="settings">Nastavení</string>
-  <!--
-    Preferences
-
-    Preference category for general settings
-  -->
+  <!-- Preference category for general settings -->
   <string name="preferences_category_general">Obecné</string>
   <!-- Preference category for all links about Fenix -->
   <string name="preferences_category_about">O aplikaci</string>
@@ -4632,12 +4624,6 @@
 
     Content description for accessibility (used by screen readers): Description for the button that triggers the start of a signature workflow on the PDF displayed on the screen.
   -->
-  <string name="pdf_tools_sign_content_description_2">Přidat podpis</string>
-  <!--
-    PDF viewer toolbar and buttons
-
-    Content description for accessibility (used by screen readers): Description for the button that triggers the start of a signature workflow on the PDF displayed on the screen.
-  -->
   <string name="pdf_tools_sign_content_description">Podepsat PDF</string>
   <!-- Content description for accessibility (used by screen readers): Description of the button that downloads the PDF displayed on the screen to the user's device. -->
   <string name="pdf_tools_download_content_description">Stáhnout PDF</string>
@@ -4665,8 +4651,8 @@
     Content description for the reader mode panel: a group of buttons floating over the content
   -->
   <string name="reader_mode_panel_content_description">Nastavení režimu čtení</string>
-  <!-- Content description for the button in the reader view panel that turns on the Listen to Page feature (playback of content begins when button is pressed) -->
+  <!-- Content description for the button in reader mode panel that turns on the read aloud feature (playback of content begins when button is pressed) -->
   <string name="reader_mode_panel_listen_content_description">Přečíst nahlas</string>
-  <!-- Content description for media player displayed in Reader view when the Listen to Page (Read Aloud) feature is selected -->
+  <!-- Content description for media player displayed in Reader Mode when the Listen to Page (Read Aloud) feature is selected -->
   <string name="reader_mode_panel_media_player_content_description">Přehrávač médií</string>
 </resources>

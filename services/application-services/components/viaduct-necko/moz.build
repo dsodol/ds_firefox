@@ -12,7 +12,3 @@ UNIFIED_SOURCES += [
 ]
 
 XPCSHELL_TESTS_MANIFESTS += ["tests/xpcshell.toml"]
-
-SOURCE_HEADERS += [
-    "backend.h",
-]

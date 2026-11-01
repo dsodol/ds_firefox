@@ -46,16 +46,6 @@ const CONFIG = [
 const engineSelector = new SearchEngineSelector();
 
 add_task(async function test_no_subvariants_match() {
-  let partnerDetails;
-  if (SearchUtils.configV3FeatureGate) {
-    partnerDetails = {
-      partner: new Map([
-        ["default", { code: "variant-partner-code", telemetrySuffix: null }],
-      ]),
-    };
-  } else {
-    partnerDetails = { partnerCode: "variant-partner-code" };
-  }
   await assertSelectorEnginesEqualsExpected(
     engineSelector,
     CONFIG,
@@ -66,7 +56,7 @@ add_task(async function test_no_subvariants_match() {
     [
       {
         identifier: "engine-1",
-        ...partnerDetails,
+        partnerCode: "variant-partner-code",
         ...STATIC_ENGINE_INFO,
       },
     ],
@@ -75,16 +65,6 @@ add_task(async function test_no_subvariants_match() {
 });
 
 add_task(async function test_matching_subvariant_with_properties() {
-  let partnerDetails;
-  if (SearchUtils.configV3FeatureGate) {
-    partnerDetails = {
-      partner: new Map([
-        ["default", { code: "subvariant-partner-code", telemetrySuffix: null }],
-      ]),
-    };
-  } else {
-    partnerDetails = { partnerCode: "subvariant-partner-code" };
-  }
   await assertSelectorEnginesEqualsExpected(
     engineSelector,
     CONFIG,
@@ -95,7 +75,7 @@ add_task(async function test_matching_subvariant_with_properties() {
     [
       {
         identifier: "engine-1",
-        ...partnerDetails,
+        partnerCode: "subvariant-partner-code",
         ...STATIC_ENGINE_INFO,
       },
     ],
@@ -104,25 +84,6 @@ add_task(async function test_matching_subvariant_with_properties() {
 });
 
 add_task(async function test_matching_variant_and_subvariant_with_properties() {
-  let partnerDetails;
-  if (SearchUtils.configV3FeatureGate) {
-    partnerDetails = {
-      partner: new Map([
-        [
-          "default",
-          {
-            code: "variant-partner-code",
-            telemetrySuffix: "subvariant-telemetry",
-          },
-        ],
-      ]),
-    };
-  } else {
-    partnerDetails = {
-      partnerCode: "variant-partner-code",
-      telemetrySuffix: "subvariant-telemetry",
-    };
-  }
   await assertSelectorEnginesEqualsExpected(
     engineSelector,
     CONFIG,
@@ -132,7 +93,8 @@ add_task(async function test_matching_variant_and_subvariant_with_properties() {
     },
     [
       {
-        ...partnerDetails,
+        partnerCode: "variant-partner-code",
+        telemetrySuffix: "subvariant-telemetry",
         ...STATIC_ENGINE_INFO,
       },
     ],
@@ -141,16 +103,6 @@ add_task(async function test_matching_variant_and_subvariant_with_properties() {
 });
 
 add_task(async function test_matching_two_subvariant_with_properties() {
-  let partnerDetails;
-  if (SearchUtils.configV3FeatureGate) {
-    partnerDetails = {
-      partner: new Map([
-        ["default", { code: "subvariant-partner-code", telemetrySuffix: null }],
-      ]),
-    };
-  } else {
-    partnerDetails = { partnerCode: "subvariant-partner-code" };
-  }
   await assertSelectorEnginesEqualsExpected(
     engineSelector,
     CONFIG,
@@ -161,7 +113,7 @@ add_task(async function test_matching_two_subvariant_with_properties() {
     [
       {
         identifier: "engine-1",
-        ...partnerDetails,
+        partnerCode: "subvariant-partner-code",
         ...STATIC_ENGINE_INFO,
       },
     ],

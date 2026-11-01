@@ -5,6 +5,7 @@
 package org.mozilla.fenix.settings.creditcards
 
 import mozilla.components.concept.storage.CreditCard
+import mozilla.components.concept.storage.CreditCardNumber
 import mozilla.components.support.utils.CreditCardNetworkType
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -19,7 +20,7 @@ class CreditCardsAdapterTest {
             CreditCard(
                 guid = "id",
                 billingName = "Banana Apple",
-                cardNumber = "4111111111111110",
+                encryptedCardNumber = CreditCardNumber.Encrypted("4111111111111110"),
                 cardNumberLast4 = "1110",
                 expiryMonth = 1,
                 expiryYear = 2030,
@@ -33,7 +34,7 @@ class CreditCardsAdapterTest {
             CreditCard(
                 guid = "id",
                 billingName = "Banana Apple",
-                cardNumber = "4111111111111110",
+                encryptedCardNumber = CreditCardNumber.Encrypted("4111111111111110"),
                 cardNumberLast4 = "1110",
                 expiryMonth = 1,
                 expiryYear = 2030,
@@ -51,7 +52,7 @@ class CreditCardsAdapterTest {
             CreditCard(
                 guid = "id3",
                 billingName = "Banana Apple",
-                cardNumber = "4111111111111110",
+                encryptedCardNumber = CreditCardNumber.Encrypted("4111111111111110"),
                 cardNumberLast4 = "1110",
                 expiryMonth = 1,
                 expiryYear = 2030,

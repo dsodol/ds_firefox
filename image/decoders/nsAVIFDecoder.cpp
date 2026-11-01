@@ -315,10 +315,10 @@ static Mp4parseStatus CreateSampleIterator(
     return rv;
   }
 
-  auto wrapper = std::make_unique<IndiceWrapper>(data);
+  UniquePtr<IndiceWrapper> wrapper = MakeUnique<IndiceWrapper>(data);
   auto index = MakeRefPtr<MP4SampleIndex>(*wrapper, aBuffer, trackID, false,
                                           AssertedCast<uint32_t>(timescale));
-  aIteratorOut = std::make_unique<SampleIterator>(index);
+  aIteratorOut = MakeUnique<SampleIterator>(index);
   return MP4PARSE_STATUS_OK;
 }
 
@@ -1021,13 +1021,14 @@ UniquePtr<AVIFDecodedData> Dav1dDecoder::Dav1dPictureToDecodedData(
   static_assert(std::is_same_v<int, decltype(aPicture->p.w)>);
   static_assert(std::is_same_v<int, decltype(aPicture->p.h)>);
 
-  auto data = std::make_unique<AVIFDecodedData>();
+  UniquePtr<AVIFDecodedData> data = MakeUnique<AVIFDecodedData>();
 
   data->mRenderSize.emplace(aPicture->frame_hdr->render_width,
                             aPicture->frame_hdr->render_height);
 
   data->mYChannel = static_cast<uint8_t*>(aPicture->data[0]);
   data->mYStride = aPicture->stride[0];
+  data->mYSkip = aPicture->stride[0] - aPicture->p.w;
   data->mCbChannel = static_cast<uint8_t*>(aPicture->data[1]);
   data->mCrChannel = static_cast<uint8_t*>(aPicture->data[2]);
   data->mCbCrStride = aPicture->stride[1];
@@ -1047,6 +1048,8 @@ UniquePtr<AVIFDecodedData> Dav1dDecoder::Dav1dPictureToDecodedData(
       MOZ_ASSERT_UNREACHABLE("Unknown pixel layout");
   }
 
+  data->mCbSkip = aPicture->stride[1] - aPicture->p.w;
+  data->mCrSkip = aPicture->stride[1] - aPicture->p.w;
   data->mPictureRect = IntRect(0, 0, aPicture->p.w, aPicture->p.h);
   data->mStereoMode = StereoMode::MONO;
   data->mColorDepth = ColorDepthForBitDepth(aPicture->p.bpc);
@@ -1126,15 +1129,21 @@ UniquePtr<AVIFDecodedData> AOMDecoder::AOMImageToToDecodedData(
   MOZ_ASSERT(aom_img_plane_height(colorImage, AOM_PLANE_U) ==
              aom_img_plane_height(colorImage, AOM_PLANE_V));
 
-  auto data = std::make_unique<AVIFDecodedData>();
+  UniquePtr<AVIFDecodedData> data = MakeUnique<AVIFDecodedData>();
 
   data->mRenderSize.emplace(colorImage->r_w, colorImage->r_h);
 
   data->mYChannel = colorImage->planes[AOM_PLANE_Y];
   data->mYStride = colorImage->stride[AOM_PLANE_Y];
+  data->mYSkip = colorImage->stride[AOM_PLANE_Y] -
+                 aom_img_plane_width(colorImage, AOM_PLANE_Y);
   data->mCbChannel = colorImage->planes[AOM_PLANE_U];
   data->mCrChannel = colorImage->planes[AOM_PLANE_V];
   data->mCbCrStride = colorImage->stride[AOM_PLANE_U];
+  data->mCbSkip = colorImage->stride[AOM_PLANE_U] -
+                  aom_img_plane_width(colorImage, AOM_PLANE_U);
+  data->mCrSkip = colorImage->stride[AOM_PLANE_V] -
+                  aom_img_plane_width(colorImage, AOM_PLANE_V);
   data->mPictureRect = gfx::IntRect(0, 0, colorImage->d_w, colorImage->d_h);
   data->mStereoMode = StereoMode::MONO;
   data->mColorDepth = ColorDepthForBitDepth(colorImage->bit_depth);
@@ -1646,13 +1655,9 @@ nsAVIFDecoder::DecodeResult nsAVIFDecoder::DoDecodeInternal(
           ("[this=%p] decodedData.mColorRange: %hhd", this,
            static_cast<uint8_t>(decodedData->mColorRange)));
 
-  const auto sizes = decodedData->GetPlaneSizes();
-  if (!sizes) {
-    return AsVariant(NonDecoderResult::SizeOverflow);
-  }
-
   // Technically it's valid but we don't handle it now (Bug 1682318).
-  if (decodedData->mAlpha && decodedData->mAlpha->mSize != sizes->mY) {
+  if (decodedData->mAlpha &&
+      decodedData->mAlpha->mSize != decodedData->YDataSize()) {
     return AsVariant(NonDecoderResult::AlphaYSizeMismatch);
   }
 

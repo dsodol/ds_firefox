@@ -54,9 +54,10 @@ add_task(async function testNonPublicFeaturesShouldntGetDisplayed() {
   );
   const doc = gBrowser.contentDocument;
 
-  const expectedPane = "paneSync";
+  const expectedPane = SRD_PREF_VALUE ? "paneSync" : "paneGeneral";
 
-  // When there are no features, paneExperimental redirects to the default pane.
+  // When there are no features, paneExperimental redirects to the default
+  // pane (paneSync with SRD enabled, paneGeneral otherwise).
   // Wait for the redirect to complete.
   await TestUtils.waitForCondition(
     () =>

@@ -3,6 +3,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import React from "react";
+import { batch } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import { MoveSubmenu } from "./MoveSubmenu";
 
@@ -28,34 +29,38 @@ export const WidgetMenuFooter = ({
   showDivider = true,
 }) => {
   const handleHide = () => {
-    dispatch(
-      ac.OnlyToMain({
-        type: at.SET_PREF,
-        data: { name: enabledPref, value: false },
-      })
-    );
-    dispatch(
-      ac.OnlyToMain({
-        type: at.WIDGETS_ENABLED,
-        data: {
-          widget_name: widgetName,
-          widget_source: "context_menu",
-          enabled: false,
-          widget_size: widgetSize,
-        },
-      })
-    );
-    onAfterHide?.();
+    batch(() => {
+      dispatch(
+        ac.OnlyToMain({
+          type: at.SET_PREF,
+          data: { name: enabledPref, value: false },
+        })
+      );
+      dispatch(
+        ac.OnlyToMain({
+          type: at.WIDGETS_ENABLED,
+          data: {
+            widget_name: widgetName,
+            widget_source: "context_menu",
+            enabled: false,
+            widget_size: widgetSize,
+          },
+        })
+      );
+      onAfterHide?.();
+    });
   };
 
   const handleLearnMore = () => {
-    dispatch(
-      ac.OnlyToMain({
-        type: at.OPEN_LINK,
-        data: { url: LEARN_MORE_URL, where: "tab" },
-      })
-    );
-    onLearnMore?.();
+    batch(() => {
+      dispatch(
+        ac.OnlyToMain({
+          type: at.OPEN_LINK,
+          data: { url: LEARN_MORE_URL, where: "tab" },
+        })
+      );
+      onLearnMore?.();
+    });
   };
 
   return (

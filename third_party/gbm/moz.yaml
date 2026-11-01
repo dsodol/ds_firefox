@@ -26,7 +26,7 @@ origin:
   # license-file: LICENSE
 
 updatebot:
-  maintainer-phab: "#webrtc-reviewers"
+  maintainer-phab: ng
   maintainer-bz: ngrunbaum@me.com
   tasks:
     - type: vendoring

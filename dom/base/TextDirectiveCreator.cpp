@@ -26,14 +26,11 @@ TextDirectiveCreator::TextDirectiveCreator(Document* aDocument,
       mFinder(WrapNotNull(new nsFind())),
       mWatchdog(aWatchdog) {
   mFinder->SetNodeIndexCache(&mNodeIndexCache);
-  mFinder->SetWordBoundaryCache(&mWordBoundaryCache);
   mFinder->SetSkipNativeAnonymousContent(true);
-  mFinder->SetSegmenterWordBoundaries(true);
 }
 
 TextDirectiveCreator::~TextDirectiveCreator() {
   mFinder->SetNodeIndexCache(nullptr);
-  mFinder->SetWordBoundaryCache(nullptr);
 }
 
 /* static */

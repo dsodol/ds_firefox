@@ -56,7 +56,7 @@ async function waitForUrlLoad(url) {
   await BrowserTestUtils.browserLoaded(browser, false, url);
 }
 
-async function test_formAutofillTrigger() {
+async function test_formAutofillTrigger(settingsRedesignEnabled) {
   const sandbox = sinon.createSandbox();
   const handlerStub = sandbox.stub();
   const formAutofillTrigger = ASRouterTriggerListeners.get("formAutofill");
@@ -83,29 +83,60 @@ async function test_formAutofillTrigger() {
   // Test that the trigger doesn't fire when the credit card manager is open.
   handlerStub.resetHistory();
 
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.settings-redesign.enabled", settingsRedesignEnabled]],
+  });
   await BrowserTestUtils.withNewTab(
     { gBrowser, url: "about:preferences#privacy" },
     async browser => {
-      await SpecialPowers.spawn(browser, [], async () => {
-        const savedPaymentsBtn = await ContentTaskUtils.waitForCondition(
-          () => content.document.querySelector("#savedPaymentsButton"),
-          "Waiting for credit card manager button"
+      const redesignEnabled = Services.prefs.getBoolPref(
+        "browser.settings-redesign.enabled",
+        false
+      );
+      if (!redesignEnabled) {
+        await SpecialPowers.spawn(browser, [], async () =>
+          (
+            await ContentTaskUtils.waitForCondition(
+              () =>
+                content.document.querySelector(
+                  "setting-group[groupid=payments] #savedPaymentsButton"
+                ),
+              "Waiting for credit card manager button"
+            )
+          )?.click()
         );
-
-        savedPaymentsBtn.click();
-
-        const paymentsPage = content.document.querySelector(
-          '[data-category="paneManagePayments"]'
+        await TestUtils.waitForCondition(
+          () => browser.contentWindow?.gSubDialog?.dialogs.length
         );
+      } else {
+        await SpecialPowers.spawn(browser, [], async () => {
+          const savedPaymentsBtn = await ContentTaskUtils.waitForCondition(
+            () => content.document.querySelector("#savedPaymentsButton"),
+            "Waiting for credit card manager button"
+          );
 
-        await ContentTaskUtils.waitForCondition(
-          () => paymentsPage && !paymentsPage.hidden,
-          "Payments page failed to show."
-        );
-      });
+          savedPaymentsBtn.click();
+
+          const paymentsPage = content.document.querySelector(
+            '[data-category="paneManagePayments"]'
+          );
+
+          await ContentTaskUtils.waitForCondition(
+            () => paymentsPage && !paymentsPage.hidden,
+            "Payments page failed to show."
+          );
+        });
+      }
 
       notifyCreditCardSaved();
       await sleepMs(1);
+
+      if (!redesignEnabled) {
+        Assert.ok(
+          handlerStub.notCalled,
+          "Not called when credit card manager is open"
+        );
+      }
     }
   );
 
@@ -852,6 +883,7 @@ add_task(async function test_activityAfterIdleWake() {
 });
 
 add_task(async function test_formAutofill() {
+  await test_formAutofillTrigger(false);
   await test_formAutofillTrigger(true);
 });
 

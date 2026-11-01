@@ -5,14 +5,14 @@
  * The origin of this IDL file is
  * https://wicg.github.io/scroll-to-text-fragment/
  */
-[Exposed=Window]
+[Exposed=Window, Pref="dom.text_fragments.enabled"]
 interface FragmentDirective {
-    [ChromeOnly]
+    [Pref="dom.text_fragments.enabled", ChromeOnly]
     sequence<Range> getTextDirectiveRanges();
 
-    [ChromeOnly, Throws]
+    [Pref="dom.text_fragments.enabled", ChromeOnly, Throws]
     undefined removeAllTextDirectives();
 
-    [ChromeOnly]
+    [Pref="dom.text_fragments.enabled", ChromeOnly]
     Promise<DOMString> createTextDirectiveForRanges(sequence<Range> ranges);
 };

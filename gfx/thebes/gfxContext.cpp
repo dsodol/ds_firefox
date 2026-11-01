@@ -53,7 +53,7 @@ UniquePtr<gfxContext> gfxContext::CreateOrNull(DrawTarget* aTarget) {
     return nullptr;
   }
 
-  return std::make_unique<gfxContext>(aTarget);
+  return MakeUnique<gfxContext>(aTarget);
 }
 
 gfxContext::~gfxContext() {

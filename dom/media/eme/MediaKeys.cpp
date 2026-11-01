@@ -448,7 +448,7 @@ already_AddRefed<CDMProxy> MediaKeys::CreateCDMProxy() {
           mConfig.mPersistentState == MediaKeysRequirement::Required);
     } else {
       proxy = RemoteMediaManagerChild::CreateCDM(
-          this, mKeySystem,
+          RemoteMediaIn::RddProcess, this, mKeySystem,
           mConfig.mDistinctiveIdentifier == MediaKeysRequirement::Required,
           mConfig.mPersistentState == MediaKeysRequirement::Required);
     }

@@ -129,8 +129,7 @@ static void WriteContentParent(nsCString& aRawString, JSONWriter& aWriter,
 }
 
 struct PerfStatsCollector {
-  PerfStatsCollector()
-      : writer(std::make_unique<JSONStringRefWriteFunc>(string)) {}
+  PerfStatsCollector() : writer(MakeUnique<JSONStringRefWriteFunc>(string)) {}
 
   void AppendPerfStats(const nsCString& aString, ContentParent* aParent) {
     writer.StartObjectElement();

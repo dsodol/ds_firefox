@@ -12,7 +12,7 @@ sys.path.insert(0, raptor_dir)
 
 from argparse import ArgumentParser, Namespace
 
-from cmdline import create_parser, default_desktop_binary, verify_options
+from cmdline import create_parser, verify_options
 
 
 def test_verify_options(filedir):
@@ -27,6 +27,7 @@ def test_verify_options(filedir):
         browsertime_video=False,
         browsertime_visualmetrics=False,
         fission=True,
+        fission_mobile=False,
         test_bytecode_cache=False,
         webext=False,
         extra_prefs=[],
@@ -57,6 +58,7 @@ def test_verify_options(filedir):
         browsertime_video=False,
         browsertime_visualmetrics=False,
         fission=True,
+        fission_mobile=False,
         test_bytecode_cache=False,
         webext=False,
         extra_prefs=[],
@@ -81,6 +83,7 @@ def test_verify_options(filedir):
         browsertime_video=False,
         browsertime_visualmetrics=False,
         fission=True,
+        fission_mobile=False,
         test_bytecode_cache=False,
         webext=False,
         extra_prefs=[],
@@ -105,6 +108,7 @@ def test_verify_options(filedir):
         browsertime_video=False,
         browsertime_visualmetrics=False,
         fission=True,
+        fission_mobile=False,
         test_bytecode_cache=False,
         webext=False,
         extra_prefs=[],
@@ -129,6 +133,7 @@ def test_verify_options(filedir):
         browsertime_video=False,
         browsertime_visualmetrics=False,
         fission=True,
+        fission_mobile=False,
         test_bytecode_cache=False,
         webext=False,
         extra_prefs=[],
@@ -153,6 +158,7 @@ def test_verify_options(filedir):
         browsertime_video=False,
         browsertime_visualmetrics=False,
         fission=True,
+        fission_mobile=False,
         test_bytecode_cache=False,
         webext=False,
         extra_prefs=[],
@@ -303,7 +309,7 @@ def test_install_extra_extensions_flattens_csv(ConcretePerftest):
     ])
     perftest = ConcretePerftest(**vars(args))
     perftest.profile = mock.MagicMock()
-    with mock.patch("condprof.util.download_file", side_effect=lambda url, **kw: url):
+    with mock.patch("perftest.download_file", side_effect=lambda url, **kw: url):
         perftest.install_extra_extensions()
     perftest.profile.addons.install.assert_called_once_with([
         "https://amo/a.xpi",
@@ -331,6 +337,7 @@ def test_install_extra_extensions_flattens_csv(ConcretePerftest):
                 "browsertime_video": False,
                 "browsertime_visualmetrics": False,
                 "fission": True,
+                "fission_mobile": False,
                 "test_bytecode_cache": False,
                 "webext": False,
                 "extra_prefs": [],
@@ -350,60 +357,6 @@ def test_verify_options_failure(ConcretePerftest, args, expected_failure):
     parser = ArgumentParser()
     with pytest.raises(expected_failure):
         verify_options(parser, args)
-
-
-@pytest.mark.parametrize(
-    "app,platform,env,which,expected",
-    [
-        (
-            "chrome",
-            "darwin",
-            {},
-            {},
-            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-        ),
-        (
-            "chrome",
-            "win32",
-            {"PROGRAMFILES": "C:\\Program Files"},
-            {},
-            os.path.join(
-                "C:\\Program Files", "Google", "Chrome", "Application", "chrome.exe"
-            ),
-        ),
-        (
-            "chrome",
-            "linux",
-            {},
-            {"google-chrome-stable": "/opt/bin/google-chrome-stable"},
-            "/opt/bin/google-chrome-stable",
-        ),
-        ("safari", "darwin", {}, {}, "/Applications/Safari.app/Contents/MacOS/Safari"),
-        ("safari", "linux", {}, {}, None),
-        (
-            "safari-tp",
-            "darwin",
-            {},
-            {},
-            "/Applications/Safari Technology Preview.app/Contents/MacOS/"
-            "Safari Technology Preview",
-        ),
-        ("safari-tp", "linux", {}, {}, None),
-        ("custom-car", "darwin", {}, {}, None),
-    ],
-)
-def test_default_desktop_binary(app, platform, env, which, expected):
-    with mock.patch("cmdline.sys.platform", platform):
-        with mock.patch.dict(os.environ, env, clear=True):
-            with mock.patch("cmdline.shutil.which", side_effect=which.get):
-                with mock.patch("cmdline.os.path.isfile", return_value=True):
-                    assert default_desktop_binary(app) == expected
-
-
-def test_default_desktop_binary_not_installed():
-    with mock.patch("cmdline.sys.platform", "darwin"):
-        with mock.patch("cmdline.os.path.isfile", return_value=False):
-            assert default_desktop_binary("chrome") is None
 
 
 if __name__ == "__main__":

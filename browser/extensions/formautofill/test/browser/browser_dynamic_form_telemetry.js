@@ -17,7 +17,6 @@ const supportedCcFields = [
   "cc_exp",
   "cc_exp_year",
   "cc_name",
-  "cc_csc",
 ];
 const supportedAddressFields = AddressTelemetry.SUPPORTED_FIELDS_IN_FORM.concat(
   AddressTelemetry.SUPPORTED_FIELDS_IN_FORM_EXT

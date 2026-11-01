@@ -379,7 +379,9 @@ class nsHtml5Tokenizer {
     if (digitAtom) {
       return digitAtom;
     }
-    nsHtml5String str = AtomizeAttributeValueOrNewString();
+    nsHtml5String str = nsHtml5Portability::newStringFromBuffer(
+        strBuf, 0, strBufLen, tokenHandler,
+        attributeName->isUseAtom() ? interner : nullptr);
     clearStrBufAfterUse();
     return str;
   }

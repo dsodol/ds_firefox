@@ -598,8 +598,7 @@ uint64_t FileSystemSyncAccessHandle::ReadOrWrite(
             outputStream = selfHolder->mStream->OutputStream();
           }
 
-          auto promiseHolder =
-              std::make_unique<MozPromiseHolder<BoolPromise>>();
+          auto promiseHolder = MakeUnique<MozPromiseHolder<BoolPromise>>();
           RefPtr<BoolPromise> promise = promiseHolder->Ensure(__func__);
 
           QM_TRY(MOZ_TO_RESULT(fs::AsyncCopy(

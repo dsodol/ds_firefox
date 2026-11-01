@@ -186,10 +186,7 @@ export var DefaultBrowserCheck = {
     let isDefault = false;
     let isDefaultError = false;
     try {
-      isDefault = await shellService.isDefaultBrowserAsync(
-        isStartupCheck,
-        false
-      );
+      isDefault = shellService.isDefaultBrowser(isStartupCheck, false);
     } catch (ex) {
       isDefaultError = true;
     }

@@ -12,6 +12,7 @@
 #include "WebGL2Context.h"
 #include "WebGLBuffer.h"
 #include "WebGLContext.h"
+#include "WebGLContextUtils.h"
 #include "WebGLFormats.h"
 #include "WebGLFramebuffer.h"
 #include "WebGLProgram.h"
@@ -1424,6 +1425,8 @@ void WebGLContext::UseProgram(WebGLProgram* prog) {
     return;
   }
 
+  if (!ValidateObject("prog", *prog)) return;
+
   if (!prog->UseProgram()) return;
 
   mCurrentProgram = prog;
@@ -1498,6 +1501,8 @@ void WebGLContext::Viewport(GLint x, GLint y, GLsizei width, GLsizei height) {
 void WebGLContext::CompileShader(WebGLShader& shader) {
   const FuncScope funcScope(*this, "compileShader");
   if (IsContextLost()) return;
+
+  if (!ValidateObject("shader", shader)) return;
 
   shader.CompileShader();
 }

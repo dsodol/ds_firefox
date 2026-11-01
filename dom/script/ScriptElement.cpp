@@ -29,12 +29,6 @@ NS_IMETHODIMP
 ScriptElement::ScriptAvailable(nsresult aResult, nsIScriptElement* aElement,
                                bool aIsInlineClassicScript, nsIURI* aURI,
                                uint32_t aLineNo) {
-  // https://html.spec.whatwg.org/#execute-the-script-element
-  // Step 3. Unblock rendering on el. ScriptLoader calls this right before it
-  // executes the script, and also for a failed load.
-  Element* element = GetAsContent()->AsElement();
-  element->OwnerDoc()->UnblockRendering(*element);
-
   if (!aIsInlineClassicScript && NS_FAILED(aResult)) {
     nsCOMPtr<nsIParser> parser = do_QueryReferent(mCreatorParser);
     if (parser) {
@@ -178,7 +172,7 @@ bool ScriptElement::MaybeProcessScript(nsCOMPtr<nsIParser> aParser) {
                "You forgot to add self as observer");
 
   if (mAlreadyStarted || !mDoneAddingChildren || !cont->GetComposedDoc() ||
-      mMalformed || cont->IsInSVGUseShadowTree()) {
+      mMalformed) {
     return false;
   }
 
@@ -255,11 +249,8 @@ bool ScriptElement::MaybeProcessScript(const nsAString& aSourceText) {
       // to process. However, we must perform a microtask checkpoint afterwards,
       // as per https://html.spec.whatwg.org/#clean-up-after-running-script
       if (mKind == JS::loader::ScriptKind::eClassic && !mExternal) {
-        nsContentUtils::AddScriptRunner(
-            NS_NewRunnableFunction("ScriptElement::MaybeProcessScript",
-                                   [doc = RefPtr{cont->OwnerDoc()}]() {
-                                     nsAutoMicroTaskForDocument mt(doc);
-                                   }));
+        nsContentUtils::AddScriptRunner(NS_NewRunnableFunction(
+            "ScriptElement::MaybeProcessScript", []() { nsAutoMicroTask mt; }));
       }
       return false;
     }

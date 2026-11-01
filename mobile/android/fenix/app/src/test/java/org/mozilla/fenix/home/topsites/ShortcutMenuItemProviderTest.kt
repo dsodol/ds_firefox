@@ -15,6 +15,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -24,7 +25,6 @@ import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.createTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.text.Text
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.ui.MenuItemIconRes
 import mozilla.components.compose.menu.ui.MenuItemState
@@ -62,7 +62,7 @@ class ShortcutMenuItemProviderTest {
         runTest {
             val provider = provider(pinnedSiteStorage = storageWith(shortcut = null))
 
-            assertEquals(addShortcutItem, provider.itemsFlow.value.single())
+            assertEquals(addShortcutItem, provider.itemFlow.value)
         }
 
     @Test
@@ -71,11 +71,11 @@ class ShortcutMenuItemProviderTest {
             val provider = provider(pinnedSiteStorage = storageWith(shortcut = shortcut))
 
             // Adding the page is offered before reading from disk, removing it once it is known to be a shortcut.
-            assertEquals(addShortcutItem, provider.itemsFlow.value.single())
+            assertEquals(addShortcutItem, provider.itemFlow.value)
 
             runCurrent()
 
-            assertEquals(removeShortcutItem, provider.itemsFlow.value.single())
+            assertEquals(removeShortcutItem, provider.itemFlow.value)
         }
 
     @Test
@@ -86,7 +86,7 @@ class ShortcutMenuItemProviderTest {
 
             runCurrent()
 
-            assertEquals(addShortcutItem, provider.itemsFlow.value.single())
+            assertEquals(addShortcutItem, provider.itemFlow.value)
         }
 
     @Test
@@ -95,7 +95,7 @@ class ShortcutMenuItemProviderTest {
 
         runCurrent()
 
-        assertTrue(provider.itemsFlow.value.isEmpty())
+        assertNull(provider.itemFlow.value)
     }
 
     @Test
@@ -104,7 +104,7 @@ class ShortcutMenuItemProviderTest {
 
         runCurrent()
 
-        assertTrue(provider.itemsFlow.value.isEmpty())
+        assertNull(provider.itemFlow.value)
     }
 
     @Test
@@ -192,7 +192,7 @@ class ShortcutMenuItemProviderTest {
             val provider = provider(pinnedSiteStorage = storageWith(shortcut = shortcut))
             runCurrent()
 
-            val events = provider.itemsFlow.value.single().reachableEvents()
+            val events = requireNotNull(provider.itemFlow.value).reachableEvents()
 
             assertTrue(events.all { provider.handles(it) }, "Not all of $events are handled")
             assertFalse(provider.handles(MenuAction.AddBookmark))
@@ -243,14 +243,14 @@ class ShortcutMenuItemProviderTest {
 
         val addShortcutItem =
             StandardMenuItem(
-                title = MenuItemTitle(Text.Resource(R.string.browser_menu_add_to_shortcuts)),
+                title = Text.Resource(R.string.browser_menu_add_to_shortcuts),
                 icon = MenuItemIconRes(iconsR.drawable.mozac_ic_pin_24),
                 onClickEvent = MenuAction.AddShortcut,
             )
 
         val removeShortcutItem =
             StandardMenuItem(
-                title = MenuItemTitle(Text.Resource(R.string.browser_menu_remove_from_shortcuts)),
+                title = Text.Resource(R.string.browser_menu_remove_from_shortcuts),
                 icon = MenuItemIconRes(iconsR.drawable.mozac_ic_pin_fill_24),
                 onClickEvent = MenuAction.RemoveShortcut,
                 state = MenuItemState.ACTIVE,

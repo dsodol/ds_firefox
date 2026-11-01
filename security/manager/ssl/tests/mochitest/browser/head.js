@@ -70,8 +70,15 @@ function readCertificate(filename, trustString) {
  */
 async function openCertManager() {
   let win = window.openDialog("chrome://pippki/content/certManager.xhtml");
-  await TestUtils.topicObserved("psm:cert-manager-loaded");
-  return win;
+  return new Promise(resolve => {
+    win.addEventListener(
+      "load",
+      function () {
+        executeSoon(() => resolve(win));
+      },
+      { once: true }
+    );
+  });
 }
 
 async function findCertByCommonName(commonName) {

@@ -65,11 +65,17 @@ class MOZ_RAII MOZ_SCOPED_CAPABILITY MOZ_CAPABILITY("dirty_tracking_autolock")
   DirtyTrackingAutoLock(const DirtyTrackingAutoLock&) = delete;
   DirtyTrackingAutoLock& operator=(const DirtyTrackingAutoLock&) = delete;
 
-  ~DirtyTrackingAutoLock();
+  ~DirtyTrackingAutoLock() { Unlock<true>(); }
 
-  bool IsValid() const;
+  bool IsValid() const { return !!mOriginInfo; }
 
-  RefPtr<OriginInfo> GetOriginInfo() const;
+  void Touch() { mTouched = true; }
+
+  RefPtr<OriginInfo> GetOriginInfo() const {
+    MOZ_DIAGNOSTIC_ASSERT(IsValid());
+
+    return mOriginInfo;
+  }
 
  private:
   template <bool IsFinal>
@@ -104,6 +110,7 @@ class MOZ_RAII MOZ_SCOPED_CAPABILITY MOZ_CAPABILITY("dirty_tracking_autolock")
 
   Mutex* mLock;
   mutable RefPtr<OriginInfo> mOriginInfo;
+  bool mTouched;
 };
 
 }  // namespace mozilla::dom::quota

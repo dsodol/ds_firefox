@@ -57,28 +57,13 @@ export const MonitorPanel = {
       return;
     }
 
-    const existing = this._getOpenPanel(doc);
+    const existing = doc.getElementById(PANEL_ID);
     if (existing) {
       existing.hidePopup();
       return;
     }
 
     this.showMonitorPanel(win);
-  },
-
-  /**
-   * Find opened panel.
-   *
-   * @param {Document} doc
-   * @returns {?XULElement}
-   */
-  _getOpenPanel(doc) {
-    const panel = doc.getElementById(PANEL_ID);
-    if (panel?.state === "closed") {
-      panel.remove();
-      return null;
-    }
-    return panel;
   },
 
   /**
@@ -92,7 +77,7 @@ export const MonitorPanel = {
       return;
     }
 
-    const existing = this._getOpenPanel(doc);
+    const existing = doc.getElementById(PANEL_ID);
     if (existing) {
       this._openCreateView(existing, win);
       return;
@@ -127,13 +112,11 @@ export const MonitorPanel = {
     const panel = this._createPanel(win);
     panel._contents.attentionIds = attentionIds;
     const onMonitorsChanged = () => this._syncContents(panel);
-    let observingMonitors = false;
 
     panel.addEventListener(
       "popupshown",
       () => {
         button.setAttribute("aria-expanded", "true");
-        observingMonitors = true;
         Services.obs.addObserver(
           onMonitorsChanged,
           lazy.MONITOR_AGENTS_CHANGED_TOPIC
@@ -144,24 +127,18 @@ export const MonitorPanel = {
       },
       { once: true }
     );
-    const teardown = () => {
-      win.removeEventListener("unload", teardown);
-      button.setAttribute("aria-expanded", "false");
-      // A click landing while the panel is still opening hides it without it
-      // ever having been shown, so the observer may never have been added.
-      // Removing one that isn't registered throws, which used to leave the
-      // panel node behind and the button unable to open anything again.
-      if (observingMonitors) {
-        observingMonitors = false;
+    panel.addEventListener(
+      "popuphidden",
+      () => {
+        button.setAttribute("aria-expanded", "false");
         Services.obs.removeObserver(
           onMonitorsChanged,
           lazy.MONITOR_AGENTS_CHANGED_TOPIC
         );
-      }
-      panel.remove();
-    };
-    panel.addEventListener("popuphidden", teardown, { once: true });
-    win.addEventListener("unload", teardown, { once: true });
+        panel.remove();
+      },
+      { once: true }
+    );
 
     popupSet.appendChild(panel);
     panel.openPopup(anchor, "bottomright topright", 0, 4, false, false);
@@ -208,9 +185,6 @@ export const MonitorPanel = {
     contents.addEventListener("agent-monitor-item:draft-change", event => {
       contents.draft = event.detail.draft;
     });
-    contents.addEventListener("agent-monitor-item:resolve-titles", event =>
-      lazy.MonitorUIUtils.answerResolveTitles(event)
-    );
     contents.addEventListener("agent-monitor-panel:manage-tasks", () => {
       win.switchToTabHavingURI(TASKS_PAGE_URL, true);
       panel.hidePopup();

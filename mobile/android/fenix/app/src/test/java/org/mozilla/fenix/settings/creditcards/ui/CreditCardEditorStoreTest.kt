@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import mozilla.components.concept.storage.CreditCard
+import mozilla.components.concept.storage.CreditCardNumber
 import mozilla.components.concept.storage.CreditCardsAddressesStorage
 import mozilla.components.concept.storage.NewCreditCardFields
 import mozilla.components.concept.storage.UpdatableCreditCardFields
@@ -120,7 +121,8 @@ class CreditCardEditorStoreTest {
                 "Expected that a card is updated with the right fields",
                 UpdatableCreditCardFields(
                     billingName = "Jane Doe",
-                    cardNumber = validMasterCard,
+                    cardNumber = CreditCardNumber.Plaintext(validMasterCard),
+                    cardNumberLast4 = "1111",
                     expiryMonth = 1,
                     expiryYear = 2026L,
                     cardType = "mastercard",
@@ -154,7 +156,8 @@ class CreditCardEditorStoreTest {
                 "Expected that a card is successfully saved with the right values",
                 NewCreditCardFields(
                     billingName = "Jane Doe",
-                    cardNumber = validMasterCard,
+                    plaintextCardNumber = CreditCardNumber.Plaintext(validMasterCard),
+                    cardNumberLast4 = "1111",
                     expiryMonth = 1,
                     expiryYear = 2026L,
                     cardType = "mastercard",
@@ -299,13 +302,17 @@ class CreditCardEditorStoreTest {
         runTest(testDispatcher) {
             calendarDataProvider.expectedMonths = listOf("January", "February", "March")
             calendarDataProvider.expectedYears = listOf("2025", "2026")
+            val expectedEncryptedCardNumber = "encryptedCard"
             val expectedPlainCardNumber = "5555444433331111"
+
+            creditCardsStorage.expectedPlainCardNumber = expectedPlainCardNumber
+            creditCardsStorage.expectedEncryptedCardNumber = expectedEncryptedCardNumber
 
             val creditCard =
                 CreditCard(
                     guid = "id",
                     billingName = "Banana Apple",
-                    cardNumber = expectedPlainCardNumber,
+                    encryptedCardNumber = CreditCardNumber.Encrypted(expectedEncryptedCardNumber),
                     cardNumberLast4 = "1111",
                     expiryMonth = 2,
                     expiryYear = 2025,

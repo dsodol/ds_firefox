@@ -160,7 +160,7 @@ void RemoteTextureOwnerClient::PushTexture(
   MOZ_ASSERT(IsRegistered(aOwnerId));
 
   UniquePtr<TextureData> textureData =
-      std::make_unique<SharedSurfaceTextureData>(aDesc, aFormat, aSize);
+      MakeUnique<SharedSurfaceTextureData>(aDesc, aFormat, aSize);
 
   RefPtr<layers::TextureHost> textureHost =
       [&]() -> already_AddRefed<TextureHost> {
@@ -173,6 +173,7 @@ void RemoteTextureOwnerClient::PushTexture(
     if (textureHost) {
       if (aDesc.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10 ||
           aDesc.type() == SurfaceDescriptor::TSurfaceDescriptorMacIOSurface ||
+          aDesc.type() == SurfaceDescriptor::TSurfaceDescriptorDMABuf ||
           aDesc.type() == layers::SurfaceDescriptor::
                               TSurfaceDescriptorAndroidHardwareBuffer) {
         aSharedSurface->SetTextureHost(textureHost);
@@ -199,7 +200,7 @@ void RemoteTextureOwnerClient::PushTexture(
   MOZ_ASSERT(IsRegistered(aOwnerId));
 
   UniquePtr<TextureData> textureData =
-      std::make_unique<SharedSurfaceTextureData>(aDesc, aFormat, aSize);
+      MakeUnique<SharedSurfaceTextureData>(aDesc, aFormat, aSize);
 
   RefPtr<layers::TextureHost> textureHost =
       [&]() -> already_AddRefed<TextureHost> {
@@ -212,6 +213,7 @@ void RemoteTextureOwnerClient::PushTexture(
     if (textureHost) {
       if (aDesc.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10 ||
           aDesc.type() == SurfaceDescriptor::TSurfaceDescriptorMacIOSurface ||
+          aDesc.type() == SurfaceDescriptor::TSurfaceDescriptorDMABuf ||
           aDesc.type() == layers::SurfaceDescriptor::
                               TSurfaceDescriptorAndroidHardwareBuffer) {
         aSharedTexture->SetTextureHost(textureHost);
@@ -259,10 +261,12 @@ void RemoteTextureOwnerClient::PushDummyTexture(
                                        /* aResourceWrapper */ nullptr);
 }
 
-webgpu::FrontBufferSnapshot RemoteTextureOwnerClient::GetLatestBufferSnapshot(
-    const RemoteTextureOwnerId aOwnerId) {
+void RemoteTextureOwnerClient::GetLatestBufferSnapshot(
+    const RemoteTextureOwnerId aOwnerId, const mozilla::ipc::Shmem& aDestShmem,
+    const gfx::IntSize& aDestSize, size_t aDestStride) {
   MOZ_ASSERT(IsRegistered(aOwnerId));
-  return RemoteTextureMap::Get()->GetLatestBufferSnapshot(aOwnerId, mForPid);
+  RemoteTextureMap::Get()->GetLatestBufferSnapshot(
+      aOwnerId, mForPid, aDestShmem, aDestSize, aDestStride);
 }
 
 UniquePtr<TextureData> RemoteTextureOwnerClient::GetRecycledTextureData(
@@ -409,7 +413,7 @@ void RemoteTextureMap::PushTexture(
       gfxCriticalNoteOnce << "Texture pushed during context lost";
     }
 
-    auto textureData = std::make_unique<TextureDataHolder>(
+    auto textureData = MakeUnique<TextureDataHolder>(
         aTextureId, aTextureHost, std::move(aTextureData),
         std::move(aResourceWrapper));
 
@@ -520,8 +524,10 @@ bool RemoteTextureMap::RemoveTexture(const RemoteTextureId aTextureId,
   return false;
 }
 
-webgpu::FrontBufferSnapshot RemoteTextureMap::GetLatestBufferSnapshot(
-    const RemoteTextureOwnerId aOwnerId, const base::ProcessId aForPid) {
+void RemoteTextureMap::GetLatestBufferSnapshot(
+    const RemoteTextureOwnerId aOwnerId, const base::ProcessId aForPid,
+    const mozilla::ipc::Shmem& aDestShmem, const gfx::IntSize& aDestSize,
+    size_t aDestStride) {
   // The compositable ref of remote texture should be updated in mMonitor lock.
   CompositableTextureHostRef textureHostRef;
   RefPtr<TextureHost> releasingTexture;  // Release outside the monitor
@@ -532,23 +538,27 @@ webgpu::FrontBufferSnapshot RemoteTextureMap::GetLatestBufferSnapshot(
     auto* owner = GetTextureOwner(lock, aOwnerId, aForPid);
     if (!owner) {
       MOZ_ASSERT_UNREACHABLE("unexpected to be called");
-      return {};
+      return;
     }
 
     // Get latest TextureHost of remote Texture.
     if (owner->mWaitingTextureDataHolders.empty() &&
         owner->mUsingTextureDataHolders.empty()) {
-      return {};
+      return;
     }
     const auto* holder = !owner->mWaitingTextureDataHolders.empty()
                              ? owner->mWaitingTextureDataHolders.back().get()
                              : owner->mUsingTextureDataHolders.back().get();
     TextureHost* textureHost = holder->mTextureHost;
 
+    if (textureHost->GetSize() != aDestSize) {
+      MOZ_ASSERT_UNREACHABLE("unexpected to be called");
+      return;
+    }
     if (textureHost->GetFormat() != gfx::SurfaceFormat::R8G8B8A8 &&
         textureHost->GetFormat() != gfx::SurfaceFormat::B8G8R8A8) {
       MOZ_ASSERT_UNREACHABLE("unexpected to be called");
-      return {};
+      return;
     }
     if (holder->mResourceWrapper && holder->mResourceWrapper->mSharedTexture) {
       // Increment compositable ref to prevent that TextureDataHolder is removed
@@ -561,42 +571,45 @@ webgpu::FrontBufferSnapshot RemoteTextureMap::GetLatestBufferSnapshot(
       textureHostRef = textureHost;
     } else {
       MOZ_ASSERT_UNREACHABLE("unexpected to be called");
-      return {};
+      return;
     }
   }
 
   if (!textureHostRef) {
-    return {};
+    return;
   }
 
-  webgpu::FrontBufferSnapshot snapshot;
-
   if (sharedTexture) {
-    snapshot = sharedTexture->GetSnapshot();
+    const auto src_size = sharedTexture->GetSize();
+    // The size of the shared texture should match `textureHost->GetSize()`.
+    // We already checked above that `textureHost->GetSize()` matches
+    // `aDestSize`. Just assert here to make sure they match.
+    MOZ_RELEASE_ASSERT(src_size == aDestSize);
+
+    sharedTexture->GetSnapshot(aDestShmem, aDestStride);
   } else if (auto* bufferTextureHost = textureHostRef->AsBufferTextureHost()) {
     const auto src_size = bufferTextureHost->GetSize();
+    // We already checked above that `textureHost->GetSize()` matches
+    // `aDestSize`.
 
+    uint8_t* src = bufferTextureHost->GetBuffer();
+    uint8_t* dst = aDestShmem.get<uint8_t>();
+
+    const Maybe<int32_t> maybe_src_stride = ImageDataSerializer::GetRGBStride(
+        bufferTextureHost->GetBufferDescriptor());
+    MOZ_RELEASE_ASSERT(maybe_src_stride.isSome());
+    const size_t src_stride = static_cast<size_t>(maybe_src_stride.value());
     const size_t bytesPerRow = static_cast<size_t>(src_size.width) * 4;
-    auto handle =
-        ipc::shared_memory::Create(bytesPerRow * size_t(src_size.height));
-    auto mapping = handle.Map();
-    if (handle && mapping) {
-      uint8_t* src = bufferTextureHost->GetBuffer();
-      uint8_t* dst = mapping.DataAs<uint8_t>();
+    MOZ_RELEASE_ASSERT(src_stride >= bytesPerRow);
+    MOZ_RELEASE_ASSERT(aDestStride >= bytesPerRow);
 
-      const Maybe<int32_t> maybe_src_stride = ImageDataSerializer::GetRGBStride(
-          bufferTextureHost->GetBufferDescriptor());
-      MOZ_RELEASE_ASSERT(maybe_src_stride.isSome());
-      const size_t src_stride = static_cast<size_t>(maybe_src_stride.value());
-      MOZ_RELEASE_ASSERT(src_stride >= bytesPerRow);
-
-      for (int y = 0; y < src_size.height; y++) {
-        memcpy(dst, src, bytesPerRow);
-        src += src_stride;
-        dst += bytesPerRow;
+    for (int y = 0; y < src_size.height; y++) {
+      memcpy(dst, src, bytesPerRow);
+      if (bytesPerRow < aDestStride) {
+        memset(dst + bytesPerRow, 0, aDestStride - bytesPerRow);
       }
-      snapshot = {std::move(handle), uint32_t(src_size.width),
-                  uint32_t(src_size.height), bytesPerRow};
+      src += src_stride;
+      dst += aDestStride;
     }
   }
 
@@ -607,7 +620,6 @@ webgpu::FrontBufferSnapshot RemoteTextureMap::GetLatestBufferSnapshot(
     releasingTexture = textureHostRef;
     textureHostRef = nullptr;
   }
-  return snapshot;
 }
 
 void RemoteTextureMap::RegisterTextureOwner(
@@ -621,7 +633,7 @@ void RemoteTextureMap::RegisterTextureOwner(
     MOZ_ASSERT_UNREACHABLE("unexpected to be called");
     return;
   }
-  auto owner = std::make_unique<TextureOwner>();
+  auto owner = MakeUnique<TextureOwner>();
   if (aRecycleBin) {
     owner->mRecycleBin = aRecycleBin;
   } else {
@@ -1224,8 +1236,7 @@ RefPtr<TextureHost> RemoteTextureMap::GetOrCreateRemoteTextureHostWrapper(
 
   auto wrapper = RemoteTextureHostWrapper::Create(aTextureId, aOwnerId, aForPid,
                                                   aSize, aFlags);
-  auto wrapperHolder =
-      std::make_unique<RemoteTextureHostWrapperHolder>(wrapper);
+  auto wrapperHolder = MakeUnique<RemoteTextureHostWrapperHolder>(wrapper);
 
   mRemoteTextureHostWrapperHolders.emplace(key, std::move(wrapperHolder));
 
@@ -1272,7 +1283,7 @@ bool RemoteTextureMap::CheckRemoteTextureReady(
 
     const auto key = std::pair(aInfo.mForPid, aInfo.mOwnerId);
     if (!mWaitingTextureOwners[key]) {
-      auto waitingOwner = std::make_unique<WaitingTextureOwner>();
+      auto waitingOwner = MakeUnique<WaitingTextureOwner>();
       mWaitingTextureOwners[key] = std::move(waitingOwner);
     }
 
@@ -1280,7 +1291,7 @@ bool RemoteTextureMap::CheckRemoteTextureReady(
 
     WaitingTextureOwner* waitingOwner = mWaitingTextureOwners[key].get();
 
-    auto callbackHolder = std::make_unique<RenderingReadyCallbackHolder>(
+    auto callbackHolder = MakeUnique<RenderingReadyCallbackHolder>(
         aInfo.mTextureId, std::move(aCallback));
     waitingOwner->mRenderingReadyCallbackHolders.push_back(
         std::move(callbackHolder));
@@ -1306,7 +1317,7 @@ bool RemoteTextureMap::CheckRemoteTextureReady(
     return true;
   }
 
-  auto callbackHolder = std::make_unique<RenderingReadyCallbackHolder>(
+  auto callbackHolder = MakeUnique<RenderingReadyCallbackHolder>(
       aInfo.mTextureId, std::move(aCallback));
   owner->mRenderingReadyCallbackHolders.push_back(std::move(callbackHolder));
 

@@ -6,9 +6,9 @@
  * @import {TabGroupColor} from "chrome://browser/content/tabbrowser/tabgroup.mjs"
  */
 
-import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
+const lazy = {};
 
-const lazy = XPCOMUtils.declareLazy({
+ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore:
     "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   tabManagementService:
@@ -30,7 +30,7 @@ const ADDITIONAL_EXCLUDED_MENTION_URLS = new Set(["about:aichatcontent"]);
 /**
  * Whether a tab URL should be excluded from the mention suggestions.
  *
- * @param {BrowserWindow} browserWindow
+ * @param {Window} browserWindow
  * @param {string} url
  * @returns {boolean}
  */
@@ -68,11 +68,11 @@ export class SmartbarMentionsPanelSearch {
   /** @type {TabResult[]} */
   #tabs;
 
-  /** @type {BrowserWindow} */
+  /** @type {Window} */
   #browserWindow;
 
   /**
-   * @param {BrowserWindow} browserWindow - Browser window to read tabs and tab groups
+   * @param {Window} browserWindow - Browser window to read tabs and tab groups
    *   from
    */
   constructor(browserWindow) {

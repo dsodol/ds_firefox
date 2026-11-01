@@ -11,7 +11,6 @@ import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidCompo
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.customannotations.Converted
-import org.mozilla.fenix.customannotations.Critical
 import org.mozilla.fenix.customannotations.SmokeTest
 import org.mozilla.fenix.helpers.AppAndSystemHelper.enableOrDisableBackGestureNavigationOnDevice
 import org.mozilla.fenix.helpers.AppAndSystemHelper.setScreenOrientation
@@ -637,15 +636,6 @@ class NavigationToolbarExpandedTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3911787
-    @Converted(
-        replacedBy =
-            [
-                "org.mozilla.fenix.ui.efficiency.tests.SettingsCustomizeExpandedToolbarTest#verifyTheExpandedToolbarHomepageItemsTest"
-            ],
-        bug = 2084095,
-        since = "2026-10",
-    )
-    @Critical
     @Test
     fun verifyTheExpandedToolbarHomepageItemsTest() {
         homeScreen(composeTestRule) {

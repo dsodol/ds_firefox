@@ -110,8 +110,7 @@ HashDecodeAndVerify(FILE *out, FILE *content, PRFileDesc *signature,
     SEC_PKCS7SignedData *signedData;
     HASH_HashType digestType;
     SECItem digest;
-    unsigned char buffer[HASH_LENGTH_MAX];
-    PRBool valid;
+    unsigned char buffer[32];
 
     if (SECU_ReadDERFromFile(&derdata, signature, PR_FALSE,
                              PR_FALSE) != SECSuccess) {
@@ -140,16 +139,14 @@ HashDecodeAndVerify(FILE *out, FILE *content, PRFileDesc *signature,
     }
 
     digest.data = buffer;
-    if (DigestFile(digest.data, &digest.len, sizeof(buffer), content,
-                   digestType)) {
+    if (DigestFile(digest.data, &digest.len, 32, content, digestType)) {
         SECU_PrintError(progName, "problem computing message digest");
         return -1;
     }
 
-    valid = SEC_PKCS7VerifyDetachedSignature(cinfo, usage, &digest, digestType,
-                                             PR_FALSE);
     fprintf(out, "Signature is ");
-    if (valid)
+    if (SEC_PKCS7VerifyDetachedSignature(cinfo, usage, &digest, digestType,
+                                         PR_FALSE))
         fprintf(out, "valid.\n");
     else
         fprintf(out, "invalid (Reason: %s).\n",
@@ -157,7 +154,7 @@ HashDecodeAndVerify(FILE *out, FILE *content, PRFileDesc *signature,
 
     SECITEM_FreeItem(&derdata, PR_FALSE);
     SEC_PKCS7DestroyContentInfo(cinfo);
-    return valid ? 0 : -1;
+    return 0;
 }
 
 int
@@ -189,7 +186,7 @@ main(int argc, char **argv)
                 break;
 
             case 'c':
-                contentFile = fopen(optstate->value, "rb");
+                contentFile = fopen(optstate->value, "r");
                 if (!contentFile) {
                     fprintf(stderr, "%s: unable to open \"%s\" for reading\n",
                             progName, optstate->value);

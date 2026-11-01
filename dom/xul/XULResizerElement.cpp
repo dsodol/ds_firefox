@@ -4,8 +4,6 @@
 
 #include "mozilla/dom/XULResizerElement.h"
 
-#include <memory>
-
 #include "mozilla/EventDispatcher.h"
 #include "mozilla/MouseEvents.h"
 #include "mozilla/PresShell.h"
@@ -326,7 +324,7 @@ void XULResizerElement::MaybePersistOriginalSize(nsIContent* aContent,
     return;
   }
 
-  auto sizeInfo = std::make_unique<SizeInfo>(aSizeInfo);
+  UniquePtr<SizeInfo> sizeInfo(new SizeInfo(aSizeInfo));
   rv = aContent->SetProperty(
       nsGkAtoms::_moz_original_size, sizeInfo.get(),
       nsINode::DeleteProperty<XULResizerElement::SizeInfo>);

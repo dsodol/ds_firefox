@@ -327,9 +327,9 @@ addAccessibleTask(
   async function testRemoveManySpellingErrors(browser) {
     // populate the container with pseudoelements
     const reorder = waitForEvent(EVENT_REORDER, "container");
-    await invokeContentTask(browser, [XLARGE_NODE_COUNT], count => {
+    await invokeContentTask(browser, [], () => {
       const container = content.document.getElementById("container");
-      for (let i = 0; i < count; i++) {
+      for (let i = 0; i < 15000; i++) {
         const newRow = content.document.createElement("div");
         newRow.setAttribute("id", "data" + i);
         newRow.setAttribute("class", "row");

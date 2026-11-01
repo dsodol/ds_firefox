@@ -3,21 +3,21 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 ---
 
-android-gradle-build-mach: &android-gradle-build
+android-gradle-build:
     attributes:
         build_platform: android
         build_type: opt
-    description: Android Gradle Build python tests (mach integration)
+    description: Android Gradle Build python tests
     platform:
         - linux2404-64/opt
     treeherder:
-        symbol: py3(agb-mach)
+        symbol: py3(agb)
         kind: test
         tier: 2
     worker-type: t-linux-docker-amd
-    worker: &android-gradle-build-worker
+    worker:
         docker-image: {in-tree: android-build}
-        env: &android-gradle-build-env
+        env:
             GRADLE_USER_HOME: /builds/worker/checkouts/gecko/mobile/android/gradle/dotgradle-offline
             MOZ_OBJDIR: obj-firefox
             PERFHERDER_EXTRA_OPTIONS: android-gradle-build
@@ -29,7 +29,6 @@ android-gradle-build-mach: &android-gradle-build
             # index is almost always empty and the pushhead search fails with
             # "no built artifacts found" (bug 2062847).
             MOZ_ARTIFACT_ALLOW_NON_SHIPPABLE: '1'
-            PYTEST_ADDOPTS: '-m "not app_build"'
         max-run-time: 7200
     run-on-repo-type: [hg]
     run:
@@ -61,17 +60,3 @@ android-gradle-build-mach: &android-gradle-build
             - 'mobile/android/gradle.configure'
             - 'mobile/android/**/moz.build'
             - '**/*.gradle'
-            - 'build/test/python/**'
-
-android-gradle-build-apps:
-    <<: *android-gradle-build
-    description: Android Gradle Build python tests (app builds)
-    treeherder:
-        symbol: py3(agb-apps)
-        kind: test
-        tier: 2
-    worker:
-        <<: *android-gradle-build-worker
-        env:
-            <<: *android-gradle-build-env
-            PYTEST_ADDOPTS: '-m app_build'

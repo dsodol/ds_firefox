@@ -286,24 +286,15 @@ impl NimbusClient {
         let db = self.db()?;
         let mut writer = db.write()?;
         let mut state = self.mutable_state.lock().unwrap();
-        let was_participating = set_experiment_participation(db, &mut writer, user_participating)?;
+        set_experiment_participation(db, &mut writer, user_participating)?;
 
-        if was_participating != user_participating {
-            if !user_participating {
-                self.metrics_handler.record_studies_opt_out();
-            }
-
-            let existing_experiments: Vec<Experiment> =
-                db.get_store(StoreId::Experiments).collect_all(&writer)?;
-            let events =
-                self.evolve_experiments(db, &mut writer, &mut state, &existing_experiments)?;
-            let res = self.end_initialize(db, writer, &mut state);
-            self.record_enrollment_status_telemetry(&mut state)?;
-            res?;
-            Ok(events)
-        } else {
-            Ok(vec![])
-        }
+        let existing_experiments: Vec<Experiment> =
+            db.get_store(StoreId::Experiments).collect_all(&writer)?;
+        let events = self.evolve_experiments(db, &mut writer, &mut state, &existing_experiments)?;
+        let res = self.end_initialize(db, writer, &mut state);
+        self.record_enrollment_status_telemetry(&mut state)?;
+        res?;
+        Ok(events)
     }
 
     pub fn set_rollout_participation(
@@ -313,24 +304,15 @@ impl NimbusClient {
         let db = self.db()?;
         let mut writer = db.write()?;
         let mut state = self.mutable_state.lock().unwrap();
-        let was_participating = set_rollout_participation(db, &mut writer, user_participating)?;
+        set_rollout_participation(db, &mut writer, user_participating)?;
 
-        if was_participating != user_participating {
-            if !user_participating {
-                self.metrics_handler.record_rollouts_opt_out();
-            }
-
-            let existing_experiments: Vec<Experiment> =
-                db.get_store(StoreId::Experiments).collect_all(&writer)?;
-            let events =
-                self.evolve_experiments(db, &mut writer, &mut state, &existing_experiments)?;
-            let res = self.end_initialize(db, writer, &mut state);
-            self.record_enrollment_status_telemetry(&mut state)?;
-            res?;
-            Ok(events)
-        } else {
-            Ok(vec![])
-        }
+        let existing_experiments: Vec<Experiment> =
+            db.get_store(StoreId::Experiments).collect_all(&writer)?;
+        let events = self.evolve_experiments(db, &mut writer, &mut state, &existing_experiments)?;
+        let res = self.end_initialize(db, writer, &mut state);
+        self.record_enrollment_status_telemetry(&mut state)?;
+        res?;
+        Ok(events)
     }
 
     pub fn get_active_experiments(&self) -> Result<Vec<EnrolledExperiment>> {
@@ -406,7 +388,7 @@ impl NimbusClient {
         Ok(())
     }
 
-    pub fn is_fetch_enabled(&self) -> Result<bool> {
+    pub(crate) fn is_fetch_enabled(&self) -> Result<bool> {
         let db = self.db()?;
         let reader = db.read()?;
         let enabled = db

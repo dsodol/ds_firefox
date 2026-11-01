@@ -57,20 +57,6 @@ std::ostream &operator<<(std::ostream &os, const Error &err)
 
 namespace angle
 {
-std::ostream &operator<<(std::ostream &os, Result result)
-{
-    switch (result)
-    {
-        case Result::Continue:
-            os << "Continue";
-            break;
-        case Result::Stop:
-            os << "Stop";
-            break;
-    }
-    return os;
-}
-
 egl::Error ResultToEGL(Result result)
 {
     if (result == Result::Continue)

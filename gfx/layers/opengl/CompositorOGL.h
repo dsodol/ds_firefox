@@ -235,6 +235,7 @@ class CompositorOGL final : public Compositor {
   bool mOwnsGLContext = true;
   RefPtr<SurfacePoolHandle> mSurfacePoolHandle;
   gfx::Matrix4x4 mProjMatrix;
+  bool mCanRenderToDefaultFramebuffer = true;
 
   /** The size of the surface we are rendering to */
   gfx::IntSize mSurfaceSize;

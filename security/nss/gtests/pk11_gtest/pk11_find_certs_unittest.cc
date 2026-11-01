@@ -15,7 +15,6 @@
 #include "gtest/gtest.h"
 #include "nss_scoped_ptrs.h"
 #include "util.h"
-#include "pk11_import.h"
 
 namespace nss_test {
 
@@ -144,10 +143,6 @@ class PK11FindCertsTestBase : public ::testing::Test {
     mod_spec.append("'");
     m_slot = SECMOD_OpenUserDB(mod_spec.c_str());
     ASSERT_NE(nullptr, m_slot);
-    // A FIPS token needs a PIN before it will hold private keys.
-    if (PK11_IsFIPS() && PK11_NeedUserInit(m_slot)) {
-      ASSERT_EQ(SECSuccess, PK11_InitPin(m_slot, nullptr, ""));
-    }
   }
 
   virtual void TearDown() {
@@ -448,7 +443,7 @@ TEST_F(PK11GetCertsMatchingPrivateKeyTest, TestNoCertsAtAll) {
       (unsigned int)kTestPrivateKeyInfoDER.size(),
   };
   SECKEYPrivateKey* priv_key = nullptr;
-  ASSERT_EQ(SECSuccess, nss_test::ImportDERPrivateKeyInfoAndReturnKey(
+  ASSERT_EQ(SECSuccess, PK11_ImportDERPrivateKeyInfoAndReturnKey(
                             m_slot, &private_key_info, nullptr, nullptr, false,
                             false, KU_ALL, &priv_key, nullptr));
   ASSERT_NE(nullptr, priv_key);
@@ -466,7 +461,7 @@ TEST_F(PK11GetCertsMatchingPrivateKeyTest, TestNoCertsForKey) {
       (unsigned int)kTestPrivateKeyInfoDER.size(),
   };
   SECKEYPrivateKey* priv_key = nullptr;
-  ASSERT_EQ(SECSuccess, nss_test::ImportDERPrivateKeyInfoAndReturnKey(
+  ASSERT_EQ(SECSuccess, PK11_ImportDERPrivateKeyInfoAndReturnKey(
                             m_slot, &private_key_info, nullptr, nullptr, false,
                             false, KU_ALL, &priv_key, nullptr));
   ASSERT_NE(nullptr, priv_key);
@@ -514,7 +509,7 @@ TEST_F(PK11GetCertsMatchingPrivateKeyTest, TestOneCertForKey) {
       (unsigned int)kTestPrivateKeyInfoDER.size(),
   };
   SECKEYPrivateKey* priv_key = nullptr;
-  ASSERT_EQ(SECSuccess, nss_test::ImportDERPrivateKeyInfoAndReturnKey(
+  ASSERT_EQ(SECSuccess, PK11_ImportDERPrivateKeyInfoAndReturnKey(
                             m_slot, &private_key_info, nullptr, nullptr, false,
                             false, KU_ALL, &priv_key, nullptr));
   ASSERT_NE(nullptr, priv_key);
@@ -549,7 +544,7 @@ TEST_F(PK11GetCertsMatchingPrivateKeyTest, TestTwoCertsForKey) {
       (unsigned int)kTestPrivateKeyInfoDER.size(),
   };
   SECKEYPrivateKey* priv_key = nullptr;
-  ASSERT_EQ(SECSuccess, nss_test::ImportDERPrivateKeyInfoAndReturnKey(
+  ASSERT_EQ(SECSuccess, PK11_ImportDERPrivateKeyInfoAndReturnKey(
                             m_slot, &private_key_info, nullptr, nullptr, false,
                             false, KU_ALL, &priv_key, nullptr));
   ASSERT_NE(nullptr, priv_key);
@@ -727,7 +722,7 @@ class PK11FindRawPrivateKeys : public PK11FindCertsTestBase {
         const_cast<unsigned char*>(kTestPrivateKeyInfoDER.data()),
         (unsigned int)kTestPrivateKeyInfoDER.size(),
     };
-    ASSERT_EQ(SECSuccess, nss_test::ImportDERPrivateKeyInfoAndReturnKey(
+    ASSERT_EQ(SECSuccess, PK11_ImportDERPrivateKeyInfoAndReturnKey(
                               m_slot, &private_key_info, nullptr, nullptr,
                               false, false, KU_ALL, &m_priv, nullptr));
     ASSERT_NE(nullptr, m_priv);

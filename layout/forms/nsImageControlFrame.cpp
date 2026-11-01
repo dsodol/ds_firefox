@@ -51,7 +51,8 @@ nsImageControlFrame::~nsImageControlFrame() = default;
 
 nsIFrame* NS_NewImageControlFrame(PresShell* aPresShell,
                                   ComputedStyle* aStyle) {
-  return new nsImageControlFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      nsImageControlFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsImageControlFrame)

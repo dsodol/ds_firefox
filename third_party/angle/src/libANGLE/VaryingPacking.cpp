@@ -10,9 +10,6 @@
 //
 
 #include "libANGLE/VaryingPacking.h"
-
-#include <array>
-
 #include "common/unsafe_buffers.h"
 
 #include "common/CompiledShaderState.h"
@@ -421,9 +418,9 @@ bool VaryingPacking::packVaryingIntoRegisterMap(PackMode packMode,
     // first. Each variable is placed in the column that leaves the least amount of space in the
     // column and aligned to the lowest available rows within that column."
     ASSERT(varyingColumns == 1);
-    std::array<unsigned int, 4> contiguousSpace     = {0};
-    std::array<unsigned int, 4> bestContiguousSpace = {0};
-    std::array<unsigned int, 4> totalSpace          = {0};
+    unsigned int contiguousSpace[4]     = {0};
+    unsigned int bestContiguousSpace[4] = {0};
+    unsigned int totalSpace[4]          = {0};
 
     for (unsigned int row = 0; row < maxVaryingVectors; ++row)
     {
@@ -431,16 +428,18 @@ bool VaryingPacking::packVaryingIntoRegisterMap(PackMode packMode,
         {
             if (mRegisterMap[row][column])
             {
-                contiguousSpace[column] = 0;
+                ANGLE_UNSAFE_TODO(contiguousSpace[column]) = 0;
             }
             else
             {
-                contiguousSpace[column]++;
-                totalSpace[column]++;
+                ANGLE_UNSAFE_TODO(contiguousSpace[column])++;
+                ANGLE_UNSAFE_TODO(totalSpace[column])++;
 
-                if (contiguousSpace[column] > bestContiguousSpace[column])
+                if (ANGLE_UNSAFE_TODO(contiguousSpace[column]) >
+                    ANGLE_UNSAFE_TODO(bestContiguousSpace[column]))
                 {
-                    bestContiguousSpace[column] = contiguousSpace[column];
+                    ANGLE_UNSAFE_TODO(bestContiguousSpace[column]) =
+                        ANGLE_UNSAFE_TODO(contiguousSpace[column]);
                 }
             }
         }
@@ -449,15 +448,15 @@ bool VaryingPacking::packVaryingIntoRegisterMap(PackMode packMode,
     unsigned int bestColumn = 0;
     for (unsigned int column = 1; column < 4; ++column)
     {
-        if (bestContiguousSpace[column] >= varyingRows &&
-            (bestContiguousSpace[bestColumn] < varyingRows ||
-             totalSpace[column] < totalSpace[bestColumn]))
+        if (ANGLE_UNSAFE_TODO(bestContiguousSpace[column]) >= varyingRows &&
+            (ANGLE_UNSAFE_TODO(bestContiguousSpace[bestColumn]) < varyingRows ||
+             ANGLE_UNSAFE_TODO(totalSpace[column] < totalSpace[bestColumn])))
         {
             bestColumn = column;
         }
     }
 
-    if (bestContiguousSpace[bestColumn] >= varyingRows)
+    if (ANGLE_UNSAFE_TODO(bestContiguousSpace[bestColumn]) >= varyingRows)
     {
         for (unsigned int row = 0; row < maxVaryingVectors; row++)
         {

@@ -144,8 +144,6 @@ class BaselineCodeGen {
 
   void prepareVMCall();
 
-  void ensureDebugModeOSRPointSpace();
-
   void storeFrameSizeAndPushDescriptor(uint32_t argSize, Register scratch);
 
   enum class CallVMPhase { BeforePushingLocals, AfterPushingLocals };
@@ -321,7 +319,6 @@ class BaselineCompilerHandler {
 #endif
   FixedList<Label> labels_;
   RetAddrEntryVector retAddrEntries_;
-  mozilla::Maybe<uint32_t> lastDebugModeOSRPointOffset_;
   AllocSiteIndexVector allocSiteIndices_;
 
   // Native code offsets for OSR at JSOp::LoopHead ops.
@@ -419,10 +416,6 @@ class BaselineCompilerHandler {
   RetAddrEntryVector& retAddrEntries() { return retAddrEntries_; }
   OSREntryVector& osrEntries() { return osrEntries_; }
 
-  const mozilla::Maybe<uint32_t>& lastDebugModeOSRPointOffset() const {
-    return lastDebugModeOSRPointOffset_;
-  }
-
   [[nodiscard]] bool recordCallRetAddr(RetAddrEntry::Kind kind,
                                        uint32_t retOffset);
 
@@ -479,8 +472,6 @@ class BaselineCompiler final : private BaselineCompilerCodeGen {
 
   CodeOffset profilerPushToggleOffset_;
 
-  CodeOffset debugModeOSREpilogueOffset_;
-
   BaselinePerfSpewer perfSpewer_;
 
  public:
@@ -506,7 +497,6 @@ class BaselineCompiler final : private BaselineCompilerCodeGen {
   bool emitBody();
 
   [[nodiscard]] bool emitDebugTrap();
-  void emitDebugModeOSREpilogue();
 };
 
 // Interface used by BaselineCodeGen for BaselineInterpreterGenerator.

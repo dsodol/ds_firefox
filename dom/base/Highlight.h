@@ -9,8 +9,8 @@
 
 #include "mozilla/Attributes.h"
 #include "mozilla/dom/BindingDeclarations.h"
-#include "mozilla/dom/ECMACollectionMixin.h"
 #include "mozilla/dom/HighlightBinding.h"
+#include "nsAtomHashKeys.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsTArray.h"
 #include "nsTHashSet.h"
@@ -18,6 +18,9 @@
 
 class nsFrameSelection;
 class nsPIDOMWindowInner;
+namespace mozilla {
+class ErrorResult;
+}
 
 namespace mozilla::dom {
 class AbstractRange;
@@ -64,25 +67,21 @@ struct HighlightSelectionData {
  * To propagate runtime changes of the highlight to its registries, an
  * observer pattern is implemented.
  *
- * The spec defines this class as a `setlike`. Insertion and deletion operations
- * are overridden to notify the `HighlightRegistry` instances that contain this
- * highlight.
+ * The spec defines this class as a `setlike`. To allow access and iteration
+ * of the setlike contents from C++, the insertion and deletion operations are
+ * overridden and the Ranges are also stored internally in an Array.
  *
  * @see https://drafts.csswg.org/css-highlight-api-1/#creation
  */
-class Highlight final : public nsISupports,
-                        public nsWrapperCache,
-                        public SetlikeMixin<RefPtr<AbstractRange>> {
+class Highlight final : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS_FINAL
   NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(Highlight)
 
-  template <typename T, typename... Args>
-  friend already_AddRefed<T> mozilla::MakeAndAddRef(Args&&... aArgs);
-
  protected:
-  Highlight(const Sequence<OwningNonNull<AbstractRange>>& aInitialRanges,
-            nsPIDOMWindowInner* aWindow);
+  MOZ_CAN_RUN_SCRIPT Highlight(
+      const Sequence<OwningNonNull<AbstractRange>>& aInitialRanges,
+      nsPIDOMWindowInner* aWindow, ErrorResult& aRv);
   ~Highlight() = default;
 
  public:
@@ -110,7 +109,7 @@ class Highlight final : public nsISupports,
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
 
-  static already_AddRefed<Highlight> Constructor(
+  static MOZ_CAN_RUN_SCRIPT_BOUNDARY already_AddRefed<Highlight> Constructor(
       const GlobalObject& aGlobal,
       const Sequence<OwningNonNull<AbstractRange>>& aInitialRanges,
       ErrorResult& aRv);
@@ -141,24 +140,47 @@ class Highlight final : public nsISupports,
   void SetType(HighlightType aHighlightType);
 
   /**
-   * @brief Adds a `Range` to this highlight and notifies all
-   * `HighlightRegistry` instances.
+   * @brief This mirrors the `size` property in JS world (_not_ exposed via
+   * webIDL)
    */
-  MOZ_CAN_RUN_SCRIPT void Add(AbstractRange& aRange, ErrorResult& aRv) override;
+  uint32_t Size() const { return mRanges.Length(); }
 
   /**
-   * @brief Removes all ranges from this highlight and notifies all
-   * `HighlightRegistry` instances.
+   * @brief Access to the ranges for frame selection population.
    */
-  MOZ_CAN_RUN_SCRIPT void Clear() override;
+  const nsTArray<RefPtr<AbstractRange>>& Ranges() const { return mRanges; }
 
   /**
-   * @brief Removes `aRange` from this highlight and notifies all
-   * `HighlightRegistry` instances.
+   * @brief Adds a `Range` to this highlight.
+   *
+   * This adds `aRange` both to the setlike data storage and the internal one
+   * needed for iteration, if it is not yet present.
+   *
+   * Also notifies all `HighlightRegistry` instances.
+   */
+  MOZ_CAN_RUN_SCRIPT Highlight* Add(AbstractRange& aRange, ErrorResult& aRv);
+
+  /**
+   * @brief Removes all ranges from this highlight.
+   *
+   * This removes all highlights from the setlike data structure as well as from
+   * the internal one.
+   *
+   * Also notifies all `HighlightRegistry` instances.
+   */
+  MOZ_CAN_RUN_SCRIPT void Clear(ErrorResult& aRv);
+
+  /**
+   * @brief Removes `aRange` from this highlight.
+   *
+   * This removes `aRange` from the setlike data structure as well as from the
+   * internal one.
+   *
+   * Also notifies all `HighlightRegistry` instances.
    *
    * @return As per spec, returns true if the range was deleted.
    */
-  MOZ_CAN_RUN_SCRIPT bool Delete(AbstractRange& aRange) override;
+  MOZ_CAN_RUN_SCRIPT bool Delete(AbstractRange& aRange, ErrorResult& aRv);
 
   /**
    * @brief Returns ranges of this highlight present at the given point.
@@ -183,6 +205,11 @@ class Highlight final : public nsISupports,
   void Repaint();
 
   RefPtr<nsPIDOMWindowInner> mWindow;
+
+  /**
+   * All Range objects contained in this highlight.
+   */
+  nsTArray<RefPtr<AbstractRange>> mRanges;
 
   /**
    * Type of this highlight.

@@ -66,7 +66,7 @@ void MediaStreamWindowCapturer::AddTrack(AudioStreamTrack* aTrack) {
   if (aTrack->Ended()) {
     return;
   }
-  mTracks.AppendElement(std::make_unique<CapturedTrack>(aTrack, mWindowId));
+  mTracks.AppendElement(MakeUnique<CapturedTrack>(aTrack, mWindowId));
 }
 
 void MediaStreamWindowCapturer::RemoveTrack(AudioStreamTrack* aTrack) {

@@ -5,7 +5,6 @@
 #include "WaylandSurfaceLock.h"
 #ifdef MOZ_WAYLAND
 #  include "WaylandSurface.h"
-#  include "nsWaylandDisplay.h"
 #endif
 #include "MozContainer.h"
 #include "WidgetUtilsGtk.h"
@@ -30,11 +29,6 @@ void WaylandSurfaceLock::Commit() {
     mWaylandSurface->Commit(this, mForceCommit,
                             /* flush display */ false);
   }
-}
-
-void WaylandSurfaceLock::CommitAndFlushDisplay() {
-  Commit();
-  wl_display_flush(WaylandDisplayGet()->GetDisplay());
 }
 #endif
 

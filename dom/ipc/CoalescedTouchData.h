@@ -36,7 +36,7 @@ class CoalescedTouchData final : public CoalescedInputData<WidgetTouchEvent> {
 class CoalescedTouchMoveFlusher final : public CoalescedInputFlusher {
  public:
   explicit CoalescedTouchMoveFlusher(BrowserChild* aBrowserChild);
-  MOZ_CAN_RUN_SCRIPT void WillRefresh(mozilla::TimeStamp aTime) override;
+  void WillRefresh(mozilla::TimeStamp aTime) override;
 
  private:
   ~CoalescedTouchMoveFlusher() override;

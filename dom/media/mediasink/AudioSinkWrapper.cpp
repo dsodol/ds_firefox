@@ -22,22 +22,6 @@ namespace mozilla {
 
 using media::TimeUnit;
 
-AudioSinkWrapper::AudioSinkWrapper(AbstractThread* aOwnerThread,
-                                   MediaQueue<AudioData>& aAudioQueue,
-                                   SinkCreator aFunc, double aVolume,
-                                   double aPlaybackRate, bool aPreservesPitch,
-                                   RefPtr<AudioDeviceInfo> aAudioDevice)
-    : mOwnerThread(aOwnerThread),
-      mAsyncInitTaskQueue(CreateAsyncInitTaskQueue()),
-      mSinkCreator(std::move(aFunc)),
-      mReuseStreamOnSeek(StaticPrefs::media_audio_reuse_stream_on_seek()),
-      mAudioDevice(std::move(aAudioDevice)),
-      mParams(aVolume, aPlaybackRate, aPreservesPitch),
-      mAudioQueue(aAudioQueue),
-      mRetrySinkTime(TimeStamp::Now()) {
-  MOZ_ASSERT(mAsyncInitTaskQueue);
-}
-
 AudioSinkWrapper::~AudioSinkWrapper() = default;
 
 void AudioSinkWrapper::DiscardStashedAudioSink() {
@@ -722,11 +706,8 @@ void AudioSinkWrapper::Stop(StopReason aReason) {
   mAudioEnded = true;
   mClockPausedDuringSeek = false;
   if (mAudioSink) {
-    // A stopped stream's position still counts the audio queued before the
-    // stop, which the rebased clock can't account for.
     if (aReason == StopReason::Seeking && mReuseStreamOnSeek &&
-        mAudioSink->IsCubebStarted() && !mAudioSink->IsErrored() &&
-        !mAudioSink->IsStreamDrained()) {
+        !mAudioSink->IsErrored() && !mAudioSink->IsStreamDrained()) {
       // Keep the sink and its still-running audio stream alive so the next
       // start can reset and reuse them instead of paying for a destroy +
       // recreate.

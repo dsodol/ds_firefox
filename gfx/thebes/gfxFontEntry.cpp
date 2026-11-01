@@ -96,11 +96,7 @@ gfxFontEntry::~gfxFontEntry() {
     }
   }
 
-  // Only the main thread uses SVG glyphs, but the last reference to a font
-  // entry may be dropped on any thread. Nothing else can access the entry
-  // anymore at this point, so this read is safe.
-  MOZ_ASSERT(NS_IsMainThread() || !mSVGGlyphs);
-  mSVGGlyphs = nullptr;
+  delete mSVGGlyphs.exchange(nullptr);
   delete[] mUVSData.exchange(nullptr);
 
   gfxCharacterMap* cmap = mCharacterMap.exchange(nullptr);
@@ -295,7 +291,6 @@ already_AddRefed<gfxFont> gfxFontEntry::FindOrMakeFont(
   if (!newFont) {
     return nullptr;
   }
-  newFont->InitMetrics();
   if (!newFont->Valid()) {
     newFont->Destroy();
     return nullptr;
@@ -377,7 +372,6 @@ bool gfxFontEntry::TryGetSVGData(const gfxFont* aFont) {
   if (!NS_IsMainThread()) {
     return false;
   }
-  AssertIsOnMainThread();
 
   if (!mSVGInitialized) {
     // If UnitsPerEm is not known/valid, we can't use SVG glyphs
@@ -396,7 +390,10 @@ bool gfxFontEntry::TryGetSVGData(const gfxFont* aFont) {
 
     // gfxSVGGlyphs will hb_blob_destroy() the table when it is finished
     // with it.
-    mSVGGlyphs = std::make_unique<gfxSVGGlyphs>(svgTable, this);
+    auto* svgGlyphs = new gfxSVGGlyphs(svgTable, this);
+    if (!mSVGGlyphs.compareExchange(nullptr, svgGlyphs)) {
+      delete svgGlyphs;
+    }
     mSVGInitialized = true;
   }
 
@@ -734,7 +731,6 @@ void gfxFontEntry::ReleaseGrFace(tainted_opaque_gr<gr_face*> aFace) {
 }
 
 void gfxFontEntry::DisconnectSVG() {
-  AssertIsOnMainThread();
   if (mSVGInitialized && mSVGGlyphs) {
     mSVGGlyphs = nullptr;
     mSVGInitialized = false;
@@ -793,7 +789,7 @@ bool gfxFontEntry::SupportsOpenTypeFeature(Script aScript,
                                            uint32_t aFeatureTag) {
   MutexAutoLock lock(mFeatureInfoLock);
   if (!mSupportedFeatures) {
-    mSupportedFeatures = std::make_unique<nsTHashMap<nsUint32HashKey, bool>>();
+    mSupportedFeatures = MakeUnique<nsTHashMap<nsUint32HashKey, bool>>();
   }
 
   // note: high-order three bytes *must* be unique for each feature
@@ -855,7 +851,7 @@ const hb_set_t* gfxFontEntry::InputsForOpenTypeFeature(Script aScript,
                                                        uint32_t aFeatureTag) {
   MutexAutoLock lock(mFeatureInfoLock);
   if (!mFeatureInputs) {
-    mFeatureInputs = std::make_unique<nsTHashMap<nsUint32HashKey, hb_set_t*>>();
+    mFeatureInputs = MakeUnique<nsTHashMap<nsUint32HashKey, hb_set_t*>>();
   }
 
   NS_ASSERTION(aFeatureTag == HB_TAG('s', 'u', 'p', 's') ||
@@ -912,7 +908,7 @@ bool gfxFontEntry::SupportsGraphiteFeature(uint32_t aFeatureTag) {
   MutexAutoLock lock(mFeatureInfoLock);
 
   if (!mSupportedFeatures) {
-    mSupportedFeatures = std::make_unique<nsTHashMap<nsUint32HashKey, bool>>();
+    mSupportedFeatures = MakeUnique<nsTHashMap<nsUint32HashKey, bool>>();
   }
 
   // note: high-order three bytes *must* be unique for each feature
@@ -1456,9 +1452,9 @@ void gfxFontEntry::AddSizeOfExcludingThis(MallocSizeOf aMallocSizeOf,
     aSizes->mFontTableCacheSize +=
         mUserFontData->SizeOfIncludingThis(aMallocSizeOf);
   }
-  if (gfxSVGGlyphs* svgGlyphs = GetSVGGlyphs()) {
+  if (mSVGGlyphs) {
     aSizes->mFontTableCacheSize +=
-        svgGlyphs->SizeOfIncludingThis(aMallocSizeOf);
+        GetSVGGlyphs()->SizeOfIncludingThis(aMallocSizeOf);
   }
 
   {

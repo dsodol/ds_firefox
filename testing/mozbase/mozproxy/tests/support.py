@@ -1,5 +1,4 @@
 import contextlib
-import os
 import shutil
 import tempfile
 
@@ -13,8 +12,3 @@ def tempdir():
         yield dest_dir
     finally:
         shutil.rmtree(dest_dir, ignore_errors=True)
-
-
-def firefox_binary(dest_dir):
-    """Firefox path whose policies directory lands inside dest_dir on every platform"""
-    return os.path.join(dest_dir, "MacOS", "firefox")

@@ -172,7 +172,6 @@ EXPORTS.mozilla.layers += [
     "ipc/ISurfaceAllocator.h",
     "ipc/KnowsCompositor.h",
     "ipc/LayersMessageUtils.h",
-    "ipc/LayerTreeLog.h",
     "ipc/LayerTreeOwnerTracker.h",
     "ipc/RefCountedShmem.h",
     "ipc/RemoteContentController.h",

@@ -735,6 +735,8 @@ extern SECItem *CERT_DecodeAVAValue(const SECItem *derAVAValue);
 **	"name" the distinguished name
 */
 
+extern char *CERT_GetCertificateEmailAddress(CERTCertificate *cert);
+
 extern char *CERT_GetCertEmailAddress(const CERTName *name);
 
 extern const char *CERT_GetFirstEmailAddress(CERTCertificate *cert);

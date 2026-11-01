@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+const BUNDLE_URL = "chrome://global/locale/viewSource.properties";
+
 // These are markers used to delimit the selection during processing. They
 // are removed from the final rendering.
 // We use noncharacter Unicode codepoints to minimize the risk of clashing
@@ -26,8 +28,8 @@ export class ViewSourcePageChild extends JSWindowActorChild {
   constructor() {
     super();
 
-    ChromeUtils.defineLazyGetter(this, "l10n", function () {
-      return new Localization(["toolkit/global/viewSource.ftl"]);
+    ChromeUtils.defineLazyGetter(this, "bundle", function () {
+      return Services.strings.createBundle(BUNDLE_URL);
     });
   }
 
@@ -238,10 +240,9 @@ export class ViewSourcePageChild extends JSWindowActorChild {
    * selected on the inflated view-source DOM.
    */
   drawSelection() {
-    let doc = this.document;
-    this.l10n.formatValue("view-source-selection-title").then(title => {
-      doc.title = title;
-    });
+    this.document.title = this.bundle.GetStringFromName(
+      "viewSelectionSourceTitle"
+    );
 
     // find the special selection markers that we added earlier, and
     // draw the selection between the two...

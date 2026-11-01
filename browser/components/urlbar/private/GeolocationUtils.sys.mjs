@@ -32,9 +32,7 @@ class _GeolocationUtils {
    * Fetches the client's geolocation from Merino. Merino gets the geolocation
    * by looking up the client's IP address in its MaxMind database. We cache
    * responses for a brief period of time so that fetches during a urlbar
-   * session don't ping Merino over and over. Concurrent calls share one
-   * request, because `MerinoClient` aborts a pending fetch when a new one
-   * starts.
+   * session don't ping Merino over and over.
    *
    * @returns {Promise<object>}
    *   An object with the following properties (see Merino source for latest):
@@ -58,22 +56,7 @@ class _GeolocationUtils {
    *     {number} radius
    *       Accuracy radius in km.
    */
-  geolocation() {
-    if (!this.#pendingGeolocation) {
-      this.#pendingGeolocation = this.#fetchGeolocation().finally(() => {
-        this.#pendingGeolocation = null;
-      });
-    }
-    return this.#pendingGeolocation;
-  }
-
-  /**
-   * Fetches the geolocation from Merino. See `geolocation()` for the shape of
-   * the returned object.
-   *
-   * @returns {Promise<object>}
-   */
-  async #fetchGeolocation() {
+  async geolocation() {
     if (!this.#merino) {
       this.#merino = new lazy.MerinoClient("GeolocationUtils", {
         cachePeriodMs: GEOLOCATION_CACHE_PERIOD_MS,
@@ -296,9 +279,6 @@ class _GeolocationUtils {
 
   // `MerinoClient`
   #merino;
-
-  // Pending `geolocation()` promise shared by concurrent callers.
-  #pendingGeolocation = null;
 }
 
 function toRadians(deg) {

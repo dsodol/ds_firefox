@@ -60,8 +60,7 @@ class AlertCallbacksToObserver : public nsIObserver {
       if (action) {
         MOZ_TRY(action->GetAction(actionName));
       }
-      mAlertCallbacks->OnAlertClick(
-          action, nsIAlertCallbacks::ApplicationState::UNKNOWN);
+      mAlertCallbacks->OnAlertClick(action);
       return NS_OK;
     }
     if (!strcmp("alertshow", aTopic)) {

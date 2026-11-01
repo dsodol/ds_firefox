@@ -185,12 +185,6 @@ class EditorBase : public nsIEditor,
   }
 
   /**
-   * Like GetSelection(), but returns null for non-normal selections that
-   * weren't created yet instead of creating them.
-   */
-  Selection* GetExistingSelection(SelectionType aSelectionType) const;
-
-  /**
    * Get frame selection from SelectionRef(), but returns null
    * for canvas-based EditContext, where we don't want to touch
    * the DOM selection (since it may be in accessible content.)
@@ -341,14 +335,10 @@ class EditorBase : public nsIEditor,
    * Return true if it's possible to undo/redo right now.
    */
   bool CanUndo() const {
-    // We should always allow undo/redo for EditContext, since the
-    // history is managed by the web app.
-    return (IsUndoRedoEnabled() && NumberOfUndoItems() > 0) ||
-           ComputeEditContext();
+    return IsUndoRedoEnabled() && NumberOfUndoItems() > 0;
   }
   bool CanRedo() const {
-    return (IsUndoRedoEnabled() && NumberOfRedoItems() > 0) ||
-           ComputeEditContext();
+    return IsUndoRedoEnabled() && NumberOfRedoItems() > 0;
   }
 
   /**
@@ -1032,22 +1022,6 @@ class EditorBase : public nsIEditor,
       mSelectionCreatedByDoubleclick = aSelectionCreatedByDoubleclick;
     }
 
-    /**
-     * Set whether the selection was created by double-click on the innermost
-     * edit action which is dispatching `beforeinput` or `input`, if any.
-     */
-    void SetSelectionCreatedByDoubleclickOfEditActionDispatchingInputEvent(
-        bool aSelectionCreatedByDoubleclick) {
-      for (AutoEditActionDataSetter* editActionData = this; editActionData;
-           editActionData = editActionData->mParentData) {
-        if (editActionData->mDispatchingInputEvent) {
-          editActionData->SetSelectionCreatedByDoubleclick(
-              aSelectionCreatedByDoubleclick);
-          return;
-        }
-      }
-    }
-
     [[nodiscard]] bool SelectionCreatedByDoubleclick() const {
       return mSelectionCreatedByDoubleclick;
     }
@@ -1702,14 +1676,6 @@ class EditorBase : public nsIEditor,
   EditAction GetEditAction() const {
     return mEditActionData ? mEditActionData->GetEditAction()
                            : EditAction::eNone;
-  }
-
-  /**
-   * Return true if the edit action being handled deletes a selection which
-   * was created by double-clicking a word.
-   */
-  [[nodiscard]] bool IsSelectionCreatedByDoubleclick() const {
-    return mEditActionData && mEditActionData->SelectionCreatedByDoubleclick();
   }
 
   /**

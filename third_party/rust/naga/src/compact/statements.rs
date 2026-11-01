@@ -168,14 +168,6 @@ impl FunctionTracer<'_> {
                             self.expressions_used.insert(payload);
                         }
                     },
-                    St::DebugPrintf {
-                        format: _,
-                        ref arguments,
-                    } => {
-                        for &expr in arguments {
-                            self.expressions_used.insert(expr);
-                        }
-                    }
 
                     // Trivial statements.
                     St::Break
@@ -415,14 +407,6 @@ impl FunctionMap {
                             adjust(payload);
                         }
                     },
-                    St::DebugPrintf {
-                        format: _,
-                        ref mut arguments,
-                    } => {
-                        for expr in arguments {
-                            adjust(expr);
-                        }
-                    }
 
                     // Trivial statements.
                     St::Break

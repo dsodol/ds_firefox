@@ -137,7 +137,7 @@ void XULBroadcastManager::SynchronizeBroadcastListener(Element* aBroadcaster,
       nsAutoString value;
       if (aBroadcaster->GetAttr(nameSpaceID, name, value)) {
         aListener->SetAttr(nameSpaceID, name, attributes[count].mPrefix, value,
-                           notify, IsKnownNewAttr::No);
+                           notify);
       }
 
 #if 0
@@ -155,8 +155,7 @@ void XULBroadcastManager::SynchronizeBroadcastListener(Element* aBroadcaster,
 
     nsAutoString value;
     if (aBroadcaster->GetAttr(name, value)) {
-      aListener->SetAttr(kNameSpaceID_None, name, value, notify,
-                         IsKnownNewAttr::No);
+      aListener->SetAttr(kNameSpaceID_None, name, value, notify);
     } else {
       aListener->UnsetAttr(kNameSpaceID_None, name, notify);
     }
@@ -362,8 +361,7 @@ void XULBroadcastManager::MaybeBroadcast() {
         if (mDelayedAttrChangeBroadcasts[i].mNeedsAttrChange) {
           const nsString& value = mDelayedAttrChangeBroadcasts[i].mAttr;
           if (mDelayedAttrChangeBroadcasts[i].mSetAttr) {
-            listener->SetAttr(kNameSpaceID_None, attrName, value, true,
-                              IsKnownNewAttr::No);
+            listener->SetAttr(kNameSpaceID_None, attrName, value, true);
           } else {
             listener->UnsetAttr(kNameSpaceID_None, attrName, true);
           }

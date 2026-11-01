@@ -378,7 +378,6 @@ bool PerformanceObserver::ObservesTypeOfEntry(PerformanceEntry* aEntry) {
 }
 
 void PerformanceObserver::Disconnect() {
-  mQueuedEntries.Clear();
   if (mConnected) {
     MOZ_ASSERT(mPerformance);
     mPerformance->RemoveObserver(this);

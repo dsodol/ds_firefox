@@ -11,7 +11,6 @@
 #include "GLContextProvider.h"
 #include "GPUParent.h"
 #include "GPUProcessHost.h"
-#include "GPUProcessLog.h"
 #include "GPUProcessManager.h"
 #include "GfxInfoBase.h"
 #include "MediaCodecsSupport.h"
@@ -236,8 +235,6 @@ bool GPUParent::Init(mozilla::ipc::UntypedEndpoint&& aEndpoint,
 
 void GPUParent::NotifyDeviceReset(DeviceResetReason aReason,
                                   DeviceResetDetectPlace aPlace) {
-  GPUPROCESS_LOG("Device reset detected, reason {} place {}",
-                 fmt::enums::format_as(aReason), fmt::enums::format_as(aPlace));
   // Notify the main process that there's been a device reset
   // and that they should reset their compositors and repaint
   GPUDeviceData data;
@@ -399,7 +396,7 @@ mozilla::ipc::IPCResult GPUParent::RecvInit(
     layers::AndroidHardwareBufferManager::Init();
   }
 
-  if (gfxVars::ForceAImageReaderAndroid()) {
+  if (gfxVars::UseAImageReaderVideoGpuProcessAndroid()) {
     layers::GpuProcessAndroidImageReaderMap::Init();
   }
 

@@ -4,12 +4,11 @@
 
 "use strict";
 
-// This test tests that the nsIX509Cert.dbKey and
-// nsIX509CertDB.asyncFindCertByDBKey APIs work as expected. That is, getting a
-// certificate's dbKey and using it in asyncFindCertByDBKey should return the
-// same certificate. Also, for backwards compatibility, asyncFindCertByDBKey
-// should ignore any whitespace in its input (even though now nsIX509Cert.dbKey
-// will never have whitespace in it).
+// This test tests that the nsIX509Cert.dbKey and nsIX509CertDB.findCertByDBKey
+// APIs work as expected. That is, getting a certificate's dbKey and using it
+// in findCertByDBKey should return the same certificate. Also, for backwards
+// compatibility, findCertByDBKey should ignore any whitespace in its input
+// (even though now nsIX509Cert.dbKey will never have whitespace in it).
 
 function hexStringToBytes(hex) {
   let bytes = [];
@@ -55,22 +54,16 @@ function encodeCommonNameAsBytes(commonName) {
   return bytes;
 }
 
-async function testInvalidDBKey(certDB, dbKey) {
-  await certDB
-    .asyncFindCertByDBKey(dbKey)
-    .then(() => {
-      ok(false, "should have thrown");
-    })
-    .catch(e => {
-      ok(
-        /NS_ERROR_ILLEGAL_INPUT/.test(e),
-        `asyncFindCertByDBKey(${dbKey}) should raise NS_ERROR_ILLEGAL_INPUT`
-      );
-    });
+function testInvalidDBKey(certDB, dbKey) {
+  throws(
+    () => certDB.findCertByDBKey(dbKey),
+    /NS_ERROR_ILLEGAL_INPUT/,
+    `findCertByDBKey(${dbKey}) should raise NS_ERROR_ILLEGAL_INPUT`
+  );
 }
 
-async function testDBKeyForNonexistentCert(certDB, dbKey) {
-  let cert = await certDB.asyncFindCertByDBKey(dbKey);
+function testDBKeyForNonexistentCert(certDB, dbKey) {
+  let cert = certDB.findCertByDBKey(dbKey);
   ok(!cert, "shouldn't find cert for given dbKey");
 }
 
@@ -82,7 +75,7 @@ function byteArrayToByteString(bytes) {
   return byteString;
 }
 
-add_task(async function run_test() {
+function run_test() {
   do_get_profile();
   let certDB = Cc["@mozilla.org/security/x509certdb;1"].getService(
     Ci.nsIX509CertDB
@@ -132,10 +125,10 @@ add_task(async function run_test() {
     "actual and expected dbKey values should match"
   );
 
-  let certFromDbKey = await certDB.asyncFindCertByDBKey(expectedDbKey);
+  let certFromDbKey = certDB.findCertByDBKey(expectedDbKey);
   ok(
     areCertsEqual(certFromDbKey, cert),
-    "nsIX509CertDB.asyncFindCertByDBKey should find the right certificate"
+    "nsIX509CertDB.findCertByDBKey should find the right certificate"
   );
 
   Assert.greater(
@@ -149,10 +142,10 @@ add_task(async function run_test() {
     64,
     "test self-check: adding CRLF to dbKey should succeed"
   );
-  certFromDbKey = await certDB.asyncFindCertByDBKey(expectedDbKeyWithCRLF);
+  certFromDbKey = certDB.findCertByDBKey(expectedDbKeyWithCRLF);
   ok(
     areCertsEqual(certFromDbKey, cert),
-    "nsIX509CertDB.asyncFindCertByDBKey should work with dbKey with CRLF"
+    "nsIX509CertDB.findCertByDBKey should work with dbKey with CRLF"
   );
 
   let expectedDbKeyWithSpaces = expectedDbKey.replace(/(.{64})/, "$1  ");
@@ -161,16 +154,16 @@ add_task(async function run_test() {
     64,
     "test self-check: adding spaces to dbKey should succeed"
   );
-  certFromDbKey = await certDB.asyncFindCertByDBKey(expectedDbKeyWithSpaces);
+  certFromDbKey = certDB.findCertByDBKey(expectedDbKeyWithSpaces);
   ok(
     areCertsEqual(certFromDbKey, cert),
-    "nsIX509CertDB.asyncFindCertByDBKey should work with dbKey with spaces"
+    "nsIX509CertDB.findCertByDBKey should work with dbKey with spaces"
   );
 
   // Test some invalid dbKey values.
-  await testInvalidDBKey(certDB, "AAAA"); // Not long enough.
+  testInvalidDBKey(certDB, "AAAA"); // Not long enough.
   // No header.
-  await testInvalidDBKey(
+  testInvalidDBKey(
     certDB,
     btoa(
       byteArrayToByteString(
@@ -181,7 +174,7 @@ add_task(async function run_test() {
       )
     )
   );
-  await testInvalidDBKey(
+  testInvalidDBKey(
     certDB,
     btoa(
       byteArrayToByteString([
@@ -209,7 +202,7 @@ add_task(async function run_test() {
     )
   );
   // Truncated issuer.
-  await testInvalidDBKey(
+  testInvalidDBKey(
     certDB,
     btoa(
       byteArrayToByteString([
@@ -234,4 +227,4 @@ add_task(async function run_test() {
       byteArrayToByteString([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     )
   );
-});
+}

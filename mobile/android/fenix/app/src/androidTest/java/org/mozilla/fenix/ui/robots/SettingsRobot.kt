@@ -336,7 +336,7 @@ class SettingsRobot {
         onView(
                 allOf(
                     withId(R.id.navigationToolbar),
-                    hasDescendant(withText(R.string.settings_title)),
+                    hasDescendant(withText(R.string.settings)),
                 )
             )
             .check(matches(withEffectiveVisibility(Visibility.VISIBLE)))

@@ -722,11 +722,8 @@ class SourceMediaTrack : public MediaTrack {
    * because the stream has ended. Returns the duration of the appended data in
    * the graph's track rate otherwise.
    */
-#ifdef ENABLE_TESTS
-  virtual
-#endif
-      TrackTime AppendData(MediaSegment* aSegment,
-                           MediaSegment* aRawSegment = nullptr);
+  TrackTime AppendData(MediaSegment* aSegment,
+                       MediaSegment* aRawSegment = nullptr);
 
   /**
    * Clear any data appended with AppendData() that hasn't entered the graph

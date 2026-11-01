@@ -53,10 +53,8 @@ class NotificationCallbacks final : public NotificationCallbacksCommon {
     return NS_OK;
   }
 
-  NS_IMETHODIMP OnAlertClick(
-      nsIAlertAction* aAction,
-      nsIAlertCallbacks::ApplicationState aState) override {
-    MOZ_TRY(NotificationCallbacksCommon::OnAlertClick(aAction, aState));
+  NS_IMETHODIMP OnAlertClick(nsIAlertAction* aAction) override {
+    MOZ_TRY(NotificationCallbacksCommon::OnAlertClick(aAction));
     nsCOMPtr<nsIURI> navigate;
     if (StaticPrefs::dom_webnotifications_navigate_enabled()) {
       if (aAction) {
@@ -236,12 +234,8 @@ mozilla::ipc::IPCResult NotificationParent::RecvShow(Maybe<IPCImage>&& aIcon,
 }
 
 nsresult NotificationParent::Show(Maybe<IPCImage>&& aIcon) {
-  nsCOMPtr<imgIContainer> icon;
-  if (aIcon) {
-    icon = nsContentUtils::IPCImageToImage(*aIcon);
-  }
   auto result = CreateAlertForNotification(mArgs.mNotification.options(),
-                                           *mArgs.mPrincipal, icon);
+                                           *mArgs.mPrincipal, std::move(aIcon));
 
   if (result.isErr()) {
     return result.unwrapErr();

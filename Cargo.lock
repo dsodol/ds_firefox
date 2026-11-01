@@ -400,17 +400,17 @@ dependencies = [
 
 [[package]]
 name = "authenticator"
-version = "0.6.2"
+version = "0.6.1"
+source = "git+https://github.com/mozilla/authenticator-rs?tag=v0.6.1#67c5db64881cc38256758de22a967324332e81de"
 dependencies = [
  "base64 0.21.999",
  "bitflags 1.999.999",
+ "cfg-if",
  "core-foundation 0.10.0",
  "devd-rs",
- "env_logger",
  "libc",
  "libudev",
  "log",
- "mozbuild",
  "nss-rs",
  "pkcs11-bindings",
  "rand",
@@ -452,7 +452,6 @@ name = "autofill"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "db-crypto",
  "error-support",
  "interrupt-support",
  "jwcrypto",
@@ -1073,15 +1072,6 @@ name = "cmake"
 version = "0.1.999"
 
 [[package]]
-name = "cobs"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fa961b519f0b462e3a3b4a34b64d119eeaca1d59af726fe450bbba07a9fc0a1"
-dependencies = [
- "thiserror 2.0.12",
-]
-
-[[package]]
 name = "cocoabind"
 version = "0.1.0"
 dependencies = [
@@ -1256,7 +1246,7 @@ dependencies = [
 [[package]]
 name = "coreaudio-sys-utils"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/cubeb-coreaudio-rs?rev=076ecf68dbf20087d2fa8e9210a1965e341f66d0#076ecf68dbf20087d2fa8e9210a1965e341f66d0"
+source = "git+https://github.com/mozilla/cubeb-coreaudio-rs?rev=840f69c1b3f95accd582555e10abcef8ee67514b#840f69c1b3f95accd582555e10abcef8ee67514b"
 dependencies = [
  "core-foundation-sys",
  "coreaudio-sys",
@@ -1312,7 +1302,7 @@ dependencies = [
 [[package]]
 name = "crash-context"
 version = "0.8.0"
-source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=3ab1604f91db05ec3f3a84d779a2871df7d9afd7#3ab1604f91db05ec3f3a84d779a2871df7d9afd7"
+source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=6744feee58804a78730d176cdcc31bb4f3021107#6744feee58804a78730d176cdcc31bb4f3021107"
 dependencies = [
  "cfg-if",
  "libc",
@@ -1548,7 +1538,7 @@ dependencies = [
 [[package]]
 name = "cssparser"
 version = "0.38.0"
-source = "git+https://github.com/servo/rust-cssparser?rev=9f3ceddf398f5ce4ab76fdad1b42ccb6c578a926#9f3ceddf398f5ce4ab76fdad1b42ccb6c578a926"
+source = "git+https://github.com/servo/rust-cssparser?rev=3a1d1c7a2980ab59d4e5fed7fe666dcbe265d132#3a1d1c7a2980ab59d4e5fed7fe666dcbe265d132"
 dependencies = [
  "cssparser-macros",
  "dtoa-short",
@@ -1560,7 +1550,7 @@ dependencies = [
 [[package]]
 name = "cssparser-macros"
 version = "0.7.1"
-source = "git+https://github.com/servo/rust-cssparser?rev=9f3ceddf398f5ce4ab76fdad1b42ccb6c578a926#9f3ceddf398f5ce4ab76fdad1b42ccb6c578a926"
+source = "git+https://github.com/servo/rust-cssparser?rev=3a1d1c7a2980ab59d4e5fed7fe666dcbe265d132#3a1d1c7a2980ab59d4e5fed7fe666dcbe265d132"
 dependencies = [
  "quote",
  "syn",
@@ -1608,7 +1598,7 @@ dependencies = [
 [[package]]
 name = "cubeb-coreaudio"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/cubeb-coreaudio-rs?rev=076ecf68dbf20087d2fa8e9210a1965e341f66d0#076ecf68dbf20087d2fa8e9210a1965e341f66d0"
+source = "git+https://github.com/mozilla/cubeb-coreaudio-rs?rev=840f69c1b3f95accd582555e10abcef8ee67514b#840f69c1b3f95accd582555e10abcef8ee67514b"
 dependencies = [
  "atomic",
  "audio-mixer",
@@ -1627,7 +1617,7 @@ dependencies = [
 [[package]]
 name = "cubeb-pulse"
 version = "0.5.0"
-source = "git+https://github.com/mozilla/cubeb-pulse-rs?rev=43e6ffe0dcaace8e02093abc738fb80cc93db8db#43e6ffe0dcaace8e02093abc738fb80cc93db8db"
+source = "git+https://github.com/mozilla/cubeb-pulse-rs?rev=88194f91c8778fa608a19af7b91306094525595d#88194f91c8778fa608a19af7b91306094525595d"
 dependencies = [
  "cubeb-backend",
  "pulse",
@@ -2197,13 +2187,9 @@ dependencies = [
  "backtrace",
  "env_logger",
  "error-support-macros",
- "glean",
- "glean-build",
- "glean-sym",
  "lazy_static",
  "log",
  "parking_lot",
- "tracing-subscriber",
  "tracing-support",
  "uniffi",
 ]
@@ -2861,7 +2847,6 @@ dependencies = [
  "env_logger",
  "lazy_static",
  "log",
- "tracing",
 ]
 
 [[package]]
@@ -2869,10 +2854,6 @@ name = "gecko_tracing"
 version = "0.1.0"
 dependencies = [
  "error-support",
- "gecko-profiler",
- "gecko_logger",
- "log",
- "serde",
  "tracing",
  "tracing-subscriber",
  "tracing-support",
@@ -3189,9 +3170,9 @@ dependencies = [
 
 [[package]]
 name = "glean"
-version = "70.3.0"
+version = "70.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11297daad5e1ac6aa71c2422238c3f0cb477d5e4fded7f399dc5a0d9b620046f"
+checksum = "1a75a8cfc27ecee273cf19b4aaf8b50e916b137f6a3d2b4f1c13c59eae0e21ee"
 dependencies = [
  "crossbeam-channel",
  "glean-core",
@@ -3205,16 +3186,16 @@ dependencies = [
 [[package]]
 name = "glean-build"
 version = "20.1.0"
-source = "git+https://github.com/mozilla/glean?tag=v70.2.0#9d987fd33e1dc3f2a89e5f5c4565ae696245f6eb"
+source = "git+https://github.com/mozilla/glean?tag=v70.0.0#915e1a5842103b90ac20cac25b3c97f7d424dd0c"
 dependencies = [
  "xshell-venv",
 ]
 
 [[package]]
 name = "glean-core"
-version = "70.3.0"
+version = "70.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e76828a4ec9b014352ce29aa70ab6699a44abcaf80b63db73123b9c7210c8bd"
+checksum = "a9fb076df739ce5d2eff3a2cc723cc23e1f90d9d9f07dc46365962745cb3c286"
 dependencies = [
  "android_logger",
  "bincode",
@@ -3617,12 +3598,6 @@ name = "httpdate"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4a1e36c821dbe04574f602848a19f742f4fb3c98d40449f11bcad18d6b17421"
-
-[[package]]
-name = "humantime"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15cdd26707701c53297e2fa6afb323d55fbc1d0810c3aec078ae3ef0424c3c15"
 
 [[package]]
 name = "hyper"
@@ -4195,9 +4170,9 @@ dependencies = [
 
 [[package]]
 name = "jxl"
-version = "0.8.0"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8379fc83d79477900c9aed78cb8370a556d834081bebcb771c6010381c4e230"
+checksum = "43b041e4bd5bb931cf73b271bc3304eb135bb473914877d64bf77fdf5b4d4687"
 dependencies = [
  "array-init",
  "byteorder",
@@ -4222,9 +4197,9 @@ dependencies = [
 
 [[package]]
 name = "jxl_macros"
-version = "0.8.0"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eeb27c06a9957bd9c8e65d0aeea0db6a555a9e1c85597e284f8304015c410c87"
+checksum = "7401c9c53e44e2efa17d7562c613f0972b93cf134aa91f08c14e00c8278ce663"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4233,16 +4208,16 @@ dependencies = [
 
 [[package]]
 name = "jxl_simd"
-version = "0.8.0"
+version = "0.7.4"
 dependencies = [
  "rustversion",
 ]
 
 [[package]]
 name = "jxl_transforms"
-version = "0.8.0"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21c4b7f8957f5ba578b2e28cd5ebbc97dad58a3ad5ff26765da61e8dab8f1cad"
+checksum = "8f72e196c6c1e938a4c7e2175d7c83464fa9e7f587224d310cac15d83fc80a37"
 dependencies = [
  "jxl_simd",
 ]
@@ -4950,7 +4925,7 @@ dependencies = [
 [[package]]
 name = "minidump-writer"
 version = "0.13.0"
-source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=3ab1604f91db05ec3f3a84d779a2871df7d9afd7#3ab1604f91db05ec3f3a84d779a2871df7d9afd7"
+source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=6744feee58804a78730d176cdcc31bb4f3021107#6744feee58804a78730d176cdcc31bb4f3021107"
 dependencies = [
  "bitflags 2.10.0",
  "byteorder",
@@ -4997,9 +4972,9 @@ checksum = "05015102dad0f7d61691ca347e9d9d9006685a64aefb3d79eecf62665de2153d"
 
 [[package]]
 name = "mio"
-version = "1.2.4"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1788edb87fdc09c7e26304471e2f5be8cdefb1b6930d6e3985fc02ff53bf86ee"
+checksum = "50b7e5b27aa02a74bac8c3f23f448f8d87ff11f92d3aac1a6ed369ee08cc56c1"
 dependencies = [
  "libc",
  "log",
@@ -5483,7 +5458,7 @@ dependencies = [
 [[package]]
 name = "mtu"
 version = "0.4.1"
-source = "git+https://github.com/mozilla/neqo?tag=v0.34.0#e302b43503f44e09f4257573dd320621516d1560"
+source = "git+https://github.com/mozilla/neqo?tag=v0.32.0#28cacc8ea2b035779ae504d837e3e25331264347"
 dependencies = [
  "cfg_aliases",
  "libc",
@@ -5528,7 +5503,7 @@ checksum = "a2983372caf4480544083767bf2d27defafe32af49ab4df3a0b7fc90793a3664"
 [[package]]
 name = "naga"
 version = "30.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=bbb9b06e90a166989f3112696cc7c52ce9700cdc#bbb9b06e90a166989f3112696cc7c52ce9700cdc"
+source = "git+https://github.com/gfx-rs/wgpu?rev=4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8#4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8"
 dependencies = [
  "arrayvec",
  "bit-set",
@@ -5554,19 +5529,19 @@ dependencies = [
 [[package]]
 name = "naga-types"
 version = "30.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=bbb9b06e90a166989f3112696cc7c52ce9700cdc#bbb9b06e90a166989f3112696cc7c52ce9700cdc"
+source = "git+https://github.com/gfx-rs/wgpu?rev=4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8#4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8"
 dependencies = [
- "bytemuck",
  "hashbrown 0.17.1",
  "indexmap",
  "rustc-hash 1.999.999",
  "serde",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
 name = "neqo-bin"
-version = "0.34.0"
-source = "git+https://github.com/mozilla/neqo?tag=v0.34.0#e302b43503f44e09f4257573dd320621516d1560"
+version = "0.32.0"
+source = "git+https://github.com/mozilla/neqo?tag=v0.32.0#28cacc8ea2b035779ae504d837e3e25331264347"
 dependencies = [
  "cfg_aliases",
  "clap",
@@ -5593,8 +5568,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-common"
-version = "0.34.0"
-source = "git+https://github.com/mozilla/neqo?tag=v0.34.0#e302b43503f44e09f4257573dd320621516d1560"
+version = "0.32.0"
+source = "git+https://github.com/mozilla/neqo?tag=v0.32.0#28cacc8ea2b035779ae504d837e3e25331264347"
 dependencies = [
  "enum-map",
  "env_logger",
@@ -5611,8 +5586,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-http3"
-version = "0.34.0"
-source = "git+https://github.com/mozilla/neqo?tag=v0.34.0#e302b43503f44e09f4257573dd320621516d1560"
+version = "0.32.0"
+source = "git+https://github.com/mozilla/neqo?tag=v0.32.0#28cacc8ea2b035779ae504d837e3e25331264347"
 dependencies = [
  "enumset",
  "http",
@@ -5631,12 +5606,13 @@ dependencies = [
 
 [[package]]
 name = "neqo-qpack"
-version = "0.34.0"
-source = "git+https://github.com/mozilla/neqo?tag=v0.34.0#e302b43503f44e09f4257573dd320621516d1560"
+version = "0.32.0"
+source = "git+https://github.com/mozilla/neqo?tag=v0.32.0#28cacc8ea2b035779ae504d837e3e25331264347"
 dependencies = [
  "log",
  "neqo-common",
  "neqo-transport",
+ "qlog",
  "rustc-hash 2.1.1",
  "static_assertions",
  "thiserror 2.0.12",
@@ -5644,8 +5620,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-transport"
-version = "0.34.0"
-source = "git+https://github.com/mozilla/neqo?tag=v0.34.0#e302b43503f44e09f4257573dd320621516d1560"
+version = "0.32.0"
+source = "git+https://github.com/mozilla/neqo?tag=v0.32.0#28cacc8ea2b035779ae504d837e3e25331264347"
 dependencies = [
  "enum-map",
  "enumset",
@@ -5666,8 +5642,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-udp"
-version = "0.34.0"
-source = "git+https://github.com/mozilla/neqo?tag=v0.34.0#e302b43503f44e09f4257573dd320621516d1560"
+version = "0.32.0"
+source = "git+https://github.com/mozilla/neqo?tag=v0.32.0#28cacc8ea2b035779ae504d837e3e25331264347"
 dependencies = [
  "cfg_aliases",
  "libc",
@@ -5856,8 +5832,8 @@ dependencies = [
 
 [[package]]
 name = "nss-rs"
-version = "0.16.2"
-source = "git+https://github.com/mozilla/nss-rs#bb8ed19e82679e613a636f530d15ddc823f1b040"
+version = "0.16.1"
+source = "git+https://github.com/mozilla/nss-rs#ba8a3f6acffc7e25749054969ccbbb3ca615df7f"
 dependencies = [
  "bindgen 0.72.999",
  "derive_more",
@@ -6015,9 +5991,9 @@ dependencies = [
 
 [[package]]
 name = "objc2"
-version = "0.6.5"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08849bbd4767dfae9457696856ae1c84fe4e0281bbe4a7abff2d0e06fb7981f8"
+checksum = "b7c2599ce0ec54857b29ce62166b0ed9b4f6f1a70ccc9a71165b6154caca8c05"
 dependencies = [
  "objc2-encode",
 ]
@@ -6500,16 +6476,6 @@ name = "portable-atomic-util"
 version = "0.2.999"
 
 [[package]]
-name = "postcard"
-version = "1.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6764c3b5dd454e283a30e6dfe78e9b31096d9e32036b5d1eaac7a6119ccb9a24"
-dependencies = [
- "cobs",
- "serde",
-]
-
-[[package]]
 name = "potential_utf"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6601,10 +6567,9 @@ dependencies = [
 [[package]]
 name = "process-backend"
 version = "0.1.0"
-source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=3ab1604f91db05ec3f3a84d779a2871df7d9afd7#3ab1604f91db05ec3f3a84d779a2871df7d9afd7"
+source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=6744feee58804a78730d176cdcc31bb4f3021107#6744feee58804a78730d176cdcc31bb4f3021107"
 dependencies = [
  "libc",
- "postcard",
  "process-reader",
  "serde",
  "thiserror 2.0.12",
@@ -6613,7 +6578,7 @@ dependencies = [
 [[package]]
 name = "process-reader"
 version = "0.1.0"
-source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=3ab1604f91db05ec3f3a84d779a2871df7d9afd7#3ab1604f91db05ec3f3a84d779a2871df7d9afd7"
+source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=6744feee58804a78730d176cdcc31bb4f3021107#6744feee58804a78730d176cdcc31bb4f3021107"
 dependencies = [
  "libc",
  "serde",
@@ -6723,7 +6688,7 @@ dependencies = [
 [[package]]
 name = "pulse"
 version = "0.3.0"
-source = "git+https://github.com/mozilla/cubeb-pulse-rs?rev=43e6ffe0dcaace8e02093abc738fb80cc93db8db#43e6ffe0dcaace8e02093abc738fb80cc93db8db"
+source = "git+https://github.com/mozilla/cubeb-pulse-rs?rev=88194f91c8778fa608a19af7b91306094525595d#88194f91c8778fa608a19af7b91306094525595d"
 dependencies = [
  "bitflags 2.10.0",
  "pulse-ffi",
@@ -6732,7 +6697,7 @@ dependencies = [
 [[package]]
 name = "pulse-ffi"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/cubeb-pulse-rs?rev=43e6ffe0dcaace8e02093abc738fb80cc93db8db#43e6ffe0dcaace8e02093abc738fb80cc93db8db"
+source = "git+https://github.com/mozilla/cubeb-pulse-rs?rev=88194f91c8778fa608a19af7b91306094525595d#88194f91c8778fa608a19af7b91306094525595d"
 dependencies = [
  "libc",
 ]
@@ -6787,14 +6752,14 @@ dependencies = [
 
 [[package]]
 name = "qlog"
-version = "0.18.1"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "558dc1a757765c329efc2465e55991849998c8e8878f8d1974daee18813de6d5"
+checksum = "16689c500fede96aa7d5e1f8924abe08fafb65146d7e192826bb5fb57a1e1ad0"
 dependencies = [
- "humantime",
  "serde",
  "serde_json",
  "serde_with",
+ "smallvec",
 ]
 
 [[package]]
@@ -6814,9 +6779,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-udp"
-version = "0.6.3"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47091c86514c2e11452cb228dee77037334b99d92a23e4c69aa5982261f39247"
+checksum = "3ca72c3f2792761ab5fa848490694cbc728c7f659669ed4320c4c79c12150966"
 dependencies = [
  "cfg_aliases",
  "libc",
@@ -7135,13 +7100,11 @@ dependencies = [
 
 [[package]]
 name = "ringbuf"
-version = "0.5.3"
+version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b58b631e416dd7d84549d7e6a50f767e111f9b03e30d04f40072f6618f386aaf"
+checksum = "f65af18d50f789e74aaf23bbb3f65dcd22a3cb6e029b5bced149f6bd57c5c2a2"
 dependencies = [
- "crossbeam-utils",
- "portable-atomic",
- "portable-atomic-util",
+ "cache-padded",
 ]
 
 [[package]]
@@ -7955,7 +7918,6 @@ dependencies = [
  "selectors",
  "serde",
  "servo_arc",
- "siphasher",
  "smallbitvec",
  "smallvec",
  "static_assertions",
@@ -8216,7 +8178,7 @@ checksum = "8f50febec83f5ee1df3015341d8bd429f2d1cc62bcba7ea2076759d315084683"
 [[package]]
 name = "test-fixture"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/nss-rs#bb8ed19e82679e613a636f530d15ddc823f1b040"
+source = "git+https://github.com/mozilla/nss-rs#63c63046208f587573f71bb3885f16d10e0bf4eb"
 dependencies = [
  "log",
  "nss-rs",
@@ -9355,9 +9317,9 @@ dependencies = [
 
 [[package]]
 name = "webrtc-sdp"
-version = "0.3.16"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3cb8ad9952ef7f45bd25dc9dbd67abea423839235aae154e2b50e08443630475"
+checksum = "6c7eaa5d898cfa76ceef23aa94f954457fdc6acf5c3602d413e8873ff50dff32"
 dependencies = [
  "log",
  "url",
@@ -9375,7 +9337,7 @@ dependencies = [
 [[package]]
 name = "wgpu-core"
 version = "30.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=bbb9b06e90a166989f3112696cc7c52ce9700cdc#bbb9b06e90a166989f3112696cc7c52ce9700cdc"
+source = "git+https://github.com/gfx-rs/wgpu?rev=4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8#4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8"
 dependencies = [
  "arrayvec",
  "bit-set",
@@ -9411,7 +9373,7 @@ dependencies = [
 [[package]]
 name = "wgpu-core-deps-apple"
 version = "30.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=bbb9b06e90a166989f3112696cc7c52ce9700cdc#bbb9b06e90a166989f3112696cc7c52ce9700cdc"
+source = "git+https://github.com/gfx-rs/wgpu?rev=4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8#4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8"
 dependencies = [
  "wgpu-hal",
 ]
@@ -9419,7 +9381,7 @@ dependencies = [
 [[package]]
 name = "wgpu-core-deps-linux-android-bsd"
 version = "30.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=bbb9b06e90a166989f3112696cc7c52ce9700cdc#bbb9b06e90a166989f3112696cc7c52ce9700cdc"
+source = "git+https://github.com/gfx-rs/wgpu?rev=4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8#4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8"
 dependencies = [
  "wgpu-hal",
 ]
@@ -9427,7 +9389,7 @@ dependencies = [
 [[package]]
 name = "wgpu-core-deps-windows"
 version = "30.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=bbb9b06e90a166989f3112696cc7c52ce9700cdc#bbb9b06e90a166989f3112696cc7c52ce9700cdc"
+source = "git+https://github.com/gfx-rs/wgpu?rev=4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8#4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8"
 dependencies = [
  "wgpu-hal",
 ]
@@ -9435,11 +9397,10 @@ dependencies = [
 [[package]]
 name = "wgpu-core-remote"
 version = "30.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=bbb9b06e90a166989f3112696cc7c52ce9700cdc#bbb9b06e90a166989f3112696cc7c52ce9700cdc"
+source = "git+https://github.com/gfx-rs/wgpu?rev=4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8#4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8"
 dependencies = [
  "raw-window-handle",
  "serde",
- "static_assertions",
  "wgpu-core",
  "wgpu-core-remote-types",
  "wgpu-hal",
@@ -9449,10 +9410,9 @@ dependencies = [
 [[package]]
 name = "wgpu-core-remote-types"
 version = "30.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=bbb9b06e90a166989f3112696cc7c52ce9700cdc#bbb9b06e90a166989f3112696cc7c52ce9700cdc"
+source = "git+https://github.com/gfx-rs/wgpu?rev=4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8#4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8"
 dependencies = [
  "hashbrown 0.17.1",
- "naga-types",
  "serde",
  "wgpu-types",
 ]
@@ -9460,7 +9420,7 @@ dependencies = [
 [[package]]
 name = "wgpu-hal"
 version = "30.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=bbb9b06e90a166989f3112696cc7c52ce9700cdc#bbb9b06e90a166989f3112696cc7c52ce9700cdc"
+source = "git+https://github.com/gfx-rs/wgpu?rev=4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8#4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8"
 dependencies = [
  "android_system_properties",
  "arrayvec",
@@ -9502,7 +9462,7 @@ dependencies = [
 [[package]]
 name = "wgpu-naga-bridge"
 version = "30.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=bbb9b06e90a166989f3112696cc7c52ce9700cdc#bbb9b06e90a166989f3112696cc7c52ce9700cdc"
+source = "git+https://github.com/gfx-rs/wgpu?rev=4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8#4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8"
 dependencies = [
  "naga",
  "wgpu-types",
@@ -9511,7 +9471,7 @@ dependencies = [
 [[package]]
 name = "wgpu-sync"
 version = "30.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=bbb9b06e90a166989f3112696cc7c52ce9700cdc#bbb9b06e90a166989f3112696cc7c52ce9700cdc"
+source = "git+https://github.com/gfx-rs/wgpu?rev=4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8#4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8"
 dependencies = [
  "cfg-if",
  "lock_api",
@@ -9522,7 +9482,7 @@ dependencies = [
 [[package]]
 name = "wgpu-types"
 version = "30.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=bbb9b06e90a166989f3112696cc7c52ce9700cdc#bbb9b06e90a166989f3112696cc7c52ce9700cdc"
+source = "git+https://github.com/gfx-rs/wgpu?rev=4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8#4f4dc63098fae64a0e6d1d3dc6f4f328da8fd5c8"
 dependencies = [
  "bitflags 2.10.0",
  "bytemuck",
@@ -9555,7 +9515,6 @@ dependencies = [
  "objc2-io-surface",
  "objc2-metal",
  "parking_lot",
- "scopeguard",
  "serde",
  "serde_json",
  "static_prefs",
@@ -9930,9 +9889,9 @@ checksum = "32ac00cd3f8ec9c1d33fb3e7958a82df6989c42d747bd326c822b1d625283547"
 
 [[package]]
 name = "xshell-venv"
-version = "2.0.1"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1cae3b35db7e0236556d24524b840464227105347c4ac2696f15b138ee2698e5"
+checksum = "b02ebe4a3558b86c64aeab700c924b08613020fca9c94d5f2cd412691b6c00bd"
 dependencies = [
  "xshell",
 ]

@@ -54,17 +54,26 @@ class GeckoAutocompleteStorageDelegate(
         val result = GeckoResult<Array<Autocomplete.CreditCard>>()
 
         applicationScope.launch(IO) {
+            val key = creditCardsAddressesStorageDelegate.getOrGenerateKey()
+
             val creditCards =
                 creditCardsAddressesStorageDelegate
                     .onCreditCardsFetch()
-                    .map {
-                        Autocomplete.CreditCard.Builder()
-                            .guid(it.guid)
-                            .name(it.billingName)
-                            .number(it.cardNumber)
-                            .expirationMonth(it.expiryMonth.toString())
-                            .expirationYear(it.expiryYear.toString())
-                            .build()
+                    .mapNotNull {
+                        val plaintextCardNumber =
+                            creditCardsAddressesStorageDelegate.decrypt(key, it.encryptedCardNumber)?.number
+
+                        if (plaintextCardNumber == null) {
+                            null
+                        } else {
+                            Autocomplete.CreditCard.Builder()
+                                .guid(it.guid)
+                                .name(it.billingName)
+                                .number(plaintextCardNumber)
+                                .expirationMonth(it.expiryMonth.toString())
+                                .expirationYear(it.expiryYear.toString())
+                                .build()
+                        }
                     }
                     .toTypedArray()
 

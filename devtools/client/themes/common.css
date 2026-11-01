@@ -600,12 +600,6 @@ iframe {
   border-color: var(--searchbox-no-match-stroke-color);
 }
 
-/* Checkbox input */
-
-.devtools-checkbox-label {
-  user-select: none;
-}
-
 /* Clear icon within the searchbox */
 .devtools-searchinput-clear {
   flex: 0 0 auto;

@@ -712,26 +712,8 @@ bool InspectorUtils::Supports(GlobalObject&, const nsACString& aDeclaration,
                     ? nsCompatibility::eCompatibility_NavQuirks
                     : nsCompatibility::eCompatibility_FullStandards,
   };
-
-  auto type = [&] {
-    if (!aOptions.mRule) {
-      return StyleCssRuleType::Style;
-    }
-
-    // we need to find the parent suitable rule for the Rust function to
-    // properly handle this (e.g. when we have a CSSNestedDeclarations)
-    auto relativeType =
-        aOptions.mRule->GetContainingRuleStateForParsing().mParseRelativeType;
-    if (relativeType) {
-      return *relativeType;
-    }
-
-    // if we didn't find such suitable rule, pass the rule's own type
-    return aOptions.mRule->Type();
-  }();
-
   return Servo_CSSSupports(&aDeclaration, &params,
-                           /* aUrlData = */ nullptr, type);
+                           /* aUrlData = */ nullptr);
 }
 
 bool InspectorUtils::CssPropertySupportsType(GlobalObject& aGlobalObject,
@@ -1219,10 +1201,11 @@ void InspectorUtils::GetRegisteredCssHighlights(GlobalObject& aGlobalObject,
                                                 Document& aDocument,
                                                 bool aActiveOnly,
                                                 nsTArray<nsString>& aResult) {
-  for (const auto& [name, highlight] :
-       aDocument.HighlightRegistry().Maplike()) {
+  for (auto const& iter : aDocument.HighlightRegistry().HighlightsOrdered()) {
+    const RefPtr<nsAtom>& highlightName = iter.first();
+    const RefPtr<Highlight>& highlight = iter.second();
     if (!aActiveOnly || highlight->Size() > 0) {
-      aResult.AppendElement(nsDependentAtomString(name));
+      aResult.AppendElement(highlightName->GetUTF16String());
     }
   }
 }
@@ -1674,7 +1657,7 @@ void InspectorUtils::GetComputationSteps(GlobalObject& aGlobalObject,
   float percentageBasis =
       GetPercentageBasisFor(aProperty, aElement, *pseudo, *computedStyle);
 
-  Servo_GetComputationSteps(&aProperty, &aExpression, &aElement, pseudo->mType,
+  Servo_GetComputationSteps(&aExpression, &aElement, pseudo->mType,
                             computedStyle,
                             aElement.OwnerDoc()->EnsureStyleSet().RawData(),
                             percentageBasis, &aResult);

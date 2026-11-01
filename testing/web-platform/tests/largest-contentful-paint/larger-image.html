@@ -37,24 +37,21 @@
       document.getElementById('lcp3').src = '/images/lcp-100x50-alt.png';
       await promise;
 
-      // Wait for the entry of the largest image.
-      const entry = await new Promise(resolve => {
-        const observer = new PerformanceObserver(entryList => {
-          for (const entry of entryList.getEntries()) {
+      const observer = new PerformanceObserver(
+        t.step_func(entryList => {
+          entryList.getEntries().forEach(entry => {
             // The text or other image could be reported as LCP if it is rendered before the larger image.
             if (entry.id !== 'lcp2')
-              continue;
-            observer.disconnect();
-            resolve(entry);
-            return;
-          }
-        });
-        observer.observe({ type: 'largest-contentful-paint', buffered: true });
-      });
+              return;
 
-      const url = window.location.origin + '/images/lcp-133x106.png';
-      const size = 133 * 106;
-      checkImage(entry, url, 'lcp2', size, beforeLoad);
+            const url = window.location.origin + '/images/lcp-133x106.png';
+            const size = 133 * 106;
+            checkImage(entry, url, 'lcp2', size, beforeLoad);
+            t.done();
+          })
+        })
+      );
+      observer.observe({ type: 'largest-contentful-paint', buffered: true });
     }, 'Largest Contentful Paint: largest image is reported.');
   </script>
 </body>

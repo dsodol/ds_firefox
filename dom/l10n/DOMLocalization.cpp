@@ -155,8 +155,7 @@ void DOMLocalization::SetAttributes(
     }
     if (!aElement.AttrValueIs(kNameSpaceID_None, nsGkAtoms::datal10nargs, data,
                               eCaseMatters)) {
-      aElement.SetAttr(kNameSpaceID_None, nsGkAtoms::datal10nargs, data, true,
-                       IsKnownNewAttr::No);
+      aElement.SetAttr(kNameSpaceID_None, nsGkAtoms::datal10nargs, data, true);
     }
   } else {
     aElement.UnsetAttr(kNameSpaceID_None, nsGkAtoms::datal10nargs, true);
@@ -164,8 +163,7 @@ void DOMLocalization::SetAttributes(
 
   if (!aElement.AttrValueIs(kNameSpaceID_None, nsGkAtoms::datal10nid, aId,
                             eCaseMatters)) {
-    aElement.SetAttr(kNameSpaceID_None, nsGkAtoms::datal10nid, aId, true,
-                     IsKnownNewAttr::No);
+    aElement.SetAttr(kNameSpaceID_None, nsGkAtoms::datal10nid, aId, true);
   }
 }
 
@@ -197,8 +195,7 @@ void DOMLocalization::SetArgs(JSContext* aCx, Element& aElement,
     }
     if (!aElement.AttrValueIs(kNameSpaceID_None, nsGkAtoms::datal10nargs, data,
                               eCaseMatters)) {
-      aElement.SetAttr(kNameSpaceID_None, nsGkAtoms::datal10nargs, data, true,
-                       IsKnownNewAttr::No);
+      aElement.SetAttr(kNameSpaceID_None, nsGkAtoms::datal10nargs, data, true);
     }
   } else {
     aElement.UnsetAttr(kNameSpaceID_None, nsGkAtoms::datal10nargs, true);
@@ -493,19 +490,20 @@ void DOMLocalization::SetRootInfo(Element* aElement) {
   nsAutoCString primaryLocale;
   LocaleService::GetInstance()->GetAppLocaleAsBCP47(primaryLocale);
   aElement->SetAttr(kNameSpaceID_None, nsGkAtoms::lang,
-                    NS_ConvertUTF8toUTF16(primaryLocale), true,
-                    IsKnownNewAttr::No);
+                    NS_ConvertUTF8toUTF16(primaryLocale), true);
 
-  const nsAtom* dirValue = LocaleService::GetInstance()->IsAppLocaleRTL()
-                               ? nsGkAtoms::rtl
-                               : nsGkAtoms::ltr;
+  nsAutoString dir;
+  if (LocaleService::GetInstance()->IsAppLocaleRTL()) {
+    nsGkAtoms::rtl->ToString(dir);
+  } else {
+    nsGkAtoms::ltr->ToString(dir);
+  }
 
   uint32_t nameSpace = aElement->GetNameSpaceID();
   nsAtom* dirAtom =
       nameSpace == kNameSpaceID_XUL ? nsGkAtoms::localedir : nsGkAtoms::dir;
 
-  aElement->SetAttr(kNameSpaceID_None, dirAtom, nsDependentAtomString(dirValue),
-                    true, IsKnownNewAttr::No);
+  aElement->SetAttr(kNameSpaceID_None, dirAtom, dir, true);
 }
 
 bool DOMLocalization::ApplyTranslations(

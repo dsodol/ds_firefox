@@ -79,7 +79,7 @@ class HTMLFormControlsCollection final : public HTMLCollection {
  public:
   static bool ShouldBeInElements(const nsIFormControl* aFormControl);
 
-  RefPtr<HTMLFormElement> mForm;
+  HTMLFormElement* mForm;  // WEAK - the form owns me
 
   // Holds WEAK references - bug 36639
   // NOTE(emilio): These are not guaranteed to be descendants of mForm, because

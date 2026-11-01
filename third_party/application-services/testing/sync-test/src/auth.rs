@@ -31,7 +31,6 @@ pub struct TestClient {
     // XXX do this more generically...
     pub autofill_store: Arc<AutofillStore>,
     autofill_db_name: String,
-    pub key: String,
     pub logins_store: Arc<LoginStore>,
     pub encdec: Arc<dyn EncryptorDecryptor>,
     pub tabs_store: Arc<TabsStore>,
@@ -73,12 +72,8 @@ impl TestClient {
         Ok(Self {
             cli,
             device,
-            autofill_store: Arc::new(AutofillStore::new_shared_memory(
-                autofill_db_name.as_str(),
-                encdec.clone(),
-            )?),
+            autofill_store: Arc::new(AutofillStore::new_shared_memory(autofill_db_name.as_str())?),
             autofill_db_name,
-            key,
             logins_store: Arc::new(LoginStore::new(":memory:", encdec.clone())?),
             encdec,
             tabs_store: Arc::new(TabsStore::new_with_mem_path("sync-test-tabs")),
@@ -174,26 +169,9 @@ impl TestClient {
 
     pub fn fully_reset_local_db(&mut self) -> Result<()> {
         // Not great...
-        self.autofill_store = Arc::new(AutofillStore::new_shared_memory(
-            &self.autofill_db_name,
-            self.encdec.clone(),
-        )?);
+        self.autofill_store = Arc::new(AutofillStore::new_shared_memory(&self.autofill_db_name)?);
         self.logins_store = Arc::new(LoginStore::new(":memory:", self.encdec.clone())?);
         self.tabs_store = Arc::new(TabsStore::new_with_mem_path("sync-test-tabs"));
-        Ok(())
-    }
-
-    /// Reopen the autofill store with a different encryption key, simulating
-    /// a device whose key changed.
-    pub fn set_autofill_key(&mut self, key: String) -> Result<()> {
-        let encdec = Arc::new(ManagedEncryptorDecryptor::new(Arc::new(
-            StaticKeyManager::new(key.clone()),
-        )));
-        self.autofill_store = Arc::new(AutofillStore::new_shared_memory(
-            &self.autofill_db_name,
-            encdec,
-        )?);
-        self.key = key;
         Ok(())
     }
 }

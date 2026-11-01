@@ -21,14 +21,14 @@ class OnboardingPageUiDataTest {
     @Test
     fun `GIVEN last page in the list WHEN sequencePosition called THEN returns the index plus 1`() {
         val expected = "3"
-        val actual = allKnownPages.sequencePosition(termsOfServicePageUiData.type)
+        val actual = allKnownPages.sequencePosition(notificationPageUiData.type)
 
         assertEquals(expected, actual)
     }
 
     @Test
     fun `GIVEN all known pages of WHEN sequenceId() called THEN should map to the correct sequence id`() {
-        val expected = "default_sync_terms_of_service"
+        val expected = "default_sync_notification"
         val actual = allKnownPages.telemetrySequenceId()
 
         assertEquals(expected, actual)
@@ -71,18 +71,19 @@ val syncPageUiData =
         secondaryButtonLabel = "sync secondary button text",
     )
 
-val termsOfServicePageUiData =
+val notificationPageUiData =
     OnboardingPageUiData(
-        type = OnboardingPageUiData.Type.TERMS_OF_SERVICE,
-        imageRes = R.drawable.nova_onboarding_tou,
-        title = "terms of service title",
-        description = "terms of service body",
-        primaryButtonLabel = "terms of service primary button text",
+        type = OnboardingPageUiData.Type.NOTIFICATION_PERMISSION,
+        imageRes = R.drawable.ic_notification_permission,
+        title = "notification title",
+        description = "notification body",
+        primaryButtonLabel = "notification primary button text",
+        secondaryButtonLabel = "notification secondary button text",
     )
 
 private val allKnownPages =
     listOf(
         defaultBrowserPageUiData,
         syncPageUiData,
-        termsOfServicePageUiData,
+        notificationPageUiData,
     )

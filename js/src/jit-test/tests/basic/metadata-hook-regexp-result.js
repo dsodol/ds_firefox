@@ -1,5 +1,5 @@
 var g = newGlobal({sameCompartmentAs: this});
-g.evaluate(`enableTrackAllocations()`);
+g.evaluate(`enableShellAllocationMetadataBuilder()`);
 
 function f() {
     // Ensure a match stub is created for the zone.
@@ -10,22 +10,11 @@ function f() {
     // Allocated match result objects in the realm with the metadata hook
     // must have metadata.
     g.evaluate(`
-    function hasFrame(frame, name) {
-        for (; frame; frame = frame.parent) {
-            if (frame.functionDisplayName === name) {
-                return true;
-            }
-        }
-        return false;
+    var re = /abc.+/;
+    for (var i = 0; i < 100; i++) {
+        var obj = re.exec("..abcd");
+        assertEq(getAllocationMetadata(obj).stack.length > 0, true);
     }
-    function test() {
-        var re = /abc.+/;
-        for (var i = 0; i < 100; i++) {
-            var obj = re.exec("..abcd");
-            assertEq(hasFrame(getAllocationMetadata(obj), "test"), true);
-        }
-    }
-    test();
     `)
 }
 f();

@@ -32,7 +32,3 @@ if CONFIG["MOZ_LINKER"]:
 OS_LIBS += CONFIG["DL_LIBS"]
 
 FINAL_LIBRARY = "mozglue"
-
-SOURCE_HEADERS += [
-    "InterposerHelper.h",
-]

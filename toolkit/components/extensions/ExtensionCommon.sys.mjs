@@ -701,7 +701,7 @@ export class BaseContext {
     fileName,
     lineNumber,
     columnNumber,
-    flags = /** @type {number} */ (Ci.nsIScriptError.errorFlag),
+    flags = Ci.nsIScriptError.errorFlag,
     innerWindowID = this.innerWindowID,
   }) {
     if (innerWindowID) {

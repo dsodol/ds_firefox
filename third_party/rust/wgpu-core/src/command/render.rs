@@ -6,8 +6,8 @@ use arrayvec::ArrayVec;
 use thiserror::Error;
 use wgt::{
     error::{ErrorType, WebGpuError},
-    BufferAddress, BufferUsages, Color, DynamicOffset, IndexFormat, InstanceFlags, TextureSelector,
-    TextureUsages, TextureViewDimension, VertexStepMode,
+    BufferAddress, BufferSize, BufferUsages, Color, DynamicOffset, IndexFormat, InstanceFlags,
+    TextureSelector, TextureUsages, TextureViewDimension, VertexStepMode,
 };
 
 use crate::{
@@ -15,7 +15,6 @@ use crate::{
     binding_model::{BindError, BindGroup, ImmediateUploadError},
     command::{
         bind::Binder,
-        draw::validate_mesh_draw_multiview,
         memory_init::{fixup_discarded_surfaces, SurfacesInDiscardState, TextureSurfaceDiscard},
         pass::{self, flush_bindings_helper, ImmediateState},
         pass_base, pass_try,
@@ -637,7 +636,7 @@ impl VertexState {
     /// Call `f` for each dirty slot with `(slot_index, buffer, offset, size)` and mark them clean.
     pub(crate) fn flush<F>(&mut self, mut f: F)
     where
-        F: FnMut(u32, &Arc<Buffer>, BufferAddress, BufferAddress),
+        F: FnMut(u32, &Arc<Buffer>, BufferAddress, Option<BufferSize>),
     {
         for (i, slot) in self.slots.iter_mut().enumerate() {
             let Some(slot) = slot.as_mut() else { continue };
@@ -646,7 +645,12 @@ impl VertexState {
             }
             slot.is_dirty = false;
             let size = slot.range.end - slot.range.start;
-            f(i as u32, &slot.buffer, slot.range.start, size);
+            f(
+                i as u32,
+                &slot.buffer,
+                slot.range.start,
+                BufferSize::new(size),
+            );
         }
     }
 }
@@ -1973,10 +1977,6 @@ impl CommandEncoder {
                     ));
                 }
 
-                #[allow(
-                    clippy::collapsible_match,
-                    reason = "Match guards change which attachment error is returned."
-                )]
                 if view
                     .desc
                     .usage
@@ -2815,7 +2815,7 @@ fn set_index_buffer(
     buffer: Arc<Buffer>,
     index_format: IndexFormat,
     offset: u64,
-    size: Option<BufferAddress>,
+    size: Option<BufferSize>,
 ) -> Result<(), RenderPassErrorInner> {
     api_log!("RenderPass::set_index_buffer {}", buffer.error_ident());
 
@@ -2836,28 +2836,24 @@ fn set_index_buffer(
         }
         .into());
     }
-
-    let range = buffer
-        .resolve_vertex_or_index_binding_range(offset, size)
+    let (binding, resolved_size) = buffer
+        .binding(offset, size, state.pass.base.snatch_guard)
         .map_err(RenderCommandError::from)?;
-
-    let raw = buffer.try_raw(state.pass.base.snatch_guard)?;
-
-    state.index.update_buffer(range.clone(), index_format);
+    let end = offset + resolved_size;
+    state.index.update_buffer(offset..end, index_format);
 
     state.pass.base.buffer_memory_init_actions.extend(
         buffer.initialization_status.read().create_action(
             &buffer,
-            range.clone(),
+            offset..end,
             MemoryInitKind::NeedsInitializedMemory,
         ),
     );
 
     unsafe {
-        // SAFETY: The binding range was validated by `resolve_vertex_or_index_binding_range`.
         hal::DynCommandEncoder::set_index_buffer(
             state.pass.base.raw_encoder,
-            hal::BufferBinding::new_unchecked(raw, range.start, range.end - range.start),
+            binding,
             index_format,
         );
     }
@@ -2871,7 +2867,7 @@ fn set_vertex_buffer(
     slot: u32,
     buffer: Option<Arc<Buffer>>,
     offset: u64,
-    size: Option<BufferAddress>,
+    size: Option<BufferSize>,
 ) -> Result<(), RenderPassErrorInner> {
     if let Some(ref buffer) = buffer {
         api_log!(
@@ -2898,9 +2894,10 @@ fn set_vertex_buffer(
         if !offset.is_multiple_of(wgt::VERTEX_ALIGNMENT) {
             return Err(RenderCommandError::UnalignedVertexBuffer { slot, offset }.into());
         }
-        let range = buffer
-            .resolve_vertex_or_index_binding_range(offset, size)
+        let binding_size = buffer
+            .resolve_binding_size(offset, size)
             .map_err(RenderCommandError::from)?;
+        let buffer_range = offset..(offset + binding_size);
 
         state
             .pass
@@ -2911,14 +2908,14 @@ fn set_vertex_buffer(
         state.pass.base.buffer_memory_init_actions.extend(
             buffer.initialization_status.read().create_action(
                 &buffer,
-                range.clone(),
+                buffer_range.clone(),
                 MemoryInitKind::NeedsInitializedMemory,
             ),
         );
 
         state
             .vertex
-            .set_buffer(slot as usize, buffer, range.clone());
+            .set_buffer(slot as usize, buffer, buffer_range.clone());
         if let Some(pipeline) = state.pipeline.as_ref() {
             state.vertex.update_limits(&pipeline.vertex_steps);
         }
@@ -2932,17 +2929,14 @@ fn set_vertex_buffer(
             )
             .into());
         }
-        match size {
-            Some(size) if size != 0 => {
-                return Err(RenderCommandError::from(
-                    crate::binding_model::BindingError::UnbindingVertexBufferSizeNotZero {
-                        slot,
-                        size,
-                    },
-                )
-                .into());
-            }
-            _ => {}
+        if let Some(size) = size {
+            return Err(RenderCommandError::from(
+                crate::binding_model::BindingError::UnbindingVertexBufferSizeNotZero {
+                    slot,
+                    size: size.get(),
+                },
+            )
+            .into());
         }
 
         state.vertex.clear_buffer(slot as usize);
@@ -3060,6 +3054,26 @@ fn set_scissor(state: &mut State, rect: Rect<u32>) -> Result<(), RenderPassError
     Ok(())
 }
 
+fn validate_mesh_draw_multiview(state: &State) -> Result<(), RenderPassErrorInner> {
+    if let Some(mv) = state.info.multiview_mask {
+        let highest_bit = 31 - mv.leading_zeros();
+
+        let features = state.pass.base.device.features;
+
+        if !features.contains(wgt::Features::EXPERIMENTAL_MESH_SHADER_MULTIVIEW)
+            || highest_bit > state.pass.base.device.limits.max_mesh_multiview_view_count
+        {
+            return Err(RenderPassErrorInner::Draw(
+                DrawError::MeshPipelineMultiviewLimitsViolated {
+                    highest_view_index: highest_bit,
+                    max_multiviews: state.pass.base.device.limits.max_mesh_multiview_view_count,
+                },
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn draw(
     state: &mut State,
     vertex_count: u32,
@@ -3151,7 +3165,7 @@ fn draw_mesh_tasks(
 
     state.flush_bindings()?;
     state.flush_immediates();
-    validate_mesh_draw_multiview(state.pass.base.device, state.info.multiview_mask)?;
+    validate_mesh_draw_multiview(state)?;
 
     let limits = &state.pass.base.device.limits;
     let (groups_size_limit, max_groups) = if state.pipeline.as_ref().unwrap().has_task_shader {
@@ -3209,7 +3223,7 @@ fn multi_draw_indirect(
     state.flush_immediates();
 
     if family == DrawCommandFamily::DrawMeshTasks {
-        validate_mesh_draw_multiview(state.pass.base.device, state.info.multiview_mask)?;
+        validate_mesh_draw_multiview(state)?;
     }
 
     state
@@ -3406,7 +3420,7 @@ fn multi_draw_indirect_count(
     state.flush_immediates();
 
     if family == DrawCommandFamily::DrawMeshTasks {
-        validate_mesh_draw_multiview(state.pass.base.device, state.info.multiview_mask)?;
+        validate_mesh_draw_multiview(state)?;
     }
 
     let stride = get_src_stride_of_indirect_args(family);
@@ -3587,6 +3601,9 @@ fn execute_bundle(
         ExecutionError::InvalidResource(e) => {
             RenderPassErrorInner::RenderCommand(RenderCommandError::InvalidResource(e))
         }
+        ExecutionError::Unimplemented(what) => {
+            RenderPassErrorInner::RenderCommand(RenderCommandError::Unimplemented(what))
+        }
     })?;
 
     unsafe {
@@ -3691,7 +3708,7 @@ impl RenderPass {
         buffer: Arc<Buffer>,
         index_format: IndexFormat,
         offset: BufferAddress,
-        size: Option<BufferAddress>,
+        size: Option<BufferSize>,
     ) -> Result<(), PassStateError> {
         let scope = PassErrorScope::SetIndexBuffer;
         let base = pass_base!(self, scope);
@@ -3713,7 +3730,7 @@ impl RenderPass {
         buffer: Arc<Buffer>,
         index_format: IndexFormat,
         offset: BufferAddress,
-        size: Option<BufferAddress>,
+        size: Option<BufferSize>,
     ) {
         if let Err(err) = self.set_index_buffer_inner(buffer, index_format, offset, size) {
             self.device
@@ -3726,7 +3743,7 @@ impl RenderPass {
         slot: u32,
         buffer: Option<Arc<Buffer>>,
         offset: BufferAddress,
-        size: Option<BufferAddress>,
+        size: Option<BufferSize>,
     ) -> Result<(), PassStateError> {
         let scope = PassErrorScope::SetVertexBuffer;
         let base = pass_base!(self, scope);
@@ -3753,7 +3770,7 @@ impl RenderPass {
         slot: u32,
         buffer: Option<Arc<Buffer>>,
         offset: BufferAddress,
-        size: Option<BufferAddress>,
+        size: Option<BufferSize>,
     ) {
         if let Err(err) = self.set_vertex_buffer_inner(slot, buffer, offset, size) {
             self.device

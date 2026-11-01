@@ -46,21 +46,8 @@ XPCOMUtils.defineLazyServiceGetter(
   Ci.amIAddonManagerStartup
 );
 
-// Hidden pref, for tests only. Use the dedicated container for all sessions,
-// including the ones created for browser automation.
-XPCOMUtils.defineLazyPreferenceGetter(
-  lazy,
-  "forceContainer",
-  "remote.experimental.dynamicstart.force-container",
-  false
-);
-
 // Global singleton that holds active WebDriver sessions
 const webDriverSessions = new Map();
-
-// Global singleton that maps the id of the MessageHandler network of a session
-// to the WebDriver session itself.
-const webDriverSessionsByInternalSessionId = new Map();
 
 // Notification emitted when a session is created or destroyed.
 const NOTIFY_WEBDRIVER_SESSION_CHANGED = "webdriver-session-changed";
@@ -281,10 +268,9 @@ export class WebDriverSession {
       throw new lazy.error.SessionNotCreatedError(e);
     }
 
-    this.#userContext =
-      useDedicatedContainer || lazy.forceContainer
-        ? getRemoteControlUserContextId()
-        : null;
+    this.#userContext = useDedicatedContainer
+      ? getRemoteControlUserContextId()
+      : null;
     if (this.#userContext !== null) {
       this.#capabilities.set("moz:userContext", this.#userContext);
       lazy.logger.debug(
@@ -368,9 +354,6 @@ export class WebDriverSession {
 
     // Destroy the dedicated MessageHandler instance if we created one.
     if (this.#messageHandler) {
-      webDriverSessionsByInternalSessionId.delete(
-        this.#messageHandler.internalSessionId
-      );
       this.#messageHandler.off(
         "message-handler-protocol-event",
         this._onMessageHandlerProtocolEvent
@@ -424,18 +407,8 @@ export class WebDriverSession {
 
   get messageHandler() {
     if (!this.#messageHandler) {
-      // The session id is a secret used by clients to authenticate against the
-      // WebDriver endpoints, and as such must never be shared with content
-      // processes. Identify the MessageHandler network, which is broadcast to
-      // all content processes, with a dedicated id instead.
-      const internalSessionId = lazy.generateUUID();
-
       this.#messageHandler =
-        lazy.RootMessageHandlerRegistry.getOrCreateMessageHandler(
-          internalSessionId
-        );
-      webDriverSessionsByInternalSessionId.set(internalSessionId, this);
-
+        lazy.RootMessageHandlerRegistry.getOrCreateMessageHandler(this.#id);
       this._onMessageHandlerProtocolEvent =
         this._onMessageHandlerProtocolEvent.bind(this);
       this.#messageHandler.on(
@@ -477,8 +450,8 @@ export class WebDriverSession {
 
   /**
    * The user context id of the container created for this session.
-   * WebDriver BiDi commands and events are restricted to this user context
-   * when remote.experimental.dynamicstart.container-isolation-enabled is true.
+   * Bug 2072964 to start enforcing this restriction in commands and events.
+   * Used only in tests until then.
    *
    * @returns {string|null}
    *     The user context id, or null if no user context was created.
@@ -679,15 +652,15 @@ function getRemoteControlUserContextId() {
  * Get the list of seen nodes for the given browsing context unique to a
  * WebDriver session.
  *
- * @param {WebDriverSession} session
- *     The WebDriver session to use.
+ * @param {string} sessionId
+ *     The id of the WebDriver session to use.
  * @param {BrowsingContext} browsingContext
  *     Browsing context the node is part of.
  *
  * @returns {Set}
  *     The list of seen nodes.
  */
-export function getSeenNodesForBrowsingContext(session, browsingContext) {
+export function getSeenNodesForBrowsingContext(sessionId, browsingContext) {
   if (!lazy.TabManager.isValidCanonicalBrowsingContext(browsingContext)) {
     // If browsingContext is not a valid Browsing Context, return an empty set.
     return new Set();
@@ -695,6 +668,7 @@ export function getSeenNodesForBrowsingContext(session, browsingContext) {
 
   const navigable =
     lazy.NavigableManager.getNavigableForBrowsingContext(browsingContext);
+  const session = getWebDriverSessionById(sessionId);
 
   if (!session.navigableSeenNodes.has(navigable)) {
     // The navigable hasn't been seen yet.
@@ -706,15 +680,14 @@ export function getSeenNodesForBrowsingContext(session, browsingContext) {
 
 /**
  *
- * @param {string} internalSessionId
- *     The id of the MessageHandler network of the WebDriver session to
- *     retrieve.
+ * @param {string} sessionId
+ *     The ID of the WebDriver session to retrieve.
  *
  * @returns {WebDriverSession|undefined}
  *     The WebDriver session or undefined if the id is not known.
  */
-export function getWebDriverSessionByInternalSessionId(internalSessionId) {
-  return webDriverSessionsByInternalSessionId.get(internalSessionId);
+export function getWebDriverSessionById(sessionId) {
+  return webDriverSessions.get(sessionId);
 }
 
 /**

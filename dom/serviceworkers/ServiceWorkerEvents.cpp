@@ -4,7 +4,6 @@
 
 #include "ServiceWorkerEvents.h"
 
-#include <memory>
 #include <utility>
 
 #include "ServiceWorker.h"
@@ -690,9 +689,9 @@ void RespondWithHandler::ResolvedCallback(JSContext* aCx,
     MOZ_ALWAYS_SUCCEEDS(responseURI->GetSpec(responseURL));
   }
 
-  auto closure = std::make_unique<RespondWithClosure>(
+  UniquePtr<RespondWithClosure> closure(new RespondWithClosure(
       mInterceptedChannel, mRegistration, mRequestURL, mRespondWithScriptSpec,
-      mRespondWithLineNumber, mRespondWithColumnNumber);
+      mRespondWithLineNumber, mRespondWithColumnNumber));
 
   nsCOMPtr<nsIRunnable> startRunnable = new StartResponse(
       mInterceptedChannel, ir.clonePtr(), worker->GetChannelInfo(), mScriptSpec,

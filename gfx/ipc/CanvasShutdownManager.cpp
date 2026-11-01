@@ -5,14 +5,16 @@
 #include "CanvasShutdownManager.h"
 
 #include "mozilla/AppShutdown.h"
+#include "mozilla/dom/CanvasRenderingContext2D.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRef.h"
 #include "mozilla/dom/WorkerRunnable.h"
 #include "mozilla/gfx/CanvasManagerChild.h"
-#include "nsICanvasRenderingContextInternal.h"
+#include "mozilla/layers/PersistentBufferProvider.h"
 
 namespace mozilla::gfx {
 
+using dom::CanvasRenderingContext2D;
 using dom::StrongWorkerRef;
 using dom::WorkerPrivate;
 
@@ -30,9 +32,9 @@ CanvasShutdownManager::CanvasShutdownManager(StrongWorkerRef* aWorkerRef)
 CanvasShutdownManager::CanvasShutdownManager() = default;
 CanvasShutdownManager::~CanvasShutdownManager() = default;
 
-std::vector<RefPtr<nsICanvasRenderingContextInternal>>
+std::vector<RefPtr<CanvasRenderingContext2D>>
 CanvasShutdownManager::RefActiveCanvas() const {
-  std::vector<RefPtr<nsICanvasRenderingContextInternal>> activeCanvas;
+  std::vector<RefPtr<CanvasRenderingContext2D>> activeCanvas;
   activeCanvas.reserve(mActiveCanvas.size());
   for (const auto& canvas : mActiveCanvas) {
     activeCanvas.emplace_back(canvas);
@@ -121,12 +123,12 @@ void CanvasShutdownManager::Destroy() {
 }
 
 void CanvasShutdownManager::AddShutdownObserver(
-    nsICanvasRenderingContextInternal* aCanvas) {
+    dom::CanvasRenderingContext2D* aCanvas) {
   mActiveCanvas.insert(aCanvas);
 }
 
 void CanvasShutdownManager::RemoveShutdownObserver(
-    nsICanvasRenderingContextInternal* aCanvas) {
+    dom::CanvasRenderingContext2D* aCanvas) {
   mActiveCanvas.erase(aCanvas);
 }
 
@@ -149,7 +151,21 @@ void CanvasShutdownManager::OnRemoteCanvasReset(
   }
 
   for (const auto& canvas : RefActiveCanvas()) {
-    canvas->OnRemoteCanvasReset(aOwnerIds);
+    auto* bufferProvider = canvas->GetBufferProvider();
+    if (!bufferProvider) {
+      continue;
+    }
+
+    Maybe<layers::RemoteTextureOwnerId> ownerId =
+        bufferProvider->GetRemoteTextureOwnerId();
+    if (!ownerId) {
+      continue;
+    }
+
+    if (aOwnerIds.Contains(*ownerId)) {
+      canvas->OnRemoteCanvasLost();
+      canvas->OnRemoteCanvasRestored();
+    }
   }
 }
 

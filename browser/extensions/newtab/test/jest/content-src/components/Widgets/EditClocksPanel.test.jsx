@@ -236,15 +236,15 @@ describe("<EditClocksPanel>", () => {
   });
 
   describe("focus management", () => {
-    it("focuses the panel (and no button) after a double rAF on mount", () => {
+    it("focuses the back button (and only the back button) after a double rAF on mount", () => {
       jest.useFakeTimers();
       const { container } = renderPanel();
-      const panel = container.querySelector(".clocks-edit-panel");
-      const panelFocusSpy = jest.spyOn(panel, "focus");
-      // Spy on the focusable elements inside the panel so this test fails
-      // if focus lands on one of them and draws a focus ring.
+      const backButton = container.querySelector(".clocks-edit-back-button");
+      const backFocusSpy = jest.spyOn(backButton, "focus");
+      // Spy on the rest of the focusable elements in the panel so this
+      // test fails if focus accidentally lands somewhere else.
       const otherFocusables = container.querySelectorAll(
-        ".clocks-edit-back-button, .clocks-edit-add-button, .clocks-edit-item, .clocks-edit-item-button"
+        ".clocks-edit-add-button, .clocks-edit-item, .clocks-edit-item-button"
       );
       const otherSpies = Array.from(otherFocusables).map(el =>
         jest.spyOn(el, "focus")
@@ -253,11 +253,10 @@ describe("<EditClocksPanel>", () => {
         // Two rAFs are scheduled; advance both.
         jest.runOnlyPendingTimers();
         jest.runOnlyPendingTimers();
-        expect(panelFocusSpy).toHaveBeenCalled();
-        expect(panel).toHaveFocus();
+        expect(backFocusSpy).toHaveBeenCalled();
         otherSpies.forEach(spy => expect(spy).not.toHaveBeenCalled());
       } finally {
-        panelFocusSpy.mockRestore();
+        backFocusSpy.mockRestore();
         otherSpies.forEach(spy => spy.mockRestore());
         jest.useRealTimers();
       }

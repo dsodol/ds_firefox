@@ -13,7 +13,7 @@
 # -----------------------------------------------------------------------------
 
 print_usage() {
-  notice "Usage: $(basename $0) [OPTIONS] ARCHIVE DIRECTORY APPNAME"
+  notice "Usage: $(basename $0) [OPTIONS] ARCHIVE DIRECTORY"
 }
 
 if [ $# = 0 ]; then
@@ -25,7 +25,6 @@ if [ $1 = -h ]; then
   print_usage
   notice ""
   notice "The contents of DIRECTORY will be stored in ARCHIVE."
-  notice "APPNAME is the lowercase application name, e.g. firefox."
   notice ""
   notice "Options:"
   notice "  -h  show this help text"
@@ -46,13 +45,6 @@ mar_command="$MAR -V ${MOZ_PRODUCT_VERSION:?} -H ${MAR_CHANNEL_ID:?}"
 
 archive="$1"
 targetdir="$2"
-appname="$3"
-
-if [ -z "$appname" ]; then
-  print_usage
-  exit 1
-fi
-
 # Prevent the workdir from being inside the targetdir so it isn't included in
 # the update mar.
 if [ $(echo "$targetdir" | grep -c '\/$') = 1 ]; then
@@ -114,8 +106,6 @@ done
 notice ""
 notice "Adding file and directory remove instructions from file 'removed-files'"
 append_remove_instructions "$targetdir" "$updatemanifestv3"
-
-reorder_instructions "$updatemanifestv3" "$appname"
 
 $XZ $XZ_OPT --compress $BCJ_OPTIONS --lzma2 --format=xz --check=crc64 --force "$updatemanifestv3" && mv -f "$updatemanifestv3.xz" "$updatemanifestv3"
 

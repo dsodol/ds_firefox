@@ -163,8 +163,7 @@ class TestWifiMonitor : public ::testing::Test {
   }
 
   void CreateObjects() {
-    mWifiMonitor =
-        MakeRefPtr<nsWifiMonitor>(std::make_unique<MockWifiScanner>());
+    mWifiMonitor = MakeRefPtr<nsWifiMonitor>(MakeUnique<MockWifiScanner>());
     EXPECT_TRUE(!mWifiMonitor->IsPolling());
 
     // Start with ETHERNET network type to avoid always polling at test start.

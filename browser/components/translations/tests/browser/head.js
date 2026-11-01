@@ -2481,10 +2481,10 @@ class FullPageTranslationsTestUtils {
     let callback;
     if (endToEndTest) {
       callback = async TranslationsTest => {
-        const { getLastOfTypeParagraph } = TranslationsTest.getSelectors();
+        const { getFinalParagraph } = TranslationsTest.getSelectors();
         await TranslationsTest.assertTranslationResult(
           "The page's final paragraph is translated.",
-          getLastOfTypeParagraph,
+          getFinalParagraph,
           [
             // TODO (Bug 1967764) We need to investigate why some machines may produce
             // a different translated output, given the same models and the same WASM binary.
@@ -2495,10 +2495,10 @@ class FullPageTranslationsTestUtils {
       };
     } else {
       callback = async (TranslationsTest, { fromLang, toLang }) => {
-        const { getLastOfTypeParagraph } = TranslationsTest.getSelectors();
+        const { getFinalParagraph } = TranslationsTest.getSelectors();
         await TranslationsTest.assertTranslationResult(
           "The page's final paragraph is translated.",
-          getLastOfTypeParagraph,
+          getFinalParagraph,
           `— PUES, AUNQUE MOVÁIS MÁS BRAZOS QUE LOS DEL GIGANTE BRIAREO, ME LO HABÉIS DE PAGAR. [${fromLang} to ${toLang}]`
         );
       };
@@ -2525,10 +2525,10 @@ class FullPageTranslationsTestUtils {
 
     info("Checking that the page's final paragraph is not translated");
     await runInPage(async TranslationsTest => {
-      const { getLastOfTypeParagraph } = TranslationsTest.getSelectors();
+      const { getFinalParagraph } = TranslationsTest.getSelectors();
       await TranslationsTest.assertTranslationResult(
         "The page's final paragraph is not translated and is in the original Spanish.",
-        getLastOfTypeParagraph,
+        getFinalParagraph,
         "— Pues, aunque mováis más brazos que los del gigante Briareo, me lo habéis de pagar."
       );
     });
@@ -2559,19 +2559,19 @@ class FullPageTranslationsTestUtils {
     let callback;
     if (endToEndTest) {
       callback = async TranslationsTest => {
-        const { getLastOfTypeParagraph } = TranslationsTest.getSelectors();
+        const { getFinalParagraphTitle } = TranslationsTest.getSelectors();
         await TranslationsTest.assertTranslationResult(
           "The final paragraph's title attribute is translated.",
-          () => getLastOfTypeParagraph()?.getAttribute("title"),
+          getFinalParagraphTitle,
           "This is the title of the final paragraph"
         );
       };
     } else {
       callback = async (TranslationsTest, { fromLang, toLang }) => {
-        const { getLastOfTypeParagraph } = TranslationsTest.getSelectors();
+        const { getFinalParagraphTitle } = TranslationsTest.getSelectors();
         await TranslationsTest.assertTranslationResult(
           "The final paragraph's title attribute is translated.",
-          () => getLastOfTypeParagraph()?.getAttribute("title"),
+          getFinalParagraphTitle,
           `ESTE ES EL TÍTULO DEL ÚLTIMO PÁRRAFO [${fromLang} to ${toLang}]`
         );
       };
@@ -2600,10 +2600,10 @@ class FullPageTranslationsTestUtils {
       "Checking that the final paragraph's title attribute is not translated"
     );
     await runInPage(async TranslationsTest => {
-      const { getLastOfTypeParagraph } = TranslationsTest.getSelectors();
+      const { getFinalParagraphTitle } = TranslationsTest.getSelectors();
       await TranslationsTest.assertTranslationResult(
         "The final paragraph's title attribute is not translated and is in the original Spanish.",
-        () => getLastOfTypeParagraph()?.getAttribute("title"),
+        getFinalParagraphTitle,
         "Este es el título del último párrafo"
       );
     });

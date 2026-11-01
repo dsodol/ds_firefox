@@ -4,7 +4,7 @@
 
 use api::{BlobImageHandler, ColorF, CrashAnnotator, DocumentId, IdNamespace};
 use api::{RenderBackendId, VoidPtrToSizeFn, FontRenderMode, ImageFormat};
-use api::{RenderNotifier, ImageBufferKind, PipelineId};
+use api::{RenderNotifier, ImageBufferKind};
 use api::units::*;
 use api::channel::unbounded_channel;
 pub use api::DebugFlags;
@@ -28,7 +28,7 @@ use crate::renderer::{
     debug, vertex,
     debug::DebugOverlayState,
     Renderer, BufferDamageTracker, PipelineInfo, TextureResolver,
-    RendererError, ShaderPrecacheFlags,
+    RendererError, ShaderPrecacheFlags, VERTEX_DATA_TEXTURE_COUNT,
     upload::UploadTexturePool,
     shade::{Shaders, SharedShaders},
 };
@@ -101,9 +101,6 @@ pub trait SceneBuilderHooks {
     /// This is called exactly once, when the scene builder thread is about to
     /// terminate.
     fn deregister(&self);
-    /// This is called when the embed policy of `embedder` rejects an iframe
-    /// item that references `child`, once per pair and document.
-    fn embed_policy_violation(&self, _document_id: DocumentId, _embedder: PipelineId, _child: PipelineId) {}
 }
 
 /// Allows callers to hook into the main render_backend loop and provide
@@ -535,6 +532,11 @@ pub fn create_webrender_instance(
     let staging_texture_pool = UploadTexturePool::new();
     let texture_resolver = TextureResolver::new(&mut device);
 
+    let mut vertex_data_textures = Vec::new();
+    for _ in 0 .. VERTEX_DATA_TEXTURE_COUNT {
+        vertex_data_textures.push(vertex::VertexDataTextures::new());
+    }
+
     let is_software = device.get_capabilities().renderer_name.starts_with("Software");
 
     device.end_frame();
@@ -761,7 +763,6 @@ pub fn create_webrender_instance(
         shaders,
         debug: debug::LazyInitializedDebugRenderer::new(),
         debug_flags: DebugFlags::empty(),
-        path_aa_samples: if cfg!(target_os = "android") { 4 } else { 8 },
         profile: TransactionProfile::new(),
         frame_counter: 0,
         resource_upload_time: 0.0,
@@ -781,10 +782,8 @@ pub fn create_webrender_instance(
         gpu_buffer_texture_i: None,
         gpu_buffer_texture_i_too_large: 0,
         gpu_buffer_last_data_i: Vec::new(),
-        gpu_buffer_texture_edges: None,
-        gpu_buffer_texture_edges_too_large: 0,
-        gpu_buffer_last_data_edges: Vec::new(),
-        vertex_data: vertex::VertexDataRing::new(),
+        vertex_data_textures,
+        current_vertex_data_textures: 0,
         pipeline_info: PipelineInfo::default(),
         dither_matrix_texture,
         external_image_handler: None,

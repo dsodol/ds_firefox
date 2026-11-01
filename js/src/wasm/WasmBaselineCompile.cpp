@@ -292,16 +292,10 @@ bool BaseCompiler::addInterruptCheck() {
   masm.branch32(Assembler::Equal,
                 Address(tmp, wasm::Instance::offsetOfInterrupt()), Imm32(0),
                 &ok);
-  FaultingCodeRange fcr = trap(wasm::Trap::CheckInterrupt);
+  trap(wasm::Trap::CheckInterrupt);
   masm.bind(&ok);
-
-  if (!fcr.isValid()) {
-    return false;
-  }
-
   // stackmap for: interrupt check
-  return createStackMap(Some(wasm::Trap::CheckInterrupt),
-                        CodeOffset(fcr.resumeOffset()));
+  return createStackMap(Some(wasm::Trap::CheckInterrupt));
 }
 
 void BaseCompiler::checkDivideByZero(RegI32 rhs) {
@@ -534,47 +528,6 @@ bool BaseCompiler::beginFunction() {
     return false;
   }
 
-  // GenerateFunctionPrologue pushes exactly one wasm::Frame's worth of
-  // stuff, and none of the values are GC pointers.  Hence:
-  const size_t frameWords = sizeof(Frame) / sizeof(void*);
-  if (!stackMapGenerator_.machineStackTracker.pushNonGCPointers(frameWords)) {
-    return false;
-  }
-
-  // The IndirectCallBadSig trap in the prologue fires when the caller's and
-  // callee's signatures differ, so the types and number of arguments specified
-  // by the callee's signature can't be trusted here.  About the best we can do
-  // is to create a map that matches the size of the callee's frame but marks no
-  // entries as being refs.  This seems reasonable given that IndirectCallBadSig
-  // doesn't resume.  The map must be created before any stack args are marked
-  // as refs.
-  CallIndirectId callIndirectId =
-      CallIndirectId::forFunc(codeMeta_, func_.index);
-  StackMap* badSigStackMap = nullptr;
-  if (compilerEnv_.debugEnabled() &&
-      callIndirectId.kind() != CallIndirectIdKind::None) {
-    ExitStubMapVector badSigExtras;
-    if (!stackMapGenerator_.generateStackmapEntriesForTrapExit(args,
-                                                               &badSigExtras)) {
-      return false;
-    }
-    // Ensure no refs get into the final badSigStackMap via badSigExtras, per
-    // comment above.
-    for (bool& b : badSigExtras) {
-      b = false;
-    }
-    // stackmap for: signature-mismatch trap in the checked call entry.  Per
-    // comment above, logic here assumes that the trap won't resume, hence the
-    // assertion.
-    const Trap trapKind = Trap::IndirectCallBadSig;
-    MOZ_ASSERT(!wasm::TrapMightResume(trapKind));
-    if (!stackMapGenerator_.createStackMap(Some(trapKind), badSigExtras,
-                                           HasDebugFrameWithLiveRefs::No, stk_,
-                                           &badSigStackMap)) {
-      return false;
-    }
-  }
-
   // Identify GC-managed pointers passed on the stack.
   for (ABIArgIter i(args, ABIKind::Wasm); !i.done(); i++) {
     ABIArg argLoc = *i;
@@ -583,21 +536,23 @@ bool BaseCompiler::beginFunction() {
       uint32_t offset = argLoc.offsetFromArgBase();
       MOZ_ASSERT(offset < inboundStackArgBytes);
       MOZ_ASSERT(offset % sizeof(void*) == 0);
-      stackMapGenerator_.machineStackTracker.setGCPointer(
-          offset / sizeof(void*) + frameWords);
+      stackMapGenerator_.machineStackTracker.setGCPointer(offset /
+                                                          sizeof(void*));
     }
   }
 
   perfSpewer_.startRecording();
   perfSpewer_.markStartOffset(masm.currentOffset());
   perfSpewer_.recordOffset(masm, "Prologue");
-  FaultingCodeRange badSigTrap;
   GenerateFunctionPrologue(
-      masm, callIndirectId,
+      masm, CallIndirectId::forFunc(codeMeta_, func_.index),
       compilerEnv_.mode() != CompileMode::Once ? Some(func_.index) : Nothing(),
-      &offsets_, &badSigTrap);
-  if (badSigStackMap && badSigTrap.isValid() &&
-      !stackMaps_->add(badSigTrap.resumeOffset(), badSigStackMap)) {
+      &offsets_);
+
+  // GenerateFunctionPrologue pushes exactly one wasm::Frame's worth of
+  // stuff, and none of the values are GC pointers.  Hence:
+  if (!stackMapGenerator_.machineStackTracker.pushNonGCPointers(
+          sizeof(Frame) / sizeof(void*))) {
     return false;
   }
 
@@ -626,43 +581,28 @@ bool BaseCompiler::beginFunction() {
   }
 
   // Generate a stack-overflow check and its associated stackmap.
+
   ExitStubMapVector extras;
-  if (!stackMapGenerator_.generateStackmapEntriesForTrapExit(args, &extras)) {
-    return false;
-  }
-  // This trap doesn't resume, so its stackmap is only needed for debug-mode
-  // checking.
-  StackMap* stackOverflowStackMap = nullptr;
-  if (compilerEnv_.debugEnabled() &&
-      // stackmap for: the stack overflow check
+  StackMap* functionEntryStackMap;
+  if (!stackMapGenerator_.generateStackmapEntriesForTrapExit(args, &extras) ||
+      // stackmap for: stack overflow check
       !stackMapGenerator_.createStackMap(Some(Trap::StackOverflow), extras,
                                          HasDebugFrameWithLiveRefs::No, stk_,
-                                         &stackOverflowStackMap)) {
+                                         &functionEntryStackMap)) {
     return false;
   }
-  OutOfLineCode* oolStackOverflowTrap = addOutOfLineCode(new (
-      alloc_) OutOfLineTrap(Trap::StackOverflow,
-                            TrapSiteDesc(BytecodeOffset(func_.bytecodeOffset)),
-                            stackOverflowStackMap));
+
+  OutOfLineCode* oolStackOverflowTrap =
+      addOutOfLineCode(new (alloc_) OutOfLineTrap(
+          Trap::StackOverflow,
+          TrapSiteDesc(BytecodeOffset(func_.bytecodeOffset)), nullptr));
   if (!oolStackOverflowTrap) {
     return false;
   }
   fr.checkStack(ABINonArgReg0, ABINonArgReg1, oolStackOverflowTrap->entry());
 
-  // Generate an interrupt check and its associated stackmap.  Note this might
-  // not be the same as `stackOverflowStackMap` since the two trap kinds have
-  // different resumabilities.  This trap resumes, and the interrupt handler
-  // can GC, so this stackmap is needed whether or not we're compiling for
-  // debugging.
-  StackMap* checkInterruptStackMap;
-  // stackmap for: the interrupt check
-  if (!stackMapGenerator_.createStackMap(Some(Trap::CheckInterrupt), extras,
-                                         HasDebugFrameWithLiveRefs::No, stk_,
-                                         &checkInterruptStackMap)) {
-    return false;
-  }
   OutOfLineCode* oolInterruptTrap = addOutOfLineCode(new (alloc_) OutOfLineTrap(
-      Trap::CheckInterrupt, trapSiteDesc(), checkInterruptStackMap));
+      Trap::CheckInterrupt, trapSiteDesc(), functionEntryStackMap));
   if (!oolInterruptTrap) {
     return false;
   }
@@ -2973,24 +2913,18 @@ void BaseCompiler::convertI64ToF64(RegI64 src, bool isUnsigned, RegF64 dest,
 //
 // Global variable access.
 
-Address BaseCompiler::GlobalVarAddress::init(BaseCompiler& bc,
-                                             const GlobalDesc& global) {
+Address BaseCompiler::addressOfGlobalVar(const GlobalDesc& global, RegPtr tmp) {
   uint32_t globalToInstanceOffset = Instance::offsetInData(global.offset());
 #ifdef RABALDR_PIN_INSTANCE
-  Register instance = InstanceReg;
+  movePtr(RegPtr(InstanceReg), tmp);
 #else
-  tmp_.emplace(bc);
-  bc.fr.loadInstancePtr(*tmp_);
-  Register instance = *tmp_;
+  fr.loadInstancePtr(tmp);
 #endif
   if (global.isIndirect()) {
-    if (tmp_.isNothing()) {
-      tmp_.emplace(bc);
-    }
-    bc.masm.loadPtr(Address(instance, globalToInstanceOffset), *tmp_);
-    return Address(*tmp_, 0);
+    masm.loadPtr(Address(tmp, globalToInstanceOffset), tmp);
+    return Address(tmp, 0);
   }
-  return Address(instance, globalToInstanceOffset);
+  return Address(tmp, globalToInstanceOffset);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -4053,13 +3987,8 @@ void BaseCompiler::emitBranchSetup(BranchState* b) {
           break;
         }
         case ValType::I64: {
-          if (popConst(&b->i64.imm)) {
-            b->i64.lhs = popI64();
-            b->i64.rhsImm = true;
-          } else {
-            pop2xI64(&b->i64.lhs, &b->i64.rhs);
-            b->i64.rhsImm = false;
-          }
+          pop2xI64(&b->i64.lhs, &b->i64.rhs);
+          b->i64.rhsImm = false;
           break;
         }
         case ValType::F32: {
@@ -6268,42 +6197,24 @@ bool BaseCompiler::emitSetOrTeeLocal(uint32_t slot) {
   bceLocalIsUpdated(slot);
   switch (locals_[slot].kind()) {
     case ValType::I32: {
-      int32_t c;
-      if (popConst(&c)) {
-        syncLocal(slot);
-        fr.storeLocalI32(Imm32(c), localFromSlot(slot, MIRType::Int32));
-        if (!isSetLocal) {
-          pushI32(c);
-        }
+      RegI32 rv = popI32();
+      syncLocal(slot);
+      fr.storeLocalI32(rv, localFromSlot(slot, MIRType::Int32));
+      if (isSetLocal) {
+        freeI32(rv);
       } else {
-        RegI32 rv = popI32();
-        syncLocal(slot);
-        fr.storeLocalI32(rv, localFromSlot(slot, MIRType::Int32));
-        if (isSetLocal) {
-          freeI32(rv);
-        } else {
-          pushI32(rv);
-        }
+        pushI32(rv);
       }
       break;
     }
     case ValType::I64: {
-      int64_t c;
-      if (popConst(&c)) {
-        syncLocal(slot);
-        fr.storeLocalI64(Imm64(c), localFromSlot(slot, MIRType::Int64));
-        if (!isSetLocal) {
-          pushI64(c);
-        }
+      RegI64 rv = popI64();
+      syncLocal(slot);
+      fr.storeLocalI64(rv, localFromSlot(slot, MIRType::Int64));
+      if (isSetLocal) {
+        freeI64(rv);
       } else {
-        RegI64 rv = popI64();
-        syncLocal(slot);
-        fr.storeLocalI64(rv, localFromSlot(slot, MIRType::Int64));
-        if (isSetLocal) {
-          freeI64(rv);
-        } else {
-          pushI64(rv);
-        }
+        pushI64(rv);
       }
       break;
     }
@@ -6422,38 +6333,44 @@ bool BaseCompiler::emitGetGlobal() {
   switch (global.type().kind()) {
     case ValType::I32: {
       RegI32 rv = needI32();
-      masm.load32(GlobalVarAddress(*this, global), rv);
+      ScratchPtr tmp(*this);
+      masm.load32(addressOfGlobalVar(global, tmp), rv);
       pushI32(rv);
       break;
     }
     case ValType::I64: {
       RegI64 rv = needI64();
-      masm.load64(GlobalVarAddress(*this, global), rv);
+      ScratchPtr tmp(*this);
+      masm.load64(addressOfGlobalVar(global, tmp), rv);
       pushI64(rv);
       break;
     }
     case ValType::F32: {
       RegF32 rv = needF32();
-      masm.loadFloat32(GlobalVarAddress(*this, global), rv);
+      ScratchPtr tmp(*this);
+      masm.loadFloat32(addressOfGlobalVar(global, tmp), rv);
       pushF32(rv);
       break;
     }
     case ValType::F64: {
       RegF64 rv = needF64();
-      masm.loadDouble(GlobalVarAddress(*this, global), rv);
+      ScratchPtr tmp(*this);
+      masm.loadDouble(addressOfGlobalVar(global, tmp), rv);
       pushF64(rv);
       break;
     }
     case ValType::Ref: {
       RegRef rv = needRef();
-      masm.loadPtr(GlobalVarAddress(*this, global), rv);
+      ScratchPtr tmp(*this);
+      masm.loadPtr(addressOfGlobalVar(global, tmp), rv);
       pushRef(rv);
       break;
     }
 #ifdef ENABLE_JIT_SIMD
     case ValType::V128: {
       RegV128 rv = needV128();
-      masm.loadUnalignedSimd128(GlobalVarAddress(*this, global), rv);
+      ScratchPtr tmp(*this);
+      masm.loadUnalignedSimd128(addressOfGlobalVar(global, tmp), rv);
       pushV128(rv);
       break;
     }
@@ -6481,32 +6398,40 @@ bool BaseCompiler::emitSetGlobal() {
   switch (global.type().kind()) {
     case ValType::I32: {
       RegI32 rv = popI32();
-      masm.store32(rv, GlobalVarAddress(*this, global));
+      ScratchPtr tmp(*this);
+      masm.store32(rv, addressOfGlobalVar(global, tmp));
       freeI32(rv);
       break;
     }
     case ValType::I64: {
       RegI64 rv = popI64();
-      masm.store64(rv, GlobalVarAddress(*this, global));
+      ScratchPtr tmp(*this);
+      masm.store64(rv, addressOfGlobalVar(global, tmp));
       freeI64(rv);
       break;
     }
     case ValType::F32: {
       RegF32 rv = popF32();
-      masm.storeFloat32(rv, GlobalVarAddress(*this, global));
+      ScratchPtr tmp(*this);
+      masm.storeFloat32(rv, addressOfGlobalVar(global, tmp));
       freeF32(rv);
       break;
     }
     case ValType::F64: {
       RegF64 rv = popF64();
-      masm.storeDouble(rv, GlobalVarAddress(*this, global));
+      ScratchPtr tmp(*this);
+      masm.storeDouble(rv, addressOfGlobalVar(global, tmp));
       freeF64(rv);
       break;
     }
     case ValType::Ref: {
       RegPtr valueAddr(PreBarrierReg);
       needPtr(valueAddr);
-      masm.computeEffectiveAddress(GlobalVarAddress(*this, global), valueAddr);
+      {
+        ScratchPtr tmp(*this);
+        masm.computeEffectiveAddress(addressOfGlobalVar(global, tmp),
+                                     valueAddr);
+      }
       RegRef rv = popRef();
       // emitBarrieredStore preserves rv
       if (!emitBarrieredStore(Nothing(), valueAddr, rv, PreBarrierKind::Normal,
@@ -6519,7 +6444,8 @@ bool BaseCompiler::emitSetGlobal() {
 #ifdef ENABLE_JIT_SIMD
     case ValType::V128: {
       RegV128 rv = popV128();
-      masm.storeUnalignedSimd128(rv, GlobalVarAddress(*this, global));
+      ScratchPtr tmp(*this);
+      masm.storeUnalignedSimd128(rv, addressOfGlobalVar(global, tmp));
       freeV128(rv);
       break;
     }
@@ -6724,20 +6650,10 @@ void BaseCompiler::emitCompareI64(Assembler::Condition compareOp,
     return;
   }
 
-  int64_t c;
-  if (popConst(&c)) {
-    RegI64 rs0 = popI64();
-    RegI32 rd(fromI64(rs0));
-    masm.cmp64Set(compareOp, rs0, Imm64(c), rd);
-    freeI64Except(rs0, rd);
-    pushI32(rd);
-    return;
-  }
-
   RegI64 rs0, rs1;
   pop2xI64(&rs0, &rs1);
   RegI32 rd(fromI64(rs0));
-  masm.cmp64Set(compareOp, rs0, rs1, rd);
+  cmp64Set(compareOp, rs0, rs1, rd);
   freeI64(rs1);
   freeI64Except(rs0, rd);
   pushI32(rd);
@@ -13217,8 +13133,8 @@ bool js::wasm::BaselineCompileFunctions(const CodeMetadata& codeMeta,
 
     // Do the check.  This asserts if the check fails.
     auto checkThisTrapKind_debugMode = [](Trap t) -> bool {
-      // In debug mode, we check all trap kinds.
-      return true;
+      // In debug mode, we check most trap kinds.
+      return t != Trap::IndirectCallBadSig && t != Trap::StackOverflow;
     };
     auto checkThisTrapKind_normalMode = [](Trap t) -> bool {
       // Trap kinds to check in non-debug mode

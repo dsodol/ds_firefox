@@ -4,7 +4,6 @@
 
 package org.mozilla.fenix.listentopage
 
-import android.view.View
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,17 +13,19 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalViewConfiguration
-import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.view.isVisible
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlin.math.abs
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.drop
@@ -38,10 +39,10 @@ import mozilla.components.feature.listentopage.ArticleProgress
 import mozilla.components.feature.listentopage.ListenAction
 import mozilla.components.feature.listentopage.ListenState
 import mozilla.components.feature.listentopage.ListenStore
+import mozilla.components.feature.listentopage.PlaybackPhase
 import mozilla.components.feature.listentopage.PlayerMode
+import mozilla.components.feature.listentopage.ui.ArticleDetails
 import mozilla.components.feature.listentopage.ui.ListenSheet
-import mozilla.components.feature.listentopage.ui.ListenSheetUiState
-import mozilla.components.feature.listentopage.ui.toListenSheetUiState
 import mozilla.components.lib.state.ext.observeAsComposableState
 import mozilla.components.support.base.feature.LifecycleAwareFeature
 import org.mozilla.fenix.R
@@ -49,6 +50,8 @@ import org.mozilla.fenix.theme.FirefoxTheme
 
 private val ListenState.isArticleReady: Boolean
     get() = tabId != null && languageTag != null
+
+internal const val LISTEN_SHEET_TEST_TAG = "listenSheet"
 
 /**
  * This integration is responsible for showing or hiding the reader mode panel and the Listen to page media player, and
@@ -85,7 +88,6 @@ class ListenSheetIntegration(
         val view =
             ComposeView(container.context).apply {
                 id = R.id.listenSheet
-                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
                 layoutParams =
                     CoordinatorLayout.LayoutParams(
                             CoordinatorLayout.LayoutParams.MATCH_PARENT,
@@ -93,14 +95,12 @@ class ListenSheetIntegration(
                         )
                         .apply { behavior = ListenSheetBehavior(isAddressBarAtBottom = isAddressBarAtBottom) }
                 setContent { ListenFeatureHost() }
-                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             }
         listenFeature = view
 
         container.post {
             if (listenFeature === view) {
                 container.addView(view)
-                container.findViewById<View>(R.id.engineView)?.accessibilityTraversalAfter = view.id
             }
         }
     }
@@ -123,19 +123,18 @@ class ListenSheetIntegration(
         }
 
         val selectedTabIdState = browserStore.observeAsComposableState { it.selectedTabId }
-        val readyTabIdState = listenStore.observeAsComposableState { if (it.isArticleReady) it.tabId else null }
-        val listenSheetUiState by listenStore.observeAsComposableState { it.toListenSheetUiState() }
+        val listenStateHolder = listenStore.stateFlow.collectAsStateWithLifecycle()
         val articleProgressState = listenStore.observeAsComposableState { it.articleProgress }
         val shouldDisplayPlayer by remember {
-            derivedStateOf {
-                val s = readyTabIdState.value
-                s != null && s == selectedTabIdState.value
+            derivedStateOf(structuralEqualityPolicy()) {
+                val s = listenStateHolder.value
+                s.isArticleReady && s.tabId == selectedTabIdState.value
             }
         }
         FirefoxTheme {
             ListenFeatureContent(
                 shouldDisplayPlayer = shouldDisplayPlayer,
-                uiState = listenSheetUiState,
+                state = listenStateHolder,
                 articleProgressState = articleProgressState,
                 scrollPosition = engineView.verticalScrollPosition,
                 onAction = listenStore::dispatch,
@@ -151,7 +150,7 @@ class ListenSheetIntegration(
  * the article audio is ready for playback.
  *
  * @param shouldDisplayPlayer Whether the audio of the article in the selected tab is ready for playback.
- * @param uiState Contains title, site and playback state needed for media player
+ * @param state Contains title, site and playback state needed for media player
  * @param articleProgressState Contains position and duration needed to show elapsed time, total time and progress in
  *   player.
  * @param scrollPosition How far the article is scrolled, in pixels, which collapses the player.
@@ -162,28 +161,19 @@ class ListenSheetIntegration(
 @Composable
 fun ListenFeatureContent(
     shouldDisplayPlayer: Boolean,
-    uiState: ListenSheetUiState,
+    state: State<ListenState>,
     articleProgressState: State<ArticleProgress>,
     scrollPosition: Flow<Float>,
     onAction: (ListenAction) -> Unit,
     onListenClicked: () -> Unit,
     onCustomizeReaderViewClicked: () -> Unit,
 ) {
-    val modifierWithPadding =
-        if (shouldDisplayPlayer) {
-            Modifier.padding(FirefoxTheme.layout.space.static300)
-        } else {
-            Modifier.padding(
-                horizontal = FirefoxTheme.layout.space.static200,
-                vertical = FirefoxTheme.layout.space.static300,
-            )
-        }
     Box(
-        modifier = Modifier.fillMaxWidth().then(modifierWithPadding),
+        modifier = Modifier.fillMaxWidth().padding(all = FirefoxTheme.layout.space.static200),
         contentAlignment = Alignment.BottomEnd,
     ) {
         if (shouldDisplayPlayer) {
-            ListenSheetContent(uiState, articleProgressState, scrollPosition, onAction)
+            ListenSheetContent(state, articleProgressState, scrollPosition, onAction)
         } else {
             ReaderModePanel(
                 onListenClicked = onListenClicked,
@@ -196,13 +186,14 @@ fun ListenFeatureContent(
 /** Shows media player controls for Listen To Page feature */
 @Composable
 private fun ListenSheetContent(
-    uiState: ListenSheetUiState,
+    state: State<ListenState>,
     articleProgressState: State<ArticleProgress>,
     scrollPosition: Flow<Float>,
     onAction: (ListenAction) -> Unit,
 ) {
     val touchSlop = LocalViewConfiguration.current.touchSlop
-    val mode = uiState.mode
+    val mode = state.value.mode
+
     LaunchedEffect(scrollPosition, touchSlop, mode) {
         // The flow replays the last known position, so the first new one is where the scroll is measured from.
         val anchor = scrollPosition.take(2).last()
@@ -216,24 +207,26 @@ private fun ListenSheetContent(
         onAction(ListenAction.ModeChanged(if (mode == PlayerMode.Expanded) PlayerMode.Compact else PlayerMode.Expanded))
     }
 
+    val playback = state.value.playbackState
     val cardContentDescription = stringResource(R.string.reader_mode_panel_media_player_content_description)
     ListenSheet(
-        article = uiState.article,
+        article = ArticleDetails(title = state.value.title, site = state.value.site, url = state.value.url),
         articleProgressState = articleProgressState,
-        playbackPhase = uiState.playbackPhase,
-        speed = uiState.speed,
-        voiceState = uiState.voiceState,
+        playing = playback.phase == PlaybackPhase.Playing || playback.phase == PlaybackPhase.Buffering,
+        speed = playback.speed,
+        voiceState = state.value.voiceState,
         onAction = onAction,
         onExpandClicked = { onAction(ListenAction.ModeChanged(PlayerMode.Expanded)) },
         expanded = mode == PlayerMode.Expanded,
-        error = uiState.error,
         modifier =
             Modifier.fillMaxWidth()
+                .testTag(LISTEN_SHEET_TEST_TAG)
                 .semantics(
+                    mergeDescendants = false,
                     properties = {
                         contentDescription = cardContentDescription
                         isTraversalGroup = true
-                    }
+                    },
                 ),
     )
 }

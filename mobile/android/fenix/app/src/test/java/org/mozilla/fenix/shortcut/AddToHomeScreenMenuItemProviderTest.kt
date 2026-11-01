@@ -10,6 +10,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -19,10 +20,8 @@ import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.createTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.text.Text
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.ui.MenuItemIconRes
-import mozilla.components.compose.menu.ui.MenuItemState
 import mozilla.components.feature.pwa.WebAppUseCases
 import mozilla.components.ui.icons.R as iconsR
 import org.junit.Test
@@ -43,37 +42,21 @@ class AddToHomeScreenMenuItemProviderTest {
     fun `GIVEN a simple webpage is shown WHEN providing the item THEN offer adding it to the home screen`() = runTest {
         val provider = provider(webAppUseCases = webAppUseCases(isInstallable = false))
 
-        assertEquals(expectedItem(isInstallable = false), provider.itemsFlow.value.single())
+        assertEquals(expectedItem(isInstallable = false), provider.itemFlow.value)
     }
 
     @Test
     fun `GIVEN the page can be added as a PWA WHEN providing the item THEN offer adding it as a PWA`() = runTest {
         val provider = provider(webAppUseCases = webAppUseCases(isInstallable = true))
 
-        assertEquals(expectedItem(isInstallable = true), provider.itemsFlow.value.single())
+        assertEquals(expectedItem(isInstallable = true), provider.itemFlow.value)
     }
 
     @Test
     fun `GIVEN the launcher does not support shortcuts WHEN providing the item THEN don't show it`() = runTest {
         val provider = provider(webAppUseCases = webAppUseCases(isPinningSupported = false))
 
-        assertTrue(provider.itemsFlow.value.isEmpty())
-    }
-
-    @Test
-    fun `GIVEN target is CustomizeMenu WHEN providing the item THEN show item without click events`() = runTest {
-        val provider =
-            provider(webAppUseCases = webAppUseCases(isInstallable = false), target = MenuTarget.CustomizeMenu)
-
-        assertEquals(
-            StandardMenuItem(
-                title = MenuItemTitle(Text.Resource(R.string.browser_menu_add_to_homescreen)),
-                icon = MenuItemIconRes(iconsR.drawable.mozac_ic_add_to_homescreen_24),
-                onClickEvent = null,
-                state = MenuItemState.DEFAULT,
-            ),
-            provider.itemsFlow.value.single(),
-        )
+        assertNull(provider.itemFlow.value)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -108,7 +91,7 @@ class AddToHomeScreenMenuItemProviderTest {
             listOf(true, false).forEach { isInstallable ->
                 val provider = provider(webAppUseCases = webAppUseCases(isInstallable = isInstallable))
 
-                val events = provider.itemsFlow.value.single().reachableEvents()
+                val events = requireNotNull(provider.itemFlow.value).reachableEvents()
 
                 assertTrue(events.all { provider.handles(it) }, "Not all of $events are handled")
                 assertFalse(provider.handles(MenuAction.Navigate.Settings))
@@ -149,13 +132,11 @@ class AddToHomeScreenMenuItemProviderTest {
     private fun expectedItem(isInstallable: Boolean) =
         StandardMenuItem(
             title =
-                MenuItemTitle(
-                    Text.Resource(
-                        when (isInstallable) {
-                            true -> R.string.browser_menu_add_app_to_homescreen
-                            else -> R.string.browser_menu_add_to_homescreen
-                        }
-                    )
+                Text.Resource(
+                    when (isInstallable) {
+                        true -> R.string.browser_menu_add_app_to_homescreen
+                        else -> R.string.browser_menu_add_to_homescreen
+                    }
                 ),
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_add_to_homescreen_24),
             onClickEvent = MenuAction.Navigate.AddToHomeScreen,

@@ -58,7 +58,7 @@ class LoginExceptionStorageTest {
     }
 
     @Test
-    fun testAddingExceptions() = runBlocking {
+    fun testAddingExceptions() {
         storage.addLoginException("mozilla.org")
         storage.addLoginException("firefox.com")
 
@@ -71,7 +71,7 @@ class LoginExceptionStorageTest {
     }
 
     @Test
-    fun testRemovingExceptions() = runBlocking {
+    fun testRemovingExceptions() {
         storage.addLoginException("mozilla.org")
         storage.addLoginException("firefox.com")
 
@@ -126,7 +126,7 @@ class LoginExceptionStorageTest {
         assertNull(exception)
     }
 
-    private suspend fun getAllExceptions(): List<LoginException> {
+    private fun getAllExceptions(): List<LoginException> {
         return storage.database.value.loginExceptionDao().getLoginExceptionsList().map { loginExceptionEntity ->
             LoginExceptionAdapter(loginExceptionEntity)
         }

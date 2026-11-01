@@ -11,7 +11,6 @@ import { FormAutofillUtils } from "resource://gre/modules/shared/FormAutofillUti
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  CreditCard: "resource://gre/modules/CreditCard.sys.mjs",
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
   formAutofillStorage: "resource://autofill/FormAutofillStorage.sys.mjs",
   ManageAddresses: "chrome://formautofill/content/manageDialog.mjs",
@@ -143,8 +142,8 @@ export class FormAutofillPreferences {
           let l10nId = "payment-moz-box-item";
           if (hasSecurityCode) {
             l10nId = expDate
-              ? "payment-moz-box-item-with-security-code-2"
-              : "payment-moz-box-item-security-code-only-2";
+              ? "payment-moz-box-item-with-security-code"
+              : "payment-moz-box-item-security-code-only";
           }
 
           const config = {
@@ -155,9 +154,6 @@ export class FormAutofillPreferences {
             l10nArgs: {
               cardNumber: record["cc-number"].replace(/^(\*+)(\d+)$/, "$1 $2"),
               expDate,
-              securityCode: hasSecurityCode
-                ? lazy.CreditCard.formatSecurityCodeName(record)
-                : "",
             },
             options: [
               {
@@ -477,24 +473,15 @@ export class FormAutofillPreferences {
     }
 
     let decryptedCCNumObj = {};
-    if (creditCard) {
+    let errorResult = 0;
+    if (creditCard && creditCard["cc-number-encrypted"]) {
       try {
-        // The re-authentication above has already happened, so this only
-        // reads. The trigger labels the telemetry of whichever store holds the
-        // key, and that store is what records it: reporting here as well would
-        // have a profile served by Rust also report an OS key store call it
-        // never made.
-        const number = await lazy.formAutofillStorage.creditCards.decryptField(
-          creditCard,
-          "cc-number",
-          { trigger: "edit" }
+        decryptedCCNumObj["cc-number"] = await lazy.OSKeyStore.decrypt(
+          creditCard["cc-number-encrypted"],
+          "formautofill_cc"
         );
-        // Null means the record holds nothing encrypted under that field, so
-        // there is nothing to put in place of what it already carries.
-        if (number !== null) {
-          decryptedCCNumObj["cc-number"] = number;
-        }
       } catch (ex) {
+        errorResult = ex.result;
         if (ex.result == Cr.NS_ERROR_ABORT) {
           // User shouldn't be ask to reauth here, but it could happen.
           // Return here and skip opening the dialog.
@@ -505,6 +492,12 @@ export class FormAutofillPreferences {
         // unencrypted credit card number.
         decryptedCCNumObj["cc-number"] = "";
         console.error(ex);
+      } finally {
+        Glean.creditcard.osKeystoreDecrypt.record({
+          isDecryptSuccess: errorResult === 0,
+          errorResult,
+          trigger: "edit",
+        });
       }
     }
     let decryptedCreditCard = Object.assign({}, creditCard, decryptedCCNumObj);

@@ -53,8 +53,7 @@ class APZEventResultTester : public APZCTreeManagerTester {
     ModifyFrameMetrics(root, [](ScrollMetadata& sm, FrameMetrics& metrics) {
       metrics.SetIsRootContent(true);
     });
-    registration =
-        std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+    registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
     UpdateHitTestingTree();
   }
 
@@ -371,8 +370,7 @@ TEST_F(APZEventResultTesterMock, HandledByRootApzcFlag) {
     metrics.SetIsRootContent(true);
   });
   // away from the scrolling container layer.
-  registration =
-      std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+  registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
   UpdateHitTestingTree();
 
   // Tap the top half and check that we report that the event was

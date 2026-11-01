@@ -182,12 +182,6 @@ impl From<std::path::PathBuf> for PathBuf {
     }
 }
 
-impl Into<std::path::PathBuf> for PathBuf {
-    fn into(self) -> std::path::PathBuf {
-        self.0
-    }
-}
-
 impl From<PathBuf> for std::ffi::OsString {
     fn from(pathbuf: PathBuf) -> Self {
         pathbuf.0.into()
@@ -200,11 +194,6 @@ impl From<&str> for PathBuf {
     }
 }
 
-impl From<String> for PathBuf {
-    fn from(s: String) -> Self {
-        PathBuf(s.into())
-    }
-}
 impl super::mock::MockUnwrap for PathBuf {
     type Inner = std::path::PathBuf;
 

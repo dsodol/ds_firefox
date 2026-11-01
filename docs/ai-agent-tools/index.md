@@ -8,5 +8,4 @@ with and test Firefox during development.
 
 firefox-devtools-mcp
 code-review-context
-skills
 ```

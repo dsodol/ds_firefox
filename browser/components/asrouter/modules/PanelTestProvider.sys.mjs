@@ -32,33 +32,11 @@ const MESSAGES = () => [
         {
           id: "CAROUSEL",
           content: {
-            corner_image: {
-              position: "bottom-right",
-              imageURL:
-                "https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/ms-images/20261021204417--kit-sit-look-up--5559ae6b-6311-4bd4-87d8-96dbd0a78e48.svg",
-              height: "206px",
-            },
-            zap_border: true,
-            zap_shadow: true,
-            screen_style: {
-              width: "800px",
-            },
-            dismiss_button: {
-              action: {
-                dismiss: true,
-              },
-            },
-            title: {
-              string_id: "welcome-back-onboarding-title",
-              marginBlockStart: "20px",
-            },
+            title: "New features built to help you do more",
             tiles: {
               type: "single-select",
-              layout: "carousel",
               selected: "vertical-tabs",
-              pill_nav_label: {
-                raw: "Feature highlights",
-              },
+              pill_nav_label: { raw: "Feature highlights" },
               data: [
                 {
                   id: "split-view",
@@ -66,25 +44,22 @@ const MESSAGES = () => [
                   targeting: "firefoxVersion >= 150",
                   type: "carousel-card",
                   pill: {
-                    label: {
-                      raw: "Split View",
-                    },
+                    label: { raw: "Split View" },
                     icon: "chrome://browser/skin/split-view-left-16.svg",
                   },
                   icon: {
                     background:
-                      "url('https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/ms-images/20261021144626--onboarding-welcome-back-vpn--34e79f8a-3a56-421b-9162-82afe2ee12dd.svg') center / cover no-repeat light-dark(rgb(240, 240, 244), rgb(43, 42, 51))",
+                      "url('chrome://activity-stream/content/data/content/assets/mr-kit-smart-window.svg') center / cover no-repeat light-dark(rgb(240, 240, 244), rgb(43, 42, 51))",
+                    darkModeBackground:
+                      "url('chrome://activity-stream/content/data/content/assets/fox-doodle-backup-restore.svg') center / cover no-repeat light-dark(rgb(240, 240, 244), rgb(43, 42, 51))",
                   },
-                  label: {
-                    raw: "Split View",
-                  },
+                  label: { raw: "Split View" },
                   body: {
                     raw: "Two tabs side by side, right where you need them. Finally.",
                   },
                   tilebutton: {
                     label: {
-                      string_id:
-                        "welcome-back-onboarding-card-tilebutton-label",
+                      raw: "Try it now",
                     },
                     style: "secondary",
                     action: {
@@ -102,18 +77,14 @@ const MESSAGES = () => [
                   type: "carousel-card",
                   targeting: "firefoxVersion <= 140",
                   pill: {
-                    label: {
-                      raw: "Vertical Tabs",
-                    },
+                    label: { raw: "Vertical Tabs" },
                     icon: "chrome://browser/skin/tabs.svg",
                   },
                   icon: {
                     background:
-                      "url('https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/ms-images/20261021144724--onboarding-welcome-back-tidy-tabs--e3059850-5427-4967-9829-958c04c15396.svg') center / cover no-repeat light-dark(rgb(240, 240, 244), rgb(43, 42, 51))",
+                      "url('chrome://activity-stream/content/data/content/assets/nuo-taborientation.svg') center / cover no-repeat light-dark(rgb(240, 240, 244), rgb(43, 42, 51))",
                   },
-                  label: {
-                    raw: "Vertical Tabs",
-                  },
+                  label: { raw: "Vertical Tabs" },
                   body: {
                     raw: "Stack your tabs down the side for calmer browsing.",
                   },
@@ -123,25 +94,18 @@ const MESSAGES = () => [
                   inert: true,
                   type: "carousel-card",
                   pill: {
-                    label: {
-                      raw: "Tab Groups",
-                    },
+                    label: { raw: "Tab Groups" },
                     icon: "chrome://browser/skin/tabbrowser/tab-groups.svg",
                   },
                   icon: {
                     background:
-                      "url('https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/ms-images/20261021144652--onboarding-welcome-back-pdf-tools--63356684-de7a-4dec-899e-630e218e4c9e.svg') center / cover no-repeat light-dark(rgb(240, 240, 244), rgb(43, 42, 51))",
+                      "url('chrome://activity-stream/content/data/content/assets/euo-tab-orientation.svg') center / cover no-repeat light-dark(rgb(240, 240, 244), rgb(43, 42, 51))",
                   },
-                  label: {
-                    raw: "Tab Groups",
-                  },
-                  body: {
-                    raw: "Keep related tabs together in named groups.",
-                  },
+                  label: { raw: "Tab Groups" },
+                  body: { raw: "Keep related tabs together in named groups." },
                   tilebutton: {
                     label: {
-                      string_id:
-                        "welcome-back-onboarding-card-tilebutton-label",
+                      raw: "Try it now",
                     },
                     style: "secondary",
                     action: {
@@ -156,24 +120,13 @@ const MESSAGES = () => [
               ],
             },
             primary_button: {
-              label: {
-                string_id: "welcome-back-onboarding-primary-button-label",
-                paddingInline: "16px",
-                paddingBlock: "7px",
-              },
+              label: { raw: "Start browsing" },
               action: {
                 dismiss: true,
               },
             },
-            additional_button: {
-              label: {
-                string_id: "welcome-back-onboarding-secondary-button-label",
-                fontSize: "0.75em",
-                paddingBlock: "4px",
-                paddingInline: "12px",
-                border: "none",
-              },
-              style: "secondary",
+            secondary_button: {
+              label: { raw: "Learn more" },
               action: {
                 dismiss: true,
               },
@@ -182,9 +135,6 @@ const MESSAGES = () => [
         },
       ],
     },
-    provider: "panel_local_testing",
-    targeting: 'providerCohorts.panel_local_testing == "SHOW_TEST"',
-    groups: [],
   },
   {
     weight: 100,
@@ -1118,6 +1068,85 @@ const MESSAGES = () => [
       ],
     },
     frequency: { lifetime: 3 },
+    trigger: { id: "defaultBrowserCheck" },
+  },
+  {
+    id: "PB_FOCUS_PROMO",
+    groups: ["panel-test-provider"],
+    template: "spotlight",
+    content: {
+      template: "multistage",
+      backdrop: "transparent",
+      screens: [
+        {
+          id: "PBM_FIREFOX_FOCUS",
+          order: 0,
+          content: {
+            logo: {
+              imageURL: "chrome://browser/content/assets/focus-logo.svg",
+              height: "48px",
+            },
+            title: {
+              string_id: "spotlight-focus-promo-title",
+            },
+            subtitle: {
+              string_id: "spotlight-focus-promo-subtitle",
+            },
+            dismiss_button: {
+              action: {
+                dismiss: true,
+              },
+            },
+            ios: {
+              action: {
+                data: {
+                  args: "https://app.adjust.com/167k4ih?campaign=firefox-desktop&adgroup=pb&creative=focus-omc172&redirect=https%3A%2F%2Fapps.apple.com%2Fus%2Fapp%2Ffirefox-focus-privacy-browser%2Fid1055677337",
+                  where: "tabshifted",
+                },
+                type: "OPEN_URL",
+                navigate: true,
+              },
+            },
+            android: {
+              action: {
+                data: {
+                  args: "https://app.adjust.com/167k4ih?campaign=firefox-desktop&adgroup=pb&creative=focus-omc172&redirect=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dorg.mozilla.focus",
+                  where: "tabshifted",
+                },
+                type: "OPEN_URL",
+                navigate: true,
+              },
+            },
+            email_link: {
+              action: {
+                data: {
+                  args: "https://mozilla.org",
+                  where: "tabshifted",
+                },
+                type: "OPEN_URL",
+                navigate: true,
+              },
+            },
+            tiles: {
+              type: "mobile_downloads",
+              data: {
+                QR_code: {
+                  image_url:
+                    "chrome://browser/content/assets/focus-qr-code.svg",
+                  alt_text: {
+                    string_id: "spotlight-focus-promo-qr-code",
+                  },
+                },
+                email: {
+                  link_text: "Email yourself a link",
+                },
+                marketplace_buttons: ["ios", "android"],
+              },
+            },
+          },
+        },
+      ],
+    },
     trigger: { id: "defaultBrowserCheck" },
   },
   {
@@ -2895,62 +2924,32 @@ const MESSAGES = () => [
       screens: [
         {
           id: "CARD_STACK_SCREEN_1",
-          targeting:
-            "('messaging-system-action.hnt-card-stack.screen'|preferenceValue(1)) <= 1",
           force_hide_steps_indicator: true,
           content: {
             position: "card-stack",
             background:
               "url('chrome://activity-stream/content/data/content/assets/br-set-default-fox-heart.svg') center / contain no-repeat",
-            card_stack_image: {
-              type: "float",
-            },
             title: { raw: "This is a card-stack headline" },
             subtitle: {
               raw: "This is a card-stack subtitle, lower in the visual hierarchy.",
             },
             primary_button: {
               label: { raw: "Primary action" },
-              action: {
-                type: "SET_PREF",
-                data: {
-                  pref: {
-                    name: "messaging-system-action.hnt-card-stack.screen",
-                    value: 2,
-                  },
-                },
-                navigate: true,
-              },
+              action: { navigate: true },
             },
             secondary_button: {
               label: { raw: "Dismiss" },
-              action: {
-                type: "SET_PREF",
-                data: {
-                  pref: {
-                    name: "messaging-system-action.hnt-card-stack.screen",
-                    value: 2,
-                  },
-                },
-                navigate: true,
-              },
+              action: { navigate: true },
             },
           },
         },
         {
           id: "CARD_STACK_SCREEN_2",
-          targeting:
-            "('messaging-system-action.hnt-card-stack.screen'|preferenceValue(1)) <= 2",
           force_hide_steps_indicator: true,
           content: {
             position: "card-stack",
             background:
-              "url('https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/ms-images/20261014160437--hnt-import--84d11ab4-339b-45df-b94f-4202cd9cdc52.svg') center / contain no-repeat",
-            card_stack_image: {
-              type: "bleed",
-              background_uncropped:
-                "url('https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/ms-images/20261021220131--hnt-import-uncropped--b8015f9d-bf0a-4b1e-9b83-f846bc7169d4.svg') center / contain no-repeat",
-            },
+              "url('chrome://activity-stream/content/data/content/assets/br-import-fox-house.svg') center / contain no-repeat",
             title: {
               raw: "This is a card-stack headline, on the second screen",
             },
@@ -2959,89 +2958,18 @@ const MESSAGES = () => [
             },
             primary_button: {
               label: { raw: "Primary action" },
-              action: {
-                type: "SET_PREF",
-                data: {
-                  pref: {
-                    name: "messaging-system-action.hnt-card-stack.screen",
-                    value: 3,
-                  },
-                },
-                navigate: true,
-              },
+              action: { navigate: true },
             },
             secondary_button: {
               label: { raw: "Dismiss" },
-              action: {
-                type: "SET_PREF",
-                data: {
-                  pref: {
-                    name: "messaging-system-action.hnt-card-stack.screen",
-                    value: 3,
-                  },
-                },
-                navigate: true,
-              },
-            },
-          },
-        },
-        {
-          id: "CARD_STACK_SCREEN_3",
-          targeting:
-            "('messaging-system-action.hnt-card-stack.screen'|preferenceValue(1)) <= 3",
-          force_hide_steps_indicator: true,
-          content: {
-            position: "card-stack",
-            background:
-              "url('https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/ms-images/20261014160552--hnt-pin-firefox--8240f52c-fc1e-4416-ae07-376063a2a9ac.svg') center / contain no-repeat",
-            card_stack_image: {
-              type: "banner",
-              background_medium:
-                "url('https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/ms-images/20261021220423--hnt-pin-medium--b1a464e4-7d02-405d-88c4-297a43f198df.svg') center / contain no-repeat",
-              background_small:
-                "url('https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/ms-images/20261021220539--hnt-pin-small--b9b067c8-08ac-4776-8939-b504953a1b8b.svg') center / contain no-repeat",
-            },
-            title: {
-              raw: "This is a card-stack headline, on the third screen",
-            },
-            subtitle: {
-              raw: "This is a card-stack subtitle, on the third screen.",
-            },
-            primary_button: {
-              label: { raw: "Primary action" },
-              action: {
-                type: "SET_PREF",
-                data: {
-                  pref: {
-                    name: "messaging-system-action.hnt-card-stack.screen",
-                    value: 3,
-                  },
-                },
-                navigate: true,
-              },
-            },
-            secondary_button: {
-              label: { raw: "Dismiss" },
-              action: {
-                type: "SET_PREF",
-                data: {
-                  pref: {
-                    name: "messaging-system-action.hnt-card-stack.screen",
-                    value: 3,
-                  },
-                },
-                navigate: true,
-              },
+              action: { dismiss: true },
             },
           },
         },
         // The unique "last card" layout (bug 2069997).
         {
-          id: "CARD_STACK_SCREEN_4",
-          targeting:
-            "('messaging-system-action.hnt-card-stack.screen'|preferenceValue(1)) <= 4",
+          id: "CARD_STACK_SCREEN_3",
           force_hide_steps_indicator: true,
-          auto_dismiss: { after: 5000 },
           content: {
             position: "card-stack",
             layout: "last-card",
@@ -3049,7 +2977,7 @@ const MESSAGES = () => [
             subtitle: { raw: "Say hello to a better web." },
             center_image: {
               imageURL:
-                "https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/ms-images/20261021221502--hnt-fox-animation-no-loop-gif--e0d0e7af-c729-4f1b-909e-e99a86fa1287.gif",
+                "https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/ms-images/20260923193621--fox-peeking--a7cb53ba-228f-4b81-a92f-6ad34474872b.svg",
               alt: "",
               marginBlock: "40px 0",
             },
@@ -3558,7 +3486,7 @@ const MESSAGES = () => [
               paddingInline: "40px",
             },
             background:
-              "center 80% / 70% no-repeat url('chrome://activity-stream/content/data/content/assets/br-set-default-fox-heart.svg'), var(--pinnable-sites-gradient)",
+              "center 80% / 70% no-repeat url('chrome://activity-stream/content/data/content/assets/br-set-default-fox-heart.svg'), linear-gradient(0deg, light-dark(rgb(252, 245, 240), var(--onboarding-dark-backdrop-color)) 0%, light-dark(rgb(250, 236, 241), var(--onboarding-dark-backdrop-color)) 57%, light-dark(rgb(245, 212, 245), var(--onboarding-dark-backdrop-color)) 100%)",
             hero_text: {
               title: {
                 raw: "Open your favorite sites like an app",

@@ -34,7 +34,7 @@ const { RustAutofillStore } = ChromeUtils.importESModule(
 const { SqlError } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/uniffi-bindgen-gecko-js/components/generated/RustAutofill.sys.mjs"
 );
-const { AddressStorageMigrator, AutofillStorageMigrator, MAX_ATTEMPTS } =
+const { AddressStorageMigrator, AutofillStorageMigrator } =
   ChromeUtils.importESModule(
     "resource://autofill/AutofillStorageMigrator.sys.mjs"
   );
@@ -79,8 +79,6 @@ const TEST_VERSION_PREF =
   "extensions.formautofill.addresses.storage.rust.migrationTestVersion";
 const ATTEMPTS_PREF =
   "extensions.formautofill.addresses.storage.rust.migrationAttempts";
-const TEST_ATTEMPTS_PREF =
-  "extensions.formautofill.addresses.storage.rust.migrationTestAttempts";
 
 const getInt = (pref, def = 0) => Services.prefs.getIntPref(pref, def);
 
@@ -93,7 +91,6 @@ registerCleanupFunction(() => {
     TEST_MODE_PREF,
     TEST_VERSION_PREF,
     ATTEMPTS_PREF,
-    TEST_ATTEMPTS_PREF,
   ]) {
     Services.prefs.clearUserPref(pref);
   }
@@ -233,7 +230,6 @@ async function setupStorageWithFullRecords(fileName, records) {
   Services.prefs.clearUserPref(ACTIVE_PREF);
   Services.prefs.clearUserPref(TEST_VERSION_PREF);
   Services.prefs.clearUserPref(ATTEMPTS_PREF);
-  Services.prefs.clearUserPref(TEST_ATTEMPTS_PREF);
   Services.fog.testResetFOG();
   // The adapter is a per-process singleton, so a case that reuses one cached by
   // an earlier case never opens the store and cannot observe that work.
@@ -1178,7 +1174,7 @@ add_task(async function test_attempts_are_counted_and_then_given_up_on() {
     );
 
     // Out of budget: no more work, and nothing more reported.
-    Services.prefs.setIntPref(ATTEMPTS_PREF, MAX_ATTEMPTS);
+    Services.prefs.setIntPref(ATTEMPTS_PREF, 3);
     const before = migrationEvents().length;
     s = await restart(s);
     Assert.equal(
@@ -1186,7 +1182,7 @@ add_task(async function test_attempts_are_counted_and_then_given_up_on() {
       before,
       "a profile out of budget stops re-importing on every startup"
     );
-    Assert.equal(getInt(ATTEMPTS_PREF), MAX_ATTEMPTS, "and stops counting");
+    Assert.equal(getInt(ATTEMPTS_PREF), 3, "and stops counting");
   } finally {
     RustAutofillAddressesAdapter.prototype.addManyWithMeta = orig;
   }
@@ -1235,47 +1231,6 @@ add_task(async function test_a_failed_migration_leaves_the_profile_on_json() {
     RustAutofillAddressesAdapter.prototype.addManyWithMeta = orig;
     Services.prefs.clearUserPref(ACTIVE_PREF);
   }
-
-  await s._finalize();
-});
-
-add_task(async function test_a_write_during_the_copy_fails_it() {
-  let { s, guids } = await setupStorageWithRecords("mig-midwrite.json", [
-    "Used Mid Copy",
-  ]);
-
-  // The JSON store keeps serving while the copy runs, and the address is used
-  // after it was read. Switching would lose that use, so the copy fails like
-  // any other, and the next attempt carries it.
-  const proto = Object.getPrototypeOf(s.addresses);
-  const realExport = proto._recordForMigrationExport;
-  proto._recordForMigrationExport = async function (record) {
-    const exported = await realExport.call(this, record);
-    this.notifyUsed(record.guid);
-    return exported;
-  };
-  try {
-    s = await enableRust(s);
-  } finally {
-    delete proto._recordForMigrationExport;
-  }
-
-  const [event] = migrationEvents();
-  Assert.equal(event?.extra.result, "error", "the copy was not accepted");
-  Assert.equal(
-    event.extra.error_code,
-    "SourceChanged",
-    "because the source changed under it"
-  );
-  Assert.ok(!getBool(ACTIVE_PREF), "the profile stays on JSON");
-  Assert.equal(getInt(ATTEMPTS_PREF), 1, "spending an attempt");
-
-  s = await restart(s);
-  Assert.equal(
-    (await activeRust(s).get(guids[0])).timesUsed,
-    1,
-    "the next launch migrates, with the use made during the failed copy"
-  );
 
   await s._finalize();
 });

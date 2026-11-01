@@ -41,12 +41,11 @@ NS_IMETHODIMP nsXULAlertCallbacks::OnAlertShow() {
   return mCallbacks->OnAlertShow();
 }
 
-NS_IMETHODIMP nsXULAlertCallbacks::OnAlertClick(
-    nsIAlertAction* aAction, nsIAlertCallbacks::ApplicationState aState) {
+NS_IMETHODIMP nsXULAlertCallbacks::OnAlertClick(nsIAlertAction* aAction) {
   if (!mCallbacks) {
     return NS_OK;
   }
-  return mCallbacks->OnAlertClick(aAction, aState);
+  return mCallbacks->OnAlertClick(aAction);
 }
 
 NS_IMETHODIMP nsXULAlertCallbacks::OnAlertDismissedFromForeground() {

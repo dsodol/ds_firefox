@@ -13,10 +13,14 @@
   },
   "border": {
     "color": {
-      "value": "{popup.border.color}"
+      "value": {
+        "light": "rgb(240, 240, 244)",
+        "dark": "rgb(82, 82, 94)",
+        "nativeTheme": "{border.color.deemphasized.@base}"
+      }
     },
     "radius": {
-      "value": "{popup.border.radius}"
+      "value": "{border.radius.medium}"
     }
   },
   "box": {

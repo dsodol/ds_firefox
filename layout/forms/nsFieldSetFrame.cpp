@@ -31,7 +31,7 @@ using image::ImgDrawResult;
 
 nsContainerFrame* NS_NewFieldSetFrame(PresShell* aPresShell,
                                       ComputedStyle* aStyle) {
-  return new nsFieldSetFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell) nsFieldSetFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsFieldSetFrame)
@@ -381,7 +381,8 @@ void nsFieldSetFrame::Reflow(nsPresContext* aPresContext,
     ReflowOverflowContainerChildren(aPresContext, aReflowInput, ocBounds,
                                     ReflowChildFlags::Default, ocStatus);
 
-    AutoFrameListPtr prevOverflowFrames(prevInFlow->StealOverflowFrames());
+    AutoFrameListPtr prevOverflowFrames(PresContext(),
+                                        prevInFlow->StealOverflowFrames());
     if (prevOverflowFrames) {
       mFrames.InsertFrames(this, nullptr, std::move(*prevOverflowFrames));
     }

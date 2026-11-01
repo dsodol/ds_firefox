@@ -1324,8 +1324,7 @@ HTMLEditor::AutoInsertParagraphHandler::GetBetterPointToSplitParagraph(
     }
     const WSScanResult nextVisibleThing =
         HTMLEditUtils::ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak(
-            aCandidatePointToSplit,
-            TreatAsUnnecessaryLineBreak{LineBreakFor::PaddingForEmptyBlock},
+            aCandidatePointToSplit, PaddingForEmptyBlock::Unnecessary,
             aEditingHost, &aBlockElementToSplit);
     if (nextVisibleThing.GetContent() &&
         !nextVisibleThing.ReachedOutsideEditingHost() &&

@@ -10,17 +10,15 @@ import android.app.PendingIntent.FLAG_UPDATE_CURRENT
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.support.v4.media.session.MediaSessionCompat
 import androidx.annotation.DrawableRes
-import androidx.annotation.OptIn
 import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.session.MediaSession
-import androidx.media3.session.MediaStyleNotificationHelper
+import androidx.media.app.NotificationCompat.MediaStyle
 import mozilla.components.browser.state.state.CustomTabSessionState
 import mozilla.components.browser.state.state.MediaSessionState
 import mozilla.components.browser.state.state.SessionState
-import mozilla.components.concept.engine.mediasession.MediaSession as MozMediaSession
+import mozilla.components.concept.engine.mediasession.MediaSession
 import mozilla.components.feature.media.R
 import mozilla.components.feature.media.ext.getArtistOrUrl
 import mozilla.components.feature.media.ext.getNonPrivateIcon
@@ -29,25 +27,24 @@ import mozilla.components.feature.media.service.AbstractMediaSessionService
 import mozilla.components.support.base.ids.SharedIdsHelper
 
 /** Helper to display a notification for web content playing media. */
-@OptIn(UnstableApi::class)
 internal class MediaNotification(
     private val context: Context,
     private val cls: Class<*>,
 ) {
     /** Creates a new [Notification] for the given [sessionState]. */
-    suspend fun create(sessionState: SessionState?, mediaSession: MediaSession): Notification {
+    suspend fun create(sessionState: SessionState?, mediaSessionCompat: MediaSessionCompat): Notification {
         val data = sessionState?.toNotificationData(context, cls) ?: NotificationData()
 
-        return buildNotification(data, mediaSession, sessionState !is CustomTabSessionState)
+        return buildNotification(data, mediaSessionCompat, sessionState !is CustomTabSessionState)
     }
 
     private fun buildNotification(
         data: NotificationData,
-        mediaSession: MediaSession,
-        isNormalTab: Boolean,
+        mediaSession: MediaSessionCompat,
+        isCustomTab: Boolean,
     ): Notification {
         val channel = MediaNotificationChannel.ensureChannelExists(context)
-        val style = MediaStyleNotificationHelper.MediaStyle(mediaSession)
+        val style = MediaStyle().setMediaSession(mediaSession.sessionToken)
         val builder =
             NotificationCompat.Builder(context, channel)
                 .setSmallIcon(data.icon)
@@ -62,7 +59,7 @@ internal class MediaNotification(
             @Suppress("SpreadOperator") style.setShowActionsInCompactView(*data.actions.compactIndices)
         }
         builder.setStyle(style)
-        if (isNormalTab) {
+        if (isCustomTab) {
             // We only set a content intent if this media notification is not for an "external app"
             // like a custom tab. Currently we can't route the user to that particular activity:
             // https://github.com/mozilla-mobile/android-components/issues/3986
@@ -85,14 +82,14 @@ private suspend fun SessionState.toNotificationData(
     val mediaState = mediaSessionState ?: return NotificationData()
     val playPauseAction =
         when (mediaState.playbackState) {
-            MozMediaSession.PlaybackState.PLAYING ->
+            MediaSession.PlaybackState.PLAYING ->
                 buildAction(
                     context = context,
                     iconRes = R.drawable.mozac_feature_media_action_pause,
                     titleRes = R.string.mozac_feature_media_notification_action_pause,
                     intent = AbstractMediaSessionService.pauseIntent(context, cls),
                 )
-            MozMediaSession.PlaybackState.PAUSED ->
+            MediaSession.PlaybackState.PAUSED ->
                 buildAction(
                     context = context,
                     iconRes = R.drawable.mozac_feature_media_action_play,
@@ -104,7 +101,7 @@ private suspend fun SessionState.toNotificationData(
 
     val icon =
         when (mediaState.playbackState) {
-            MozMediaSession.PlaybackState.PLAYING -> R.drawable.mozac_feature_media_playing
+            MediaSession.PlaybackState.PLAYING -> R.drawable.mozac_feature_media_playing
             else -> R.drawable.mozac_feature_media_paused
         }
 
@@ -132,7 +129,7 @@ private fun MediaSessionState.buildActions(
     val actions = mutableListOf<NotificationCompat.Action>()
     val compactIndices = mutableListOf<Int>()
 
-    if (features.contains(MozMediaSession.Feature.PREVIOUS_TRACK)) {
+    if (features.contains(MediaSession.Feature.PREVIOUS_TRACK)) {
         compactIndices += actions.size
         actions +=
             buildAction(
@@ -144,7 +141,7 @@ private fun MediaSessionState.buildActions(
     }
     compactIndices += actions.size
     actions += playPauseAction
-    if (features.contains(MozMediaSession.Feature.NEXT_TRACK)) {
+    if (features.contains(MediaSession.Feature.NEXT_TRACK)) {
         compactIndices += actions.size
         actions +=
             buildAction(

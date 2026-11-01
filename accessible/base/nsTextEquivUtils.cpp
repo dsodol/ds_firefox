@@ -5,6 +5,7 @@
 #include "nsTextEquivUtils.h"
 
 #include "AccIterator.h"
+#include "CssAltContent.h"
 #include "LocalAccessible-inl.h"
 #include "Relation.h"
 #include "mozilla/dom/ChildIterator.h"
@@ -218,7 +219,7 @@ bool nsTextEquivUtils::AppendTextEquivFromContent(
 
 nsresult nsTextEquivUtils::AppendTextEquivFromTextContent(nsIContent* aContent,
                                                           nsAString* aString) {
-  if (Maybe<nsString> cssAlt = nsCoreUtils::GetCssAltContent(aContent)) {
+  if (auto cssAlt = CssAltContent(aContent)) {
     AccType type = aContent->GetPrimaryFrame()
                        ? aContent->GetPrimaryFrame()->AccessibleType()
                        : AccType::eNoType;
@@ -226,7 +227,7 @@ nsresult nsTextEquivUtils::AppendTextEquivFromTextContent(nsIContent* aContent,
       // If this is a text leaf, or an empty content, append its alt text here.
       // In the case of image alt contents, we will get to those with the
       // accessible based subtree name calculation.
-      aString->Append(*cssAlt);
+      cssAlt.AppendToString(*aString);
       return NS_OK;
     }
   } else if (aContent->IsText()) {
@@ -279,11 +280,6 @@ nsresult nsTextEquivUtils::AppendFromAccessibleChildren(
     Accessible* child = aAccessible->ChildAt(childIdx);
     // If we've already consulted this child, don't consult it again.
     if (GetReferencedAccs().Contains(child)) {
-      continue;
-    }
-    // XUL menupopups (e.g. in menu buttons) take their name from an ancestor,
-    // so they must not contribute to the ancestor's name.
-    if (child->IsMenuPopup()) {
       continue;
     }
     rv = AppendFromAccessible(child, aString);

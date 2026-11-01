@@ -14,12 +14,17 @@ pub const GLOBAL_SCALE_DENOM: usize = 1 << 16;
 #[derive(Debug, Clone)]
 pub struct LfQuantFactors {
     pub quant_factors: [f32; 3],
+    pub inv_quant_factors: [f32; 3],
 }
 
 impl Default for LfQuantFactors {
     fn default() -> Self {
         let quant_factors = quant_weights::LF_QUANT;
-        Self { quant_factors }
+        let inv_quant_factors = quant_factors.map(f32::recip);
+        Self {
+            quant_factors,
+            inv_quant_factors,
+        }
     }
 }
 
@@ -37,7 +42,12 @@ impl LfQuantFactors {
             }
         }
 
-        Ok(LfQuantFactors { quant_factors })
+        let inv_quant_factors = quant_factors.map(f32::recip);
+
+        Ok(LfQuantFactors {
+            quant_factors,
+            inv_quant_factors,
+        })
     }
 }
 

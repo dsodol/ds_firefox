@@ -49,12 +49,6 @@ class RenderCompositorEGL : public RenderCompositor {
 
   RefPtr<layers::Fence> GetAndResetReadFence() override;
 
-#ifdef MOZ_WIDGET_ANDROID
-  bool CaptureScreenPixels(
-      const gfx::IntRect& aSourceRect,
-      layers::AndroidHardwareBuffer* aHardwareBuffer) override;
-#endif
-
   void MaybeWaitingForPendingReadFence(RenderTextureHost* aTexture) override;
 
  protected:

@@ -19,7 +19,7 @@ defines: [testDestructuringArrayDefault]
     function test_one(pattern, val, opt) {
         var stmts = [];
         var i = 0;
-        var a, c;
+        var c;
 
         stmts.push(`var ${pattern} = ${val};`);
 

@@ -99,14 +99,13 @@ bool MessagePortService::RequestEntangling(MessagePortParent* aParent,
       return false;
     }
 
-    mPorts.InsertOrUpdate(
-        aDestinationUUID,
-        std::make_unique<MessagePortServiceData>(aParent->ID()));
+    mPorts.InsertOrUpdate(aDestinationUUID,
+                          MakeUnique<MessagePortServiceData>(aParent->ID()));
 
     data = mPorts
                .InsertOrUpdate(
                    aParent->ID(),
-                   std::make_unique<MessagePortServiceData>(aDestinationUUID))
+                   MakeUnique<MessagePortServiceData>(aDestinationUUID))
                .get();
   }
 

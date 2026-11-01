@@ -892,12 +892,6 @@ role Accessible::ARIATransformRole(role aRole) const {
       // first). Otherwise, fall back to the element's native role.
       return FindNextValidARIARole({nsGkAtoms::region, nsGkAtoms::form});
     }
-
-    if (aRole == roles::FORM) {
-      // A form with a name is a form landmark.
-      return roles::FORM_LANDMARK;
-    }
-
     return aRole;
   }
 

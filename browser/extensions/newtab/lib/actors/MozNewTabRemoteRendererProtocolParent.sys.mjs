@@ -65,7 +65,8 @@ export class MozNewTabRemoteRendererProtocolParent extends JSWindowActorParent {
 
       if (uri.scheme !== "moz-newtab-remote-renderer") {
         throw new Error(
-          `Expected scheme moz-newtab-remote-renderer, but got ${uri.scheme}`
+          "Expected scheme moz-newtab-remote-renderer, but got ",
+          uri.scheme
         );
       }
     } catch (e) {

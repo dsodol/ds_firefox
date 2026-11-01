@@ -7,10 +7,14 @@ Services.scriptloader.loadSubScript(
 );
 
 /**
- * Opens the pane that contains permissions settings.
+ * Opens the pane that contains permissions settings. With SRD enabled this is
+ * the dedicated permissionsData pane; with SRD disabled it is panePrivacy.
  *
  * @param {object} options - Passed to openPreferencesViaOpenPreferencesAPI.
  */
 async function openPermissionsPane(options) {
-  return openPreferencesViaOpenPreferencesAPI("panePermissionsData", options);
+  return openPreferencesViaOpenPreferencesAPI(
+    SRD_PREF_VALUE ? "panePermissionsData" : "panePrivacy",
+    options
+  );
 }

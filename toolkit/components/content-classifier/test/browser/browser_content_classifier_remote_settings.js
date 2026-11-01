@@ -144,7 +144,7 @@ add_task(async function test_rs_nonselected_list_not_active() {
     TEST_BLOCKED_3RD_PARTY_DOMAIN,
     "example.org should be blocked (active list)"
   );
-  await assertScriptLoaded(
+  await assertImageLoaded(
     browser,
     TEST_ANNOTATED_3RD_PARTY_DOMAIN,
     "example.com should NOT be blocked (inactive list)"
@@ -182,7 +182,7 @@ add_task(async function test_rs_multiple_active_lists() {
     TEST_BLOCKED_3RD_PARTY_DOMAIN,
     "example.org should be blocked (list-a active)"
   );
-  await assertScriptBlocked(
+  await assertImageBlocked(
     browser,
     TEST_ANNOTATED_3RD_PARTY_DOMAIN,
     "example.com should be blocked (list-b active)"
@@ -227,7 +227,7 @@ add_task(async function test_rs_block_and_annotate_separation() {
     TEST_BLOCKED_3RD_PARTY_DOMAIN,
     "example.org should be blocked (on block list)"
   );
-  await assertScriptLoaded(
+  await assertImageLoaded(
     browser,
     TEST_ANNOTATED_3RD_PARTY_DOMAIN,
     "example.com should NOT be blocked (on annotate list only)"
@@ -273,7 +273,7 @@ add_task(async function test_rs_pref_switch_active_lists() {
     TEST_BLOCKED_3RD_PARTY_DOMAIN,
     "example.org blocked with trackers active"
   );
-  await assertScriptLoaded(
+  await assertImageLoaded(
     browser,
     TEST_ANNOTATED_3RD_PARTY_DOMAIN,
     "example.com not blocked with only trackers active"
@@ -300,7 +300,7 @@ add_task(async function test_rs_pref_switch_active_lists() {
     TEST_BLOCKED_3RD_PARTY_DOMAIN,
     "example.org no longer blocked after switching to fingerprinters"
   );
-  await assertScriptBlocked(
+  await assertImageBlocked(
     browser,
     TEST_ANNOTATED_3RD_PARTY_DOMAIN,
     "example.com now blocked after switching to fingerprinters"

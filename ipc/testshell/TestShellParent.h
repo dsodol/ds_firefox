@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #ifndef ipc_testshell_TestShellParent_h
-#define ipc_testshell_TestShellParent_h
+#define ipc_testshell_TestShellParent_h 1
 
 #include "mozilla/ipc/PTestShellParent.h"
 #include "mozilla/ipc/PTestShellCommandParent.h"

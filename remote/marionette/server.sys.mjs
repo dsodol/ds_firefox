@@ -92,10 +92,6 @@ export class TCPListener {
 
         this.port = this.socket.port;
 
-        // Blocking affects outgoing local connections only,
-        // not the inbound client.
-        Services.io.addBlockedLocalPort(this.port);
-
         this.socket.asyncListen(this);
         lazy.logger.info(`Listening on port ${this.port}`);
       }
@@ -105,8 +101,6 @@ export class TCPListener {
       this.socket.close();
       this.socket = null;
       lazy.logger.info(`Stopped listening on port ${this.port}`);
-
-      Services.io.removeBlockedLocalPort(this.port);
     }
   }
 

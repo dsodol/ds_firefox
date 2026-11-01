@@ -27,6 +27,7 @@ class CodeGeneratorARM : public CodeGeneratorShared {
 
   MoveOperand toMoveOperand(LAllocation a) const;
 
+  void bailoutIf(Assembler::Condition condition, LSnapshot* snapshot);
   void bailoutIfFalseBool(Register reg, LSnapshot* snapshot) {
     masm.test32(reg, Imm32(0xFF));
     bailoutIf(Assembler::Zero, snapshot);
@@ -81,6 +82,8 @@ class CodeGeneratorARM : public CodeGeneratorShared {
                                   Register flagTemp);
 
  public:
+  void emitBailoutOOL(LSnapshot* snapshot);
+
   void visitOutOfLineTableSwitch(OutOfLineTableSwitch* ool);
   void visitOutOfLineWasmTruncateCheck(OutOfLineWasmTruncateCheck* ool);
 };

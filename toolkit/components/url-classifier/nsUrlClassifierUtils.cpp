@@ -1099,8 +1099,7 @@ nsresult nsUrlClassifierUtils::ReadProvidersFromPrefs(ProviderDictType& aDict) {
       if (!isGoogle5Enabled && providerToUse.EqualsLiteral("google5")) {
         providerToUse.AssignLiteral("google4");
       }
-      aDict.InsertOrUpdate(tableName,
-                           std::make_unique<nsCString>(providerToUse));
+      aDict.InsertOrUpdate(tableName, MakeUnique<nsCString>(providerToUse));
     }
   }
 

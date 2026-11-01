@@ -68,7 +68,6 @@
 #include "mozilla/dom/NodeInfo.h"
 #include "mozilla/dom/ReferrerPolicyBinding.h"
 #include "mozilla/dom/ScriptSettings.h"
-#include "mozilla/dom/UnbindContext.h"
 #include "mozilla/dom/XULBroadcastManager.h"
 #include "mozilla/dom/XULCommandEvent.h"
 #include "mozilla/dom/XULElementBinding.h"
@@ -309,7 +308,7 @@ nsresult nsXULElement::Clone(mozilla::dom::NodeInfo* aNodeInfo,
 //----------------------------------------------------------------------
 
 EventListenerManager* nsXULElement::GetEventListenerManagerForAttr(
-    nsAtom* aAttrName) {
+    nsAtom* aAttrName, bool* aDefer) {
   // XXXbz sXBL/XBL2 issue: should we instead use GetComposedDoc()
   // here, override BindToTree for those classes and munge event
   // listeners there?
@@ -320,10 +319,11 @@ EventListenerManager* nsXULElement::GetEventListenerManagerForAttr(
   if ((!root || root == this) && (window = doc->GetInnerWindow())) {
     nsCOMPtr<EventTarget> piTarget = do_QueryInterface(window);
 
+    *aDefer = false;
     return piTarget->GetOrCreateListenerManager();
   }
 
-  return nsStyledElement::GetEventListenerManagerForAttr(aAttrName);
+  return nsStyledElement::GetEventListenerManagerForAttr(aAttrName, aDefer);
 }
 
 // returns true if the element is not a list
@@ -501,7 +501,7 @@ void nsXULElement::AddListenerForAttributeIfNeeded(nsAtom* aLocalName) {
   if (nsContentUtils::IsEventAttributeName(aLocalName, EventNameType_XUL)) {
     nsAutoString value;
     GetAttr(aLocalName, value);
-    SetEventHandler(aLocalName, value);
+    SetEventHandler(aLocalName, value, true);
   }
 }
 
@@ -529,15 +529,6 @@ static bool NeedTooltipSupport(const nsXULElement& aXULElement) {
 
   return aXULElement.GetBoolAttr(nsGkAtoms::tooltip) ||
          aXULElement.GetBoolAttr(nsGkAtoms::tooltiptext);
-}
-
-// Makes the next key event rebuild the handlers of aKeyset, if it is a keyset,
-// after one of its key elements was added, removed or changed.
-static void InvalidateKeysetHandlers(nsINode* aKeyset) {
-  Element* keyset = Element::FromNodeOrNull(aKeyset);
-  if (keyset && keyset->IsXULElement(nsGkAtoms::keyset)) {
-    XULKeySetGlobalKeyListener::InvalidateHandlers(keyset);
-  }
 }
 
 nsresult nsXULElement::BindToTree(BindContext& aContext, nsINode& aParent) {
@@ -574,8 +565,6 @@ nsresult nsXULElement::BindToTree(BindContext& aContext, nsINode& aParent) {
   if (NodeInfo()->Equals(nsGkAtoms::keyset, kNameSpaceID_XUL)) {
     // Create our XUL key listener and hook it up.
     XULKeySetGlobalKeyListener::AttachKeyHandler(this);
-  } else if (IsXULElement(nsGkAtoms::key)) {
-    InvalidateKeysetHandlers(GetParentNode());
   }
 
   RegUnRegAccessKey(true);
@@ -597,9 +586,6 @@ nsresult nsXULElement::BindToTree(BindContext& aContext, nsINode& aParent) {
 void nsXULElement::UnbindFromTree(UnbindContext& aContext) {
   if (NodeInfo()->Equals(nsGkAtoms::keyset, kNameSpaceID_XUL)) {
     XULKeySetGlobalKeyListener::DetachKeyHandler(this);
-  } else if (IsXULElement(nsGkAtoms::key) && aContext.IsUnbindRoot(this) &&
-             aContext.WasInComposedDoc()) {
-    InvalidateKeysetHandlers(aContext.GetOriginalSubtreeParent());
   }
 
   RegUnRegAccessKey(false);
@@ -742,14 +728,6 @@ void nsXULElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
       broadcastManager->AddListener(this);
     }
 
-    if (IsXULElement(nsGkAtoms::key) &&
-        (aName == nsGkAtoms::key || aName == nsGkAtoms::keycode ||
-         aName == nsGkAtoms::charcode || aName == nsGkAtoms::modifiers ||
-         aName == nsGkAtoms::reserved || aName == nsGkAtoms::event) &&
-        IsInComposedDoc()) {
-      InvalidateKeysetHandlers(GetParentNode());
-    }
-
     // XXX need to check if they're changing an event handler: if
     // so, then we need to unhook the old one.  Or something.
   }
@@ -783,8 +761,15 @@ bool nsXULElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
   if (aNamespaceID == kNameSpaceID_None && aAttribute == nsGkAtoms::tabindex) {
     return aResult.ParseIntValue(aValue);
   }
-  return nsStyledElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
-                                         aMaybeScriptedPrincipal, aResult);
+
+  // Parse into a nsAttrValue
+  if (!nsStyledElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
+                                       aMaybeScriptedPrincipal, aResult)) {
+    // Fall back to parsing as atom for short values
+    aResult.ParseStringOrAtom(aValue);
+  }
+
+  return true;
 }
 
 void nsXULElement::DestroyContent() {

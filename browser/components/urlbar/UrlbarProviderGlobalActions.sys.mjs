@@ -8,13 +8,8 @@
  */
 
 import { UrlbarProvider } from "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs";
-import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const lazy = XPCOMUtils.declareLazy({
-  UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
-  UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
-  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
-});
+const lazy = {};
 
 // Default icon shown for actions if no custom one is provided.
 const DEFAULT_ICON = "chrome://global/skin/icons/settings.svg";
@@ -32,6 +27,12 @@ const MAX_ACTIONS_PREF = "secondaryActions.maxActionsShown";
 // Prefs relating to the onboarding label shown to new users.
 const TIMES_TO_SHOW_PREF = "quickactions.timesToShowOnboardingLabel";
 const TIMES_SHOWN_PREF = "quickactions.timesShownOnboardingLabel";
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
+  UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
+  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
+});
 
 import { ActionsProviderQuickActions } from "moz-src:///browser/components/urlbar/ActionsProviderQuickActions.sys.mjs";
 import { ActionsProviderContextualSearch } from "moz-src:///browser/components/urlbar/ActionsProviderContextualSearch.sys.mjs";
@@ -76,15 +77,14 @@ export class UrlbarProviderGlobalActions extends UrlbarProvider {
    * @param {UrlbarQueryContext} queryContext
    * @param {(provider: UrlbarProvider, result: UrlbarResult) => void} addCallback
    *   Callback invoked by the provider to add a new result.
-   * @param {UrlbarParentController} controller
    */
-  async startQuery(queryContext, addCallback, controller) {
+  async startQuery(queryContext, addCallback) {
     let actionsResults = [];
 
     for (let provider of globalActionsProviders) {
-      if (provider.isActive(queryContext, controller)) {
+      if (provider.isActive(queryContext)) {
         actionsResults.push(
-          ...((await provider.queryActions(queryContext, controller)) || [])
+          ...((await provider.queryActions(queryContext)) || [])
         );
       }
     }
@@ -156,9 +156,7 @@ export class UrlbarProviderGlobalActions extends UrlbarProvider {
       );
     }
     for (let provider of globalActionsProviders) {
-      if ("onSearchSessionEnd" in provider) {
-        provider.onSearchSessionEnd(queryContext, controller, details);
-      }
+      provider.onSearchSessionEnd?.(queryContext, controller, details);
     }
   }
 

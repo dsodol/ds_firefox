@@ -17,8 +17,7 @@ document.dispatchEvent(
 function importReportDataHandler(event) {
   switch (event.detail.messageType) {
     case "ImportReportData": {
-      // There is no report when the page is opened without importing first.
-      const logins = event.detail.value ?? [];
+      const logins = event.detail.value;
       const report = {
         added: 0,
         modified: 0,

@@ -224,8 +224,6 @@ bitflags::bitflags! {
         ///
         /// [`Interpolation::Linear`]: crate::Interpolation::Linear
         const LINEAR_INTERPOLATION = 1 << 44;
-        /// Support for `debugPrintf`.
-        const DEBUG_PRINTF = 1 << 45;
     }
 }
 
@@ -259,7 +257,6 @@ impl Capabilities {
             | Self::TEXTURE_AND_SAMPLER_BINDING_ARRAY_NON_UNIFORM_INDEXING => {
                 Some(Ext::WgpuBindingArray)
             }
-            Self::DEBUG_PRINTF => Some(Ext::WgpuDebugPrintf),
             _ => None,
         }
     }

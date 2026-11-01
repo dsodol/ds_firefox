@@ -7,6 +7,7 @@
 #include "AccIterator.h"
 #include "ApplicationAccessible.h"
 #include "CachedTableAccessible.h"
+#include "CssAltContent.h"
 #include "DocAccessible-inl.h"
 #include "EmbeddedObjCollector.h"
 #include "EventTree.h"
@@ -59,7 +60,6 @@
 #include "nsAtom.h"
 #include "nsComputedDOMStyle.h"
 #include "nsContainerFrame.h"
-#include "nsCoreUtils.h"
 #include "nsDisplayList.h"
 #include "nsEventShell.h"
 #include "nsFocusManager.h"
@@ -147,12 +147,12 @@ ENameValueFlag LocalAccessible::Name(nsString& aName) const {
     return eNameFromTooltip;
   }
 
-  if (Maybe<nsString> cssAlt = nsCoreUtils::GetCssAltContent(mContent)) {
+  if (auto cssAlt = CssAltContent(mContent)) {
     // This covers two cases:
     // 1. The CSS content property replaces the content of an element with an
     // image plus alt text.
     // 2. Alt text is provided for a pseudo-element image.
-    aName.Append(*cssAlt);
+    cssAlt.AppendToString(aName);
     return eNameOK;
   }
 
@@ -1901,7 +1901,7 @@ double LocalAccessible::CurValue() const {
   return checkValue;
 }
 
-bool LocalAccessible::SetCurValue(double /*aValue*/) { return false; }
+bool LocalAccessible::SetCurValue(double aValue) { return false; }
 
 role LocalAccessible::NativeRole() const { return roles::NOTHING; }
 
@@ -2640,7 +2640,7 @@ void LocalAccessible::DoCommand(uint32_t aActionIndex) const {
       }));
 }
 
-void LocalAccessible::DispatchClickEvent(uint32_t /*aActionIndex*/) const {
+void LocalAccessible::DispatchClickEvent(uint32_t aActionIndex) const {
   if (IsDefunct()) return;
   MOZ_ASSERT(mContent);
 
@@ -3640,8 +3640,10 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
       fields->SetAttribute(CacheKey::Tooltip, DeleteEntry());
     }
 
-    if (Maybe<nsString> cssAlt = nsCoreUtils::GetCssAltContent(mContent)) {
-      fields->SetAttribute(CacheKey::CssAltContent, std::move(*cssAlt));
+    nsString cssAltContent;
+    if (auto cssAlt = CssAltContent(mContent)) {
+      cssAlt.AppendToString(cssAltContent);
+      fields->SetAttribute(CacheKey::CssAltContent, std::move(cssAltContent));
     } else if (IsUpdatePush(CacheDomain::NameAndDescription)) {
       fields->SetAttribute(CacheKey::CssAltContent, DeleteEntry());
     }
@@ -3902,7 +3904,7 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
     if (boundsChanged) {
       mBounds = Some(newBoundsRect);
 
-      auto ptr = std::make_unique<nsRect>(newBoundsRect);
+      UniquePtr<nsRect> ptr = MakeUnique<nsRect>(newBoundsRect);
       fields->SetAttribute(CacheKey::ParentRelativeBounds, std::move(ptr));
     }
 
@@ -4088,7 +4090,7 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
       // point caching it.
       transformed = !mtx.IsIdentity();
       if (transformed) {
-        auto ptr = std::make_unique<gfx::Matrix4x4>(mtx);
+        UniquePtr<gfx::Matrix4x4> ptr = MakeUnique<gfx::Matrix4x4>(mtx);
         fields->SetAttribute(CacheKey::TransformMatrix, std::move(ptr));
       }
     }

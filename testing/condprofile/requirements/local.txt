@@ -3,6 +3,3 @@
 ../mozbase/mozlog
 ../mozbase/mozprofile
 ../mozbase/mozdevice
-../mozbase/mozversion
-../mozbase/mozsystemmonitor
-../../python/mozterm

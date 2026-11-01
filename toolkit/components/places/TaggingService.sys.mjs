@@ -2,11 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const lazy = {};
-
-ChromeUtils.defineESModuleGetters(lazy, {
-  PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
-});
+import { PlacesUtils } from "resource://gre/modules/PlacesUtils.sys.mjs";
 
 const TOPIC_SHUTDOWN = "places-shutdown";
 
@@ -17,13 +13,12 @@ export function TaggingService() {
   this.handlePlacesEvents = this.handlePlacesEvents.bind(this);
 
   // Observe bookmarks changes.
-  PlacesObservers.addListener(
+  PlacesUtils.observers.addListener(
     [
       "bookmark-added",
       "bookmark-removed",
       "bookmark-moved",
       "bookmark-title-changed",
-      "purge-caches",
     ],
     this.handlePlacesEvents
   );
@@ -43,16 +38,16 @@ TaggingService.prototype = {
    * @returns {number} the id of the new tag container.
    */
   _createTag(aTagName, aSource) {
-    var newFolderId = lazy.PlacesUtils.bookmarks.createFolder(
-      lazy.PlacesUtils.tagsFolderId,
+    var newFolderId = PlacesUtils.bookmarks.createFolder(
+      PlacesUtils.tagsFolderId,
       aTagName,
-      lazy.PlacesUtils.bookmarks.DEFAULT_INDEX,
+      PlacesUtils.bookmarks.DEFAULT_INDEX,
       /* aGuid */ null,
       aSource
     );
     // Add the folder to our local cache, so we can avoid doing this in the
     // observer that would have to check itemType.
-    this._tagFolders.set(newFolderId, aTagName);
+    this._tagFolders[newFolderId] = aTagName;
 
     return newFolderId;
   },
@@ -74,7 +69,7 @@ TaggingService.prototype = {
     }
     // Using bookmarks service API for this would be a pain.
     // Until tags implementation becomes sane, go the query way.
-    let db = lazy.PlacesUtils.history.DBConnection;
+    let db = PlacesUtils.history.DBConnection;
     let stmt = db.createStatement(
       `SELECT id FROM moz_bookmarks
        WHERE parent = :tag_id
@@ -101,9 +96,9 @@ TaggingService.prototype = {
    *   The id for the bookmark folder for the tag, or -1 if not found.
    */
   _getItemIdForTag(aTagName) {
-    for (let [id, name] of this._tagFolders) {
-      if (aTagName.toLowerCase() == name.toLowerCase()) {
-        return id;
+    for (var i in this._tagFolders) {
+      if (aTagName.toLowerCase() == this._tagFolders[i].toLowerCase()) {
+        return parseInt(i);
       }
     }
     return -1;
@@ -129,16 +124,16 @@ TaggingService.prototype = {
       .map(idOrName => {
         /** @type {{id: number, name: string} & object} */
         let tag = {};
-        if (typeof idOrName == "number" && this._tagFolders.has(idOrName)) {
+        if (typeof idOrName == "number" && this._tagFolders[idOrName]) {
           // This is a tag folder id.
           tag.id = idOrName;
           // We can't know the name at this point, since a previous tag could
           // want to change it.
-          tag.__defineGetter__("name", () => this._tagFolders.get(tag.id));
+          tag.__defineGetter__("name", () => this._tagFolders[tag.id]);
         } else if (
           typeof idOrName == "string" &&
           !!idOrName.length &&
-          idOrName.length <= lazy.PlacesUtils.bookmarks.MAX_TAG_LENGTH
+          idOrName.length <= PlacesUtils.bookmarks.MAX_TAG_LENGTH
         ) {
           // This is a tag name.
           tag.name = trim ? idOrName.trim() : idOrName;
@@ -177,10 +172,10 @@ TaggingService.prototype = {
       if (itemId == -1) {
         // The provided URI is not yet tagged, add a tag for it.
         // Note that bookmarks under tag containers must have null titles.
-        lazy.PlacesUtils.bookmarks.insertBookmark(
+        PlacesUtils.bookmarks.insertBookmark(
           tag.id,
           aURI,
-          lazy.PlacesUtils.bookmarks.DEFAULT_INDEX,
+          PlacesUtils.bookmarks.DEFAULT_INDEX,
           /* aTitle */ null,
           /* aGuid */ null,
           aSource
@@ -188,9 +183,9 @@ TaggingService.prototype = {
       } else {
         // Otherwise, bump the tag's timestamp, so that we can increment the
         // sync change counter for all bookmarks with the URI.
-        lazy.PlacesUtils.bookmarks.setItemLastModified(
+        PlacesUtils.bookmarks.setItemLastModified(
           itemId,
-          lazy.PlacesUtils.toPRTime(Date.now()),
+          PlacesUtils.toPRTime(Date.now()),
           aSource
         );
       }
@@ -198,9 +193,9 @@ TaggingService.prototype = {
       // Try to preserve user's tag name casing.
       // Rename the tag container so the Places view matches the most-recent
       // user-typed value.
-      if (lazy.PlacesUtils.bookmarks.getItemTitle(tag.id) != tag.name) {
+      if (PlacesUtils.bookmarks.getItemTitle(tag.id) != tag.name) {
         // this._tagFolders is updated by the bookmarks observer.
-        lazy.PlacesUtils.bookmarks.setItemTitle(tag.id, tag.name, aSource);
+        PlacesUtils.bookmarks.setItemTitle(tag.id, tag.name, aSource);
       }
     }
   },
@@ -215,7 +210,7 @@ TaggingService.prototype = {
    */
   _removeTagIfEmpty(aTagId, aSource) {
     let count = 0;
-    let db = lazy.PlacesUtils.history.DBConnection;
+    let db = PlacesUtils.history.DBConnection;
     let stmt = db.createStatement(
       `SELECT count(*) AS count FROM moz_bookmarks
        WHERE parent = :tag_id`
@@ -230,7 +225,7 @@ TaggingService.prototype = {
     }
 
     if (count == 0) {
-      lazy.PlacesUtils.bookmarks.removeItem(aTagId, aSource);
+      PlacesUtils.bookmarks.removeItem(aTagId, aSource);
     }
   },
 
@@ -266,7 +261,7 @@ TaggingService.prototype = {
         let itemId = this._getItemIdForTaggedURI(aURI, tag.name);
         if (itemId != -1) {
           // There is a tagged item.
-          lazy.PlacesUtils.bookmarks.removeItem(itemId, aSource);
+          PlacesUtils.bookmarks.removeItem(itemId, aSource);
         }
       }
     }
@@ -279,7 +274,7 @@ TaggingService.prototype = {
     }
 
     let tags = [];
-    let db = lazy.PlacesUtils.history.DBConnection;
+    let db = PlacesUtils.history.DBConnection;
     let stmt = db.createStatement(
       `SELECT t.id AS folderId
        FROM moz_bookmarks b
@@ -289,11 +284,11 @@ TaggingService.prototype = {
        ORDER BY b.lastModified DESC, b.id DESC`
     );
     stmt.params.url = aURI.spec;
-    stmt.params.tags_root = lazy.PlacesUtils.tagsFolderId;
+    stmt.params.tags_root = PlacesUtils.tagsFolderId;
     try {
       while (stmt.executeStep()) {
         try {
-          tags.push(this._tagFolders.get(stmt.row.folderId));
+          tags.push(this._tagFolders[stmt.row.folderId]);
         } catch (ex) {}
       }
     } finally {
@@ -307,20 +302,19 @@ TaggingService.prototype = {
     return tags;
   },
 
-  /** @type {Map<number, string>|null} */
   __tagFolders: null,
   get _tagFolders() {
     if (!this.__tagFolders) {
-      this.__tagFolders = new Map();
+      this.__tagFolders = [];
 
-      let db = lazy.PlacesUtils.history.DBConnection;
+      let db = PlacesUtils.history.DBConnection;
       let stmt = db.createStatement(
         "SELECT id, title FROM moz_bookmarks WHERE parent = :tags_root "
       );
-      stmt.params.tags_root = lazy.PlacesUtils.tagsFolderId;
+      stmt.params.tags_root = PlacesUtils.tagsFolderId;
       try {
         while (stmt.executeStep()) {
-          this.__tagFolders.set(stmt.row.id, stmt.row.title);
+          this.__tagFolders[stmt.row.id] = stmt.row.title;
         }
       } finally {
         stmt.finalize();
@@ -333,13 +327,12 @@ TaggingService.prototype = {
   // nsIObserver
   observe: function TS_observe(aSubject, aTopic) {
     if (aTopic == TOPIC_SHUTDOWN) {
-      PlacesObservers.removeListener(
+      PlacesUtils.observers.removeListener(
         [
           "bookmark-added",
           "bookmark-removed",
           "bookmark-moved",
           "bookmark-title-changed",
-          "purge-caches",
         ],
         this.handlePlacesEvents
       );
@@ -365,7 +358,7 @@ TaggingService.prototype = {
 
     // Using bookmarks service API for this would be a pain.
     // Until tags implementation becomes sane, go the query way.
-    let db = lazy.PlacesUtils.history.DBConnection;
+    let db = PlacesUtils.history.DBConnection;
     let stmt = db.createStatement(
       `SELECT id, parent
        FROM moz_bookmarks
@@ -374,7 +367,7 @@ TaggingService.prototype = {
     stmt.params.page_url = url;
     try {
       while (stmt.executeStep() && !isBookmarked) {
-        if (this._tagFolders.has(stmt.row.parent)) {
+        if (this._tagFolders[stmt.row.parent]) {
           // This is a tag entry.
           itemIds.push(stmt.row.id);
         } else {
@@ -390,38 +383,30 @@ TaggingService.prototype = {
   },
 
   handlePlacesEvents(events) {
-    // To keep the tag folders cache updated, use __tagFolders rather than the
-    // _tagFolders getter, to avoid building the cache just to update it.
-    // Notifications are sent after changes are stored, so if the cache was not
-    // built yet there's nothing to update, it will be built from the database
-    // on first use.
     for (let event of events) {
       switch (event.type) {
         case "bookmark-added":
           if (
             !event.isTagging ||
-            event.itemType != lazy.PlacesUtils.bookmarks.TYPE_FOLDER
+            event.itemType != PlacesUtils.bookmarks.TYPE_FOLDER
           ) {
             continue;
           }
 
-          this.__tagFolders?.set(event.id, event.title);
+          this._tagFolders[event.id] = event.title;
           break;
         case "bookmark-removed":
           // Item is a tag folder.
           if (
-            event.parentId == lazy.PlacesUtils.tagsFolderId &&
-            this.__tagFolders?.delete(event.id)
+            event.parentId == PlacesUtils.tagsFolderId &&
+            this._tagFolders[event.id]
           ) {
-            break;
-          }
-
-          if (!event.url || !this._tagFolders.size) {
+            delete this._tagFolders[event.id];
             break;
           }
 
           Services.tm.dispatchToMainThread(() => {
-            if (!this._tagFolders.has(event.parentId)) {
+            if (event.url && !this._tagFolders[event.parentId]) {
               // Item is a bookmark that was removed from a non-tag folder.
               // If the only bookmark items now associated with the bookmark's URI are
               // contained in tag folders, the URI is no longer properly bookmarked, so
@@ -429,13 +414,10 @@ TaggingService.prototype = {
               let itemIds = this._getTaggedItemIdsIfUnbookmarkedURI(event.url);
               for (let i = 0; i < itemIds.length; i++) {
                 try {
-                  lazy.PlacesUtils.bookmarks.removeItem(
-                    itemIds[i],
-                    event.source
-                  );
+                  PlacesUtils.bookmarks.removeItem(itemIds[i], event.source);
                 } catch (ex) {}
               }
-            } else {
+            } else if (event.url && this._tagFolders[event.parentId]) {
               // Item is a tag entry.  If this was the last entry for this tag, remove it.
               this._removeTagIfEmpty(event.parentId, event.source);
             }
@@ -443,22 +425,17 @@ TaggingService.prototype = {
           break;
         case "bookmark-moved":
           if (
-            lazy.PlacesUtils.bookmarks.tagsGuid === event.oldParentGuid &&
-            lazy.PlacesUtils.bookmarks.tagsGuid !== event.parentGuid
+            this._tagFolders[event.id] &&
+            PlacesUtils.bookmarks.tagsGuid === event.oldParentGuid &&
+            PlacesUtils.bookmarks.tagsGuid !== event.parentGuid
           ) {
-            this.__tagFolders?.delete(event.id);
+            delete this._tagFolders[event.id];
           }
           break;
         case "bookmark-title-changed":
-          if (
-            event.parentGuid === lazy.PlacesUtils.bookmarks.tagsGuid &&
-            this.__tagFolders?.has(event.id)
-          ) {
-            this.__tagFolders.set(event.id, event.title);
+          if (this._tagFolders[event.id]) {
+            this._tagFolders[event.id] = event.title;
           }
-          break;
-        case "purge-caches":
-          this.__tagFolders = null;
           break;
       }
     }
@@ -511,7 +488,7 @@ class TagSearch {
     }
 
     if (searchString.length) {
-      let tags = await lazy.PlacesUtils.bookmarks.fetchTags();
+      let tags = await PlacesUtils.bookmarks.fetchTags();
       if (this._canceled) {
         return;
       }

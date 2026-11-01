@@ -1048,8 +1048,7 @@ class MOZ_STACK_CLASS StreamWriter : public CoreDumpWriter {
     }
 
     auto length = string.length();
-    auto stringData =
-        std::make_unique<std::string>(length * sizeof(char16_t), '\0');
+    auto stringData = MakeUnique<std::string>(length * sizeof(char16_t), '\0');
     if (!stringData) return false;
 
     auto buf = const_cast<char16_t*>(
@@ -1076,7 +1075,7 @@ class MOZ_STACK_CLASS StreamWriter : public CoreDumpWriter {
     }
 
     auto length = strlen(string);
-    auto stringData = std::make_unique<std::string>(string, length);
+    auto stringData = MakeUnique<std::string>(string, length);
     if (!stringData) return false;
 
     uint64_t ref = oneByteStringsAlreadySerialized.count();
@@ -1097,7 +1096,7 @@ class MOZ_STACK_CLASS StreamWriter : public CoreDumpWriter {
                "stack frame");
 
     auto id = frame.identifier();
-    auto protobufStackFrame = std::make_unique<protobuf::StackFrame>();
+    auto protobufStackFrame = MakeUnique<protobuf::StackFrame>();
     if (!protobufStackFrame) return nullptr;
 
     if (framesAlreadySerialized.has(id)) {
@@ -1105,7 +1104,7 @@ class MOZ_STACK_CLASS StreamWriter : public CoreDumpWriter {
       return protobufStackFrame.release();
     }
 
-    auto data = std::make_unique<protobuf::StackFrame_Data>();
+    auto data = MakeUnique<protobuf::StackFrame_Data>();
     if (!data) return nullptr;
 
     data->set_id(id);

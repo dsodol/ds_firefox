@@ -1,8 +1,13 @@
-use ringbuf::{traits::*, HeapRb};
-use std::{io::Read, thread, time::Duration};
+extern crate ringbuf;
+
+use std::io::Read;
+use std::thread;
+use std::time::Duration;
+
+use ringbuf::RingBuffer;
 
 fn main() {
-    let buf = HeapRb::<u8>::new(10);
+    let buf = RingBuffer::<u8>::new(10);
     let (mut prod, mut cons) = buf.split();
 
     let smsg = "The quick brown fox jumps over the lazy dog";
@@ -17,10 +22,11 @@ fn main() {
                 println!("-> buffer is full, waiting");
                 thread::sleep(Duration::from_millis(1));
             } else {
-                match prod.read_from(&mut bytes, None).transpose().unwrap() {
-                    None | Some(0) => break,
-                    Some(n) => println!("-> {} bytes sent", n),
+                let n = prod.read_from(&mut bytes, None).unwrap();
+                if n == 0 {
+                    break;
                 }
+                println!("-> {} bytes sent", n);
             }
         }
 
@@ -40,7 +46,7 @@ fn main() {
                     thread::sleep(Duration::from_millis(1));
                 }
             } else {
-                let n = cons.write_into(&mut bytes, None).unwrap().unwrap();
+                let n = cons.write_into(&mut bytes, None).unwrap();
                 println!("<- {} bytes received", n);
             }
         }

@@ -199,7 +199,7 @@ export class EngineURL {
    * @param {string} [options.isNewUntil]
    *   Indicates the date until which the URL is considered new
    *   (format: YYYY-MM-DD).
-   * @param {Map<string, {code: ?string, telemetryId: ?string}>} [options.partnerCodeMap]
+   * @param {Map<string, {partnerCode: ?string, telemetryId: ?string}>} [options.partnerCodeMap]
    *   The partner code to use, if any.
    * @param {boolean} [options.excludePartnerCodeFromTelemetry]
    *   Whether the engine's partner code should be excluded from telemetry when
@@ -414,7 +414,7 @@ export class EngineURL {
     return {
       uri: templateURI.URI,
       postData,
-      partnerCode: telemetryData?.code,
+      partnerCode: telemetryData?.partnerCode,
       telemetryId: telemetryData?.telemetryId,
     };
   }
@@ -495,7 +495,7 @@ export class EngineURL {
 
       // {partnerCode} is also frequent.
       if (name == "partnerCode") {
-        return this.#getPartnerCodeFromSap(sapSource)?.code;
+        return this.#getPartnerCodeFromSap(sapSource).partnerCode;
       }
 
       // {inputEncoding} is probably the next most common param.
@@ -580,25 +580,16 @@ export class EngineURL {
    * Returns the partner code and telemetry id to use for the SAP.
    *
    * @param {string} sapSource
-   * @returns {{code: ?string, telemetryId: ?string}}
+   * @returns {{partnerCode: ?string, telemetryId: ?string}}
    */
   #getPartnerCodeFromSap(sapSource) {
     if (this.#partnerCodeMap.has(sapSource)) {
       return this.#partnerCodeMap.get(sapSource);
     }
-    if (sapSource in lazy.SearchUtils.SAP_SOURCE_TO_SEARCH_CONFIG_MAP) {
-      let partnerDetails = this.#partnerCodeMap.get(
-        lazy.SearchUtils.SAP_SOURCE_TO_SEARCH_CONFIG_MAP[sapSource]
-      );
-      if (partnerDetails) {
-        return partnerDetails;
-      }
-    }
-
     return this.#partnerCodeMap.get("default");
   }
 
-  /** @type {Map<string, {code: ?string, telemetryId: ?string}>} */
+  /** @type {Map<string, {partnerCode: ?string, telemetryId: ?string}>} */
   #partnerCodeMap;
 }
 
@@ -658,6 +649,12 @@ export class SearchEngine {
    * @type {string}
    */
   #id;
+  /**
+   * The URL to report the search to.
+   *
+   * @type {?string}
+   */
+  clickUrl = null;
 
   /** @type {string} */
   isNewUntil;
@@ -1478,7 +1475,6 @@ export class SearchEngine {
    * - All query parameters of the URI have a matching name and value in the engine.
    * - An exception to the equality check is the engine's termsParameterName
    *   value, which contains a placeholder, i.e. {searchTerms}.
-   * - Parameters with a {partnerCode} value only need to be present.
    * - If an engine has query parameters with "null" values, they will be ignored.
    *
    * @param {nsIURI} uri
@@ -1522,14 +1518,6 @@ export class SearchEngine {
       engineParams = url1.searchParams;
     }
 
-    // The partner code can vary depending on the SAP source, so only check
-    // for the presence of its parameter.
-    let partnerCodeParamNames = new Set(
-      [...engineParams]
-        .filter(([, value]) => value == "{partnerCode}")
-        .map(([name]) => name)
-    );
-
     let uriParams = url2.searchParams;
     if (
       new Set([...uriParams.keys()]).size !=
@@ -1543,7 +1531,7 @@ export class SearchEngine {
     for (let [name, value] of uriParams.entries()) {
       // Don't check the name matching the search
       // query because its value will differ.
-      if (name == termsParameterName || partnerCodeParamNames.has(name)) {
+      if (name == termsParameterName) {
         continue;
       }
       // All params of an input must have a matching

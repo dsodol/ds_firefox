@@ -20,7 +20,3 @@ if CONFIG["OS_ARCH"] == "WINNT":
 include("/ipc/chromium/chromium-config.mozbuild")
 
 FINAL_LIBRARY = "xul-gtest"
-
-SOURCE_HEADERS += [
-    "IPCTestUtils.h",
-]

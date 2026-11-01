@@ -37,10 +37,6 @@ class CSSMathInvert final : public CSSMathValue {
                 RefPtr<CSSNumericValue> aValue);
 
   static RefPtr<CSSMathInvert> Create(nsCOMPtr<nsISupports> aParent,
-                                      UniquePtr<StyleNumericType> aNumericType,
-                                      RefPtr<CSSNumericValue> aValue);
-
-  static RefPtr<CSSMathInvert> Create(nsCOMPtr<nsISupports> aParent,
                                       const StyleMathInvert& aMathInvert);
 
   NS_DECL_ISUPPORTS_INHERITED

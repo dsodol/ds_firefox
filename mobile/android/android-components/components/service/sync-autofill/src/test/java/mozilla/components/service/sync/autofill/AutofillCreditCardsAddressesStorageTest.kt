@@ -9,6 +9,7 @@ import kotlin.test.assertNotNull
 import kotlinx.coroutines.test.runTest
 import mozilla.appservices.RustComponentsInitializer
 import mozilla.components.concept.storage.CreditCard
+import mozilla.components.concept.storage.CreditCardNumber
 import mozilla.components.concept.storage.NewCreditCardFields
 import mozilla.components.concept.storage.UpdatableAddressFields
 import mozilla.components.concept.storage.UpdatableCreditCardFields
@@ -45,10 +46,12 @@ class AutofillCreditCardsAddressesStorageTest {
 
     @Test
     fun `add credit card`() = runTest {
+        val plaintextNumber = CreditCardNumber.Plaintext("4111111111111111")
         val creditCardFields =
             NewCreditCardFields(
                 billingName = "Jon Doe",
-                cardNumber = "4111111111111111",
+                plaintextCardNumber = plaintextNumber,
+                cardNumberLast4 = "1111",
                 expiryMonth = 12,
                 expiryYear = 2028,
                 cardType = "amex",
@@ -58,8 +61,11 @@ class AutofillCreditCardsAddressesStorageTest {
         assertNotNull(creditCard)
 
         assertEquals(creditCardFields.billingName, creditCard.billingName)
-        assertEquals(creditCardFields.cardNumber, creditCard.cardNumber)
-        assertEquals("1111", creditCard.cardNumberLast4)
+        assertEquals(
+            plaintextNumber,
+            storage.crypto.decrypt(storage.crypto.getOrGenerateKey(), creditCard.encryptedCardNumber),
+        )
+        assertEquals(creditCardFields.cardNumberLast4, creditCard.cardNumberLast4)
         assertEquals(creditCardFields.expiryMonth, creditCard.expiryMonth)
         assertEquals(creditCardFields.expiryYear, creditCard.expiryYear)
         assertEquals(creditCardFields.cardType, creditCard.cardType)
@@ -69,7 +75,7 @@ class AutofillCreditCardsAddressesStorageTest {
                 CreditCard.ELLIPSIS +
                 CreditCard.ELLIPSIS +
                 CreditCard.ELLIPSIS +
-                "1111" +
+                creditCardFields.cardNumberLast4 +
                 CreditCard.ELLIPSES_END,
             creditCard.obfuscatedCardNumber,
         )
@@ -77,10 +83,12 @@ class AutofillCreditCardsAddressesStorageTest {
 
     @Test
     fun `get credit card`() = runTest {
+        val plaintextNumber = CreditCardNumber.Plaintext("5500000000000004")
         val creditCardFields =
             NewCreditCardFields(
                 billingName = "Jon Doe",
-                cardNumber = "5500000000000004",
+                plaintextCardNumber = plaintextNumber,
+                cardNumberLast4 = "0004",
                 expiryMonth = 12,
                 expiryYear = 2028,
                 cardType = "amex",
@@ -97,26 +105,32 @@ class AutofillCreditCardsAddressesStorageTest {
 
     @Test
     fun `get all credit cards`() = runTest {
+        val plaintextNumber1 = CreditCardNumber.Plaintext("5500000000000004")
         val creditCardFields1 =
             NewCreditCardFields(
                 billingName = "Jane Fields",
-                cardNumber = "5500000000000004",
+                plaintextCardNumber = plaintextNumber1,
+                cardNumberLast4 = "0004",
                 expiryMonth = 12,
                 expiryYear = 2028,
                 cardType = "mastercard",
             )
+        val plaintextNumber2 = CreditCardNumber.Plaintext("4111111111111111")
         val creditCardFields2 =
             NewCreditCardFields(
                 billingName = "Banana Apple",
-                cardNumber = "4111111111111111",
+                plaintextCardNumber = plaintextNumber2,
+                cardNumberLast4 = "1111",
                 expiryMonth = 1,
                 expiryYear = 2030,
                 cardType = "visa",
             )
+        val plaintextNumber3 = CreditCardNumber.Plaintext("340000000000009")
         val creditCardFields3 =
             NewCreditCardFields(
                 billingName = "Pineapple Orange",
-                cardNumber = "340000000000009",
+                plaintextCardNumber = plaintextNumber3,
+                cardNumberLast4 = "0009",
                 expiryMonth = 2,
                 expiryYear = 2028,
                 cardType = "amex",
@@ -126,6 +140,7 @@ class AutofillCreditCardsAddressesStorageTest {
         val creditCard3 = storage.addCreditCard(creditCardFields3)
 
         val creditCards = storage.getAllCreditCards()
+        val key = storage.crypto.getOrGenerateKey()
 
         val savedCreditCard1 = creditCards.find { it == creditCard1 }
         assertNotNull(savedCreditCard1)
@@ -137,9 +152,9 @@ class AutofillCreditCardsAddressesStorageTest {
         val count = storage.countAllCreditCards()
         assertEquals(3, count)
 
-        assertEquals("5500000000000004", savedCreditCard1.cardNumber)
-        assertEquals("4111111111111111", savedCreditCard2.cardNumber)
-        assertEquals("340000000000009", savedCreditCard3.cardNumber)
+        assertEquals(plaintextNumber1, storage.crypto.decrypt(key, savedCreditCard1.encryptedCardNumber))
+        assertEquals(plaintextNumber2, storage.crypto.decrypt(key, savedCreditCard2.encryptedCardNumber))
+        assertEquals(plaintextNumber3, storage.crypto.decrypt(key, savedCreditCard3.encryptedCardNumber))
     }
 
     @Test
@@ -147,7 +162,8 @@ class AutofillCreditCardsAddressesStorageTest {
         val creditCardFields =
             NewCreditCardFields(
                 billingName = "Jon Doe",
-                cardNumber = "4111111111111111",
+                plaintextCardNumber = CreditCardNumber.Plaintext("4111111111111111"),
+                cardNumberLast4 = "1111",
                 expiryMonth = 12,
                 expiryYear = 2028,
                 cardType = "visa",
@@ -159,7 +175,8 @@ class AutofillCreditCardsAddressesStorageTest {
         var newCreditCardFields =
             UpdatableCreditCardFields(
                 billingName = "Jane Fields",
-                cardNumber = "30000000000004",
+                cardNumber = CreditCardNumber.Plaintext("30000000000004"),
+                cardNumberLast4 = "0004",
                 expiryMonth = 12,
                 expiryYear = 2038,
                 cardType = "diners",
@@ -169,9 +186,11 @@ class AutofillCreditCardsAddressesStorageTest {
 
         creditCard = storage.getCreditCard(creditCard.guid)!!
 
+        val key = storage.crypto.getOrGenerateKey()
+
         assertEquals(newCreditCardFields.billingName, creditCard.billingName)
-        assertEquals(newCreditCardFields.cardNumber, creditCard.cardNumber)
-        assertEquals("0004", creditCard.cardNumberLast4)
+        assertEquals(newCreditCardFields.cardNumber, storage.crypto.decrypt(key, creditCard.encryptedCardNumber))
+        assertEquals(newCreditCardFields.cardNumberLast4, creditCard.cardNumberLast4)
         assertEquals(newCreditCardFields.expiryMonth, creditCard.expiryMonth)
         assertEquals(newCreditCardFields.expiryYear, creditCard.expiryYear)
         assertEquals(newCreditCardFields.cardType, creditCard.cardType)
@@ -180,7 +199,8 @@ class AutofillCreditCardsAddressesStorageTest {
         newCreditCardFields =
             UpdatableCreditCardFields(
                 billingName = "Bob Jones",
-                cardNumber = creditCard.cardNumber,
+                cardNumber = creditCard.encryptedCardNumber,
+                cardNumberLast4 = "0004",
                 expiryMonth = 12,
                 expiryYear = 2038,
                 cardType = "diners",
@@ -191,8 +211,8 @@ class AutofillCreditCardsAddressesStorageTest {
         creditCard = storage.getCreditCard(creditCard.guid)!!
 
         assertEquals(newCreditCardFields.billingName, creditCard.billingName)
-        assertEquals(newCreditCardFields.cardNumber, creditCard.cardNumber)
-        assertEquals("0004", creditCard.cardNumberLast4)
+        assertEquals(newCreditCardFields.cardNumber, creditCard.encryptedCardNumber)
+        assertEquals(newCreditCardFields.cardNumberLast4, creditCard.cardNumberLast4)
         assertEquals(newCreditCardFields.expiryMonth, creditCard.expiryMonth)
         assertEquals(newCreditCardFields.expiryYear, creditCard.expiryYear)
         assertEquals(newCreditCardFields.cardType, creditCard.cardType)
@@ -203,7 +223,8 @@ class AutofillCreditCardsAddressesStorageTest {
         val creditCardFields =
             NewCreditCardFields(
                 billingName = "Jon Doe",
-                cardNumber = "30000000000004",
+                plaintextCardNumber = CreditCardNumber.Plaintext("30000000000004"),
+                cardNumberLast4 = "0004",
                 expiryMonth = 12,
                 expiryYear = 2028,
                 cardType = "diners",

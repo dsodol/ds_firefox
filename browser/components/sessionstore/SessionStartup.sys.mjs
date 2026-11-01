@@ -57,33 +57,27 @@ var gOnceInitializedDeferred = Promise.withResolvers();
 
 /* :::::::: The Service ::::::::::::::: */
 
-class _SessionStartup {
-  QueryInterface = ChromeUtils.generateQI([
-    "nsIObserver",
-    "nsISupportsWeakReference",
-  ]);
-
-  NO_SESSION = TYPE_NO_SESSION;
-  RECOVER_SESSION = TYPE_RECOVER_SESSION;
-  RESUME_SESSION = TYPE_RESUME_SESSION;
-  DEFER_SESSION = TYPE_DEFER_SESSION;
+export var SessionStartup = {
+  NO_SESSION: TYPE_NO_SESSION,
+  RECOVER_SESSION: TYPE_RECOVER_SESSION,
+  RESUME_SESSION: TYPE_RESUME_SESSION,
+  DEFER_SESSION: TYPE_DEFER_SESSION,
 
   // The state to restore at startup.
-  #initialState = null;
-  #sessionType = null;
+  _initialState: null,
+  _sessionType: null,
+  _initialized: false,
 
   // Stores whether the previous session crashed.
-  #previousSessionCrashed = null;
+  _previousSessionCrashed: null,
 
-  #resumeSessionEnabled = null;
+  _resumeSessionEnabled: null,
 
   // The values of browser.sessionstore.resuming_after_os_restart and
   // browser.sessionstore.resume_session_once as they were found at startup,
   // before init() and SessionStore clear them.
-  #resumingAfterOsRestart = false;
-  #resumeSessionOnce = false;
-
-  #didRestore = false;
+  _resumingAfterOsRestart: false,
+  _resumeSessionOnce: false,
 
   /* ........ Global Event Handlers .............. */
 
@@ -91,7 +85,6 @@ class _SessionStartup {
    * Initialize the component
    */
   init() {
-    Services.prefs.lockPref("browser.sessionstore.encryption.available");
     Services.obs.notifyObservers(null, "sessionstore-init-started");
 
     if (!AppConstants.DEBUG) {
@@ -100,17 +93,18 @@ class _SessionStartup {
 
     // do not need to initialize anything in auto-started private browsing sessions
     if (lazy.PrivateBrowsingUtils.permanentPrivateBrowsing) {
+      this._initialized = true;
       gOnceInitializedDeferred.resolve();
       return;
     }
 
-    this.#resumingAfterOsRestart = Services.prefs.getBoolPref(
+    this._resumingAfterOsRestart = Services.prefs.getBoolPref(
       "browser.sessionstore.resuming_after_os_restart"
     );
-    this.#resumeSessionOnce = Services.prefs.getBoolPref(
+    this._resumeSessionOnce = Services.prefs.getBoolPref(
       "browser.sessionstore.resume_session_once"
     );
-    if (this.#resumingAfterOsRestart) {
+    if (this._resumingAfterOsRestart) {
       lazy.sessionStoreLogger.debug("resuming_after_os_restart");
       if (!Services.appinfo.restartedByOS) {
         // We had set resume_session_once in order to resume after an OS restart,
@@ -133,24 +127,24 @@ class _SessionStartup {
         lazy.sessionStoreLogger.debug(
           `Completed SessionFile.read() with result.origin: ${result.origin}`
         );
-        return this.#onSessionFileRead(result);
+        return this._onSessionFileRead(result);
       },
       err => {
         // SessionFile.read catches most expected failures,
         // so a promise rejection here should be logged as an error
-        lazy.sessionStoreLogger.error("Failure from #onSessionFileRead", err);
+        lazy.sessionStoreLogger.error("Failure from _onSessionFileRead", err);
       }
     );
-  }
+  },
 
   // Wrap a string as a nsISupports.
-  #createSupportsString(data) {
+  _createSupportsString(data) {
     let string = Cc["@mozilla.org/supports-string;1"].createInstance(
       Ci.nsISupportsString
     );
     string.data = data;
     return string;
-  }
+  },
 
   /**
    * Record what we found on disk to restore from, and whether the user wanted
@@ -163,7 +157,7 @@ class _SessionStartup {
    * @param useOldExtension Whether |origin| used the legacy file format.
    * @param fileStates What we saw of each candidate file, see SessionFile.read.
    */
-  #recordSessionAvailability({ origin, useOldExtension, fileStates }) {
+  _recordSessionAvailability({ origin, useOldExtension, fileStates }) {
     let format = "none";
     if (origin != "empty") {
       format = useOldExtension ? "js" : "jsonlz4";
@@ -179,16 +173,16 @@ class _SessionStartup {
       startup_page_is_resume:
         Services.prefs.getIntPref("browser.startup.page") ==
         BROWSER_STARTUP_RESUME_SESSION,
-      resume_session_once: this.#resumeSessionOnce,
+      resume_session_once: this._resumeSessionOnce,
       resume_from_crash: Services.prefs.getBoolPref(
         "browser.sessionstore.resume_from_crash"
       ),
       restarted_by_os: Services.appinfo.restartedByOS,
-      resuming_after_os_restart: this.#resumingAfterOsRestart,
+      resuming_after_os_restart: this._resumingAfterOsRestart,
     };
     Glean.sessionRestore.startupSessionAvailability.record(availability);
     lazy.sessionStoreLogger.debug("Session availability", availability);
-  }
+  },
 
   /**
    * Complete initialization once the Session File has been read.
@@ -196,7 +190,7 @@ class _SessionStartup {
    * @param source The Session State string read from disk.
    * @param parsed The object obtained by parsing |source| as JSON.
    */
-  #onSessionFileRead({
+  _onSessionFileRead({
     source,
     parsed,
     noFilesFound,
@@ -204,7 +198,8 @@ class _SessionStartup {
     useOldExtension,
     fileStates,
   }) {
-    this.#recordSessionAvailability({ origin, useOldExtension, fileStates });
+    this._initialized = true;
+    this._recordSessionAvailability({ origin, useOldExtension, fileStates });
     const crashReasons = {
       FINAL_STATE_WRITING_INCOMPLETE: "final-state-write-incomplete",
       SESSION_STATE_FLAG_MISSING:
@@ -212,7 +207,7 @@ class _SessionStartup {
     };
 
     // Let observers modify the state before it is used
-    let supportsStateString = this.#createSupportsString(source);
+    let supportsStateString = this._createSupportsString(source);
     Services.obs.notifyObservers(
       supportsStateString,
       "sessionstore-state-read"
@@ -225,7 +220,7 @@ class _SessionStartup {
         "After sessionstore-state-read, session has been modified"
       );
       try {
-        this.#initialState = JSON.parse(stateString);
+        this._initialState = JSON.parse(stateString);
       } catch (ex) {
         // That's not very good, an add-on has rewritten the initial
         // state to something that won't parse.
@@ -236,19 +231,19 @@ class _SessionStartup {
       }
     } else {
       // No need to reparse
-      this.#initialState = parsed;
+      this._initialState = parsed;
     }
 
-    if (this.#initialState == null) {
+    if (this._initialState == null) {
       // No valid session found.
-      this.#sessionType = this.NO_SESSION;
+      this._sessionType = this.NO_SESSION;
       lazy.sessionStoreLogger.debug("No valid session found");
       Services.obs.notifyObservers(null, "sessionstore-state-finalized");
       gOnceInitializedDeferred.resolve();
       return;
     }
 
-    let initialState = this.#initialState;
+    let initialState = this._initialState;
     Services.tm.idleDispatchToMainThread(() => {
       let pinnedTabCount = initialState.windows.reduce((winAcc, win) => {
         return (
@@ -258,8 +253,7 @@ class _SessionStartup {
           }, 0)
         );
       }, 0);
-      // Session files written by Firefox 132 and earlier have no savedGroups.
-      let savedGroupsCount = initialState.savedGroups?.length ?? 0;
+      let savedGroupsCount = initialState.savedGroups.length;
       lazy.sessionStoreLogger.debug(
         `initialState contains ${pinnedTabCount} pinned tabs and ${savedGroupsCount} saved groups`
       );
@@ -272,11 +266,11 @@ class _SessionStartup {
       `isAutomaticRestoreEnabled: ${isAutomaticRestoreEnabled}`
     );
     // If this is a normal restore then throw away any previous session.
-    if (!isAutomaticRestoreEnabled && this.#initialState) {
+    if (!isAutomaticRestoreEnabled && this._initialState) {
       lazy.sessionStoreLogger.debug(
         "Discarding previous session as we have initialState"
       );
-      delete this.#initialState.lastSessionState;
+      delete this._initialState.lastSessionState;
     }
 
     let previousSessionCrashedReason = "N/A";
@@ -284,7 +278,7 @@ class _SessionStartup {
       if (checkpoints) {
         // If the previous session finished writing the final state, we'll
         // assume there was no crash.
-        this.#previousSessionCrashed =
+        this._previousSessionCrashed =
           !checkpoints["sessionstore-final-state-write-complete"];
         if (!checkpoints["sessionstore-final-state-write-complete"]) {
           previousSessionCrashedReason =
@@ -298,7 +292,7 @@ class _SessionStartup {
 
         // There was no checkpoints file and no sessionstore.js or its backups,
         // so we will assume that this was a fresh profile.
-        this.#previousSessionCrashed = false;
+        this._previousSessionCrashed = false;
       } else {
         // If this is the first run after an update, sessionstore.js should
         // still contain the session.state flag to indicate if the session
@@ -310,14 +304,14 @@ class _SessionStartup {
         // for crash detection - If the last write of sessionstore.js had it
         // set to "running", we crashed.
         let stateFlagPresent =
-          this.#initialState.session && this.#initialState.session.state;
+          this._initialState.session && this._initialState.session.state;
 
-        this.#previousSessionCrashed =
+        this._previousSessionCrashed =
           !stateFlagPresent ||
-          this.#initialState.session.state == STATE_RUNNING_STR;
+          this._initialState.session.state == STATE_RUNNING_STR;
         if (
           !stateFlagPresent ||
-          this.#initialState.session.state == STATE_RUNNING_STR
+          this._initialState.session.state == STATE_RUNNING_STR
         ) {
           previousSessionCrashedReason =
             crashReasons.SESSION_STATE_FLAG_MISSING;
@@ -328,21 +322,21 @@ class _SessionStartup {
       // being-killed-by-OS-shutdown-logic, shutdown freezing after
       // session restore was written, etc.
       Glean.sessionRestore.shutdownOk[
-        this.#previousSessionCrashed ? "false" : "true"
+        this._previousSessionCrashed ? "false" : "true"
       ].add();
       Glean.sessionRestore.shutdownSuccessSessionStartup.record({
-        shutdown_ok: this.#previousSessionCrashed.toString(),
+        shutdown_ok: this._previousSessionCrashed.toString(),
         shutdown_reason: previousSessionCrashedReason,
       });
       lazy.sessionStoreLogger.debug(
-        `Previous shutdown ok? ${this.#previousSessionCrashed}, reason: ${previousSessionCrashedReason}`
+        `Previous shutdown ok? ${this._previousSessionCrashed}, reason: ${previousSessionCrashedReason}`
       );
 
       Services.obs.addObserver(this, "sessionstore-windows-restored", true);
 
       if (this.sessionType == this.NO_SESSION) {
         lazy.sessionStoreLogger.debug("Will restore no session");
-        this.#initialState = null; // Reset the state.
+        this._initialState = null; // Reset the state.
       } else {
         Services.obs.addObserver(this, "browser:purge-session-history", true);
       }
@@ -352,7 +346,7 @@ class _SessionStartup {
 
       gOnceInitializedDeferred.resolve();
     });
-  }
+  },
 
   /**
    * Handle notifications
@@ -362,30 +356,30 @@ class _SessionStartup {
       case "sessionstore-windows-restored":
         Services.obs.removeObserver(this, "sessionstore-windows-restored");
         lazy.sessionStoreLogger.debug(`sessionstore-windows-restored`);
-        // Free #initialState after nsSessionStore is done with it.
-        this.#initialState = null;
-        this.#didRestore = true;
+        // Free _initialState after nsSessionStore is done with it.
+        this._initialState = null;
+        this._didRestore = true;
         break;
       case "browser:purge-session-history":
         Services.obs.removeObserver(this, "browser:purge-session-history");
         // Reset all state on sanitization.
-        this.#sessionType = this.NO_SESSION;
+        this._sessionType = this.NO_SESSION;
         break;
     }
-  }
+  },
 
   /* ........ Public API ................*/
 
   get onceInitialized() {
     return gOnceInitializedDeferred.promise;
-  }
+  },
 
   /**
    * Get the session state as a jsval
    */
   get state() {
-    return this.#initialState;
-  }
+    return this._initialState;
+  },
 
   /**
    * Determines whether automatic session restoration is enabled for this
@@ -396,8 +390,8 @@ class _SessionStartup {
    * @returns bool
    */
   isAutomaticRestoreEnabled() {
-    if (this.#resumeSessionEnabled === null) {
-      this.#resumeSessionEnabled =
+    if (this._resumeSessionEnabled === null) {
+      this._resumeSessionEnabled =
         !lazy.PrivateBrowsingUtils.permanentPrivateBrowsing &&
         (Services.prefs.getBoolPref(
           "browser.sessionstore.resume_session_once"
@@ -406,8 +400,8 @@ class _SessionStartup {
             BROWSER_STARTUP_RESUME_SESSION);
     }
 
-    return this.#resumeSessionEnabled;
-  }
+    return this._resumeSessionEnabled;
+  },
 
   /**
    * Determines whether there is a pending session restore.
@@ -419,7 +413,7 @@ class _SessionStartup {
       this.sessionType == this.RECOVER_SESSION ||
       this.sessionType == this.RESUME_SESSION
     );
-  }
+  },
 
   /**
    * Determines whether there is a pending session restore and if that will refer
@@ -429,7 +423,7 @@ class _SessionStartup {
    */
   willRestoreAsCrashed() {
     return this.sessionType == this.RECOVER_SESSION;
-  }
+  },
 
   /**
    * Returns a boolean or a promise that resolves to a boolean, indicating
@@ -445,11 +439,11 @@ class _SessionStartup {
     // it when recovering from a crash, which we'll only know after reading the
     // session file, but waiting for that would delay loading the homepage in
     // the non-crash case.
-    if (!this.#initialState && !this.isAutomaticRestoreEnabled()) {
+    if (!this._initialState && !this.isAutomaticRestoreEnabled()) {
       return false;
     }
     // If we've already restored the session, we won't override again.
-    if (this.#didRestore) {
+    if (this._didRestore) {
       return false;
     }
 
@@ -459,51 +453,54 @@ class _SessionStartup {
         // will override the default homepage by restoring a session.
         resolve(
           this.willRestore() &&
-            this.#initialState &&
-            this.#initialState.windows &&
+            this._initialState &&
+            this._initialState.windows &&
             (!this.willRestoreAsCrashed()
-              ? this.#initialState.windows.filter(w => !w._maybeDontRestoreTabs)
-              : this.#initialState.windows
+              ? this._initialState.windows.filter(w => !w._maybeDontRestoreTabs)
+              : this._initialState.windows
             ).some(w => w.tabs.some(t => !t.pinned))
         );
       });
     });
-  }
+  },
 
   /**
    * Get the type of pending session store, if any.
    */
   get sessionType() {
-    if (this.#sessionType === null) {
+    if (this._sessionType === null) {
       let resumeFromCrash = Services.prefs.getBoolPref(
         "browser.sessionstore.resume_from_crash"
       );
       // Set the startup type.
       if (this.isAutomaticRestoreEnabled()) {
-        this.#sessionType = this.RESUME_SESSION;
-      } else if (this.#previousSessionCrashed && resumeFromCrash) {
-        this.#sessionType = this.RECOVER_SESSION;
-      } else if (this.#initialState) {
-        this.#sessionType = this.DEFER_SESSION;
+        this._sessionType = this.RESUME_SESSION;
+      } else if (this._previousSessionCrashed && resumeFromCrash) {
+        this._sessionType = this.RECOVER_SESSION;
+      } else if (this._initialState) {
+        this._sessionType = this.DEFER_SESSION;
       } else {
-        this.#sessionType = this.NO_SESSION;
+        this._sessionType = this.NO_SESSION;
       }
     }
 
-    return this.#sessionType;
-  }
+    return this._sessionType;
+  },
 
   /**
    * Get whether the previous session crashed.
    */
   get previousSessionCrashed() {
-    return this.#previousSessionCrashed;
-  }
+    return this._previousSessionCrashed;
+  },
 
   resetForTest() {
-    this.#resumeSessionEnabled = null;
-    this.#sessionType = null;
-  }
-}
+    this._resumeSessionEnabled = null;
+    this._sessionType = null;
+  },
 
-export const SessionStartup = new _SessionStartup();
+  QueryInterface: ChromeUtils.generateQI([
+    "nsIObserver",
+    "nsISupportsWeakReference",
+  ]),
+};

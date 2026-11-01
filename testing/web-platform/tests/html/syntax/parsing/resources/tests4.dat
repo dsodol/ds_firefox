@@ -14,8 +14,6 @@ textarea
 #document
 | "direct textarea content"
 
-#description
-textarea context puts the tokenizer in RCDATA, so tags are text
 #data
 textarea content with <em>pseudo</em> <foo>markup
 #errors
@@ -24,8 +22,6 @@ textarea
 #document
 | "textarea content with <em>pseudo</em> <foo>markup"
 
-#description
-style context puts the tokenizer in RAWTEXT, so character references are not decoded
 #data
 this is &#x0043;DATA inside a <style> element
 #errors
@@ -34,8 +30,6 @@ style
 #document
 | "this is &#x0043;DATA inside a <style> element"
 
-#description
-plaintext context puts the tokenizer in PLAINTEXT, so even its end tag is text
 #data
 </plaintext>
 #errors

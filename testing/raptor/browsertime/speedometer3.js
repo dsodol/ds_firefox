@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const { deferBackgroundTasks, logTest, logTask } = require("./utils/profiling");
+const { logTest, logTask } = require("./utils/profiling");
 const {
   initializeMeasurements,
   startMeasurements,
@@ -17,6 +17,7 @@ module.exports = logTest(
     let url = context.options.browsertime.url;
     let page_cycles = context.options.browsertime.page_cycles;
     let page_cycle_delay = context.options.browsertime.page_cycle_delay;
+    let post_startup_delay = context.options.browsertime.post_startup_delay;
     let page_timeout = context.options.timeouts.pageLoad;
     let expose_profiler = context.options.browsertime.expose_profiler;
 
@@ -28,20 +29,11 @@ module.exports = logTest(
       true
     );
 
-    if (
-      context.options.browser === "firefox" &&
-      !context.options.android?.enabled
-    ) {
-      context.log.info("Deferring background tasks before Speedometer");
-      await deferBackgroundTasks(context, commands);
-    } else {
-      const post_startup_delay = context.options.browsertime.post_startup_delay;
-      context.log.info(
-        "Waiting for %d ms (post_startup_delay)",
-        post_startup_delay
-      );
-      await commands.wait.byTime(post_startup_delay);
-    }
+    context.log.info(
+      "Waiting for %d ms (post_startup_delay)",
+      post_startup_delay
+    );
+    await commands.wait.byTime(post_startup_delay);
 
     for (let count = 0; count < page_cycles; count++) {
       await logTask(context, "cycle " + count, async function () {

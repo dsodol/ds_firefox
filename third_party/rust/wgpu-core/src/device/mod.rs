@@ -17,7 +17,7 @@ use smallvec::SmallVec;
 use thiserror::Error;
 use wgt::{
     error::{ErrorType, WebGpuError},
-    BufferAddress, DeviceLostReason, MapMode, TextureFormat,
+    BufferAddress, DeviceLostReason, TextureFormat,
 };
 
 pub(crate) mod bgl;
@@ -39,6 +39,14 @@ pub(crate) const ENTRYPOINT_FAILURE_ERROR: &str = "The given EntryPoint is Inval
 
 pub type DeviceDescriptor<'a> = wgt::DeviceDescriptor<Label<'a>>;
 pub type QueueDescriptor<'a> = wgt::QueueDescriptor<Label<'a>>;
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum HostMap {
+    Read,
+    Write,
+}
 
 #[derive(Clone, Debug, Hash, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -165,7 +173,6 @@ impl RenderPassContext {
 
 pub type BufferMapPendingClosure = (BufferMapOperation, BufferAccessResult);
 
-#[must_use]
 #[derive(Default)]
 pub struct UserClosures {
     pub mappings: Vec<BufferMapPendingClosure>,
@@ -223,7 +230,7 @@ pub(crate) fn map_buffer(
     buffer: &Buffer,
     offset: BufferAddress,
     size: BufferAddress,
-    kind: MapMode,
+    kind: HostMap,
     snatch_guard: &SnatchGuard,
 ) -> Result<hal::BufferMapping, BufferAccessError> {
     let raw_device = buffer.device.raw();
@@ -234,7 +241,7 @@ pub(crate) fn map_buffer(
             .map_err(|e| buffer.device.handle_hal_error(e))?
     };
 
-    if !mapping.is_coherent && kind == MapMode::Read {
+    if !mapping.is_coherent && kind == HostMap::Read {
         #[allow(clippy::single_range_in_vec_init)]
         unsafe {
             raw_device.invalidate_mapped_ranges(raw_buffer, &[offset..offset + size]);
@@ -261,7 +268,7 @@ pub(crate) fn map_buffer(
 
     // We can't call flush_mapped_ranges in this case, so we can't drain the uninitialized ranges either
     if !mapping.is_coherent
-        && kind == MapMode::Read
+        && kind == HostMap::Read
         && !buffer.usage.contains(wgt::BufferUsages::MAP_WRITE)
     {
         for uninitialized in buffer
@@ -289,7 +296,7 @@ pub(crate) fn map_buffer(
 
             // NOTE: This is only possible when MAPPABLE_PRIMARY_BUFFERS is enabled.
             if !mapping.is_coherent
-                && kind == MapMode::Read
+                && kind == HostMap::Read
                 && buffer.usage.contains(wgt::BufferUsages::MAP_WRITE)
             {
                 unsafe { raw_device.flush_mapped_ranges(raw_buffer, &[uninitialized]) };

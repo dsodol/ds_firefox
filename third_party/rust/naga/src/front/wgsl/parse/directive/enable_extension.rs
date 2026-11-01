@@ -25,7 +25,6 @@ pub(crate) struct EnableExtensions {
     primitive_index: bool,
     per_vertex: bool,
     wgpu_binding_array: bool,
-    debug_printf: bool,
 }
 
 impl EnableExtensions {
@@ -44,7 +43,6 @@ impl EnableExtensions {
             primitive_index: false,
             per_vertex: false,
             wgpu_binding_array: false,
-            debug_printf: false,
         }
     }
 
@@ -68,7 +66,6 @@ impl EnableExtensions {
             ImplementedEnableExtension::PrimitiveIndex => &mut self.primitive_index,
             ImplementedEnableExtension::WgpuPerVertex => &mut self.per_vertex,
             ImplementedEnableExtension::WgpuBindingArray => &mut self.wgpu_binding_array,
-            ImplementedEnableExtension::WgpuDebugPrintf => &mut self.debug_printf,
         };
         *field = true;
     }
@@ -91,7 +88,6 @@ impl EnableExtensions {
             ImplementedEnableExtension::PrimitiveIndex => self.primitive_index,
             ImplementedEnableExtension::WgpuPerVertex => self.per_vertex,
             ImplementedEnableExtension::WgpuBindingArray => self.wgpu_binding_array,
-            ImplementedEnableExtension::WgpuDebugPrintf => self.debug_printf,
         }
     }
 
@@ -147,7 +143,6 @@ impl EnableExtension {
     const PER_VERTEX: &'static str = "wgpu_per_vertex";
     const BINDING_ARRAY: &'static str = "wgpu_binding_array";
     const INT16: &'static str = "wgpu_int16";
-    const DEBUG_PRINTF: &'static str = "wgpu_debug_printf";
 
     /// Convert from a sentinel word in WGSL into its associated [`EnableExtension`], if possible.
     pub(crate) fn from_ident(word: &str, span: Span) -> Result<'_, Self> {
@@ -174,7 +169,6 @@ impl EnableExtension {
             Self::PER_VERTEX => Self::Implemented(ImplementedEnableExtension::WgpuPerVertex),
             Self::BINDING_ARRAY => Self::Implemented(ImplementedEnableExtension::WgpuBindingArray),
             Self::INT16 => Self::Implemented(ImplementedEnableExtension::WgpuInt16),
-            Self::DEBUG_PRINTF => Self::Implemented(ImplementedEnableExtension::WgpuDebugPrintf),
             _ => return Err(Box::new(Error::UnknownEnableExtension(span, word))),
         })
     }
@@ -198,7 +192,6 @@ impl EnableExtension {
                 ImplementedEnableExtension::WgpuPerVertex => Self::PER_VERTEX,
                 ImplementedEnableExtension::WgpuBindingArray => Self::BINDING_ARRAY,
                 ImplementedEnableExtension::WgpuInt16 => Self::INT16,
-                ImplementedEnableExtension::WgpuDebugPrintf => Self::DEBUG_PRINTF,
             },
             Self::Unimplemented(kind) => match kind {
                 UnimplementedEnableExtension::Subgroups => Self::SUBGROUPS,
@@ -253,8 +246,6 @@ pub enum ImplementedEnableExtension {
     WgpuBindingArray,
     /// Enables `i16`/`u16` 16-bit integer support in WGSL, native only.
     WgpuInt16,
-    /// Enables the `wgpu_debug_printf` extension, allows using `debugPrintf`, native only.
-    WgpuDebugPrintf,
 }
 
 impl ImplementedEnableExtension {
@@ -273,7 +264,6 @@ impl ImplementedEnableExtension {
         Self::WgpuPerVertex,
         Self::WgpuBindingArray,
         Self::WgpuInt16,
-        Self::WgpuDebugPrintf,
     ];
 
     /// Returns slice of all variants of [`ImplementedEnableExtension`].
@@ -306,7 +296,6 @@ impl ImplementedEnableExtension {
                 .union(C::TEXTURE_AND_SAMPLER_BINDING_ARRAY_NON_UNIFORM_INDEXING)
                 .union(C::ACCELERATION_STRUCTURE_BINDING_ARRAY),
             Self::WgpuInt16 => C::SHADER_INT16,
-            Self::WgpuDebugPrintf => C::DEBUG_PRINTF,
         }
     }
 }

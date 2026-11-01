@@ -295,11 +295,11 @@ pub enum FilterGraphOpKey {
         limiting_cone_angle: Au},
     /// calculate a distorted version of first input image using offset values
     /// from second input image at specified intensity
-    /// parameters: FilterOpGraphNode, scale_x, scale_y, xChannelSelector, yChannelSelector
+    /// parameters: FilterOpGraphNode, scale, xChannelSelector, yChannelSelector
     /// SVG filter semantics - selectable input(s), selectable between linear
     /// (default) and sRGB color space for calculations
     /// Spec: https://www.w3.org/TR/filter-effects-1/#InterfaceSVGFEDisplacementMapElement
-    SVGFEDisplacementMap{scale_x: Au, scale_y: Au, x_channel_selector: u32,
+    SVGFEDisplacementMap{scale: Au, x_channel_selector: u32,
         y_channel_selector: u32},
     /// create and merge a dropshadow version of the specified image's alpha
     /// channel with specified offset and blur radius
@@ -589,10 +589,9 @@ impl From<FilterGraphOp> for FilterGraphOpKey {
                     limiting_cone_angle: Au::from_f32_px(limiting_cone_angle),
                 }
             }
-            FilterGraphOp::SVGFEDisplacementMap { scale_x, scale_y, x_channel_selector, y_channel_selector } => {
+            FilterGraphOp::SVGFEDisplacementMap { scale, x_channel_selector, y_channel_selector } => {
                 FilterGraphOpKey::SVGFEDisplacementMap{
-                    scale_x: Au::from_f32_px(scale_x),
-                    scale_y: Au::from_f32_px(scale_y),
+                    scale: Au::from_f32_px(scale),
                     x_channel_selector,
                     y_channel_selector,
                 }
@@ -1080,11 +1079,11 @@ pub enum FilterGraphOp {
         cone_exponent: f32, limiting_cone_angle: f32},
     /// calculate a distorted version of first input image using offset values
     /// from second input image at specified intensity
-    /// parameters: FilterGraphNode, scale_x, scale_y, xChannelSelector, yChannelSelector
+    /// parameters: FilterGraphNode, scale, xChannelSelector, yChannelSelector
     /// SVG filter semantics - selectable input(s), selectable between linear
     /// (default) and sRGB color space for calculations
     /// Spec: https://www.w3.org/TR/filter-effects-1/#InterfaceSVGFEDisplacementMapElement
-    SVGFEDisplacementMap{scale_x: f32, scale_y: f32, x_channel_selector: u32,
+    SVGFEDisplacementMap{scale: f32, x_channel_selector: u32,
         y_channel_selector: u32},
     /// create and merge a dropshadow version of the specified image's alpha
     /// channel with specified offset and blur radius

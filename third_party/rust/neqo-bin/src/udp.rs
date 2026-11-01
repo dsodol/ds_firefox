@@ -6,9 +6,9 @@
 
 #![expect(clippy::missing_errors_doc, reason = "Passing up tokio errors.")]
 
-use std::{io, iter, net::SocketAddr};
+use std::{io, net::SocketAddr};
 
-use neqo_common::{datagram, qdebug, qwarn};
+use neqo_common::{datagram, qdebug};
 use neqo_udp::{DatagramIter, RecvBuf};
 
 /// Ideally this would live in [`neqo_udp`]. [`neqo_udp`] is used in Firefox.
@@ -60,17 +60,9 @@ impl Socket {
         if recv_buf_before < ONE_MB {
             // Same as Firefox.
             // <https://searchfox.org/mozilla-central/rev/fa5b44a4ea5c98b6a15f39638ea4cd04dc271f3d/modules/libpref/init/StaticPrefList.yaml#13474-13477>
-            // Halve the request until the OS accepts it, e.g., NetBSD caps it at `kern.sbmax`.
-            for size in iter::successors(Some(ONE_MB), |size| Some(size / 2))
-                .take_while(|&s| s > recv_buf_before)
-            {
-                match state.set_recv_buffer_size((&socket).into(), size) {
-                    Ok(()) => break,
-                    Err(e) => qwarn!("Failed to set socket recv buffer size to {size}: {e}"),
-                }
-            }
+            state.set_recv_buffer_size((&socket).into(), ONE_MB)?;
             qdebug!(
-                "Increasing socket recv buffer size from {recv_buf_before}, now: {:?}",
+                "Increasing socket recv buffer size from {recv_buf_before} to {ONE_MB}, now: {:?}",
                 state.recv_buffer_size((&socket).into())
             );
         } else {

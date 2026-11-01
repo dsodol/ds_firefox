@@ -10,10 +10,9 @@
 #include "secerr.h"
 
 #include "gtest/gtest.h"
-#include "json_reader.h"
 #include "nss_scoped_ptrs.h"
-#include "testvectors_base/test-structs.h"
-#include "pk11_import.h"
+#include "testvectors/cbc-vectors.h"
+#include "util.h"
 
 namespace nss_test {
 
@@ -98,8 +97,8 @@ class Pkcs11CbcPadTest : public ::testing::TestWithParam<CK_MECHANISM_TYPE> {
     }
 
     SECItem key_item = {siBuffer, const_cast<uint8_t*>(kKeyData), key_len};
-    PK11SymKey* p = nss_test::ImportSymKey(
-        slot.get(), GetParam(), PK11_OriginUnwrap, op, &key_item, nullptr);
+    PK11SymKey* p = PK11_ImportSymKey(slot.get(), GetParam(), PK11_OriginUnwrap,
+                                      op, &key_item, nullptr);
     EXPECT_NE(nullptr, p);
     return ScopedPK11SymKey(p);
   }
@@ -265,9 +264,9 @@ TEST_F(Pkcs11CbcPadTest, FailEncryptShortParam) {
   // Setup (we use the ECB key for other modes)
   ScopedPK11SlotInfo slot(PK11_GetInternalSlot());
   ASSERT_NE(nullptr, slot);
-  ScopedPK11SymKey key(nss_test::ImportSymKey(slot.get(), CKM_AES_ECB,
-                                              PK11_OriginUnwrap, CKA_ENCRYPT,
-                                              &key_item, nullptr));
+  ScopedPK11SymKey key(PK11_ImportSymKey(slot.get(), CKM_AES_ECB,
+                                         PK11_OriginUnwrap, CKA_ENCRYPT,
+                                         &key_item, nullptr));
   ASSERT_TRUE(key.get());
 
   // CTR should have a CK_AES_CTR_PARAMS
@@ -558,64 +557,17 @@ INSTANTIATE_TEST_SUITE_P(EncryptDecrypt, Pkcs11CbcPadTest,
                          ::testing::Values(CKM_AES_CBC_PAD, CKM_AES_CBC,
                                            CKM_DES3_CBC_PAD, CKM_DES3_CBC));
 
-class Pkcs11AesCbcWycheproofTest : public ::testing::Test {
+class Pkcs11AesCbcWycheproofTest
+    : public ::testing::TestWithParam<AesCbcTestVector> {
  protected:
-  void Run() {
-    WycheproofHeader("aes_cbc_pkcs5", "AES-CBC-PKCS5",
-                     "ind_cpa_test_schema_v1.json",
-                     [this](JsonReader& r) { RunGroup(r); });
-  }
-
- private:
-  void RunGroup(JsonReader& r) {
-    std::vector<AesCbcTestVector> tests;
-
-    while (r.NextItem()) {
-      std::string n = r.ReadLabel();
-      if (n == "") {
-        break;
-      }
-
-      if (n == "ivSize" || n == "keySize" || n == "source") {
-        r.SkipValue();
-      } else if (n == "type") {
-        ASSERT_EQ("IndCpaTest", r.ReadString());
-      } else if (n == "tests") {
-        WycheproofReadTests(r, &tests, ReadTestAttr, false);
-      } else {
-        FAIL() << "unknown label in group: " << n;
-      }
-    }
-
-    for (auto& t : tests) {
-      std::cout << "Running test " << t.id << std::endl;
-      RunTest(t);
-    }
-  }
-
-  static void ReadTestAttr(AesCbcTestVector& t, const std::string& n,
-                           JsonReader& r) {
-    if (n == "key") {
-      t.key = r.ReadHex();
-    } else if (n == "iv") {
-      t.iv = r.ReadHex();
-    } else if (n == "msg") {
-      t.msg = r.ReadHex();
-    } else if (n == "ct") {
-      t.ciphertext = r.ReadHex();
-    } else {
-      FAIL() << "unknown test key: " << n;
-    }
-  }
-
-  void RunTest(const AesCbcTestVector& vec) {
+  void RunTest(const AesCbcTestVector vec) {
     bool valid = vec.valid;
     std::string err = "Test #" + std::to_string(vec.id) + " failed";
-    std::vector<uint8_t> key(vec.key);
-    std::vector<uint8_t> iv(vec.iv);
-    std::vector<uint8_t> ciphertext(vec.ciphertext);
-    std::vector<uint8_t> msg(vec.msg);
-    std::vector<uint8_t> decrypted(ciphertext.size());
+    std::vector<uint8_t> key = hex_string_to_bytes(vec.key);
+    std::vector<uint8_t> iv = hex_string_to_bytes(vec.iv);
+    std::vector<uint8_t> ciphertext = hex_string_to_bytes(vec.ciphertext);
+    std::vector<uint8_t> msg = hex_string_to_bytes(vec.msg);
+    std::vector<uint8_t> decrypted(vec.ciphertext.size());
     unsigned int decrypted_len = 0;
 
     ScopedPK11SlotInfo slot(PK11_GetInternalSlot());
@@ -629,17 +581,14 @@ class Pkcs11AesCbcWycheproofTest : public ::testing::Test {
     SECItem key_item = {siBuffer, key.data() ? key.data() : &tmp,
                         static_cast<unsigned int>(key.size())};
 
-    PK11SymKey* pKey = nss_test::ImportSymKey(
-        slot.get(), kMech, PK11_OriginUnwrap, CKA_ENCRYPT, &key_item, nullptr);
+    PK11SymKey* pKey = PK11_ImportSymKey(slot.get(), kMech, PK11_OriginUnwrap,
+                                         CKA_ENCRYPT, &key_item, nullptr);
     ASSERT_NE(nullptr, pKey);
     ScopedPK11SymKey spKey = ScopedPK11SymKey(pKey);
 
-    // A null output pointer would make this a length query, which succeeds.
-    SECStatus rv = PK11_Decrypt(spKey.get(), kMech, &iv_item,
-                                decrypted.data() ? decrypted.data() : &tmp,
+    SECStatus rv = PK11_Decrypt(spKey.get(), kMech, &iv_item, decrypted.data(),
                                 &decrypted_len, decrypted.size(),
-                                ciphertext.data() ? ciphertext.data() : &tmp,
-                                ciphertext.size());
+                                ciphertext.data(), ciphertext.size());
 
     ASSERT_EQ(valid ? SECSuccess : SECFailure, rv) << err;
     if (valid) {
@@ -651,6 +600,9 @@ class Pkcs11AesCbcWycheproofTest : public ::testing::Test {
   const CK_MECHANISM_TYPE kMech = CKM_AES_CBC_PAD;
 };
 
-TEST_F(Pkcs11AesCbcWycheproofTest, Vectors) { Run(); }
+TEST_P(Pkcs11AesCbcWycheproofTest, TestVectors) { RunTest(GetParam()); }
+
+INSTANTIATE_TEST_SUITE_P(WycheproofTestVector, Pkcs11AesCbcWycheproofTest,
+                         ::testing::ValuesIn(kCbcWycheproofVectors));
 
 }  // namespace nss_test

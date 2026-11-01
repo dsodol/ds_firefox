@@ -113,7 +113,7 @@ nsresult PrefixArrayToPrefixStringMap(const _PrefixArray& aPrefixArray,
     uint32_t size = entry.GetKey();
     uint32_t count = entry.GetData()->Length();
 
-    auto str = std::make_unique<_Prefix>();
+    auto str = MakeUnique<_Prefix>();
     str->SetLength(size * count);
 
     char* dst = str->BeginWriting();

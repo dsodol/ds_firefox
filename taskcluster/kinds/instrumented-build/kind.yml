@@ -289,7 +289,7 @@ tasks:
         index:
             product: mobile
             job-name: instrumented-android-x86_64
-        shipping-product: firefox-android
+        shipping-product: fennec
         treeherder:
             platform: android-5-0-x86_64-shippable/opt
         worker-type: b-linux-docker-xlarge-amd
@@ -347,7 +347,7 @@ tasks:
         index:
             product: mobile
             job-name: instrumented-android-aarch64
-        shipping-product: firefox-android
+        shipping-product: fennec
         treeherder:
             platform: android-5-0-aarch64-shippable/opt
         worker-type: b-linux-docker-xlarge-amd
@@ -405,7 +405,7 @@ tasks:
         index:
             product: mobile
             job-name: instrumented-android-aarch64-nightlyasrelease
-        shipping-product: firefox-android
+        shipping-product: fennec
         treeherder:
             platform: android-5-0-aarch64-nightlyasrelease/opt
         worker-type: b-linux-docker-xlarge-amd
@@ -463,7 +463,7 @@ tasks:
         index:
             product: mobile
             job-name: instrumented-android-arm
-        shipping-product: firefox-android
+        shipping-product: fennec
         treeherder:
             platform: android-5-0-armv7-shippable/opt
         worker-type: b-linux-docker-xlarge-amd

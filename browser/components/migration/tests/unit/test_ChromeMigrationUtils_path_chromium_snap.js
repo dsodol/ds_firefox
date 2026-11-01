@@ -24,7 +24,7 @@ add_task(async function setup_fakePaths() {
     pathId = "Home";
   }
 
-  registerFakePath(pathId, do_get_tempdir());
+  registerFakePath(pathId, do_get_file("chromefiles/", true));
 });
 
 add_task(async function test_getDataPath_function() {

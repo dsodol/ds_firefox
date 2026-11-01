@@ -10,10 +10,8 @@ sys.stdout.write(
     """/*
  * THIS FILE IS AUTO-GENERATED. DO NOT EDIT!
  */
-#ifndef mozilla_net_Http2HuffmanOutgoing_h
-#define mozilla_net_Http2HuffmanOutgoing_h
-
-#include <cstdint>
+#ifndef mozilla__net__Http2HuffmanOutgoing_h
+#define mozilla__net__Http2HuffmanOutgoing_h
 
 namespace mozilla {
 namespace net {
@@ -55,6 +53,6 @@ sys.stdout.write(
 } // namespace net
 } // namespace mozilla
 
-#endif // mozilla_net_Http2HuffmanOutgoing_h
+#endif // mozilla__net__Http2HuffmanOutgoing_h
 """
 )

@@ -16,5 +16,4 @@ Silk
 Moz2D
 DebuggingWebRenderScreenshots
 GraphicsOverview
-VendoringANGLE
 ```

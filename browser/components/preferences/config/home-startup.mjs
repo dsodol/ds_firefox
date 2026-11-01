@@ -828,7 +828,6 @@ function setupCustomHomepageGroup(prefWindow) {
     items: [
       {
         id: "customHomepageBoxGroup",
-        l10nId: "home-custom-homepage-list",
         control: "moz-box-group",
         controlAttrs: {
           type: "list",

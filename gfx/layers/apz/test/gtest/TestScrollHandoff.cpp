@@ -20,8 +20,7 @@ class APZScrollHandoffTester : public APZCTreeManagerTester {
     SetScrollableFrameMetrics(layers[1], START_SCROLL_ID + 1,
                               CSSRect(0, 0, 100, 100));
     SetScrollHandoff(layers[1], root);
-    registration =
-        std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+    registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
     UpdateHitTestingTree();
     rootApzc = ApzcOf(root);
     rootApzc->GetFrameMetrics().SetIsRootContent(
@@ -72,8 +71,7 @@ class APZScrollHandoffTester : public APZCTreeManagerTester {
     SetScrollHandoff(layers[3], layers[0]);
     SetScrollHandoff(layers[2], layers[1]);
     SetScrollHandoff(layers[4], layers[3]);
-    registration =
-        std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+    registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
     UpdateHitTestingTree();
   }
 
@@ -88,8 +86,7 @@ class APZScrollHandoffTester : public APZCTreeManagerTester {
     SetScrollableFrameMetrics(layers[1], START_SCROLL_ID + 1,
                               CSSRect(0, 0, 100, 200));
     SetScrollHandoff(layers[1], root);
-    registration =
-        std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+    registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
     UpdateHitTestingTree();
     rootApzc = ApzcOf(root);
   }
@@ -107,8 +104,7 @@ class APZScrollHandoffTester : public APZCTreeManagerTester {
     SetScrollableFrameMetrics(layers[1], START_SCROLL_ID + 1,
                               CSSRect(0, 0, 100, 200));
     SetScrollHandoff(layers[1], root);
-    registration =
-        std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+    registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
     UpdateHitTestingTree();
     rootApzc = ApzcOf(root);
   }
@@ -124,8 +120,7 @@ class APZScrollHandoffTester : public APZCTreeManagerTester {
     SetScrollableFrameMetrics(layers[1], START_SCROLL_ID + 1,
                               CSSRect(0, 0, 200, 1000));
     SetScrollHandoff(layers[1], root);
-    registration =
-        std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+    registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
     UpdateHitTestingTree();
     rootApzc = ApzcOf(root);
   }
@@ -174,8 +169,7 @@ class APZCNestedFlingScrollHandoffTester : public APZCTreeManagerTester {
       aMetrics.SetVisualDestination(CSSPoint(0, 25000));
     });
 
-    registration =
-        std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+    registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
     UpdateHitTestingTree();
 
     subframeApzc = ApzcOf(layers[1]);
@@ -269,8 +263,7 @@ TEST_F(APZScrollHandoffTesterMock, OverscrollDropsDelta_Bug2046702) {
     behavior.mBehaviorY = StyleOverscrollBehavior::None;
     aSm.SetOverscrollBehavior(behavior);
   });
-  registration =
-      std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+  registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
   UpdateHitTestingTree();
   rootApzc = ApzcOf(root);
   rootApzc->GetFrameMetrics().SetIsRootContent(true);
@@ -356,8 +349,7 @@ TEST_F(APZScrollHandoffTesterMock, OverscrollDropsDelta_Bug2046702_Reproducer) {
   SetScrollableFrameMetrics(layers[1], ScrollableLayerGuid::START_SCROLL_ID + 1,
                             CSSRect(0, 0, 400, 1600));
   SetScrollHandoff(layers[1], root);
-  registration =
-      std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+  registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
   UpdateHitTestingTree();
   rootApzc = ApzcOf(root);
   rootApzc->GetFrameMetrics().SetIsRootContent(true);

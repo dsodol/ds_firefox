@@ -27,7 +27,6 @@
    Copyright (c) 2025      Alfonso Gregory <gfunni234@gmail.com>
    Copyright (c) 2026      Nick Begg <nick@stunttruck.net>
    Copyright (c) 2026      Kartik Kenchi <netliomax25@gmail.com>
-   Copyright (c) 2026      Afonso Januário <afonso-januario@hotmail.com>
    Licensed under the MIT license:
 
    Permission is  hereby granted,  free of charge,  to any  person obtaining
@@ -137,20 +136,20 @@
            : ((p)[1] & 0x80) == 0                                              \
                  || ((*p) == 0xF4 ? (p)[1] > 0x8F : ((p)[1] & 0xC0) == 0xC0)))
 
-static int
+static int PTRFASTCALL
 isNever(const ENCODING *enc, const char *p) {
   UNUSED_P(enc);
   UNUSED_P(p);
   return 0;
 }
 
-static int
+static int PTRFASTCALL
 utf8_isName2(const ENCODING *enc, const char *p) {
   UNUSED_P(enc);
   return UTF8_GET_NAMING2(namePages, (const unsigned char *)p);
 }
 
-static int
+static int PTRFASTCALL
 utf8_isName3(const ENCODING *enc, const char *p) {
   UNUSED_P(enc);
   return UTF8_GET_NAMING3(namePages, (const unsigned char *)p);
@@ -158,13 +157,13 @@ utf8_isName3(const ENCODING *enc, const char *p) {
 
 #define utf8_isName4 isNever
 
-static int
+static int PTRFASTCALL
 utf8_isNmstrt2(const ENCODING *enc, const char *p) {
   UNUSED_P(enc);
   return UTF8_GET_NAMING2(nmstrtPages, (const unsigned char *)p);
 }
 
-static int
+static int PTRFASTCALL
 utf8_isNmstrt3(const ENCODING *enc, const char *p) {
   UNUSED_P(enc);
   return UTF8_GET_NAMING3(nmstrtPages, (const unsigned char *)p);
@@ -172,19 +171,19 @@ utf8_isNmstrt3(const ENCODING *enc, const char *p) {
 
 #define utf8_isNmstrt4 isNever
 
-static int
+static int PTRFASTCALL
 utf8_isInvalid2(const ENCODING *enc, const char *p) {
   UNUSED_P(enc);
   return UTF8_INVALID2((const unsigned char *)p);
 }
 
-static int
+static int PTRFASTCALL
 utf8_isInvalid3(const ENCODING *enc, const char *p) {
   UNUSED_P(enc);
   return UTF8_INVALID3((const unsigned char *)p);
 }
 
-static int
+static int PTRFASTCALL
 utf8_isInvalid4(const ENCODING *enc, const char *p) {
   UNUSED_P(enc);
   return UTF8_INVALID4((const unsigned char *)p);
@@ -194,21 +193,21 @@ struct normal_encoding {
   ENCODING enc;
   unsigned char type[256];
 #ifdef XML_MIN_SIZE
-  int (*byteType)(const ENCODING *, const char *);
-  int (*isNameMin)(const ENCODING *, const char *);
-  int (*isNmstrtMin)(const ENCODING *, const char *);
-  int (*byteToAscii)(const ENCODING *, const char *);
-  int (*charMatches)(const ENCODING *, const char *, int);
+  int(PTRFASTCALL *byteType)(const ENCODING *, const char *);
+  int(PTRFASTCALL *isNameMin)(const ENCODING *, const char *);
+  int(PTRFASTCALL *isNmstrtMin)(const ENCODING *, const char *);
+  int(PTRFASTCALL *byteToAscii)(const ENCODING *, const char *);
+  int(PTRCALL *charMatches)(const ENCODING *, const char *, int);
 #endif /* XML_MIN_SIZE */
-  int (*isName2)(const ENCODING *, const char *);
-  int (*isName3)(const ENCODING *, const char *);
-  int (*isName4)(const ENCODING *, const char *);
-  int (*isNmstrt2)(const ENCODING *, const char *);
-  int (*isNmstrt3)(const ENCODING *, const char *);
-  int (*isNmstrt4)(const ENCODING *, const char *);
-  int (*isInvalid2)(const ENCODING *, const char *);
-  int (*isInvalid3)(const ENCODING *, const char *);
-  int (*isInvalid4)(const ENCODING *, const char *);
+  int(PTRFASTCALL *isName2)(const ENCODING *, const char *);
+  int(PTRFASTCALL *isName3)(const ENCODING *, const char *);
+  int(PTRFASTCALL *isName4)(const ENCODING *, const char *);
+  int(PTRFASTCALL *isNmstrt2)(const ENCODING *, const char *);
+  int(PTRFASTCALL *isNmstrt3)(const ENCODING *, const char *);
+  int(PTRFASTCALL *isNmstrt4)(const ENCODING *, const char *);
+  int(PTRFASTCALL *isInvalid2)(const ENCODING *, const char *);
+  int(PTRFASTCALL *isInvalid3)(const ENCODING *, const char *);
+  int(PTRFASTCALL *isInvalid4)(const ENCODING *, const char *);
 };
 
 #define AS_NORMAL_ENCODING(enc) ((const struct normal_encoding *)(enc))
@@ -233,20 +232,7 @@ struct normal_encoding {
       /* isNmstrt2 */ NULL, /* isNmstrt3 */ NULL, /* isNmstrt4 */ NULL,        \
       /* isInvalid2 */ NULL, /* isInvalid3 */ NULL, /* isInvalid4 */ NULL
 
-/* Like NULL_VTABLE but with a real isInvalid4 so the UTF-16 encodings reject a
-   high surrogate that is not followed by a low surrogate.  Only needed for the
-   XML_MIN_SIZE build, where the shared tokenizer dispatches through the vtable;
-   the regular build inlines the same check via IS_INVALID_CHAR. */
-#ifdef XML_MIN_SIZE
-#  define UTF16_NULL_VTABLE(E)                                                 \
-    /* isName2 */ NULL, /* isName3 */ NULL, /* isName4 */ NULL,                \
-        /* isNmstrt2 */ NULL, /* isNmstrt3 */ NULL, /* isNmstrt4 */ NULL,      \
-        /* isInvalid2 */ NULL, /* isInvalid3 */ NULL, E##isInvalid4
-#else
-#  define UTF16_NULL_VTABLE(E) NULL_VTABLE
-#endif
-
-static int checkCharRefNumber(int result);
+static int FASTCALL checkCharRefNumber(int result);
 
 #include "xmltok_impl.h"
 #include "ascii.h"
@@ -267,7 +253,7 @@ static int checkCharRefNumber(int result);
   (((const struct normal_encoding *)(enc))->type[(unsigned char)*(p)])
 
 #ifdef XML_MIN_SIZE
-static int
+static int PTRFASTCALL
 sb_byteType(const ENCODING *enc, const char *p) {
   return SB_BYTE_TYPE(enc, p);
 }
@@ -278,7 +264,7 @@ sb_byteType(const ENCODING *enc, const char *p) {
 
 #ifdef XML_MIN_SIZE
 #  define BYTE_TO_ASCII(enc, p) (AS_NORMAL_ENCODING(enc)->byteToAscii(enc, p))
-static int
+static int PTRFASTCALL
 sb_byteToAscii(const ENCODING *enc, const char *p) {
   UNUSED_P(enc);
   return *p;
@@ -311,7 +297,7 @@ sb_byteToAscii(const ENCODING *enc, const char *p) {
 #ifdef XML_MIN_SIZE
 #  define CHAR_MATCHES(enc, p, c)                                              \
     (AS_NORMAL_ENCODING(enc)->charMatches(enc, p, c))
-static int
+static int PTRCALL
 sb_charMatches(const ENCODING *enc, const char *p, int c) {
   UNUSED_P(enc);
   return *p == c;
@@ -382,7 +368,7 @@ _INTERNAL_trim_to_complete_utf8_characters(const char *from,
   *fromLimRef = fromLim;
 }
 
-static enum XML_Convert_Result
+static enum XML_Convert_Result PTRCALL
 utf8_toUtf8(const ENCODING *enc, const char **fromP, const char *fromLim,
             char **toP, const char *toLim) {
   bool input_incomplete = false;
@@ -421,7 +407,7 @@ utf8_toUtf8(const ENCODING *enc, const char **fromP, const char *fromLim,
     return XML_CONVERT_COMPLETED;
 }
 
-static enum XML_Convert_Result
+static enum XML_Convert_Result PTRCALL
 utf8_toUtf16(const ENCODING *enc, const char **fromP, const char *fromLim,
              unsigned short **toP, const unsigned short *toLim) {
   enum XML_Convert_Result res = XML_CONVERT_COMPLETED;
@@ -519,7 +505,7 @@ static const struct normal_encoding internal_utf8_encoding
        },
        STANDARD_VTABLE(sb_) NORMAL_VTABLE(utf8_)};
 
-static enum XML_Convert_Result
+static enum XML_Convert_Result PTRCALL
 latin1_toUtf8(const ENCODING *enc, const char **fromP, const char *fromLim,
               char **toP, const char *toLim) {
   UNUSED_P(enc);
@@ -542,7 +528,7 @@ latin1_toUtf8(const ENCODING *enc, const char **fromP, const char *fromLim,
   }
 }
 
-static enum XML_Convert_Result
+static enum XML_Convert_Result PTRCALL
 latin1_toUtf16(const ENCODING *enc, const char **fromP, const char *fromLim,
                unsigned short **toP, const unsigned short *toLim) {
   UNUSED_P(enc);
@@ -577,7 +563,7 @@ static const struct normal_encoding latin1_encoding
        },
        STANDARD_VTABLE(sb_) NULL_VTABLE};
 
-static enum XML_Convert_Result
+static enum XML_Convert_Result PTRCALL
 ascii_toUtf8(const ENCODING *enc, const char **fromP, const char *fromLim,
              char **toP, const char *toLim) {
   UNUSED_P(enc);
@@ -612,7 +598,7 @@ static const struct normal_encoding ascii_encoding
        },
        STANDARD_VTABLE(sb_) NULL_VTABLE};
 
-static int
+static int PTRFASTCALL
 unicode_byte_type(char hi, char lo) {
   switch ((unsigned char)hi) {
   /* 0xD800-0xDBFF first 16-bit code unit or high surrogate (W1) */
@@ -639,7 +625,7 @@ unicode_byte_type(char hi, char lo) {
 }
 
 #define DEFINE_UTF16_TO_UTF8(E)                                                \
-  static enum XML_Convert_Result E##toUtf8(                                    \
+  static enum XML_Convert_Result PTRCALL E##toUtf8(                            \
       const ENCODING *enc, const char **fromP, const char *fromLim,            \
       char **toP, const char *toLim) {                                         \
     const char *from = *fromP;                                                 \
@@ -716,7 +702,7 @@ unicode_byte_type(char hi, char lo) {
   }
 
 #define DEFINE_UTF16_TO_UTF16(E)                                               \
-  static enum XML_Convert_Result E##toUtf16(                                   \
+  static enum XML_Convert_Result PTRCALL E##toUtf16(                           \
       const ENCODING *enc, const char **fromP, const char *fromLim,            \
       unsigned short **toP, const unsigned short *toLim) {                     \
     enum XML_Convert_Result res = XML_CONVERT_COMPLETED;                       \
@@ -763,47 +749,36 @@ DEFINE_UTF16_TO_UTF16(big2_)
   UCS2_GET_NAMING(namePages, (unsigned char)p[1], (unsigned char)p[0])
 #define LITTLE2_IS_NMSTRT_CHAR_MINBPC(p)                                       \
   UCS2_GET_NAMING(nmstrtPages, (unsigned char)p[1], (unsigned char)p[0])
-/* A 4-byte UTF-16 character is a surrogate pair; byteType only reports BT_LEAD4
-   for a high surrogate, so the pair is invalid unless the second unit is a low
-   surrogate (U+DC00..U+DFFF, i.e. high byte 0xDC..0xDF). */
-#define LITTLE2_IS_INVALID_CHAR(p, n)                                          \
-  ((n) == 4 && ((unsigned char)(p)[3] & 0xFC) != 0xDC)
 
 #ifdef XML_MIN_SIZE
 
-static int
+static int PTRFASTCALL
 little2_byteType(const ENCODING *enc, const char *p) {
   return LITTLE2_BYTE_TYPE(enc, p);
 }
 
-static int
+static int PTRFASTCALL
 little2_byteToAscii(const ENCODING *enc, const char *p) {
   UNUSED_P(enc);
   return LITTLE2_BYTE_TO_ASCII(p);
 }
 
-static int
+static int PTRCALL
 little2_charMatches(const ENCODING *enc, const char *p, int c) {
   UNUSED_P(enc);
   return LITTLE2_CHAR_MATCHES(p, c);
 }
 
-static int
+static int PTRFASTCALL
 little2_isNameMin(const ENCODING *enc, const char *p) {
   UNUSED_P(enc);
   return LITTLE2_IS_NAME_CHAR_MINBPC(p);
 }
 
-static int
+static int PTRFASTCALL
 little2_isNmstrtMin(const ENCODING *enc, const char *p) {
   UNUSED_P(enc);
   return LITTLE2_IS_NMSTRT_CHAR_MINBPC(p);
-}
-
-static int
-little2_isInvalid4(const ENCODING *enc, const char *p) {
-  UNUSED_P(enc);
-  return LITTLE2_IS_INVALID_CHAR(p, 4);
 }
 
 #  undef VTABLE
@@ -822,7 +797,6 @@ little2_isInvalid4(const ENCODING *enc, const char *p) {
 #  define IS_NAME_CHAR_MINBPC(enc, p) LITTLE2_IS_NAME_CHAR_MINBPC(p)
 #  define IS_NMSTRT_CHAR(enc, p, n) (0)
 #  define IS_NMSTRT_CHAR_MINBPC(enc, p) LITTLE2_IS_NMSTRT_CHAR_MINBPC(p)
-#  define IS_INVALID_CHAR(enc, p, n) LITTLE2_IS_INVALID_CHAR(p, n)
 
 #  define XML_TOK_IMPL_C
 #  include "xmltok_impl.c"
@@ -854,7 +828,7 @@ static const struct normal_encoding little2_encoding_ns
 #  include "asciitab.h"
 #  include "latin1tab.h"
        },
-       STANDARD_VTABLE(little2_) UTF16_NULL_VTABLE(little2_)};
+       STANDARD_VTABLE(little2_) NULL_VTABLE};
 
 #endif
 
@@ -872,7 +846,7 @@ static const struct normal_encoding little2_encoding
 #undef BT_COLON
 #include "latin1tab.h"
        },
-       STANDARD_VTABLE(little2_) UTF16_NULL_VTABLE(little2_)};
+       STANDARD_VTABLE(little2_) NULL_VTABLE};
 
 #if BYTEORDER != 4321
 
@@ -884,7 +858,7 @@ static const struct normal_encoding internal_little2_encoding_ns
 #    include "iasciitab.h"
 #    include "latin1tab.h"
        },
-       STANDARD_VTABLE(little2_) UTF16_NULL_VTABLE(little2_)};
+       STANDARD_VTABLE(little2_) NULL_VTABLE};
 
 #  endif
 
@@ -896,7 +870,7 @@ static const struct normal_encoding internal_little2_encoding
 #  undef BT_COLON
 #  include "latin1tab.h"
        },
-       STANDARD_VTABLE(little2_) UTF16_NULL_VTABLE(little2_)};
+       STANDARD_VTABLE(little2_) NULL_VTABLE};
 
 #endif
 
@@ -908,47 +882,36 @@ static const struct normal_encoding internal_little2_encoding
   UCS2_GET_NAMING(namePages, (unsigned char)p[0], (unsigned char)p[1])
 #define BIG2_IS_NMSTRT_CHAR_MINBPC(p)                                          \
   UCS2_GET_NAMING(nmstrtPages, (unsigned char)p[0], (unsigned char)p[1])
-/* A 4-byte UTF-16 character is a surrogate pair; byteType only reports BT_LEAD4
-   for a high surrogate, so the pair is invalid unless the second unit is a low
-   surrogate (U+DC00..U+DFFF, i.e. high byte 0xDC..0xDF). */
-#define BIG2_IS_INVALID_CHAR(p, n)                                             \
-  ((n) == 4 && ((unsigned char)(p)[2] & 0xFC) != 0xDC)
 
 #ifdef XML_MIN_SIZE
 
-static int
+static int PTRFASTCALL
 big2_byteType(const ENCODING *enc, const char *p) {
   return BIG2_BYTE_TYPE(enc, p);
 }
 
-static int
+static int PTRFASTCALL
 big2_byteToAscii(const ENCODING *enc, const char *p) {
   UNUSED_P(enc);
   return BIG2_BYTE_TO_ASCII(p);
 }
 
-static int
+static int PTRCALL
 big2_charMatches(const ENCODING *enc, const char *p, int c) {
   UNUSED_P(enc);
   return BIG2_CHAR_MATCHES(p, c);
 }
 
-static int
+static int PTRFASTCALL
 big2_isNameMin(const ENCODING *enc, const char *p) {
   UNUSED_P(enc);
   return BIG2_IS_NAME_CHAR_MINBPC(p);
 }
 
-static int
+static int PTRFASTCALL
 big2_isNmstrtMin(const ENCODING *enc, const char *p) {
   UNUSED_P(enc);
   return BIG2_IS_NMSTRT_CHAR_MINBPC(p);
-}
-
-static int
-big2_isInvalid4(const ENCODING *enc, const char *p) {
-  UNUSED_P(enc);
-  return BIG2_IS_INVALID_CHAR(p, 4);
 }
 
 #  undef VTABLE
@@ -967,7 +930,6 @@ big2_isInvalid4(const ENCODING *enc, const char *p) {
 #  define IS_NAME_CHAR_MINBPC(enc, p) BIG2_IS_NAME_CHAR_MINBPC(p)
 #  define IS_NMSTRT_CHAR(enc, p, n) (0)
 #  define IS_NMSTRT_CHAR_MINBPC(enc, p) BIG2_IS_NMSTRT_CHAR_MINBPC(p)
-#  define IS_INVALID_CHAR(enc, p, n) BIG2_IS_INVALID_CHAR(p, n)
 
 #  define XML_TOK_IMPL_C
 #  include "xmltok_impl.c"
@@ -999,7 +961,7 @@ static const struct normal_encoding big2_encoding_ns
 #  include "asciitab.h"
 #  include "latin1tab.h"
        },
-       STANDARD_VTABLE(big2_) UTF16_NULL_VTABLE(big2_)};
+       STANDARD_VTABLE(big2_) NULL_VTABLE};
 
 #endif
 
@@ -1017,7 +979,7 @@ static const struct normal_encoding big2_encoding
 #undef BT_COLON
 #include "latin1tab.h"
        },
-       STANDARD_VTABLE(big2_) UTF16_NULL_VTABLE(big2_)};
+       STANDARD_VTABLE(big2_) NULL_VTABLE};
 
 #if BYTEORDER != 1234
 
@@ -1029,7 +991,7 @@ static const struct normal_encoding internal_big2_encoding_ns
 #    include "iasciitab.h"
 #    include "latin1tab.h"
        },
-       STANDARD_VTABLE(big2_) UTF16_NULL_VTABLE(big2_)};
+       STANDARD_VTABLE(big2_) NULL_VTABLE};
 
 #  endif
 
@@ -1041,13 +1003,13 @@ static const struct normal_encoding internal_big2_encoding
 #  undef BT_COLON
 #  include "latin1tab.h"
        },
-       STANDARD_VTABLE(big2_) UTF16_NULL_VTABLE(big2_)};
+       STANDARD_VTABLE(big2_) NULL_VTABLE};
 
 #endif
 
 #undef PREFIX
 
-static int
+static int FASTCALL
 streqci(const char *s1, const char *s2) {
   for (;;) {
     char c1 = *s1++;
@@ -1068,7 +1030,7 @@ streqci(const char *s1, const char *s2) {
   return 1;
 }
 
-static void
+static void PTRCALL
 initUpdatePosition(const ENCODING *enc, const char *ptr, const char *end,
                    POSITION *pos) {
   UNUSED_P(enc);
@@ -1086,7 +1048,7 @@ toAscii(const ENCODING *enc, const char *ptr, const char *end) {
     return buf[0];
 }
 
-static int
+static int FASTCALL
 isSpace(int c) {
   switch (c) {
   case 0x20:
@@ -1192,33 +1154,9 @@ static const char KW_yes[] = {ASCII_y, ASCII_e, ASCII_s, '\0'};
 
 static const char KW_no[] = {ASCII_n, ASCII_o, '\0'};
 
-static const char KW_1_dot[] = {ASCII_1, ASCII_PERIOD, '\0'};
-
-/* Checks a version pseudo-attribute value against the VersionNum production.
-   XML 1.0 Fourth Edition only allows the literal "1.0", but the Fifth
-   Edition relaxed this to "1." followed by one or more digits, since Expat
-   only implements 1.0 itself but plans to track the Fifth Edition's laxer
-   grammar here so that "1.1" and similar aren't rejected only to have that
-   rejection reverted later. Returns true for a value matching "1.[0-9]+".
-   val/valEnd bound the value itself; valEnd is the upper bound used when
-   decoding the individual characters between them. */
-static bool
-checkXmlDeclVersionNum(const ENCODING *enc, const char *val,
-                       const char *valEnd) {
-  if (valEnd - val < 2 * enc->minBytesPerChar
-      || ! XmlNameMatchesAscii(enc, val, val + 2 * enc->minBytesPerChar,
-                               KW_1_dot))
-    return false;
-  val += 2 * enc->minBytesPerChar;
-  if (val == valEnd)
-    return false;
-  for (; val != valEnd; val += enc->minBytesPerChar) {
-    int c = toAscii(enc, val, valEnd);
-    if (c < ASCII_0 || c > ASCII_9)
-      return false;
-  }
-  return true;
-}
+/* BEGIN MOZILLA CHANGE (Bug 62157 - Document content is rendered even though version value is not "1.0") */
+static const char KW_XML_1_0[] = {ASCII_1, ASCII_PERIOD, ASCII_0, '\0'};
+/* END MOZILLA CHANGE */
 
 static int
 doParseXmlDecl(const ENCODING *(*encodingFinder)(const ENCODING *, const char *,
@@ -1254,15 +1192,13 @@ doParseXmlDecl(const ENCODING *(*encodingFinder)(const ENCODING *, const char *,
       *badPtr = val;
       return 0;
     }
-    /* Expat implements XML 1.0 only, so any version outside the "1.0"/"1.x"
-       family is rejected. Following the Fifth Edition's VersionNum
-       production (rather than the Fourth Edition's exact "1.0") avoids
-       rejecting "1.1" now only to have to revert that once Expat tracks
-       the newer edition. */
-    if (! checkXmlDeclVersionNum(enc, val, ptr - enc->minBytesPerChar)) {
-      *badPtr = val;
-      return 0;
-    }
+/* BEGIN MOZILLA CHANGE (Bug 62157 - Document content is rendered even though version value is not "1.0") */
+     /* Anything else but a version="1.0" is invalid for us, until we support later versions. */
+     if (!XmlNameMatchesAscii(enc, val, ptr - enc->minBytesPerChar, KW_XML_1_0)) {
+       *badPtr = val;
+       return 0;
+     }
+/* END MOZILLA CHANGE */
     if (! parsePseudoAttribute(enc, ptr, end, &name, &nameEnd, &val, &ptr)) {
       *badPtr = ptr;
       return 0;
@@ -1317,7 +1253,7 @@ doParseXmlDecl(const ENCODING *(*encodingFinder)(const ENCODING *, const char *,
   return 1;
 }
 
-static int
+static int FASTCALL
 checkCharRefNumber(int result) {
   switch (result >> 8) {
   case 0xD8:
@@ -1341,7 +1277,7 @@ checkCharRefNumber(int result) {
   return result;
 }
 
-int
+int FASTCALL
 XmlUtf8Encode(int c, char *buf) {
   enum {
     /* minN is minimum legal resulting value for N byte sequence */
@@ -1377,7 +1313,7 @@ XmlUtf8Encode(int c, char *buf) {
   return 0; /* LCOV_EXCL_LINE: this case too is eliminated before calling */
 }
 
-int
+int FASTCALL
 XmlUtf16Encode(int charNum, unsigned short *buf) {
   if (charNum < 0)
     return 0;
@@ -1409,7 +1345,7 @@ XmlSizeOfUnknownEncoding(void) {
   return sizeof(struct unknown_encoding);
 }
 
-static int
+static int PTRFASTCALL
 unknown_isName(const ENCODING *enc, const char *p) {
   const struct unknown_encoding *uenc = AS_UNKNOWN_ENCODING(enc);
   int c = uenc->convert(uenc->userData, p);
@@ -1418,7 +1354,7 @@ unknown_isName(const ENCODING *enc, const char *p) {
   return UCS2_GET_NAMING(namePages, c >> 8, c & 0xFF);
 }
 
-static int
+static int PTRFASTCALL
 unknown_isNmstrt(const ENCODING *enc, const char *p) {
   const struct unknown_encoding *uenc = AS_UNKNOWN_ENCODING(enc);
   int c = uenc->convert(uenc->userData, p);
@@ -1427,14 +1363,14 @@ unknown_isNmstrt(const ENCODING *enc, const char *p) {
   return UCS2_GET_NAMING(nmstrtPages, c >> 8, c & 0xFF);
 }
 
-static int
+static int PTRFASTCALL
 unknown_isInvalid(const ENCODING *enc, const char *p) {
   const struct unknown_encoding *uenc = AS_UNKNOWN_ENCODING(enc);
   int c = uenc->convert(uenc->userData, p);
   return (c & ~0xFFFF) || checkCharRefNumber(c) < 0;
 }
 
-static enum XML_Convert_Result
+static enum XML_Convert_Result PTRCALL
 unknown_toUtf8(const ENCODING *enc, const char **fromP, const char *fromLim,
                char **toP, const char *toLim) {
   const struct unknown_encoding *uenc = AS_UNKNOWN_ENCODING(enc);
@@ -1464,7 +1400,7 @@ unknown_toUtf8(const ENCODING *enc, const char **fromP, const char *fromLim,
   }
 }
 
-static enum XML_Convert_Result
+static enum XML_Convert_Result PTRCALL
 unknown_toUtf16(const ENCODING *enc, const char **fromP, const char *fromLim,
                 unsigned short **toP, const unsigned short *toLim) {
   const struct unknown_encoding *uenc = AS_UNKNOWN_ENCODING(enc);
@@ -1588,7 +1524,7 @@ static const char KW_UTF_16LE[]
     = {ASCII_U, ASCII_T, ASCII_F, ASCII_MINUS, ASCII_1,
        ASCII_6, ASCII_L, ASCII_E, '\0'};
 
-static int
+static int FASTCALL
 getEncodingIndex(const char *name) {
   static const char *const encodingNames[] = {
       KW_ISO_8859_1, KW_US_ASCII, KW_UTF_8, KW_UTF_16, KW_UTF_16BE, KW_UTF_16LE,

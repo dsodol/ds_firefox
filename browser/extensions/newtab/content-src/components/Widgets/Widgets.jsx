@@ -10,7 +10,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch, useSelector, batch } from "react-redux";
 import { BaseContext } from "content-src/lib/BaseContext";
 // Bug 2034542: these per-widget imports can be removed once the non-Nova render
 // path (@nova-cleanup) is gone and all widgets render via WIDGET_ROW_COMPONENTS.
@@ -26,13 +26,11 @@ import { SLOTS } from "../DiscoveryStreamComponents/FeatureHighlight/OMCHighligh
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import {
   WIDGET_REGISTRY,
-  getWidgets,
   isWidgetAddable,
   isWidgetEnabled,
   resolveWidgetSize,
   resolveWidgetOrder,
   resolveWidgetHasSidebar,
-  resolveWidgetSrc,
   getHideAllTargets,
 } from "common/WidgetsRegistry.mjs";
 import {
@@ -41,13 +39,12 @@ import {
   isSpaceOverridden,
   isSpacesActive,
   resolveAutoMinimizeDelayMs,
-  selectFirstSlotWidgetIds,
+  selectFirstSlotWidget,
   selectWidgetsRowAd,
   SPACE_IDS,
 } from "common/PageLayoutVariants.mjs";
 import { WIDGET_ROW_COMPONENTS } from "./WidgetsComponentRegistry.jsx";
 import { WidgetWrapper } from "./WidgetWrapper";
-import { MozWidgetCard } from "./MozWidgetCard";
 // @experiment(remove) { bug 2069496 }
 import { WidgetsRowAd } from "./WidgetsRowAd.jsx";
 import { ErrorBoundary } from "content-src/components/ErrorBoundary/ErrorBoundary";
@@ -144,8 +141,6 @@ function renderWeather({
 // eslint-disable-next-line complexity, max-statements
 function Widgets({ widgetIds }) {
   const prefs = useSelector(state => state.Prefs.values);
-  const extensionWidgets = useSelector(state => state.ExtensionWidgets);
-  const widgets = getWidgets(WIDGET_REGISTRY, extensionWidgets);
   const weatherData = useSelector(state => state.Weather);
   const { messageData } = useSelector(state => state.Messages);
   const timerType = useSelector(state => state.TimerWidget.timerType);
@@ -266,15 +261,41 @@ function Widgets({ widgetIds }) {
   // row here instead of disappearing.
   const weatherGoesToSidebar =
     resolveWidgetHasSidebar(weatherWidget, prefs) && weatherSize === "small";
-  const widgetEnabledMap = {};
-  for (const widget of widgets) {
-    widgetEnabledMap[widget.id] = isWidgetEnabled(
-      widget,
+  const widgetEnabledMap = {
+    lists: listsEnabled,
+    focusTimer: timerEnabled,
+    weather: weatherEnabled && !weatherGoesToSidebar,
+    clocks: isWidgetEnabled(
+      WIDGET_REGISTRY.find(w => w.id === "clocks"),
       prefs,
       widgetsEnabled
-    );
-  }
-  widgetEnabledMap.weather = weatherEnabled && !weatherGoesToSidebar;
+    ),
+    privacy: isWidgetEnabled(
+      WIDGET_REGISTRY.find(w => w.id === "privacy"),
+      prefs,
+      widgetsEnabled
+    ),
+    crossword: isWidgetEnabled(
+      WIDGET_REGISTRY.find(w => w.id === "crossword"),
+      prefs,
+      widgetsEnabled
+    ),
+    stocks: isWidgetEnabled(
+      WIDGET_REGISTRY.find(w => w.id === "stocks"),
+      prefs,
+      widgetsEnabled
+    ),
+    pictureOfTheDay: isWidgetEnabled(
+      WIDGET_REGISTRY.find(w => w.id === "pictureOfTheDay"),
+      prefs,
+      widgetsEnabled
+    ),
+    recentSearches: isWidgetEnabled(
+      WIDGET_REGISTRY.find(w => w.id === "recentSearches"),
+      prefs,
+      widgetsEnabled
+    ),
+  };
 
   // Given an explicit list, keep only those. Callers wanting every enabled
   // widget pass none, which is everything but a thematic space. This map is the
@@ -286,11 +307,11 @@ function Widgets({ widgetIds }) {
     }
   }
 
-  // @experiment(remove-conditional) { bug 2078816 }
-  // Keep for spaces-thematic-v1.
-  // A first stories card slot shows these widgets instead.
-  for (const id of selectFirstSlotWidgetIds(prefs)) {
-    widgetEnabledMap[id] = false;
+  // @experiment(remove) { bug 2078816 }
+  // The first stories card slot shows this widget instead.
+  const firstSlotWidget = selectFirstSlotWidget(prefs);
+  if (firstSlotWidget) {
+    widgetEnabledMap[firstSlotWidget] = false;
   }
 
   const widgetOrder = resolveWidgetOrder(prefs);
@@ -311,9 +332,9 @@ function Widgets({ widgetIds }) {
     WIDGET_REGISTRY.some(w => widgetEnabledMap[w.id]) ||
     (!novaEnabled && weatherForecastEnabled);
 
-  const allWidgetsAdded = widgets
-    .filter(w => isWidgetAddable(w, prefs))
-    .every(w => prefs[w.enabledPref]);
+  const allWidgetsAdded = WIDGET_REGISTRY.filter(w =>
+    isWidgetAddable(w, prefs)
+  ).every(w => prefs[w.enabledPref]);
 
   const renderedWidgetSizes = WIDGET_REGISTRY.filter(
     w => widgetEnabledMap[w.id]
@@ -414,6 +435,16 @@ function Widgets({ widgetIds }) {
         container?.getBoundingClientRect().height ?? null;
       rowToggleToHeightRef.current = 0;
       setAutoCollapsed(true);
+      dispatch(
+        ac.OnlyToMain({
+          type: at.WIDGETS_CONTAINER_ACTION,
+          data: {
+            action_type: CONTAINER_ACTION_TYPES.AUTO_MINIMIZE,
+            action_value: "collapse_section",
+            widget_size: widgetSize,
+          },
+        })
+      );
     }, autoMinimizeDelayMs);
     return () => globalThis.clearTimeout(timer);
   }, [
@@ -421,6 +452,8 @@ function Widgets({ widgetIds }) {
     autoCollapsed,
     autoMinimizeDelayMs,
     isPageVisible,
+    dispatch,
+    widgetSize,
     widgetsContainerRef,
   ]);
 
@@ -438,62 +471,50 @@ function Widgets({ widgetIds }) {
     prevTimerEnabledRef.current = isTimerEnabled;
   }, [timerEnabled, timerData, dispatch, timerType]);
 
-  const showsMozWidget =
-    novaEnabled &&
-    WIDGET_REGISTRY.some(
-      w => widgetEnabledMap[w.id] && !WIDGET_ROW_COMPONENTS[w.id]
-    );
-
-  useEffect(() => {
-    if (showsMozWidget) {
-      import(
-        /* webpackIgnore: true */ "chrome://browser/content/widgets/moz-widget.mjs"
-      ).catch(() => {});
-    }
-  }, [showsMozWidget]);
-
   function hideAllWidgets() {
-    const targets = getHideAllTargets(widgets, prefs, widgetEnabledMap);
-    for (const target of targets) {
-      dispatch(ac.SetPref(target.enabledPref, false));
-    }
-    // @nova-cleanup(remove-conditional): Remove the !novaEnabled guard and this branch
-    if (!novaEnabled && weatherForecastEnabled) {
-      dispatch(ac.SetPref("showWeather", false));
-    }
+    batch(() => {
+      const targets = getHideAllTargets(prefs, widgetEnabledMap);
+      for (const target of targets) {
+        dispatch(ac.SetPref(target.enabledPref, false));
+      }
+      // @nova-cleanup(remove-conditional): Remove the !novaEnabled guard and this branch
+      if (!novaEnabled && weatherForecastEnabled) {
+        dispatch(ac.SetPref("showWeather", false));
+      }
 
-    dispatch(
-      ac.OnlyToMain({
-        type: at.WIDGETS_HIDE_ALL,
-        data: { targets, widget_size: widgetSize },
-      })
-    );
-    // @nova-cleanup(remove-conditional): Remove once weatherForecastEnabled path is removed
-    if (!novaEnabled && weatherForecastEnabled) {
       dispatch(
         ac.OnlyToMain({
-          type: at.WIDGETS_ENABLED,
-          data: {
-            widget_name: "weather",
-            widget_source: "widget",
-            enabled: false,
-            widget_size: widgetSize,
-          },
+          type: at.WIDGETS_HIDE_ALL,
+          data: { targets, widget_size: widgetSize },
         })
       );
-    }
+      // @nova-cleanup(remove-conditional): Remove once weatherForecastEnabled path is removed
+      if (!novaEnabled && weatherForecastEnabled) {
+        dispatch(
+          ac.OnlyToMain({
+            type: at.WIDGETS_ENABLED,
+            data: {
+              widget_name: "weather",
+              widget_source: "widget",
+              enabled: false,
+              widget_size: widgetSize,
+            },
+          })
+        );
+      }
 
-    if (hideAllToastEnabled) {
-      dispatch(
-        ac.OnlyToOneContent(
-          {
-            type: at.SHOW_TOAST_MESSAGE,
-            data: { toastId: "hideWidgetsToast", showNotifications: true },
-          },
-          "ActivityStream:Content"
-        )
-      );
-    }
+      if (hideAllToastEnabled) {
+        dispatch(
+          ac.OnlyToOneContent(
+            {
+              type: at.SHOW_TOAST_MESSAGE,
+              data: { toastId: "hideWidgetsToast", showNotifications: true },
+            },
+            "ActivityStream:Content"
+          )
+        );
+      }
+    });
   }
 
   function handleHideAllWidgetsClick(e) {
@@ -544,13 +565,15 @@ function Widgets({ widgetIds }) {
       widget_size: newWidgetSize,
     };
 
-    dispatch(ac.SetMultiplePrefs(prefUpdates));
-    dispatch(
-      ac.OnlyToMain({
-        type: at.WIDGETS_CONTAINER_ACTION,
-        data: telemetryData,
-      })
-    );
+    batch(() => {
+      dispatch(ac.SetMultiplePrefs(prefUpdates));
+      dispatch(
+        ac.OnlyToMain({
+          type: at.WIDGETS_CONTAINER_ACTION,
+          data: telemetryData,
+        })
+      );
+    });
   }
 
   function handleToggleMaximizeClick(e) {
@@ -579,17 +602,19 @@ function Widgets({ widgetIds }) {
     if (container && !prefersReducedMotion) {
       rowToggleFromHeightRef.current = container.getBoundingClientRect().height;
     }
-    dispatch(ac.SetPref(PREF_WIDGETS_ROW_EXPANDED, next));
-    dispatch(
-      ac.OnlyToMain({
-        type: at.WIDGETS_CONTAINER_ACTION,
-        data: {
-          action_type: CONTAINER_ACTION_TYPES.CHANGE_ROW_VISIBILITY,
-          action_value: next ? "expand_row" : "collapse_row",
-          widget_size: widgetSize,
-        },
-      })
-    );
+    batch(() => {
+      dispatch(ac.SetPref(PREF_WIDGETS_ROW_EXPANDED, next));
+      dispatch(
+        ac.OnlyToMain({
+          type: at.WIDGETS_CONTAINER_ACTION,
+          data: {
+            action_type: CONTAINER_ACTION_TYPES.CHANGE_ROW_VISIBILITY,
+            action_value: next ? "expand_row" : "collapse_row",
+            widget_size: widgetSize,
+          },
+        })
+      );
+    });
   }
 
   function handleToggleRowExpandedClick(e) {
@@ -604,17 +629,19 @@ function Widgets({ widgetIds }) {
     rowToggleFromHeightRef.current =
       widgetsContainerRef.current?.getBoundingClientRect().height ?? null;
     setAutoCollapsed(false);
-    dispatch(ac.SetPref(PREF_WIDGETS_AUTO_MINIMIZE_OVERRIDE, true));
-    dispatch(
-      ac.OnlyToMain({
-        type: at.WIDGETS_CONTAINER_ACTION,
-        data: {
-          action_type: CONTAINER_ACTION_TYPES.AUTO_MINIMIZE,
-          action_value: "expand_section",
-          widget_size: widgetSize,
-        },
-      })
-    );
+    batch(() => {
+      dispatch(ac.SetPref(PREF_WIDGETS_AUTO_MINIMIZE_OVERRIDE, true));
+      dispatch(
+        ac.OnlyToMain({
+          type: at.WIDGETS_CONTAINER_ACTION,
+          data: {
+            action_type: CONTAINER_ACTION_TYPES.AUTO_MINIMIZE,
+            action_value: "expand_section",
+            widget_size: widgetSize,
+          },
+        })
+      );
+    });
   }
 
   function handleExpandAutoMinimizedClick(e) {
@@ -631,24 +658,26 @@ function Widgets({ widgetIds }) {
 
   function handleFeedbackClick(e) {
     e.preventDefault();
-    dispatch(
-      ac.OnlyToMain({
-        type: at.OPEN_LINK,
-        data: {
-          url: feedbackUrl,
-          ...(novaEnabled ? { where: "tab" } : {}),
-        },
-      })
-    );
-    dispatch(
-      ac.OnlyToMain({
-        type: at.WIDGETS_CONTAINER_ACTION,
-        data: {
-          action_type: CONTAINER_ACTION_TYPES.FEEDBACK,
-          widget_size: widgetSize,
-        },
-      })
-    );
+    batch(() => {
+      dispatch(
+        ac.OnlyToMain({
+          type: at.OPEN_LINK,
+          data: {
+            url: feedbackUrl,
+            ...(novaEnabled ? { where: "tab" } : {}),
+          },
+        })
+      );
+      dispatch(
+        ac.OnlyToMain({
+          type: at.WIDGETS_CONTAINER_ACTION,
+          data: {
+            action_type: CONTAINER_ACTION_TYPES.FEEDBACK,
+            widget_size: widgetSize,
+          },
+        })
+      );
+    });
   }
 
   function handleUserInteraction(widgetName) {
@@ -783,7 +812,7 @@ function Widgets({ widgetIds }) {
   const enabledWidgetIds = [];
   // Use effectiveOrder (matches the render loop) so optimistic reorders aren't briefly mis-hidden.
   for (const id of effectiveOrder) {
-    if (!widgetEnabledMap[id]) {
+    if (!WIDGET_ROW_COMPONENTS[id] || !widgetEnabledMap[id]) {
       continue;
     }
     enabledWidgetIds.push(id);
@@ -867,10 +896,10 @@ function Widgets({ widgetIds }) {
             effectiveOrder.map(id => {
               if (novaEnabled) {
                 const Component = WIDGET_ROW_COMPONENTS[id];
-                const entry = widgets.find(w => w.id === id);
-                if (!widgetEnabledMap[id]) {
+                if (!Component || !widgetEnabledMap[id]) {
                   return null;
                 }
+                const entry = WIDGET_REGISTRY.find(w => w.id === id);
                 const size = entry ? resolveWidgetSize(entry, prefs) : null;
                 const renderIdx = enabledWidgetIds.indexOf(id);
                 const hiddenAttrs = {
@@ -907,23 +936,13 @@ function Widgets({ widgetIds }) {
                     {/* Contain a crash to this widget's cell so one failing
                       widget can't tear down the whole widgets section. */}
                     <ErrorBoundary className="widget-error-fallback">
-                      {Component ? (
-                        <Component
-                          dispatch={dispatch}
-                          handleUserInteraction={handleUserInteraction}
-                          isMaximized={isMaximized}
-                          widgetsMayBeMaximized={widgetsMayBeMaximized}
-                          widgetEnabledMap={widgetEnabledMap}
-                        />
-                      ) : (
-                        <MozWidgetCard
-                          dispatch={dispatch}
-                          entry={entry}
-                          size={size}
-                          src={resolveWidgetSrc(entry, prefs)}
-                          widgetEnabledMap={widgetEnabledMap}
-                        />
-                      )}
+                      <Component
+                        dispatch={dispatch}
+                        handleUserInteraction={handleUserInteraction}
+                        isMaximized={isMaximized}
+                        widgetsMayBeMaximized={widgetsMayBeMaximized}
+                        widgetEnabledMap={widgetEnabledMap}
+                      />
                     </ErrorBoundary>
                   </WidgetWrapper>
                 );

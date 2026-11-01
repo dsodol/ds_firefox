@@ -179,7 +179,7 @@ void IDBIndex::NoteDeletion() {
     return;
   }
 
-  mDeletedMetadata = std::make_unique<IndexMetadata>(*mMetadata);
+  mDeletedMetadata = MakeUnique<IndexMetadata>(*mMetadata);
 
   mMetadata = mDeletedMetadata.get();
 }

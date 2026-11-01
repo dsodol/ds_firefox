@@ -75,11 +75,13 @@ class PinnedSitesStorageTest {
         storage.addPinnedSite("Mozilla", "https://www.mozilla.org")
         storage.addPinnedSite("Firefox", "https://www.firefox.com", isDefault = true)
 
-        // PinnedSiteDao.insertPinnedSite is called with "id = null".
+        // PinnedSiteDao.insertPinnedSite is actually called with "id = null", but due to an
+        // extraneous assignment ("entity.id = ") in PinnedSiteStorage.addPinnedSite we can for now
+        // only verify the call with "id = 0". See issue #9708.
         verify(dao)
             .insertPinnedSite(
                 PinnedSiteEntity(
-                    id = null,
+                    id = 0,
                     title = "Mozilla",
                     url = "https://www.mozilla.org",
                     isDefault = false,
@@ -89,7 +91,7 @@ class PinnedSitesStorageTest {
         verify(dao)
             .insertPinnedSite(
                 PinnedSiteEntity(
-                    id = null,
+                    id = 0,
                     title = "Firefox",
                     url = "https://www.firefox.com",
                     isDefault = true,

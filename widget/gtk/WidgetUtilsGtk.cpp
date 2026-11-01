@@ -502,8 +502,7 @@ static nsCString GetWindowManagerName() {
                          req_type, &actual_type_return, &actual_format_return,
                          &nitems_return, &bytes_after_return, &prop_return);
 
-  if (result != X11Success || bytes_after_return != 0 || nitems_return != 1 ||
-      actual_format_return != 32) {
+  if (result != X11Success || bytes_after_return != 0 || nitems_return != 1) {
     return {};
   }
 
@@ -626,7 +625,7 @@ static uint32_t GetWindowUserTime(GdkDisplay* aDisplay, uintptr_t aWindow) {
                          &actualType, &actualFormat, &numberOfItems,
                          &bytesAfter, &property) == X11Success &&
       property) {
-    if (numberOfItems == 1 && actualFormat == 32) {
+    if (numberOfItems == 1) {
       userTime = *((uint32_t*)property);
     }
     XFree(property);

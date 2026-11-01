@@ -17,18 +17,19 @@ const _isParentProcess =
  * @param string aId
  *        The inner window ID to check.
  * @returns boolean
- *          true if aId identifies a destroyed inner window.
+ *          true if aId identifies a destroyed inner window. Always returns
+ *          false in content processes.
  */
 function _isDestroyedInnerWindow(aId) {
-  // Inner window IDs are positive; "" (a chrome call without a stack frame)
-  // would otherwise read as 0.
-  let innerId = Number(aId);
-  if (!Number.isInteger(innerId) || innerId <= 0) {
+  // Content processes rely on Nuking to sever references to destroyed-window
+  // globals, so _isDestroyedInnerWindow is only meaningful in the parent process.
+  if (!_isParentProcess) {
     return false;
   }
-  return _isParentProcess
-    ? !WindowGlobalParent.getByInnerWindowId(innerId)
-    : !WindowGlobalChild.getByInnerWindowId(innerId);
+  let innerId = Number(aId);
+  return (
+    Number.isInteger(innerId) && !WindowGlobalParent.getByInnerWindowId(innerId)
+  );
 }
 
 // NOTE: these listeners used to just be added as observers and notified via

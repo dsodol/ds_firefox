@@ -18,7 +18,6 @@
 #include "mozilla/Mutex.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/Result.h"
-#include "mozilla/StaticString.h"
 #include "mozilla/ThreadBound.h"
 #include "mozilla/dom/Nullable.h"
 #include "mozilla/dom/UnboundedMPSCQueue.h"
@@ -54,13 +53,6 @@ class nsIFile;
 class nsIRunnable;
 class nsIThread;
 class nsITimer;
-
-namespace mozilla::dom::quota {
-class CipherKeyStoreBackend;
-template <typename CipherStrategy>
-class CipherKeyManager;
-struct NSSCipherStrategy;
-}  // namespace mozilla::dom::quota
 
 namespace mozilla {
 
@@ -817,14 +809,6 @@ class QuotaManager final : public BackgroundThreadObject {
   OriginMetadataArray GetTemporaryOrigins(
       PersistenceType aPersistenceType) const;
 
-  Result<RefPtr<CipherKeyManager<NSSCipherStrategy>>, nsresult>
-  GetOrCreateCipherKeyManager(const nsACString& aOrigin,
-                              Client::Type aClientType);
-
-  bool IsStorageEncryptionEnabled() const { return mStorageEncryptionEnabled; }
-
-  bool IsOriginEncrypted(const OriginMetadata& aOriginMetadata);
-
  private:
   virtual ~QuotaManager();
 
@@ -847,10 +831,6 @@ class QuotaManager final : public BackgroundThreadObject {
   void LockedRemoveQuotaForRepository(PersistenceType aPersistenceType);
 
   void LockedRemoveQuotaForOrigin(const OriginMetadata& aOriginMetadata);
-
-  // Records the quotamanager.temporary_storage_usage_underflow event if
-  // mTemporaryStorageUsage is negative.
-  void LockedMaybeRecordTemporaryStorageUsageUnderflow(StaticString aCallSite);
 
   bool LockedHasGroupInfoPair(const nsACString& aGroup) const;
 
@@ -1313,9 +1293,6 @@ class QuotaManager final : public BackgroundThreadObject {
   // sense. See bug 1585978 for details.
   int64_t mTemporaryStorageLimit;
   int64_t mTemporaryStorageUsage;
-  // How many times a negative mTemporaryStorageUsage was seen. Used to
-  // throttle temporary_storage_usage_underflow telemetry events.
-  uint32_t mTemporaryStorageUsageUnderflowCount = 0;
 
   int64_t mNextDirectoryLockId;
   bool mStorageInitialized;
@@ -1328,9 +1305,6 @@ class QuotaManager final : public BackgroundThreadObject {
   bool mCacheUsable;
   bool mCacheRequiresFullScan;
   std::atomic<bool> mUsageModificationDisabled{false};
-  bool mStorageEncryptionEnabled = false;
-
-  RefPtr<CipherKeyStoreBackend> mCipherKeyStore;
 };
 
 }  // namespace mozilla::dom::quota

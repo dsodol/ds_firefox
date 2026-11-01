@@ -22,8 +22,7 @@ class AudioDestinationNode final : public AudioNode,
   // This node type knows what MediaTrackGraph to use based on
   // whether it's in offline mode.
   AudioDestinationNode(AudioContext* aContext, bool aIsOffline,
-                       bool aAllowedToStart, uint32_t aNumberOfChannels,
-                       uint32_t aLength);
+                       uint32_t aNumberOfChannels, uint32_t aLength);
 
   void DestroyMediaTrack() override;
 

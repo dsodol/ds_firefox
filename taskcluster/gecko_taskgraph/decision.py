@@ -2,7 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import gc
 import logging
 import os
 import shutil
@@ -34,7 +33,7 @@ from .actions import render_actions_json
 from .files_changed import get_changed_files
 from .parameters import get_app_version, get_version
 from .util.backstop import ANDROID_PERFTEST_BACKSTOP_INDEX, BACKSTOP_INDEX, is_backstop
-from .util.bugbug import push_schedules, start_push_schedules
+from .util.bugbug import push_schedules
 from .util.hg import get_hg_revision_metadata
 from .util.partials import populate_release_history
 from .util.taskcluster import insert_index
@@ -148,7 +147,6 @@ PER_PROJECT_PARAMETERS = {
         "target_tasks_method": "kaios_tasks",
     },
     "toolchains": {
-        "head_git_repository": "https://github.com/mozilla-firefox/firefox",
         "target_tasks_method": "mozilla_central_tasks",
     },
     # git projects
@@ -158,11 +156,6 @@ PER_PROJECT_PARAMETERS = {
         "target_tasks_method": "firefox_pull_request_tasks",
     },
     "firefox-dev": {
-        "enable_always_target": True,
-        "target_tasks_method": "try_tasks",
-        "release_type": "nightly",
-    },
-    "firefox-dev-secure": {
         "enable_always_target": True,
         "target_tasks_method": "try_tasks",
         "release_type": "nightly",
@@ -241,15 +234,6 @@ def taskgraph_decision(options, parameters):
 
     decision_task_id = os.environ["TASK_ID"]
 
-    # Start querying bugbug early, so its results are ready sooner for the
-    # optimizers, and so they are stored even on pushes that don't use them
-    # (e.g. backstop pushes).
-    bugbug_future = None
-    if not create.testing and parameters["project"] == "autoland":
-        bugbug_future = start_push_schedules(
-            parameters["project"], parameters["head_rev"]
-        )
-
     with source_bundle(parameters["head_rev"], parameters["repository_type"]):
         # create a TaskGraphGenerator instance
         tgg = TaskGraphGenerator(
@@ -274,12 +258,7 @@ def taskgraph_decision(options, parameters):
         )
 
         # write out the full graph for reference
-        full_task_graph = tgg.full_task_graph
-        # The generated graph is long-lived and taskgraph collects no garbage
-        # while generating it, so a collection triggered while serializing it
-        # would walk the whole heap for little gain.
-        gc.freeze()
-        full_task_json = full_task_graph.to_json()
+        full_task_json = tgg.full_task_graph.to_json()
         write_artifact("full-task-graph.json", full_task_json)
 
         # write out kind graph
@@ -310,6 +289,13 @@ def taskgraph_decision(options, parameters):
         write_artifact("task-graph.json", tgg.morphed_task_graph.to_json())
         write_artifact("label-to-taskid.json", tgg.label_to_taskid)
 
+        # write bugbug scheduling information if it was invoked
+        if push_schedules.cache_info().currsize > 0:
+            write_artifact(
+                "bugbug-push-schedules.json",
+                push_schedules(tgg.parameters["project"], tgg.parameters["head_rev"]),
+            )
+
         # upload run-task, fetch-content, robustcheckout.py and more as artifacts
         scripts_dir = Path(GECKO, "taskcluster", "scripts")
         taskgraph_dir = Path(taskgraph.__file__).parent
@@ -320,10 +306,6 @@ def taskgraph_decision(options, parameters):
             taskgraph_dir / "run-task" / "run-task": f"{ARTIFACTS_DIR}/run-task-git",
             scripts_dir / "robustcheckout.py": ARTIFACTS_DIR,
             scripts_dir / "run-task-setup.py": ARTIFACTS_DIR,
-            scripts_dir / "run_task_resource_monitor.py": ARTIFACTS_DIR,
-            Path(GECKO, "testing", "mozbase", "mozsystemmonitor")
-            / "mozsystemmonitor"
-            / "resourcemonitor.py": ARTIFACTS_DIR,
         }
         for target, dest in to_copy.items():
             shutil.copy2(target, dest)
@@ -336,19 +318,6 @@ def taskgraph_decision(options, parameters):
             tgg.parameters,
             decision_task_id=decision_task_id,
         )
-
-        # write bugbug scheduling information if it was invoked or is ready
-        if push_schedules.cache_info().currsize > 0:
-            write_artifact(
-                "bugbug-push-schedules.json",
-                push_schedules(tgg.parameters["project"], tgg.parameters["head_rev"]),
-            )
-        elif bugbug_future and bugbug_future.done() and not bugbug_future.exception():
-            write_artifact("bugbug-push-schedules.json", bugbug_future.result())
-        else:
-            logger.info(
-                "Bugbug results not available, not writing bugbug-push-schedules.json"
-            )
 
 
 def get_decision_parameters(graph_config, options):

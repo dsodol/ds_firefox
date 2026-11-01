@@ -264,11 +264,8 @@ impl StylesheetInvalidationSet {
                 None => return false,
             };
 
-            if self.style_fully_invalid || self.cascade_data_difference.layer_order_changed {
-                debug!(
-                    "fully_invalid = {}, layer_order_changed = {}",
-                    self.style_fully_invalid, self.cascade_data_difference.layer_order_changed,
-                );
+            if self.style_fully_invalid {
+                debug!("process_invalidations: fully_invalid({:?})", root);
                 data.hint.insert(RestyleHint::restyle_subtree());
                 return true;
             }
@@ -639,8 +636,9 @@ impl StylesheetInvalidationSet {
                 // look like.
             },
             LayerStatement(..) => {
-                // Layer insertions might alter styling order, but are dealt via
-                // cascade_data_difference.
+                // Layer statement insertions might alter styling order, so we need to always
+                // invalidate fully.
+                self.invalidate_fully()
             },
             Document(..) | Import(..) | Media(..) | Supports(..) | Container(..)
             | LayerBlock(..) | StartingStyle(..) | AppearanceBase(..) => {

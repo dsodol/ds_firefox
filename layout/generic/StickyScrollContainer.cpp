@@ -88,7 +88,9 @@ static nsSize GetScrollContainerSize(
 // static
 void StickyScrollContainer::ComputeStickyOffsets(nsIFrame* aFrame) {
   ScrollContainerFrame* scrollContainerFrame =
-      GetScrollContainerForStickyFrame(aFrame);
+      nsLayoutUtils::GetNearestScrollContainerFrame(
+          aFrame->GetParent(), nsLayoutUtils::SCROLLABLE_SAME_DOC |
+                                   nsLayoutUtils::SCROLLABLE_INCLUDE_HIDDEN);
 
   if (!scrollContainerFrame) {
     // Bail.

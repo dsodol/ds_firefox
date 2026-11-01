@@ -12,7 +12,13 @@ add_setup(async () => {
 async function showOpenTabsPanel() {
   await SidebarTestUtils.showPanel(window, "viewOpenTabsSidebar");
   const { contentDocument } = SidebarController.browser;
-  return contentDocument.querySelector("sidebar-opentabs");
+  const component = contentDocument.querySelector("sidebar-opentabs");
+  Assert.ok(component, "Open tabs panel element exists.");
+  Assert.ok(
+    BrowserTestUtils.isVisible(SidebarController.sidebarContainer),
+    "Open tabs panel is shown."
+  );
+  return component;
 }
 
 function getTabList(component) {

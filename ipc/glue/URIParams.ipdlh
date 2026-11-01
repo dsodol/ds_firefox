@@ -72,7 +72,7 @@ struct HostObjectURIParams
 {
   SimpleURIParams simpleParams;
   bool revoked;
-  nullable nsIPrincipal nullOriginPrincipal;
+  nullable nsIPrincipal nullPrincipal;
 };
 
 union URIParams

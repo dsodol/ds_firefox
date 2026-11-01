@@ -38,7 +38,8 @@ using namespace mozilla;
 using namespace mozilla::dom;
 
 nsIFrame* NS_NewFileControlFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
-  return new nsFileControlFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      nsFileControlFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsFileControlFrame)
@@ -361,7 +362,7 @@ bool nsFileControlFrame::DnDListener::CanDropTheseFiles(
 void nsFileControlFrame::SyncDisabledState() {
   if (mContent->AsElement()->State().HasState(ElementState::DISABLED)) {
     mBrowseFilesOrDirs->SetAttr(kNameSpaceID_None, nsGkAtoms::disabled, u""_ns,
-                                true, IsKnownNewAttr::No);
+                                true);
   } else {
     mBrowseFilesOrDirs->UnsetAttr(kNameSpaceID_None, nsGkAtoms::disabled, true);
   }
@@ -419,5 +420,6 @@ NS_IMPL_FRAMEARENA_HELPERS(FileControlLabelFrame)
 
 nsIFrame* NS_NewFileControlLabelFrame(PresShell* aPresShell,
                                       ComputedStyle* aStyle) {
-  return new FileControlLabelFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      FileControlLabelFrame(aStyle, aPresShell->GetPresContext());
 }

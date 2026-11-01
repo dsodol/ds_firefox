@@ -236,7 +236,7 @@ void NoteWeakMapsTracer::trace(JSObject* aMap, JS::GCCellPtr aKey,
     mChildTracer.mKey = aKey;
     mChildTracer.mKeyDelegate = kdelegate;
 
-    if (aValue && !aValue.is<JSString>()) {
+    if (!aValue.is<JSString>()) {
       JS::TraceChildren(&mChildTracer, aValue);
     }
 
@@ -652,7 +652,7 @@ void JSHolderMap::Put(void* aHolder, nsScriptObjectTracer* aTracer,
     auto ptr = mPerZoneJSHolders.lookupForAdd(aZone);
     if (!ptr) {
       MOZ_ALWAYS_TRUE(
-          mPerZoneJSHolders.add(ptr, aZone, std::make_unique<EntryVector>()));
+          mPerZoneJSHolders.add(ptr, aZone, MakeUnique<EntryVector>()));
     }
     vector = ptr->value().get();
   }

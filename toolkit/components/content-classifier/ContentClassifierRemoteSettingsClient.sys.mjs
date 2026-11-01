@@ -95,7 +95,8 @@ export class ContentClassifierRemoteSettingsClient {
    * @param {Array} event.data.deleted  Removed records.
    */
   async onSync({ data: { created = [], updated = [], deleted = [] } }) {
-    if (!this.#service) {
+    let service = this.#service;
+    if (!service) {
       return;
     }
 
@@ -116,14 +117,15 @@ export class ContentClassifierRemoteSettingsClient {
       ...created.map(r => r.Name),
     ];
     let removedNames = deleted.map(r => r.Name);
-    this.#service?.onListsChanged(updatedNames, removedNames);
+    service.onListsChanged(updatedNames, removedNames);
   }
 
   /**
    * Fetch all records from the collection and notify the service.
    */
   async importAllLists() {
-    if (!this.#service) {
+    let service = this.#service;
+    if (!service) {
       return;
     }
 
@@ -135,7 +137,7 @@ export class ContentClassifierRemoteSettingsClient {
       lazy.log.error(`Error importing lists:`, error);
     }
 
-    this.#service?.onListsChanged(
+    service.onListsChanged(
       records.map(r => r.Name),
       []
     );

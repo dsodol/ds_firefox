@@ -68,11 +68,3 @@ else:
 
 with Files("**"):
     BUG_COMPONENT = ("Toolkit", "Application Update")
-
-SOURCE_HEADERS += [
-    "maintenanceservice.h",
-    "resource.h",
-    "servicebase.h",
-    "serviceinstall.h",
-    "workmonitor.h",
-]

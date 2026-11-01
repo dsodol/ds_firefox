@@ -16,7 +16,3 @@ FINAL_LIBRARY = "xul"
 
 with Files("**"):
     BUG_COMPONENT = ("Toolkit", "Application Update")
-
-SOURCE_HEADERS += [
-    "SiteCategory.h",
-]

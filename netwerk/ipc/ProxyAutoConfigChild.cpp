@@ -136,7 +136,7 @@ void ProxyAutoConfigChild::ShutdownPACThread() {
 }
 
 ProxyAutoConfigChild::ProxyAutoConfigChild()
-    : mPAC(std::make_unique<ProxyAutoConfig>()) {
+    : mPAC(MakeUnique<ProxyAutoConfig>()) {
   if (!sThreadLocalSetup) {
     sThreadLocalSetup = true;
     PR_NewThreadPrivateIndex(&sThreadLocalIndex, nullptr);

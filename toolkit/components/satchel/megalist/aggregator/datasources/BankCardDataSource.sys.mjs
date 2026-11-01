@@ -4,20 +4,17 @@
 
 import { DataSourceBase } from "resource://gre/modules/megalist/aggregator/datasources/DataSourceBase.sys.mjs";
 import { formAutofillStorage } from "resource://autofill/FormAutofillStorage.sys.mjs";
+import { OSKeyStore } from "resource://gre/modules/OSKeyStore.sys.mjs";
 
 async function decryptCard(card) {
-  if (!card["cc-number-decrypted"]) {
+  if (card["cc-number-encrypted"] && !card["cc-number-decrypted"]) {
     try {
-      // Re-authentication has already happened, in MegalistViewModel.
-      const number = await formAutofillStorage.creditCards.decryptField(
-        card,
-        "cc-number",
-        { trigger: "megalist_cc" }
+      card["cc-number-decrypted"] = await OSKeyStore.decrypt(
+        card["cc-number-encrypted"],
+        "megalist_cc",
+        false
       );
-      if (number !== null) {
-        card["cc-number-decrypted"] = number;
-        card["cc-number"] = number;
-      }
+      card["cc-number"] = card["cc-number-decrypted"];
     } catch (e) {
       console.error(e);
     }

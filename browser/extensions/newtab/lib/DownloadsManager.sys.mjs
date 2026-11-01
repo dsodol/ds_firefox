@@ -16,12 +16,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   NewTabUtils: "resource://gre/modules/NewTabUtils.sys.mjs",
 });
 
-ChromeUtils.defineLazyGetter(
-  lazy,
-  "downloadsL10n",
-  () => new Localization(["browser/downloads.ftl"], true)
-);
-
 const DOWNLOAD_CHANGED_DELAY_TIME = 1000; // time in ms to delay timer for downloads changed events
 
 export class DownloadsManager {
@@ -47,23 +41,10 @@ export class DownloadsManager {
       title: lazy.DownloadsViewUI.getDisplayName(download),
       description:
         lazy.DownloadsViewUI.getSizeWithUnits(download) ||
-        this.getSizeUnknownLabel(),
+        lazy.DownloadsCommon.strings.sizeUnknown,
       referrer,
       date_added: download.endTime,
     };
-  }
-
-  /**
-   * @backward-compat { version 161 }
-   * downloads.properties was migrated to Fluent in 161, removing
-   * DownloadsCommon.strings. Once 161 reaches Release, drop the
-   * DownloadsCommon.strings fallback.
-   */
-  getSizeUnknownLabel() {
-    if (lazy.DownloadsCommon.strings) {
-      return lazy.DownloadsCommon.strings.sizeUnknown;
-    }
-    return lazy.downloadsL10n.formatValueSync("downloads-size-unknown");
   }
 
   init(store) {

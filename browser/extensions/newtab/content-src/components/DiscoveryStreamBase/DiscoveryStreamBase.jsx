@@ -23,11 +23,7 @@ import { Widgets } from "content-src/components/Widgets/Widgets";
 import { Spaces } from "content-src/components/Spaces/Spaces";
 import {
   isSpacesActive,
-  hasSpacesArrows,
   isSpacesArrowsAssigned,
-  isSpacesPreviewEnabled,
-  isSpacesPeekAssigned,
-  resolveFeatureSpacePreviewImages,
   resolvePopulatedSpaces,
   resolveThematicSpaces,
   SPACE_IDS,
@@ -407,14 +403,10 @@ export class _DiscoveryStreamBase extends React.PureComponent {
             populated.map(id => [
               id,
               <React.Fragment key={id}>
-                {/* A widgets-only space has no feed column. The lead space
-                keeps it for the message and privacy link. */}
-                {(!!thematicSpaces.spaces[id].sectionKeys.length ||
-                  id === defaultSpaceId) &&
-                  contentGroupFor(
-                    thematicSpaces.spaces[id].sectionKeys,
-                    id === defaultSpaceId
-                  )}
+                {contentGroupFor(
+                  thematicSpaces.spaces[id].sectionKeys,
+                  id === defaultSpaceId
+                )}
                 {widgets &&
                   !!thematicSpaces.spaces[id].widgetIds.length &&
                   this.renderLayout([
@@ -429,10 +421,10 @@ export class _DiscoveryStreamBase extends React.PureComponent {
                       sectionType: "widgets",
                     },
                   ])}
-                {/* Recent activity keeps showing for a user who has it on, in
-                the space the config marks for it or else the one the page
-                opens on. */}
-                {id === thematicSpaces.activityId && highlightsGroup}
+                {/* Recent activity is not a spaces concept: it keeps showing
+                for a user who has it on, in the space the page opens on, the
+                same as it did before this layout existed. */}
+                {id === defaultSpaceId && highlightsGroup}
               </React.Fragment>,
             ])
           )
@@ -441,33 +433,10 @@ export class _DiscoveryStreamBase extends React.PureComponent {
             [SPACE_IDS.WIDGETS]: widgetsGroup,
             [SPACE_IDS.ACTIVITY]: highlightsGroup,
           };
-      // Whether each space's content has settled, so the tab preview does not
-      // pick its first item from placeholders and then change it. A thematic
-      // space leads with its feed, as V1 stories is its feed. Sponsored stories
-      // arrive separately and can take the first slot, so the feed waits for
-      // them too; their update is sent even with them off. V1 widgets render
-      // from prefs alone.
-      const feedsLoaded = !!(
-        DiscoveryStream.feeds?.loaded && DiscoveryStream.spocs?.loaded
-      );
-      const spaceReady = thematicSpaces
-        ? {}
-        : {
-            [SPACE_IDS.WIDGETS]: true,
-            [SPACE_IDS.ACTIVITY]: !!this.props.Sections?.find(
-              s => s.id === "highlights"
-            )?.initialized,
-          };
-      // Thematic spaces carry their own, from their config.
-      const featureImages = thematicSpaces
-        ? {}
-        : resolveFeatureSpacePreviewImages(this.props.Prefs.values);
       spaceEntries = populated
         .map(id => ({
           id,
           content: spaceContent[id],
-          ready: spaceReady[id] ?? feedsLoaded,
-          previewImage: featureImages[id],
           ...(thematicSpaces?.spaces[id] ?? {}),
         }))
         .filter(space => space.content);
@@ -522,10 +491,7 @@ export class _DiscoveryStreamBase extends React.PureComponent {
           <Spaces
             spaces={spaceEntries}
             defaultId={defaultSpaceId}
-            arrows={hasSpacesArrows(this.props.Prefs.values)}
-            tablist={!isSpacesArrowsAssigned(this.props.Prefs.values)}
-            preview={isSpacesPreviewEnabled(this.props.Prefs.values)}
-            peek={isSpacesPeekAssigned(this.props.Prefs.values)}
+            arrows={isSpacesArrowsAssigned(this.props.Prefs.values)}
             dispatch={this.props.dispatch}
           />
         ) : (

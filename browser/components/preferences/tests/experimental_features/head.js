@@ -122,7 +122,7 @@ async function setupLabsTest(recipes) {
   await ExperimentAPI._rsLoader.updateRecipes("test");
 
   return async function cleanup() {
-    await NimbusTestUtils.assert.storeIsEmpty();
+    await NimbusTestUtils.removeStore(ExperimentAPI.manager.store);
     await SpecialPowers.popPrefEnv();
   };
 }

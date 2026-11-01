@@ -32,7 +32,6 @@
 #include "mozilla/css/StreamLoader.h"
 #include "mozilla/dom/DocGroup.h"
 #include "mozilla/dom/Document.h"
-#include "mozilla/dom/Element.h"
 #include "mozilla/dom/FetchPriority.h"
 #include "mozilla/dom/MediaList.h"
 #include "mozilla/dom/SRICheck.h"
@@ -438,7 +437,7 @@ void SheetLoadData::PrioritizeAsPreload(nsIChannel* aChannel) {
 
 void SheetLoadData::StartPendingLoad() {
   mLoader->LoadSheet(*this, Loader::SheetState::NeedsParser, 0,
-                     Loader::TriggeringPendingLoad::Yes);
+                     Loader::PendingLoad::Yes);
 }
 
 already_AddRefed<AsyncEventDispatcher>
@@ -1183,7 +1182,7 @@ nsresult Loader::LoadSheetSyncInternal(SheetLoadData& aLoadData,
   if (NS_FAILED(rv)) {
     LOG_ERROR(("  Failed to create channel"));
     streamLoader->ChannelOpenFailed(rv);
-    SheetComplete(aLoadData, rv, TriggeringPendingLoad::No);
+    SheetComplete(aLoadData, rv);
     return rv;
   }
 
@@ -1206,7 +1205,7 @@ nsresult Loader::LoadSheetSyncInternal(SheetLoadData& aLoadData,
     LOG_ERROR(("  Failed to open URI synchronously"));
     streamLoader->ChannelOpenFailed(rv);
     channel->SetNotificationCallbacks(nullptr);
-    SheetComplete(aLoadData, rv, TriggeringPendingLoad::No);
+    SheetComplete(aLoadData, rv);
     return rv;
   }
 
@@ -1224,14 +1223,14 @@ nsresult Loader::LoadSheetSyncInternal(SheetLoadData& aLoadData,
 }
 
 bool Loader::MaybeDeferLoad(SheetLoadData& aLoadData, SheetState aSheetState,
-                            TriggeringPendingLoad aPendingLoad,
+                            PendingLoad aPendingLoad,
                             const SheetLoadDataHashKey& aKey) {
   MOZ_ASSERT(mSheets);
 
   // If we have at least one other load ongoing, then we can defer it until
   // all non-pending loads are done.
   if (aSheetState == SheetState::NeedsParser &&
-      aPendingLoad == TriggeringPendingLoad::No && aLoadData.ShouldDefer() &&
+      aPendingLoad == PendingLoad::No && aLoadData.ShouldDefer() &&
       mOngoingLoadCount > mPendingLoadCount + 1) {
     LOG(("  Deferring sheet load"));
     ++mPendingLoadCount;
@@ -1283,7 +1282,7 @@ bool Loader::MaybeCoalesceLoadAndNotifyOpen(SheetLoadData& aLoadData,
  */
 nsresult Loader::LoadSheet(SheetLoadData& aLoadData, SheetState aSheetState,
                            uint64_t aEarlyHintPreloaderId,
-                           TriggeringPendingLoad aPendingLoad) {
+                           PendingLoad aPendingLoad) {
   LOG(("css::Loader::LoadSheet"));
   MOZ_ASSERT(aLoadData.mURI, "Need a URI to load");
   MOZ_ASSERT(aLoadData.mSheet, "Need a sheet to load into");
@@ -1295,7 +1294,7 @@ nsresult Loader::LoadSheet(SheetLoadData& aLoadData, SheetState aSheetState,
 
   // If we're firing a pending load, this load is already accounted for the
   // first time it went through this function.
-  if (aPendingLoad == TriggeringPendingLoad::No) {
+  if (aPendingLoad == PendingLoad::No) {
     if (aLoadData.BlocksLoadEvent()) {
       IncrementOngoingLoadCountAndMaybeBlockOnload();
     }
@@ -1310,7 +1309,7 @@ nsresult Loader::LoadSheet(SheetLoadData& aLoadData, SheetState aSheetState,
   if (!mDocument && !aLoadData.mIsNonDocumentSheet) {
     // No point starting the load; just release all the data and such.
     LOG_WARN(("  No document and not non-document sheet; pre-dropping load"));
-    SheetComplete(aLoadData, NS_BINDING_ABORTED, aPendingLoad);
+    SheetComplete(aLoadData, NS_BINDING_ABORTED);
     return NS_BINDING_ABORTED;
   }
 
@@ -1337,8 +1336,7 @@ nsresult Loader::LoadSheet(SheetLoadData& aLoadData, SheetState aSheetState,
   aLoadData.NotifyOpen(preloadKey, mDocument,
                        aLoadData.IsLinkRelPreloadOrEarlyHint());
 
-  return LoadSheetAsyncInternal(aLoadData, aEarlyHintPreloaderId, key,
-                                aPendingLoad);
+  return LoadSheetAsyncInternal(aLoadData, aEarlyHintPreloaderId, key);
 }
 
 void Loader::AdjustPriority(const SheetLoadData& aLoadData,
@@ -1386,8 +1384,7 @@ void Loader::AdjustPriority(const SheetLoadData& aLoadData,
 
 nsresult Loader::LoadSheetAsyncInternal(SheetLoadData& aLoadData,
                                         uint64_t aEarlyHintPreloaderId,
-                                        const SheetLoadDataHashKey& aKey,
-                                        TriggeringPendingLoad aPendingLoad) {
+                                        const SheetLoadDataHashKey& aKey) {
   SRIMetadata sriMetadata;
   aLoadData.mSheet->GetIntegrity(sriMetadata);
 
@@ -1401,7 +1398,7 @@ nsresult Loader::LoadSheetAsyncInternal(SheetLoadData& aLoadData,
       aLoadData, UsePreload::No, UseLoadGroup::Yes, getter_AddRefs(channel));
   if (NS_FAILED(rv)) {
     LOG_ERROR(("  Failed to create channel"));
-    SheetComplete(aLoadData, rv, aPendingLoad);
+    SheetComplete(aLoadData, rv);
     return rv;
   }
 
@@ -1485,7 +1482,7 @@ nsresult Loader::LoadSheetAsyncInternal(SheetLoadData& aLoadData,
     channel->SetNotificationCallbacks(nullptr);
     // NOTE: NotifyStop will be done in SheetComplete -> NotifyObservers.
     aLoadData.NotifyStart(channel);
-    SheetComplete(aLoadData, rv, aPendingLoad);
+    SheetComplete(aLoadData, rv);
     return rv;
   }
 
@@ -1532,7 +1529,7 @@ Loader::Completed Loader::ParseSheet(
     bool noPendingChildren = loadData->mPendingChildren == 0;
     MOZ_ASSERT_IF(loadData->mSyncLoad, noPendingChildren);
     if (noPendingChildren) {
-      SheetComplete(*loadData, NS_OK, TriggeringPendingLoad::No);
+      SheetComplete(*loadData, NS_OK);
       return Completed::Yes;
     }
     return Completed::No;
@@ -1556,13 +1553,14 @@ Loader::Completed Loader::ParseSheet(
 
 void Loader::AddPerformanceEntryForCachedSheet(SheetLoadData& aLoadData) {
   MOZ_ASSERT(aLoadData.mURI);
-  if (!mDocument || !aLoadData.mNetworkMetadata) {
+
+  if (!aLoadData.mNetworkMetadata) {
     return;
   }
-  if (aLoadData.mParentData &&
-      !aLoadData.mParentData->mSheet->IsOriginClean()) {
+  if (!mDocument) {
     return;
   }
+
   nsAutoCString name;
   aLoadData.mURI->GetSpec(name);
   NS_ConvertUTF8toUTF16 entryName(name);
@@ -1581,14 +1579,6 @@ void Loader::AddPerformanceEntryForCachedSheet(SheetLoadData& aLoadData) {
 void Loader::NotifyObservers(SheetLoadData& aData, nsresult aStatus,
                              bool aCanFireEvents) {
   aData.mSheet->PropagateUseCountersTo(mDocument);
-
-  // https://html.spec.whatwg.org/#render-blocking-mechanism
-  // Unblock rendering once the sheet loads or fails.
-  if (nsINode* owner = aData.mSheet->GetOwnerNode();
-      mDocument && owner && owner->IsElement()) {
-    mDocument->UnblockRendering(*owner->AsElement());
-  }
-
   if (MaybePutIntoLoadsPerformed(aData) &&
       aData.mShouldEmulateNotificationsForCachedLoad) {
     NotifyObserversForCachedSheet(aData);
@@ -1657,15 +1647,13 @@ void Loader::NotifyObservers(SheetLoadData& aData, nsresult aStatus,
  * blocked parent loads as needed, and most importantly calls
  * NS_RELEASE on the load data to destroy the whole mess.
  */
-void Loader::SheetComplete(SheetLoadData& aLoadData, nsresult aStatus,
-                           TriggeringPendingLoad aPendingLoad) {
-  LOG(("css::Loader::SheetComplete, status: 0x%" PRIx32 " pending=%d",
-       uint32_t(aStatus), int(aPendingLoad)));
+void Loader::SheetComplete(SheetLoadData& aLoadData, nsresult aStatus) {
+  LOG(("css::Loader::SheetComplete, status: 0x%" PRIx32,
+       static_cast<uint32_t>(aStatus)));
   if (aLoadData.mURI) {
     mReporter->FlushConsoleReports(mDocument);
   }
-  SharedStyleSheetCache::LoadCompleted(mSheets.get(), aLoadData, aStatus,
-                                       aPendingLoad);
+  SharedStyleSheetCache::LoadCompleted(mSheets.get(), aLoadData, aStatus);
 }
 
 // static
@@ -2287,7 +2275,7 @@ void Loader::NotifyOfCachedLoad(RefPtr<SheetLoadData> aLoadData) {
   if (aLoadData->mURI && aLoadData->BlocksLoadEvent()) {
     IncrementOngoingLoadCountAndMaybeBlockOnload();
   }
-  SheetComplete(*aLoadData, NS_OK, TriggeringPendingLoad::No);
+  SheetComplete(*aLoadData, NS_OK);
 }
 
 void Loader::NotifyObserversForCachedSheet(SheetLoadData& aLoadData) {

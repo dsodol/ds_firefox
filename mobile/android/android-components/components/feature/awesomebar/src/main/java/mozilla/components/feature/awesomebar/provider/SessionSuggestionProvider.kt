@@ -17,7 +17,6 @@ import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.awesomebar.AwesomeBar
 import mozilla.components.feature.awesomebar.facts.emitOpenTabSuggestionClickedFact
 import mozilla.components.feature.tabs.TabsUseCases
-import mozilla.components.support.ktx.util.URLStringUtils
 
 /**
  * A [AwesomeBar.SuggestionProvider] implementation that provides suggestions based on the sessions in the
@@ -65,7 +64,7 @@ class SessionSuggestionProvider(
                     AwesomeBar.Suggestion(
                         provider = this,
                         id = item.id,
-                        title = item.content.title.ifBlank { URLStringUtils.toLosslessDisplayUrl(item.content.url) },
+                        title = item.content.title.ifBlank { item.content.url },
                         description = switchToTabDescription,
                         flags = setOf(AwesomeBar.Suggestion.Flag.OPEN_TAB),
                         icon = iconRequest?.await()?.bitmap,

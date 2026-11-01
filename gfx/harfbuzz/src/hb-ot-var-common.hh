@@ -213,7 +213,7 @@ struct TupleVariationHeader
         scalar *= (double) v / peak;
     }
     if (shared_tuple_scalar_cache)
-      scalar = shared_tuple_scalar_cache->set (index, scalar);
+      shared_tuple_scalar_cache->set (index, scalar);
     return scalar;
   }
 

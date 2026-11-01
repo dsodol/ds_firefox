@@ -4,14 +4,12 @@
 */
 
 use crate::db::models::credit_card::InternalCreditCard;
-use crate::db::models::credit_card::{decrypt_str, encrypt_str};
 use crate::db::schema::CREDIT_CARD_COMMON_COLS;
+use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::sync::common::*;
 use crate::sync::{credit_card::CreditCardPayload, OutgoingBso, ProcessOutgoingRecordImpl};
-use db_crypto::EncryptorDecryptor;
 use rusqlite::{Row, Transaction};
-use std::sync::Arc;
 use sync_guid::Guid as SyncGuid;
 
 const DATA_TABLE_NAME: &str = "credit_cards_data";
@@ -19,7 +17,7 @@ const MIRROR_TABLE_NAME: &str = "credit_cards_mirror";
 const STAGING_TABLE_NAME: &str = "credit_cards_sync_outgoing_staging";
 
 pub(super) struct OutgoingCreditCardsImpl {
-    pub(super) encdec: Arc<dyn EncryptorDecryptor>,
+    pub(super) encdec: EncryptorDecryptor,
 }
 
 impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
@@ -49,13 +47,12 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
             common_cols = CREDIT_CARD_COMMON_COLS,
         );
         let record_from_data_row: &dyn Fn(&Row<'_>) -> Result<(OutgoingBso, i64)> = &|row| {
-            let mut record =
-                InternalCreditCard::from_row(row)?.into_payload(self.encdec.as_ref())?;
+            let mut record = InternalCreditCard::from_row(row)?.into_payload(&self.encdec)?;
             // If the server had unknown fields we fetch it and add it to the record
             if let Some(enc_s) = row.get::<_, Option<String>>("payload")? {
                 // The full payload in the credit cards mirror is encrypted
                 let mirror_payload: CreditCardPayload =
-                    serde_json::from_str(&decrypt_str(self.encdec.as_ref(), &enc_s)?)?;
+                    serde_json::from_str(&self.encdec.decrypt(&enc_s)?)?;
                 record.entry.unknown_fields = mirror_payload.entry.unknown_fields;
             };
 
@@ -77,7 +74,7 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
         .into_iter()
         .map(|(bso, change_counter)| {
             // Turn the record into an encrypted repr to save in the mirror.
-            let encrypted = encrypt_str(self.encdec.as_ref(), &bso.payload)?;
+            let encrypted = self.encdec.encrypt(&bso.payload)?;
             Ok((bso.envelope.id, encrypted, change_counter))
         })
         .collect::<Result<_>>()?;
@@ -112,11 +109,7 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::credit_cards::{
-        add_internal_credit_card, tests::test_insert_mirror_record, update_credit_card,
-    };
-    use crate::db::models::credit_card::{decrypt_str, UpdatableCreditCardFields};
-    use crate::db::test::random_key_encryptor;
+    use crate::db::credit_cards::{add_internal_credit_card, tests::test_insert_mirror_record};
     use crate::sync::{common::tests::*, test::new_syncable_mem_db, UnknownFields};
     use serde_json::{json, Map, Value};
     use types::Timestamp;
@@ -171,7 +164,7 @@ mod tests {
             .clone()
     }
 
-    fn test_record(guid_prefix: char, encdec: &dyn EncryptorDecryptor) -> InternalCreditCard {
+    fn test_record(guid_prefix: char, encdec: &EncryptorDecryptor) -> InternalCreditCard {
         let json = test_json_record(guid_prefix);
         let payload = serde_json::from_value(json).unwrap();
         InternalCreditCard::from_payload(payload, encdec).expect("should be valid")
@@ -182,9 +175,9 @@ mod tests {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
         let co = OutgoingCreditCardsImpl {
-            encdec: Arc::new(random_key_encryptor().unwrap()),
+            encdec: EncryptorDecryptor::new_with_random_key().unwrap(),
         };
-        let test_record = test_record('C', co.encdec.as_ref());
+        let test_record = test_record('C', &co.encdec);
 
         // create date record
         assert!(add_internal_credit_card(&tx, &test_record).is_ok());
@@ -203,9 +196,9 @@ mod tests {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
         let co = OutgoingCreditCardsImpl {
-            encdec: Arc::new(random_key_encryptor().unwrap()),
+            encdec: EncryptorDecryptor::new_with_random_key().unwrap(),
         };
-        let test_record = test_record('C', co.encdec.as_ref());
+        let test_record = test_record('C', &co.encdec);
 
         // create tombstone record
         assert!(tx
@@ -238,19 +231,19 @@ mod tests {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
         let co = OutgoingCreditCardsImpl {
-            encdec: Arc::new(random_key_encryptor().unwrap()),
+            encdec: EncryptorDecryptor::new_with_random_key().unwrap(),
         };
 
         // create synced record with non-zero sync_change_counter
-        let mut test_record = test_record('C', co.encdec.as_ref());
+        let mut test_record = test_record('C', &co.encdec);
         let initial_change_counter_val = 2;
         test_record.metadata.sync_change_counter = initial_change_counter_val;
         assert!(add_internal_credit_card(&tx, &test_record).is_ok());
         let guid = test_record.guid.clone();
         //test_insert_mirror_record doesn't encrypt the mirror payload, but in reality we do
         // so we encrypt here so our fetch_outgoing_records doesn't break
-        let mut bso = test_record.into_test_incoming_bso(co.encdec.as_ref(), Default::default());
-        bso.payload = encrypt_str(co.encdec.as_ref(), &bso.payload).unwrap();
+        let mut bso = test_record.into_test_incoming_bso(&co.encdec, Default::default());
+        bso.payload = co.encdec.encrypt(&bso.payload).unwrap();
         test_insert_mirror_record(&tx, bso);
         exists_with_counter_value_in_table(&tx, DATA_TABLE_NAME, &guid, initial_change_counter_val);
 
@@ -269,16 +262,16 @@ mod tests {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
         let co = OutgoingCreditCardsImpl {
-            encdec: Arc::new(random_key_encryptor().unwrap()),
+            encdec: EncryptorDecryptor::new_with_random_key().unwrap(),
         };
 
         // create synced record with no changes (sync_change_counter = 0)
-        let test_record = test_record('C', co.encdec.as_ref());
+        let test_record = test_record('C', &co.encdec);
         let guid = test_record.guid.clone();
         assert!(add_internal_credit_card(&tx, &test_record).is_ok());
         test_insert_mirror_record(
             &tx,
-            test_record.into_test_incoming_bso(co.encdec.as_ref(), Default::default()),
+            test_record.into_test_incoming_bso(&co.encdec, Default::default()),
         );
 
         do_test_outgoing_synced_with_no_change(
@@ -295,11 +288,11 @@ mod tests {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
         let co = OutgoingCreditCardsImpl {
-            encdec: Arc::new(random_key_encryptor().unwrap()),
+            encdec: EncryptorDecryptor::new_with_random_key().unwrap(),
         };
 
         // create synced record with non-zero sync_change_counter
-        let mut test_record = test_record('D', co.encdec.as_ref());
+        let mut test_record = test_record('D', &co.encdec);
         let initial_change_counter_val = 2;
         test_record.metadata.sync_change_counter = initial_change_counter_val;
         assert!(add_internal_credit_card(&tx, &test_record).is_ok());
@@ -311,8 +304,8 @@ mod tests {
         // so we encrypt here so our fetch_outgoing_records doesn't break
         let mut bso = test_record
             .clone()
-            .into_test_incoming_bso(co.encdec.as_ref(), unknown_fields);
-        bso.payload = encrypt_str(co.encdec.as_ref(), &bso.payload).unwrap();
+            .into_test_incoming_bso(&co.encdec, unknown_fields);
+        bso.payload = co.encdec.encrypt(&bso.payload).unwrap();
         test_insert_mirror_record(&tx, bso);
         exists_with_counter_value_in_table(
             &tx,
@@ -336,43 +329,5 @@ mod tests {
             MIRROR_TABLE_NAME,
             STAGING_TABLE_NAME,
         );
-    }
-
-    #[test]
-    fn test_outgoing_keeps_cvv_after_update_without_one() {
-        let mut db = new_syncable_mem_db();
-        let co = OutgoingCreditCardsImpl {
-            encdec: Arc::new(random_key_encryptor().unwrap()),
-        };
-        let encdec = co.encdec.as_ref();
-        let mut test_record = test_record('C', encdec);
-        test_record.cc_cvv_enc = encrypt_str(encdec, "123").unwrap();
-        {
-            let tx = db.transaction().expect("should get tx");
-            add_internal_credit_card(&tx, &test_record).unwrap();
-            tx.commit().unwrap();
-        }
-
-        update_credit_card(
-            &db,
-            encdec,
-            &test_record.guid,
-            &UpdatableCreditCardFields {
-                cc_name: "Mr Me A Person".to_string(),
-                cc_number: decrypt_str(encdec, &test_record.cc_number_enc).unwrap(),
-                cc_cvv: None,
-                cc_exp_month: test_record.cc_exp_month,
-                cc_exp_year: test_record.cc_exp_year,
-                cc_type: test_record.cc_type.clone(),
-            },
-        )
-        .unwrap();
-
-        let tx = db.transaction().expect("should get tx");
-        let outgoing = co.fetch_outgoing_records(&tx).unwrap();
-        let bso_payload: Map<String, Value> = serde_json::from_str(&outgoing[0].payload).unwrap();
-        let entry = bso_payload.get("entry").unwrap();
-        assert_eq!(entry.get("cc-name").unwrap(), "Mr Me A Person");
-        assert_eq!(entry.get("cc-cvv").unwrap(), "123");
     }
 }

@@ -10,10 +10,6 @@ if CONFIG["OS_ARCH"] == "Linux":
         "nsNetworkLinkService.cpp",
     ]
 
-    SOURCE_HEADERS += [
-        "nsNetworkLinkService.h",
-    ]
-
 LOCAL_INCLUDES += [
     "/netwerk/base",
 ]

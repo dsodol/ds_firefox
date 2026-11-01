@@ -4,6 +4,8 @@
 ---
 task-defaults:
     description: "python repack"
+    attributes:
+        local-toolchain: true
     worker-type: b-linux-docker-amd
     worker:
         max-run-time: 7200
@@ -108,17 +110,6 @@ linux64-python-3.11:
     fetches:
         fetch:
             - cpython-3.11.7
-    worker:
-        docker-image: {in-tree: ubuntu1804-build-python}
-
-linux64-python-3.12:
-    treeherder:
-        symbol: TL(python3.12)
-    run:
-        toolchain-artifact: public/build/python.tar.zst
-    fetches:
-        fetch:
-            - cpython-3.12.15
     worker:
         docker-image: {in-tree: ubuntu1804-build-python}
 

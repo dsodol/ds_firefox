@@ -632,7 +632,7 @@ class DefaultTabManagerController(
 
         fenixBrowserUseCases.loadUrlOrSearch(
             searchTermOrURL = tab.active().url,
-            newTab = !(settings.enableHomepageAsNewTab && selectedTabisHome()),
+            newTab = true,
         )
     }
 

@@ -281,7 +281,7 @@ add_task(async function test_new_profile_theme() {
 
   is(
     null,
-    Glean.themePicker.change.testGetValue(),
+    Glean.profilesNew.theme.testGetValue(),
     "We have not recorded any Glean data yet"
   );
 
@@ -307,7 +307,10 @@ add_task(async function test_new_profile_theme() {
 
         await newProfileCard.themesPicker.updateComplete;
 
-        let pickerEl = newProfileCard.themesPicker.pickerEl;
+        // Get the theme picker element - differs between Nova and legacy
+        let pickerEl = newProfileCard.novaEnabled
+          ? newProfileCard.themesPicker.pickerEl
+          : newProfileCard.themesPicker;
 
         let defaultThemeCard = pickerEl.querySelector(
           "moz-visual-picker-item[value='default-theme@mozilla.org']"
@@ -343,7 +346,9 @@ add_task(async function test_new_profile_theme() {
         "Current profile theme was updated"
       );
 
-      await assertThemePickerThemeChange(expectedThemeId);
+      if (!Services.prefs.getBoolPref("browser.nova.enabled", false)) {
+        await assertGlean("profiles", "new", "theme", expectedThemeId);
+      }
     }
   );
 

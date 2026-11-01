@@ -9,7 +9,8 @@
 
 nsIFrame* NS_NewSimpleXULLeafFrame(mozilla::PresShell* aPresShell,
                                    mozilla::ComputedStyle* aStyle) {
-  return new mozilla::SimpleXULLeafFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      mozilla::SimpleXULLeafFrame(aStyle, aPresShell->GetPresContext());
 }
 
 namespace mozilla {

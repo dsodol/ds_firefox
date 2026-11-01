@@ -6,4 +6,6 @@ Services.scriptloader.loadSubScript(
   this
 );
 
-const DEFAULT_PANE = "paneSync";
+// paneGeneral does not exist in the settings redesign UI; tests that just
+// need any pane open to exercise the search bar fall back to paneSync.
+const DEFAULT_PANE = SRD_PREF_VALUE ? "paneSync" : "paneGeneral";

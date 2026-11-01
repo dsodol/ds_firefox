@@ -25,11 +25,10 @@ let ignoreList = [
     errorMessage: /Unknown property.*-moz-/i,
     isFromDevTools: false,
   },
-  // color: -moz-inherit-from-body is UA-only.
+  // content: -moz-alt-content is UA-only.
   {
-    sourceName: /\b(quirk)\.css$/i,
-    errorMessage:
-      /Error in parsing value for ‘color: -moz-inherit-from-body;’./i,
+    sourceName: /\b(html)\.css$/i,
+    errorMessage: /Error in parsing value for ‘content:/i,
     isFromDevTools: false,
   },
   // megalist-agent.css is loaded as an agent sheet, so its UA-only
@@ -164,10 +163,6 @@ let propNameAllowlist = [
   // cards and is consumed from JS in firstrun.js (built into a `background`
   // shorthand string), so it isn't referenced via var() in CSS.
   { propName: "--card-icon-bg", isFromDevTools: false },
-
-  // This variable defines the carousel's small layout and is read from JS in
-  // CarouselNav.jsx, so it isn't referenced via var() in CSS.
-  { propName: "--carousel-layout", isFromDevTools: false },
 
   // These variables are used in JS in viewer.mjs (PDF.js).
   {

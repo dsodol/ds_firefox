@@ -537,6 +537,22 @@ class ChunkInfo {
   }
 };
 
+enum class InvalidEscapeType {
+  // No invalid character escapes.
+  None,
+  // A malformed \x escape.
+  Hexadecimal,
+  // A malformed \u escape.
+  Unicode,
+  // An otherwise well-formed \u escape which represents a
+  // codepoint > 10FFFF.
+  UnicodeOverflow,
+  // An octal escape in a template token.
+  Octal,
+  // NonOctalDecimalEscape - \8 or \9.
+  EightOrNine
+};
+
 class TokenStreamAnyChars : public TokenStreamShared {
  private:
   // Constant-at-construction fields.
@@ -611,6 +627,24 @@ class TokenStreamAnyChars : public TokenStreamShared {
    * of the last column computation performed, relative to source start.
    */
   mutable JS::ColumnNumberUnsignedOffset lastComputedColumnOffset_;
+
+  // Intra-token fields.
+
+  /**
+   * The offset of the first invalid escape in a template literal.  (If there is
+   * one -- if not, the value of this field is meaningless.)
+   *
+   * See also |invalidTemplateEscapeType|.
+   */
+  uint32_t invalidTemplateEscapeOffset = 0;
+
+  /**
+   * The type of the first invalid escape in a template literal.  (If there
+   * isn't one, this will be |None|.)
+   *
+   * See also |invalidTemplateEscapeOffset|.
+   */
+  InvalidEscapeType invalidTemplateEscapeType = InvalidEscapeType::None;
 
   // Fields with values relevant across tokens (and therefore potentially across
   // function boundaries, such that lazy function parsing and stream-seeking
@@ -768,11 +802,27 @@ class TokenStreamAnyChars : public TokenStreamShared {
     setSawDeprecatedContent(DeprecatedContent::EightOrNineEscape);
   }
 
+  bool hasInvalidTemplateEscape() const {
+    return invalidTemplateEscapeType != InvalidEscapeType::None;
+  }
+  void clearInvalidTemplateEscape() {
+    invalidTemplateEscapeType = InvalidEscapeType::None;
+  }
+
  private:
   // This is private because it should only be called by the tokenizer while
   // tokenizing not by, for example, BytecodeEmitter.
   bool strictMode() const {
     return strictModeGetter_ && strictModeGetter_->strictMode();
+  }
+
+  void setInvalidTemplateEscape(uint32_t offset, InvalidEscapeType type) {
+    MOZ_ASSERT(type != InvalidEscapeType::None);
+    if (invalidTemplateEscapeType != InvalidEscapeType::None) {
+      return;
+    }
+    invalidTemplateEscapeOffset = offset;
+    invalidTemplateEscapeType = type;
   }
 
  public:
@@ -1984,21 +2034,11 @@ class GeneralTokenStreamChars : public SpecializedTokenStreamCharsBase<Unit> {
   void newAtomToken(TokenKind kind, TaggedParserAtomIndex atom,
                     TokenStart start, TokenStreamShared::Modifier modifier,
                     TokenKind* out) {
-    MOZ_ASSERT(kind == TokenKind::String);
-
-    Token* token = newToken(kind, start, modifier, out);
-    token->setAtom(atom);
-  }
-
-  void newTemplateToken(TokenKind kind, TaggedParserAtomIndex atom,
-                        uint32_t invalidEscapeOffset,
-                        InvalidEscapeType invalidEscapeType, TokenStart start,
-                        TokenStreamShared::Modifier modifier, TokenKind* out) {
-    MOZ_ASSERT(kind == TokenKind::TemplateHead ||
+    MOZ_ASSERT(kind == TokenKind::String || kind == TokenKind::TemplateHead ||
                kind == TokenKind::NoSubsTemplate);
 
     Token* token = newToken(kind, start, modifier, out);
-    token->setTemplate(atom, invalidEscapeOffset, invalidEscapeType);
+    token->setAtom(atom);
   }
 
   void newNameToken(TaggedParserAtomIndex name, TokenStart start,
@@ -2441,7 +2481,6 @@ class MOZ_STACK_CLASS TokenStreamSpecific
   using GeneralCharsBase::newPrivateNameToken;
   using GeneralCharsBase::newRegExpToken;
   using GeneralCharsBase::newSimpleToken;
-  using GeneralCharsBase::newTemplateToken;
   using SpecializedChars::getNonAsciiCodePoint;
   using SpecializedChars::getNonAsciiCodePointDontNormalize;
   using TokenStreamCharsShared::copyCharBufferTo;
@@ -2484,13 +2523,12 @@ class MOZ_STACK_CLASS TokenStreamSpecific
   // If there is an invalid escape in a template, report it and return false,
   // otherwise return true.
   bool checkForInvalidTemplateEscapeError() {
-    const Token& token = anyCharsAccess().currentToken();
-    if (!token.hasInvalidTemplateEscape()) {
+    if (anyCharsAccess().invalidTemplateEscapeType == InvalidEscapeType::None) {
       return true;
     }
 
-    reportInvalidEscapeError(token.invalidTemplateEscapeOffset(),
-                             token.invalidTemplateEscapeType());
+    reportInvalidEscapeError(anyCharsAccess().invalidTemplateEscapeOffset,
+                             anyCharsAccess().invalidTemplateEscapeType);
     return false;
   }
 

@@ -604,8 +604,10 @@ export class CreditCardResult extends ProfileAutoCompleteResult {
           primary = lazy.CreditCard.formatMaskedNumber(primary);
         } else if (focusedFieldName == "cc-csc") {
           // The security code must never be displayed, so name the entry after
-          // the field instead, the way the card's network does.
-          primary = lazy.CreditCard.formatSecurityCodeName(profile);
+          // the field instead.
+          primary = lazy.l10n.formatValueSync(
+            "autofill-card-security-code-label"
+          );
         }
 
         const secondary = this._getSecondaryLabel(

@@ -10,46 +10,34 @@ import { IPPNimbusHelper } from "moz-src:///toolkit/components/ipprotection/IPPN
 import { IPProtectionServerlist } from "moz-src:///toolkit/components/ipprotection/IPProtectionServerlist.sys.mjs";
 import { IPPStartupCache } from "moz-src:///toolkit/components/ipprotection/IPPStartupCache.sys.mjs";
 import { IPPSessionPrefManager } from "moz-src:///toolkit/components/ipprotection/IPPSessionPrefManager.sys.mjs";
-import { IPPSiteRuleManager } from "moz-src:///toolkit/components/ipprotection/IPPSiteRuleManager.sys.mjs";
 
 const lazy = {};
 
 if (AppConstants.MOZ_ENTERPRISE) {
   ChromeUtils.defineESModuleGetters(lazy, {
-    IPPAlwaysOn:
+    IPPAlwaysOnHelpers:
       "moz-src:///toolkit/components/ipprotection/enterprise/IPPAlwaysOn.sys.mjs",
   });
-} else if (AppConstants.platform !== "android") {
+} else {
   ChromeUtils.defineESModuleGetters(lazy, {
-    IPPAutoActivation:
-      "moz-src:///toolkit/components/ipprotection/IPPAutoActivation.sys.mjs",
+    IPPAutoRestoreHelper:
+      "moz-src:///toolkit/components/ipprotection/IPPAutoRestore.sys.mjs",
+    IPPAutoStartHelpers:
+      "moz-src:///toolkit/components/ipprotection/IPPAutoStart.sys.mjs",
   });
-}
-
-/**
- * The helper that brings the proxy up without the user asking, or null on
- * Android, where the embedder does so through IPProtectionController.
- */
-function activationHelper() {
-  if (AppConstants.platform === "android") {
-    return null;
-  }
-  if (AppConstants.MOZ_ENTERPRISE) {
-    return lazy.IPPAlwaysOn;
-  }
-  return lazy.IPPAutoActivation;
 }
 
 const coreHelpers = [
   IPPStartupCache,
   IPProtectionServerlist,
-  IPPSiteRuleManager,
   IPPProxyManager,
   IPPLifecycleHelper,
   IPPSessionPrefManager,
-  activationHelper(),
+  ...(AppConstants.MOZ_ENTERPRISE
+    ? lazy.IPPAlwaysOnHelpers
+    : [lazy.IPPAutoRestoreHelper, ...lazy.IPPAutoStartHelpers]),
   IPPNimbusHelper,
-].filter(Boolean);
+];
 
 let extraHelpers = [];
 let authProvider = null;

@@ -240,7 +240,8 @@ already_AddRefed<TrackMetadataBase> OpusTrackEncoder::GetMetadata() {
   vendor.AppendASCII(opus_get_version_string());
 
   nsTArray<nsCString> comments;
-  comments.AppendElement(nsLiteralCString("ENCODER=Mozilla" MOZILLA_UAVERSION));
+  comments.AppendElement(
+      nsLiteralCString("ENCODER=Mozilla" MOZ_APP_UA_VERSION));
 
   SerializeOpusCommentHeader(vendor, comments, &meta->mCommentHeader);
 

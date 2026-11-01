@@ -22,7 +22,3 @@ LOCAL_INCLUDES += [
 ]
 
 FINAL_LIBRARY = "xul-gtest"
-
-SOURCE_HEADERS += [
-    "MediaKeyListenerTest.h",
-]

@@ -156,11 +156,3 @@ FINAL_LIBRARY = "xul"
 PYTHON_UNITTEST_MANIFESTS += [
     "test/python.toml",
 ]
-
-SOURCE_HEADERS += [
-    "nsAtomTable.h",
-    "nsINIParserImpl.h",
-    "nsIPersistentProperties.h",
-    "nsObserverList.h",
-    "nsObserverService.h",
-]

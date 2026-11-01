@@ -62,6 +62,7 @@ struct MOZ_STACK_CLASS MediaFormatReaderInit {
   MediaResource* mResource = nullptr;
   VideoFrameContainer* mVideoFrameContainer = nullptr;
   FrameStatistics* mFrameStats = nullptr;
+  already_AddRefed<layers::KnowsCompositor> mKnowsCompositor;
   already_AddRefed<GMPCrashHelper> mCrashHelper;
   // Used in bug 1393399 for temporary telemetry.
   MediaDecoderOwnerID mMediaDecoderOwnerID = nullptr;
@@ -203,6 +204,8 @@ class MediaFormatReader final
   // since a few samples later depends on how much demuxed samples are already
   // queued in the original video decoder.
   void SetVideoNullDecode(bool aIsNullDecode);
+
+  void UpdateCompositor(already_AddRefed<layers::KnowsCompositor>);
 
   void UpdateDuration(const media::TimeUnit& aDuration) {
     MOZ_ASSERT(OnTaskQueue());
@@ -823,6 +826,8 @@ class MediaFormatReader final
   int64_t mPreviousDecodedKeyframeTime_us;
   // Default mLastDecodedKeyframeTime_us value, must be bigger than anything.
   static const int64_t sNoPreviousDecodedKeyframe = INT64_MAX;
+
+  RefPtr<layers::KnowsCompositor> mKnowsCompositor;
 
   // Metadata objects
   // True if we've read the streams' metadata.

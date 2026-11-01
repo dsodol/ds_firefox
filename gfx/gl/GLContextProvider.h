@@ -44,9 +44,7 @@ namespace gl {
 #endif
 
 #define GL_CONTEXT_PROVIDER_NAME GLContextProviderEGL
-#define GL_CONTEXT_PROVIDER_EGL
 #include "GLContextProviderImpl.h"
-#undef GL_CONTEXT_PROVIDER_EGL
 #undef GL_CONTEXT_PROVIDER_NAME
 
 #if defined(MOZ_WIDGET_GTK)

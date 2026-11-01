@@ -190,21 +190,23 @@
 
     arctanptr = ft_trig_arctan_table;
 
-    /* Pseudorotations, with right shifts.  To avoid an unpredictable */
-    /* branch on the sign of theta, `m` is 0 or -1 and negates with   */
-    /* `( v ^ m ) - m`.  For x and y, the negation is done before the */
-    /* rounding shift: as 2b = 2^i, `-( ( v + b ) >> i )` equals      */
-    /* `( ~v + b ) >> i` exactly.                                     */
+    /* Pseudorotations, with right shifts */
     for ( i = 1, b = 1; i < FT_TRIG_MAX_ITERS; b <<= 1, i++ )
     {
-      FT_Fixed  m = -(FT_Fixed)( theta < 0 );
-      FT_Fixed  a = *arctanptr++;
-
-
-      xtemp = x - ( ( ( y ^ m ) + b ) >> i );
-      y     = y + ( ( ( x ^ m ) + b ) >> i );
-      x     = xtemp;
-      theta = theta - ( ( a ^ m ) - m );
+      if ( theta < 0 )
+      {
+        xtemp  = x + ( ( y + b ) >> i );
+        y      = y - ( ( x + b ) >> i );
+        x      = xtemp;
+        theta += *arctanptr++;
+      }
+      else
+      {
+        xtemp  = x - ( ( y + b ) >> i );
+        y      = y + ( ( x + b ) >> i );
+        x      = xtemp;
+        theta -= *arctanptr++;
+      }
     }
 
     vec->x = x;
@@ -258,25 +260,31 @@
 
     arctanptr = ft_trig_arctan_table;
 
-    /* Pseudorotations, with right shifts.  As in the rotation above, */
-    /* `m` is 0 or -1 and negates with `( v ^ m ) - m`.  Here, `m`    */
-    /* depends on y, so x and y are negated after the shift to keep   */
-    /* the shift off y's dependency chain.                            */
+    /* Pseudorotations, with right shifts */
     for ( i = 1, b = 1; i < FT_TRIG_MAX_ITERS; b <<= 1, i++ )
     {
-      FT_Fixed  m = -(FT_Fixed)( y < 0 );
-      FT_Fixed  a = *arctanptr++;
-
-
-      xtemp = x + ( ( ( y ^ m ) + b ) >> i );
-      y     = y - ( ( ( x ^ m ) + b ) >> i );
-      x     = xtemp;
-      theta = theta + ( ( a ^ m ) - m );
+      if ( y > 0 )
+      {
+        xtemp  = x + ( ( y + b ) >> i );
+        y      = y - ( ( x + b ) >> i );
+        x      = xtemp;
+        theta += *arctanptr++;
+      }
+      else
+      {
+        xtemp  = x - ( ( y + b ) >> i );
+        y      = y + ( ( x + b ) >> i );
+        x      = xtemp;
+        theta -= *arctanptr++;
+      }
     }
 
     /* round theta to acknowledge its error that mostly comes */
     /* from accumulated rounding errors in the arctan table   */
-    theta = ( theta - ( theta < 0 ) + 8 ) & ~0xF;
+    if ( theta >= 0 )
+      theta = FT_PAD_ROUND( theta, 16 );
+    else
+      theta = -FT_PAD_ROUND( -theta, 16 );
 
     vec->x = x;
     vec->y = theta;

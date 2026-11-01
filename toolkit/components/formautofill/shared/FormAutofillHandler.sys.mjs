@@ -248,7 +248,7 @@ export class FormAutofillHandler {
   }
 
   #clearVisibilityObserver() {
-    this.#visibilityObserver?.disconnect();
+    this.#visibilityObserver.disconnect();
     this.#visibilityObserver = null;
     this.#visibilityStateObserverByElement = new WeakMap();
   }
@@ -866,9 +866,10 @@ export class FormAutofillHandler {
             if (mutation.type == "childList") {
               if (HTMLSelectElement.isInstance(mutation.target)) {
                 changedSelectElements.add(mutation.target);
-              } else {
-                mutation.addedNodes.forEach(node => addedNodes.add(node));
-                mutation.removedNodes.forEach(node => removedNodes.add(node));
+              } else if (mutation.addedNodes.length) {
+                addedNodes.add(...mutation.addedNodes);
+              } else if (mutation.removedNodes.length) {
+                removedNodes.add(...mutation.removedNodes);
               }
             }
           });

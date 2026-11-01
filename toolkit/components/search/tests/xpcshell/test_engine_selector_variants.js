@@ -117,16 +117,6 @@ add_task(async function test_match_and_apply_last_variants() {
 });
 
 add_task(async function test_match_middle_variant() {
-  let partnerDetails;
-  if (SearchUtils.configV3FeatureGate) {
-    partnerDetails = {
-      partner: new Map([
-        ["default", { code: null, telemetrySuffix: "telemetry" }],
-      ]),
-    };
-  } else {
-    partnerDetails = { partnerCode: null, telemetrySuffix: "telemetry" };
-  }
   await assertSelectorEnginesEqualsExpected(
     engineSelector,
     CONFIG,
@@ -145,7 +135,7 @@ add_task(async function test_match_middle_variant() {
             params: [{ name: "partner-code", value: "bar" }],
           },
         },
-        ...partnerDetails,
+        telemetrySuffix: "telemetry",
       },
     ],
     "Should match first and second variants."

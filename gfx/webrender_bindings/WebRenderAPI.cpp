@@ -108,17 +108,6 @@ void TransactionBuilder::RemovePipeline(PipelineId aPipelineId) {
   wr_transaction_remove_pipeline(mTxn, aPipelineId);
 }
 
-void TransactionBuilder::SetEmbedPolicy(
-    PipelineId aPipelineId, const Maybe<nsTArray<uint32_t>>& aNamespaces) {
-  if (aNamespaces) {
-    wr_transaction_set_embed_policy(mTxn, aPipelineId, true,
-                                    aNamespaces->Elements(),
-                                    aNamespaces->Length());
-  } else {
-    wr_transaction_set_embed_policy(mTxn, aPipelineId, false, nullptr, 0);
-  }
-}
-
 void TransactionBuilder::SetDisplayList(
     Epoch aEpoch, wr::IdNamespace aIdNamespace, wr::WrPipelineId pipeline_id,
     wr::BuiltDisplayListDescriptor dl_descriptor,
@@ -215,8 +204,8 @@ RefPtr<WebRenderAPI::CreatePromise> WebRenderAPI::Create(
     RefPtr<layers::CompositorBridgeParent> aBridge,
     RefPtr<widget::CompositorWidget> aWidget, const wr::WrWindowId& aWindowId,
     LayoutDeviceIntSize aSize, layers::WindowKind aWindowKind) {
-  MOZ_RELEASE_ASSERT(aBridge);
-  MOZ_RELEASE_ASSERT(aWidget);
+  MOZ_ASSERT(aBridge);
+  MOZ_ASSERT(aWidget);
   static_assert(
       sizeof(size_t) == sizeof(uintptr_t),
       "The FFI bindings assume size_t is the same size as uintptr_t!");
@@ -326,26 +315,13 @@ RefPtr<WebRenderAPI::CreatePromise> WebRenderAPI::Create(
           // wr_window_new puts a message into gfxCriticalNote if it returns
           // false
           MOZ_ASSERT(errorMessage);
-          if (!errorMessage) {
-            return CreatePromise::CreateAndReject(
-                "wr_window_new unknown error"_ns, __func__);
-          }
-
           error.AssignASCII(errorMessage);
           wr_api_free_error_msg(errorMessage);
           return CreatePromise::CreateAndReject(error, __func__);
         }
-
         MOZ_ASSERT(wrRenderer);
-        if (!wrRenderer) {
-          return CreatePromise::CreateAndReject(
-              "wr_window_new without wrRenderer"_ns, __func__);
-        }
         MOZ_ASSERT(docHandle);
-        if (!wrRenderer) {
-          return CreatePromise::CreateAndReject(
-              "wr_window_new without docHandle"_ns, __func__);
-        }
+
         const WebRenderBackend backend = compositor->BackendType();
         const WebRenderCompositor compositorType = compositor->CompositorType();
         const bool useANGLE = compositor->UseANGLE();
@@ -356,9 +332,9 @@ RefPtr<WebRenderAPI::CreatePromise> WebRenderAPI::Create(
             compositor->SupportsExternalBufferTextures();
 
         RefPtr<RenderThread> thread = RenderThread::Get();
-        auto renderer = std::make_unique<RendererOGL>(
-            std::move(thread), std::move(compositor), aWindowId, wrRenderer,
-            aBridge);
+        auto renderer =
+            MakeUnique<RendererOGL>(std::move(thread), std::move(compositor),
+                                    aWindowId, wrRenderer, aBridge);
         if (wrRenderer && renderer) {
           wr::WrExternalImageHandler handler =
               renderer->GetExternalImageHandler();
@@ -454,7 +430,7 @@ void WebRenderAPI::DestroyRenderer() {
   wr_api_stop_render_backend(mDocHandle);
 
   layers::SynchronousTask task("Destroy WebRenderAPI");
-  auto event = std::make_unique<RemoveRenderer>(&task);
+  auto event = MakeUnique<RemoveRenderer>(&task);
   RunOnRenderThread(std::move(event));
   task.Wait();
 
@@ -511,8 +487,7 @@ layers::RemoteTextureInfoList* WebRenderAPI::GetPendingRemoteTextureInfoList() {
   }
 
   if (!mPendingRemoteTextureInfoList) {
-    mPendingRemoteTextureInfoList =
-        std::make_unique<layers::RemoteTextureInfoList>();
+    mPendingRemoteTextureInfoList = MakeUnique<layers::RemoteTextureInfoList>();
   }
   return mPendingRemoteTextureInfoList.get();
 }
@@ -532,7 +507,7 @@ layers::AsyncImagePipelineOps* WebRenderAPI::GetPendingAsyncImagePipelineOps(
       gfxCriticalNoteOnce << "Invalid AsyncImagePipelineOps";
     }
     mPendingAsyncImagePipelineOps =
-        std::make_unique<layers::AsyncImagePipelineOps>(aTxn.Raw());
+        MakeUnique<layers::AsyncImagePipelineOps>(aTxn.Raw());
   } else {
     MOZ_RELEASE_ASSERT(mPendingAsyncImagePipelineOps->mTransaction ==
                        aTxn.Raw());
@@ -744,8 +719,8 @@ void WebRenderAPI::Readback(const TimeStamp& aStartTime, gfx::IntSize size,
   UpdateDebugFlags(0);
 
   layers::SynchronousTask task("Readback");
-  auto event = std::make_unique<Readback>(&task, aStartTime, size, aFormat,
-                                          buffer, aNeedsYFlip);
+  auto event = MakeUnique<Readback>(&task, aStartTime, size, aFormat, buffer,
+                                    aNeedsYFlip);
   // This event will be passed from wr_backend thread to renderer thread. That
   // implies that all frame data have been processed when the renderer runs this
   // read-back event. Then, we could make sure this read-back event gets the
@@ -804,7 +779,7 @@ void WebRenderAPI::Pause() {
   };
 
   layers::SynchronousTask task("Pause");
-  auto event = std::make_unique<PauseEvent>(&task);
+  auto event = MakeUnique<PauseEvent>(&task);
   RenderThread::Get()->PostEvent(mId, std::move(event));
 
   task.Wait();
@@ -834,7 +809,7 @@ bool WebRenderAPI::Resume() {
 
   bool result = false;
   layers::SynchronousTask task("Resume");
-  auto event = std::make_unique<ResumeEvent>(&task, &result);
+  auto event = MakeUnique<ResumeEvent>(&task, &result);
   RenderThread::Get()->PostEvent(mId, std::move(event));
 
   task.Wait();
@@ -881,7 +856,7 @@ void WebRenderAPI::WaitUntilPresentationFlushed() {
   };
 
   layers::SynchronousTask task("WaitUntilPresentationFlushed");
-  auto event = std::make_unique<WaitFlushedEvent>(&task);
+  auto event = MakeUnique<WaitFlushedEvent>(&task);
   // This event will be passed from wr_backend thread to renderer thread. That
   // implies that all frame data have been processed when the renderer runs this
   // event.
@@ -918,7 +893,7 @@ bool WebRenderAPI::CheckAndClearDidRasterize() {
 
   bool result = false;
   layers::SynchronousTask task("CheckAndClearDidRasterize");
-  auto event = std::make_unique<CheckRasterizeEvent>(&task, &result);
+  auto event = MakeUnique<CheckRasterizeEvent>(&task, &result);
   RunOnRenderThread(std::move(event));
 
   task.Wait();
@@ -979,7 +954,7 @@ void WebRenderAPI::BeginRecording(const TimeStamp& aRecordingStart,
   };
 
   auto event =
-      std::make_unique<BeginRecordingEvent>(aRecordingStart, aRootPipelineId);
+      MakeUnique<BeginRecordingEvent>(aRecordingStart, aRootPipelineId);
   RunOnRenderThread(std::move(event));
 }
 
@@ -1011,7 +986,7 @@ RefPtr<WebRenderAPI::EndRecordingPromise> WebRenderAPI::EndRecording() {
     MozPromiseHolder<WebRenderAPI::EndRecordingPromise> mPromise;
   };
 
-  auto event = std::make_unique<EndRecordingEvent>();
+  auto event = MakeUnique<EndRecordingEvent>();
   auto promise = event->GetPromise();
 
   RunOnRenderThread(std::move(event));
@@ -1055,8 +1030,8 @@ RefPtr<WebRenderAPI::ScreenPixelsPromise> WebRenderAPI::RequestScreenPixels(
   };
 
   auto promise = MakeRefPtr<ScreenPixelsPromise::Private>(__func__);
-  auto event = std::make_unique<ScreenshotEvent>(
-      aSourceRect, std::move(aHardwareBuffer), promise);
+  auto event = MakeUnique<ScreenshotEvent>(aSourceRect,
+                                           std::move(aHardwareBuffer), promise);
 
   RenderThread::Get()->PostEvent(mId, std::move(event));
   return promise;
@@ -1171,11 +1146,6 @@ void TransactionBuilder::DeleteSnapshotImage(wr::SnapshotImageKey aKey) {
   wr_resource_updates_delete_snapshot_image(mTxn, aKey);
 }
 
-void TransactionBuilder::AdoptSnapshotImage(wr::SnapshotImageKey aFrom,
-                                            wr::SnapshotImageKey aTo) {
-  wr_resource_updates_adopt_snapshot_image(mTxn, aFrom, aTo);
-}
-
 void TransactionBuilder::AddRawFont(wr::FontKey aKey, wr::Vec<uint8_t>& aBytes,
                                     uint32_t aIndex) {
   wr_resource_updates_add_raw_font(mTxn, aKey, &aBytes.inner, aIndex);
@@ -1232,7 +1202,7 @@ class FrameStartTime : public RendererEvent {
 };
 
 void WebRenderAPI::SetFrameStartTime(const TimeStamp& aTime) {
-  auto event = std::make_unique<FrameStartTime>(aTime);
+  auto event = MakeUnique<FrameStartTime>(aTime);
   RunOnRenderThread(std::move(event));
 }
 
@@ -1383,16 +1353,6 @@ wr::WrClipId DisplayListBuilder::DefineRoundedRectClip(
       aAntiAliased);
 }
 
-wr::WrClipId DisplayListBuilder::DefinePathClip(
-    Span<const wr::PathCommand> aCommands, Span<const wr::LayoutPoint> aPoints,
-    const wr::LayoutRect& aAabb, const wr::LayoutRect& aRect,
-    wr::FillRule aFillRule) {
-  return wr_dp_define_path_clip(mWrState, mCurrentSpaceAndClipChain.space,
-                                aCommands.Elements(), aCommands.Length(),
-                                aPoints.Elements(), aPoints.Length(), aAabb,
-                                aRect, aFillRule);
-}
-
 wr::WrClipId DisplayListBuilder::DefineRectClip(Maybe<wr::WrSpatialId> aSpace,
                                                 wr::LayoutRect aClipRect,
                                                 bool aAntiAliased) {
@@ -1493,23 +1453,13 @@ void DisplayListBuilder::PushRect(const wr::LayoutRect& aBounds,
                   &mCurrentSpaceAndClipChain, aColor);
 }
 
-void DisplayListBuilder::PushEllipse(const wr::LayoutRect& aBounds,
-                                     const wr::LayoutRect& aClip,
-                                     bool aIsBackfaceVisible,
-                                     const wr::ColorF& aColor) {
-  PushRoundedRect(aBounds, aClip, aIsBackfaceVisible,
-                  wr::LayoutSize{aBounds.width() / 2, aBounds.height() / 2},
-                  aColor);
-}
-
 void DisplayListBuilder::PushRoundedRect(const wr::LayoutRect& aBounds,
                                          const wr::LayoutRect& aClip,
                                          bool aIsBackfaceVisible,
-                                         const wr::LayoutSize& aRadii,
                                          const wr::ColorF& aColor) {
-  WRDL_LOG("PushRoundedRect b=%s cl=%s r=%s c=%s\n", mWrState,
+  WRDL_LOG("PushRoundedRect b=%s cl=%s c=%s\n", mWrState,
            ToString(aBounds).c_str(), ToString(aClip).c_str(),
-           ToString(aRadii).c_str(), ToString(aColor).c_str());
+           ToString(aColor).c_str());
 
   // Draw the rounded rectangle as a border with rounded corners. We could also
   // draw this as a rectangle clipped to a rounded rectangle, but:
@@ -1523,13 +1473,12 @@ void DisplayListBuilder::PushRoundedRect(const wr::LayoutRect& aBounds,
   float h = aBounds.width() * 0.6f;
   float v = aBounds.height() * 0.6f;
   wr::LayoutSideOffsets widths = {v, h, v, h};
-  wr::BorderRadius radii = {aRadii, aRadii, aRadii, aRadii,
+  wr::BorderRadius radii = {{h, v}, {h, v}, {h, v}, {h, v},
                             1.0f,   1.0f,   1.0f,   1.0f};
   wr::LayoutSideOffsets inset = EmptyLayoutSideOffsets();
 
   // Anti-aliased borders are required for rounded borders.
   wr_dp_push_border(mWrState, aBounds, aClip, aIsBackfaceVisible,
-                    /* force_antialiasing = */ false,
                     &mCurrentSpaceAndClipChain, wr::AntialiasBorder::Yes,
                     widths, side, side, side, side, radii, inset);
 }
@@ -1590,12 +1539,11 @@ void DisplayListBuilder::PushLinearGradient(
     bool aIsBackfaceVisible, const wr::LayoutVector2D& aStartPoint,
     const wr::LayoutVector2D& aEndPoint,
     const nsTArray<wr::GradientStop>& aStops, wr::ExtendMode aExtendMode,
-    const wr::LayoutSize aTileSize, const wr::LayoutSize aTileSpacing,
-    bool aForceAntiAliasing, wr::AlphaMode aAlphaMode) {
-  wr_dp_push_linear_gradient(
-      mWrState, aBounds, aClip, aIsBackfaceVisible, aForceAntiAliasing,
-      &mCurrentSpaceAndClipChain, aStartPoint, aEndPoint, aStops.Elements(),
-      aStops.Length(), aExtendMode, aAlphaMode, aTileSize, aTileSpacing);
+    const wr::LayoutSize aTileSize, const wr::LayoutSize aTileSpacing) {
+  wr_dp_push_linear_gradient(mWrState, aBounds, aClip, aIsBackfaceVisible,
+                             &mCurrentSpaceAndClipChain, aStartPoint, aEndPoint,
+                             aStops.Elements(), aStops.Length(), aExtendMode,
+                             aTileSize, aTileSpacing);
 }
 
 void DisplayListBuilder::PushRadialGradient(
@@ -1603,12 +1551,11 @@ void DisplayListBuilder::PushRadialGradient(
     bool aIsBackfaceVisible, const wr::LayoutVector2D& aCenter,
     const wr::LayoutSize& aRadius, const nsTArray<wr::GradientStop>& aStops,
     wr::ExtendMode aExtendMode, const wr::LayoutSize aTileSize,
-    const wr::LayoutSize aTileSpacing, bool aForceAntiAliasing,
-    wr::AlphaMode aAlphaMode) {
-  wr_dp_push_radial_gradient(
-      mWrState, aBounds, aClip, aIsBackfaceVisible, aForceAntiAliasing,
-      &mCurrentSpaceAndClipChain, aCenter, aRadius, aStops.Elements(),
-      aStops.Length(), aExtendMode, aAlphaMode, aTileSize, aTileSpacing);
+    const wr::LayoutSize aTileSpacing) {
+  wr_dp_push_radial_gradient(mWrState, aBounds, aClip, aIsBackfaceVisible,
+                             &mCurrentSpaceAndClipChain, aCenter, aRadius,
+                             aStops.Elements(), aStops.Length(), aExtendMode,
+                             aTileSize, aTileSpacing);
 }
 
 void DisplayListBuilder::PushConicGradient(
@@ -1616,11 +1563,11 @@ void DisplayListBuilder::PushConicGradient(
     bool aIsBackfaceVisible, const wr::LayoutVector2D& aCenter,
     const float aAngle, const nsTArray<wr::GradientStop>& aStops,
     wr::ExtendMode aExtendMode, const wr::LayoutSize aTileSize,
-    const wr::LayoutSize aTileSpacing, wr::AlphaMode aAlphaMode) {
+    const wr::LayoutSize aTileSpacing) {
   wr_dp_push_conic_gradient(mWrState, aBounds, aClip, aIsBackfaceVisible,
                             &mCurrentSpaceAndClipChain, aCenter, aAngle,
                             aStops.Elements(), aStops.Length(), aExtendMode,
-                            aAlphaMode, aTileSize, aTileSpacing);
+                            aTileSize, aTileSpacing);
 }
 
 void DisplayListBuilder::PushImage(
@@ -1755,16 +1702,14 @@ void DisplayListBuilder::PushBorder(
     const wr::LayoutRect& aBounds, const wr::LayoutRect& aClip,
     bool aIsBackfaceVisible, const wr::LayoutSideOffsets& aWidths,
     const Range<const wr::BorderSide>& aSides, const wr::BorderRadius& aRadius,
-    const wr::LayoutSideOffsets& aInset, wr::AntialiasBorder aAntialias,
-    bool aForceAntiAliasing) {
+    const wr::LayoutSideOffsets& aInset, wr::AntialiasBorder aAntialias) {
   MOZ_ASSERT(aSides.length() == 4);
   if (aSides.length() != 4) {
     return;
   }
   wr_dp_push_border(mWrState, aBounds, aClip, aIsBackfaceVisible,
-                    aForceAntiAliasing, &mCurrentSpaceAndClipChain, aAntialias,
-                    aWidths, aSides[0], aSides[1], aSides[2], aSides[3],
-                    aRadius, aInset);
+                    &mCurrentSpaceAndClipChain, aAntialias, aWidths, aSides[0],
+                    aSides[1], aSides[2], aSides[3], aRadius, aInset);
 }
 
 void DisplayListBuilder::PushBorderImage(const wr::LayoutRect& aBounds,
@@ -1912,8 +1857,7 @@ gfxContext* DisplayListBuilder::GetTextContext(
     mCachedTextDT = new layout::TextDrawTarget(*this, aResources, aSc, aManager,
                                                aItem, aBounds);
     if (mCachedTextDT->IsValid()) {
-      mCachedContext =
-          std::make_unique<gfxContext>(mCachedTextDT, aDeviceOffset);
+      mCachedContext = MakeUnique<gfxContext>(mCachedTextDT, aDeviceOffset);
     }
   } else {
     mCachedTextDT->Reinitialize(aResources, aSc, aManager, aItem, aBounds);

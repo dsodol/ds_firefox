@@ -57,9 +57,37 @@ export function WallpaperFeatureHighlight({
     [dispatch, onDismiss, handleClick, messageData]
   );
 
+  const { messageType } = messageData?.content || {};
+  const isSemiFinal =
+    isNova && messageType === "WorldCupSemiFinalWallpaperHighlight";
+  const isWorldCup =
+    isNova && (messageType === "WorldCupWallpaperHighlight" || isSemiFinal);
+
+  const worldCupTitleL10nId = isSemiFinal
+    ? "newtab-sports-widget-message-wallpapers-semifinals-title"
+    : "newtab-sports-widget-message-wallpapers-title";
+  const worldCupSubtitleL10nId = isSemiFinal
+    ? "newtab-sports-widget-message-wallpapers-semifinals-body"
+    : "newtab-sports-widget-message-wallpapers-body";
+
+  const novaHighlightImage = isWorldCup
+    ? "chrome://newtab/content/data/content/assets/highlights/wallpaper-callout.png"
+    : "chrome://newtab/content/data/content/assets/highlights/firefox-mascot-prop-paintbucket-rgb.svg";
+  const novaImgWidth = isWorldCup ? "319" : "207";
+  const novaImgHeight = isWorldCup ? "204" : "156";
+  const novaTitleL10nId = isWorldCup
+    ? worldCupTitleL10nId
+    : "newtab-wallpaper-feature-highlight-title";
+  const novaSubtitleL10nId = isWorldCup
+    ? worldCupSubtitleL10nId
+    : "newtab-wallpaper-feature-highlight-subtitle";
+  const novaCtaL10nId = isWorldCup
+    ? "newtab-sports-widget-message-wallpapers-cta"
+    : "newtab-wallpaper-feature-highlight-cta";
+
   return (
     <div
-      className={`wallpaper-feature-highlight ${messageData.content?.darkModeDismiss ? "is-inverted-dark-dismiss-button" : ""}`}
+      className={`wallpaper-feature-highlight ${isWorldCup ? "world-cup-variant" : ""} ${messageData.content?.darkModeDismiss ? "is-inverted-dark-dismiss-button" : ""}`}
     >
       <FeatureHighlight
         position={position}
@@ -80,7 +108,7 @@ export function WallpaperFeatureHighlight({
                 srcSet={
                   messageData.content?.darkModeImageURL ||
                   (isNova
-                    ? "chrome://newtab/content/data/content/assets/highlights/firefox-mascot-prop-paintbucket-rgb.svg"
+                    ? novaHighlightImage
                     : "chrome://newtab/content/data/content/assets/highlights/omc-newtab-wallpapers.svg")
                 }
                 media="(prefers-color-scheme: dark)"
@@ -89,47 +117,47 @@ export function WallpaperFeatureHighlight({
                 srcSet={
                   messageData.content?.imageURL ||
                   (isNova
-                    ? "chrome://newtab/content/data/content/assets/highlights/firefox-mascot-prop-paintbucket-rgb.svg"
+                    ? novaHighlightImage
                     : "chrome://newtab/content/data/content/assets/highlights/omc-newtab-wallpapers.svg")
                 }
                 media="(prefers-color-scheme: light)"
               />
               <img
-                width={isNova ? "207" : "320"}
-                height={isNova ? "156" : "195"}
+                width={isNova ? novaImgWidth : "320"}
+                height={isNova ? novaImgHeight : "195"}
                 alt=""
               />
             </picture>
             <div className="wallpaper-feature-highlight-copy">
-              {messageData.content?.cardTitle ? (
+              {!isNova && messageData.content?.cardTitle ? (
                 <p className="title">{messageData.content.cardTitle}</p>
               ) : (
                 <p
                   className="title"
                   data-l10n-id={
-                    messageData.content.title ||
-                    (isNova
-                      ? "newtab-wallpaper-feature-highlight-title"
-                      : "newtab-new-user-custom-wallpaper-title")
+                    isNova
+                      ? novaTitleL10nId
+                      : messageData.content.title ||
+                        "newtab-new-user-custom-wallpaper-title"
                   }
                 />
               )}
-              {messageData.content?.cardMessage ? (
+              {!isNova && messageData.content?.cardMessage ? (
                 <p className="subtitle">{messageData.content.cardMessage}</p>
               ) : (
                 <p
                   className="subtitle"
                   data-l10n-id={
-                    messageData.content.subtitle ||
-                    (isNova
-                      ? "newtab-wallpaper-feature-highlight-subtitle"
-                      : "newtab-new-user-custom-wallpaper-subtitle")
+                    isNova
+                      ? novaSubtitleL10nId
+                      : messageData.content.subtitle ||
+                        "newtab-new-user-custom-wallpaper-subtitle"
                   }
                 />
               )}
             </div>
             <span className="button-wrapper">
-              {messageData.content?.cardCta ? (
+              {!isNova && messageData.content?.cardCta ? (
                 <moz-button
                   type={isNova ? "primary" : "default"}
                   onClick={() => onToggleClick("open-customize-menu")}
@@ -140,10 +168,10 @@ export function WallpaperFeatureHighlight({
                   type={isNova ? "primary" : "default"}
                   onClick={() => onToggleClick("open-customize-menu")}
                   data-l10n-id={
-                    messageData.content.cta ||
-                    (isNova
-                      ? "newtab-wallpaper-feature-highlight-cta"
-                      : "newtab-new-user-custom-wallpaper-cta")
+                    isNova
+                      ? novaCtaL10nId
+                      : messageData.content.cta ||
+                        "newtab-new-user-custom-wallpaper-cta"
                   }
                 />
               )}

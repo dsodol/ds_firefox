@@ -629,9 +629,9 @@ void Shader::compile(const Context *context, angle::JobResultExpectancy resultEx
     options.objectCode       = true;
     options.emulateGLDrawID  = true;
 
-    // Add default options to WebGL shaders to prevent unexpected behavior during compilation.
-    // Similarly protect hardened contexts.
-    if (context->isHardenedContext())
+    // Add default options to WebGL shaders to prevent unexpected behavior during
+    // compilation.
+    if (context->isWebGL() || context->isHardenedContext())
     {
         options.initGLPosition             = true;
         options.limitCallStackDepth        = true;
@@ -640,7 +640,6 @@ void Shader::compile(const Context *context, angle::JobResultExpectancy resultEx
         options.initSharedVariables        = true;
         options.rejectWebglShadersWithLargeVariables    = true;
         options.rejectWebglShadersWithUndefinedBehavior = true;
-        options.expandFragmentOutputsToVec4             = true;
 
         if (context->getFrontendFeatures().allowExtensionDisableAfterNonPpTokens.enabled)
         {
@@ -669,6 +668,11 @@ void Shader::compile(const Context *context, angle::JobResultExpectancy resultEx
     options.validateAST = true;
 #endif
 
+    if (context->getState().usesPassthroughShaders())
+    {
+        options.skipAllValidationAndTransforms = true;
+    }
+
     // Find a shader in Blob Cache
     Compiler *compiler = context->getCompiler();
     setShaderKey(context, options, compiler->getShaderOutputType(),
@@ -696,10 +700,7 @@ void Shader::compile(const Context *context, angle::JobResultExpectancy resultEx
 
     if (context->getState().usesPassthroughShaders())
     {
-        // Note: the passthrough compile path is only supported for the GL backend, and it doesn't
-        // actually compile the shader by ANGLE's translator; it behaves as if the shader binary is
-        // loaded.
-        passthroughCompile(context, resultExpectancy);
+        passthroughCompile(context, &options, resultExpectancy);
         return;
     }
 
@@ -983,6 +984,7 @@ bool Shader::loadBinaryImpl(const Context *context,
 }
 
 void Shader::passthroughCompile(const Context *context,
+                                ShCompileOptions *compileOptions,
                                 angle::JobResultExpectancy resultExpectancy)
 {
     mState.mCompiledState = std::make_shared<CompiledShaderState>(mState.getShaderType());
@@ -990,11 +992,9 @@ void Shader::passthroughCompile(const Context *context,
 
     mState.mCompileStatus = CompileStatus::COMPILE_REQUESTED;
 
-    // Ask the backend to prepare the translate task.  Note that only the GL backend is supported in
-    // this path, and ultimately only the load() function of the translate task will be used.
-    ShCompileOptions unusedOptions = {};
+    // Ask the backend to prepare the translate task
     std::shared_ptr<rx::ShaderTranslateTask> translateTask =
-        mImplementation->compile(context, &unusedOptions);
+        mImplementation->compile(context, compileOptions);
 
     std::shared_ptr<CompileTask> compileTask(new CompileTask(
         context->getFrontendFeatures(), mState.mCompiledState, std::move(translateTask)));
@@ -1025,10 +1025,7 @@ void Shader::setShaderKey(const Context *context,
                   angle::GetANGLEShaderProgramVersionHashSize());
 
     angle::UpdateHashWithValue(hasher, Compiler::SelectShaderSpec(context->getState()));
-    // If using passthrough shaders, use SH_NULL_OUTPUT as key just to differentiate between them
-    // and non-passthrough shaders.
-    angle::UpdateHashWithValue(
-        hasher, context->getState().usesPassthroughShaders() ? SH_NULL_OUTPUT : outputType);
+    angle::UpdateHashWithValue(hasher, outputType);
     hasher.Update(reinterpret_cast<const uint8_t *>(&compileOptions), sizeof(compileOptions));
 
     // Include the ShBuiltInResources, which represent the extensions and constants used by the

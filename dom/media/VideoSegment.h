@@ -41,7 +41,7 @@ class VideoFrame {
   void SetForceBlack(bool aForceBlack) { mForceBlack = aForceBlack; }
   bool GetForceBlack() const { return mForceBlack; }
   void SetPrincipalHandle(PrincipalHandle aPrincipalHandle) {
-    mPrincipalHandle = std::move(aPrincipalHandle);
+    mPrincipalHandle = std::forward<PrincipalHandle>(aPrincipalHandle);
   }
   const PrincipalHandle& GetPrincipalHandle() const { return mPrincipalHandle; }
   const gfx::IntSize& GetIntrinsicSize() const { return mIntrinsicSize; }

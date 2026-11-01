@@ -52,6 +52,9 @@ run-if = [
 ["browser_bookmarkProperties_readOnlyRoot.js"]
 
 ["browser_bookmarkProperties_remember_folders.js"]
+skip-if = [
+  "os == 'mac' && os_version == '14.70' && arch == 'x86_64' && debug", # Bug 1869782
+]
 
 ["browser_bookmarkProperties_speculativeConnection.js"]
 
@@ -224,11 +227,6 @@ https_first_disabled = true
 ["browser_markPageAsFollowedLink.js"]
 
 ["browser_mobile_root_on_bookmark_menus.js"]
-
-["browser_native_menu_query_limit.js"]
-run-if = [
-  "os == 'mac'",
-]
 
 ["browser_panelview_bookmarks_delete.js"]
 

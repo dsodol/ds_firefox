@@ -8,8 +8,6 @@
 // usrsctp.h expects to have errno definitions prior to its inclusion.
 #include <errno.h>
 
-#include <memory>
-
 #define SCTP_DEBUG 1
 #define SCTP_STDINT_INCLUDE <stdint.h>
 
@@ -620,7 +618,7 @@ int DataChannelConnectionUsrsctp::SendSctpPacket(const uint8_t* buffer,
     }
   }
 
-  auto packet = std::make_unique<MediaPacket>();
+  std::unique_ptr<MediaPacket> packet(new MediaPacket);
   packet->SetType(MediaPacket::SCTP);
   packet->Copy(static_cast<const uint8_t*>(buffer), length);
 

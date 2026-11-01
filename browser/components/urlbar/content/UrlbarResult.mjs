@@ -15,16 +15,15 @@
 
 import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
 
-const { XPCOMUtils } =
-  typeof ChromeUtils == "undefined"
-    ? { XPCOMUtils: null }
-    : ChromeUtils.importESModule("resource://gre/modules/XPCOMUtils.sys.mjs");
+const lazy = typeof ChromeUtils != "undefined" ? {} : null;
 
-const lazy = XPCOMUtils?.declareLazy({
-  JsonSchemaValidator:
-    "resource://gre/modules/components-utils/JsonSchemaValidator.sys.mjs",
-  UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
-});
+if (lazy) {
+  ChromeUtils.defineESModuleGetters(lazy, {
+    JsonSchemaValidator:
+      "resource://gre/modules/components-utils/JsonSchemaValidator.sys.mjs",
+    UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
+  });
+}
 
 /**
  * @typedef UrlbarAutofillData
@@ -38,8 +37,6 @@ const lazy = XPCOMUtils?.declareLazy({
  *   The type of the autofill.
  * @property {string} [adaptiveHistoryInput]
  *   The input string associated with this autofill item.
- * @property {boolean} [noVisitAction]
- *   Whether the view should not show a "Visit" action.
  */
 
 /**
@@ -49,7 +46,7 @@ export class UrlbarResult {
   /**
    * @typedef {{ [name: string]: any }} Payload
    *
-   * @typedef {Values<typeof UrlbarShared.HIGHLIGHT>} HighlightType
+   * @typedef {typeof lazy.UrlbarShared.HIGHLIGHT} HighlightType
    * @typedef {Array<[number, number]>} HighlightIndexes e.g. [[index, length],,]
    * @typedef {Record<string, HighlightType | HighlightIndexes>} Highlights
    */

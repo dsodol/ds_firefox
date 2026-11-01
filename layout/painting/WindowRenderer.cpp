@@ -4,8 +4,6 @@
 
 #include "WindowRenderer.h"
 
-#include <algorithm>
-
 #include "gfxPlatform.h"
 #include "mozilla/EffectSet.h"
 #include "mozilla/dom/Animation.h"  // for Animation
@@ -48,18 +46,12 @@ namespace mozilla {
  *   with a start index older than this, it means that some frames were not
  *   recorded, so data is invalid.
  */
-uint32_t FrameRecorder::StartFrameTimeRecording(uint32_t aBufferSize) {
+uint32_t FrameRecorder::StartFrameTimeRecording(int32_t aBufferSize) {
   if (mRecording.mIsPaused) {
     mRecording.mIsPaused = false;
 
     if (!mRecording.mIntervals.Length()) {  // Initialize recording buffers
-      // Apply the same bounds as nsDOMWindowUtils, including for direct and
-      // IPC callers. An empty buffer would make RecordFrame divide by zero.
-      constexpr uint32_t kRecordingMinSize = 60 * 10;  // 10 seconds @60 fps.
-      constexpr uint32_t kRecordingMaxSize = 60 * 60 * 60;  // One hour.
-      const uint32_t bufferSize =
-          std::clamp(aBufferSize, kRecordingMinSize, kRecordingMaxSize);
-      mRecording.mIntervals.SetLength(bufferSize);
+      mRecording.mIntervals.SetLength(aBufferSize);
     }
 
     // After being paused, recent values got invalid. Update them to now.

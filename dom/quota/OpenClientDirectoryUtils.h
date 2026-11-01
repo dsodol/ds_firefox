@@ -79,10 +79,10 @@ auto MaybeInitialize(RefPtr<UniversalDirectoryLock> aDirectoryLock,
                                std::forward<Callable>(aCallable));
 }
 
-inline auto MaybeInitialize(RefPtr<UniversalDirectoryLock> aDirectoryLock,
-                            RefPtr<QuotaManager> aQuotaManager,
-                            RefPtr<BoolPromise> (QuotaManager::*aMethod)(
-                                RefPtr<UniversalDirectoryLock>)) {
+auto MaybeInitialize(RefPtr<UniversalDirectoryLock> aDirectoryLock,
+                     RefPtr<QuotaManager> aQuotaManager,
+                     RefPtr<BoolPromise> (QuotaManager::*aMethod)(
+                         RefPtr<UniversalDirectoryLock>)) {
   return MaybeInitializeHelper(
       std::move(aDirectoryLock),
       [quotaManager = std::move(aQuotaManager),

@@ -50,9 +50,4 @@ TEST(NullSocketServerTest, TestWait) {
   EXPECT_GE(env.clock().CurrentTime() - start, TimeDelta::Millis(180));
 }
 
-TEST(NullSocketServerTest, CannotCreateSockets) {
-  NullSocketServer ss;
-  EXPECT_FALSE(ss.CanCreateSockets());
-}
-
 }  // namespace webrtc

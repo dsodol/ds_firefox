@@ -671,7 +671,7 @@ inline bool JSONFullParseHandlerAnyChar::objectOpen(
       return false;
     }
   }
-  if (!stack.emplaceBack(cx, *properties)) {
+  if (!stack.append(StackEntry(cx, *properties))) {
     js_delete(*properties);
     return false;
   }
@@ -747,7 +747,7 @@ inline bool JSONFullParseHandlerAnyChar::arrayOpen(
       return false;
     }
   }
-  if (!stack.emplaceBack(cx, *elements)) {
+  if (!stack.append(StackEntry(cx, *elements))) {
     js_delete(*elements);
     return false;
   }

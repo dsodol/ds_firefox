@@ -438,12 +438,33 @@ impl AggregateDevice {
         assert_ne!(device_id, kAudioObjectUnknown);
         debug_assert_running_serially();
 
+        let mut sub_devices = Vec::new();
         let address = AudioObjectPropertyAddress {
             mSelector: kAudioAggregateDevicePropertyActiveSubDeviceList,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMaster,
         };
-        audio_object_get_property_array(device_id, &address).map_err(Error::from)
+        let mut size: usize = 0;
+        let status = audio_object_get_property_data_size(device_id, &address, &mut size);
+
+        if status != NO_ERR {
+            return Err(Error::from(status));
+        }
+
+        let count = size / mem::size_of::<AudioObjectID>();
+        sub_devices = allocate_array(count);
+        let status = audio_object_get_property_data(
+            device_id,
+            &address,
+            &mut size,
+            sub_devices.as_mut_ptr(),
+        );
+
+        if status == NO_ERR {
+            Ok(sub_devices)
+        } else {
+            Err(Error::from(status))
+        }
     }
 
     pub fn get_sub_devices_or_self(
@@ -529,13 +550,19 @@ impl AggregateDevice {
         let class_id: AudioClassID = kAudioSubDeviceClassID;
         let qualifier_data = &class_id;
 
-        let sub_devices: Vec<AudioObjectID> = audio_object_get_property_array_with_qualifier(
+        let mut size: usize = 0;
+        let status = audio_object_get_property_data_size_with_qualifier(
             device_id,
             &address,
             qualifier_data_size,
             qualifier_data,
-        )?;
-        let subdevices_num = sub_devices.len();
+            &mut size,
+        );
+        if status != NO_ERR {
+            return Err(Error::from(status));
+        }
+        assert!(size > 0);
+        let subdevices_num = size / mem::size_of::<AudioObjectID>();
         if subdevices_num < 2 {
             cubeb_log!(
                 "Aggregate-device {} contains {} sub-devices only.\
@@ -544,6 +571,18 @@ impl AggregateDevice {
                 subdevices_num
             );
             return Err(Error::LessThan2Devices(subdevices_num));
+        }
+        let mut sub_devices: Vec<AudioObjectID> = allocate_array(subdevices_num);
+        let status = audio_object_get_property_data_with_qualifier(
+            device_id,
+            &address,
+            qualifier_data_size,
+            qualifier_data,
+            &mut size,
+            sub_devices.as_mut_ptr(),
+        );
+        if status != NO_ERR {
+            return Err(Error::from(status));
         }
 
         let master_sub_device_uid = Self::get_master_device_uid(device_id)?;

@@ -17,6 +17,18 @@ const testDomain = "http://example.com";
 // Flags from dom/quota/DirectoryMetadata.h
 const kFlagAccessed = 1 << 1;
 
+async function initStorage() {
+  info("Initializing");
+
+  let request = init();
+  await requestFinished(request);
+
+  info("Initializing temporary storage");
+
+  request = initTemporaryStorage();
+  await requestFinished(request);
+}
+
 /**
  * Setup storage for the tests: init, put value, and return current (real) usage
  */
@@ -41,7 +53,7 @@ async function setupStorage() {
   request = reset();
   await requestFinished(request);
 
-  await initStorageAndTemporaryStorage();
+  await initStorage();
 
   info("Getting the real cached usage");
 
@@ -58,6 +70,19 @@ async function setupStorage() {
   await requestFinished(request);
 
   return realUsage;
+}
+
+function corruptL1Cache(badUsage, badClientUsagesText) {
+  const storageFile = getRelativeFile("storage.sqlite");
+  const connection = Services.storage.openUnsharedDatabase(storageFile);
+  try {
+    connection.executeSimpleSQL(
+      `UPDATE origin SET client_usages = '${badClientUsagesText}', ` +
+        `usage = ${badUsage}`
+    );
+  } finally {
+    connection.close();
+  }
 }
 
 function corruptL2Cache(
@@ -162,11 +187,11 @@ async function testL1L2Corruption() {
   const realUsage = await setupStorage();
   info("Injecting a underflowed usage value into L1 and L2");
 
-  setCachedOriginUsage(testDomain, badUsage, badClientUsagesText);
+  corruptL1Cache(badUsage, badClientUsagesText);
   corruptL2Cache(badUsage, badClientUsagesText);
 
   info("Initializing; this should detect the inconsistency and rescan");
-  await initStorageAndTemporaryStorage();
+  await initStorage();
 
   await checkUsage(realUsage);
 }
@@ -182,11 +207,11 @@ async function testL1L2CorruptionUnaccessedOrigin() {
 
   info("Corrupting L1 and L2, clearing mAccessed flag in L2");
 
-  setCachedOriginUsage(testDomain, badUsage, badClientUsagesText);
+  corruptL1Cache(badUsage, badClientUsagesText);
   corruptL2Cache(badUsage, badClientUsagesText, /* clearAccessed */ true);
 
   info("Initializing; this should detect the inconsistency and rescan");
-  await initStorageAndTemporaryStorage();
+  await initStorage();
 
   await checkUsage(realUsage);
 }

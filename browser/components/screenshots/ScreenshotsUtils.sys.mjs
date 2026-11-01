@@ -1480,8 +1480,6 @@ export var ScreenshotsUtils = {
    *   {left, top, right, bottom}) selection dimensions.
    * @param {number} [data.viewportWidth] Content viewport width.
    * @param {number} [data.viewportHeight] Content viewport height.
-   * @param {number} [data.innerWidth] Content window innerWidth, scrollbar included.
-   * @param {number} [data.innerHeight] Content window innerHeight, scrollbar included.
    * @param browser The current browser.
    * @param {string} [entryPoint] What the user acted on; see metrics.yaml.
    */
@@ -1495,8 +1493,7 @@ export var ScreenshotsUtils = {
       return;
     }
 
-    let { region, viewportWidth, viewportHeight, innerWidth, innerHeight } =
-      data;
+    let { region, viewportWidth, viewportHeight } = data;
     let width = region.width ?? region.right - region.left;
     let height = region.height ?? region.bottom - region.top;
 
@@ -1507,8 +1504,6 @@ export var ScreenshotsUtils = {
       height,
       viewportWidth: viewportWidth ?? browser.clientWidth,
       viewportHeight: viewportHeight ?? browser.clientHeight,
-      innerWidth,
-      innerHeight,
       fullZoom: browser.fullZoom,
     };
 

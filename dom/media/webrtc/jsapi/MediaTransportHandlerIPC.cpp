@@ -354,12 +354,12 @@ RefPtr<dom::RTCStatsPromise> MediaTransportHandlerIPC::GetIceStats(
                  const InitPromise::ResolveOrRejectValue& aValue) {
                if (aValue.IsReject()) {
                  return IPCPromise::CreateAndResolve(
-                     std::make_unique<dom::RTCStatsCollection>(),
+                     MakeUnique<dom::RTCStatsCollection>(),
                      "MediaTransportHandlerIPC::GetIceStats_1");
                }
                if (!mChild) {
                  return IPCPromise::CreateAndResolve(
-                     std::make_unique<dom::RTCStatsCollection>(),
+                     MakeUnique<dom::RTCStatsCollection>(),
                      "MediaTransportHandlerIPC::GetIceStats_1");
                }
                return mChild->SendGetIceStats(aTransportId, aNow);
@@ -367,7 +367,7 @@ RefPtr<dom::RTCStatsPromise> MediaTransportHandlerIPC::GetIceStats(
       ->Then(mThread, __func__, [](IPCPromise::ResolveOrRejectValue&& aValue) {
         if (aValue.IsReject()) {
           return dom::RTCStatsPromise::CreateAndResolve(
-              std::make_unique<dom::RTCStatsCollection>(),
+              MakeUnique<dom::RTCStatsCollection>(),
               "MediaTransportHandlerIPC::GetIceStats_2");
         }
         return dom::RTCStatsPromise::CreateAndResolve(
@@ -431,7 +431,8 @@ mozilla::ipc::IPCResult MediaTransportChild::RecvOnPacketReceived(
     string&& transportId, MediaPacket&& packet) {
   MutexAutoLock lock(mMutex);
   if (mUser) {
-    mUser->OnPacketReceived(std::move(transportId), std::move(packet));
+    mUser->OnPacketReceived(std::forward<string>(transportId),
+                            std::forward<MediaPacket>(packet));
   }
   return ipc::IPCResult::Ok();
 }

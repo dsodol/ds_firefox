@@ -11,13 +11,13 @@ const { RootMessageHandler } = ChromeUtils.importESModule(
 );
 
 add_task(async function test_messageHandlerRegistry_API() {
-  const internalSessionId = 1;
+  const sessionId = 1;
   const type = RootMessageHandler.type;
 
   const rootMessageHandlerRegistry = new MessageHandlerRegistry(type);
 
   const rootMessageHandler =
-    rootMessageHandlerRegistry.getOrCreateMessageHandler(internalSessionId);
+    rootMessageHandlerRegistry.getOrCreateMessageHandler(sessionId);
   ok(rootMessageHandler, "Valid ROOT MessageHandler created");
 
   const contextId = rootMessageHandler.contextId;
@@ -25,13 +25,13 @@ add_task(async function test_messageHandlerRegistry_API() {
 
   is(
     rootMessageHandler,
-    rootMessageHandlerRegistry.getExistingMessageHandler(internalSessionId),
+    rootMessageHandlerRegistry.getExistingMessageHandler(sessionId),
     "ROOT MessageHandler can be retrieved from the registry"
   );
 
   rootMessageHandler.destroy();
   ok(
-    !rootMessageHandlerRegistry.getExistingMessageHandler(internalSessionId),
+    !rootMessageHandlerRegistry.getExistingMessageHandler(sessionId),
     "Destroyed ROOT MessageHandler is no longer returned by the Registry"
   );
 });

@@ -16,7 +16,19 @@
  */
 [Exposed=Window]
 interface HighlightRegistry {
-  [DOMBackedStorage] maplike<DOMString, Highlight>;
+  maplike<DOMString, Highlight>;
+};
+
+partial interface HighlightRegistry {
+  // Maplike interface methods need to be overridden.
+  // Iterating a maplike is not possible from C++ yet.
+  // Therefore, a separate data structure must be held and kept in sync.
+  [Throws]
+  HighlightRegistry set(DOMString key, Highlight value);
+  [Throws]
+  undefined clear();
+  [Throws]
+  boolean delete(DOMString key);
 };
 
 /**

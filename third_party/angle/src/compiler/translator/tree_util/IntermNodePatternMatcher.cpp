@@ -156,6 +156,15 @@ bool IntermNodePatternMatcher::match(TIntermDeclaration *node) const
             }
         }
     }
+    if ((mMask & kNamelessStructDeclaration) != 0)
+    {
+        TIntermTyped *declarator = node->getSequence()->front()->getAsTyped();
+        if (declarator->getBasicType() == EbtStruct &&
+            declarator->getType().getStruct()->symbolType() == SymbolType::Empty)
+        {
+            return true;
+        }
+    }
     return false;
 }
 

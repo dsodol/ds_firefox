@@ -95,6 +95,7 @@ private fun ListenToPageToolsContent(
                 FilledButton(text = "Listen") {
                     browserStore.state.selectedTab?.let {
                         listenStore.dispatch(ListenAction.Session.ListenRequested(tabId = it.id, url = it.content.url))
+                        listenStore.dispatch(ListenAction.Controls.PlayPauseClicked)
                     }
                 }
 

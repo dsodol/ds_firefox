@@ -25,5 +25,3 @@ support-files = [
 support-files = ["file_promise_xrays.html"]
 
 ["test_scheduling_state_incumbent_hop.html"]
-
-["test_unhandledrejection_chrome_stack.html"]

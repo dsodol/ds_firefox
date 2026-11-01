@@ -9,7 +9,6 @@
 #include "Selection.h"
 
 #include <algorithm>
-#include <memory>
 
 #include "ErrorList.h"
 #include "LayoutConstants.h"
@@ -2244,7 +2243,7 @@ UniquePtr<SelectionDetails> Selection::LookUpSelection(
     const bool isFullySelected =
         cache->MaybeCollectNodesAndCheckIfFullySelected(aContent, this);
     if (isFullySelected) {
-      auto newHead = std::make_unique<SelectionDetails>();
+      auto newHead = MakeUnique<SelectionDetails>();
 
       newHead->mNext = std::move(aDetailsHead);
       newHead->mStart = AssertedCast<int32_t>(0);
@@ -2335,7 +2334,7 @@ UniquePtr<SelectionDetails> Selection::LookUpSelection(
       continue;  // the ranges do not overlap the input range
     }
 
-    auto newHead = std::make_unique<SelectionDetails>();
+    auto newHead = MakeUnique<SelectionDetails>();
 
     newHead->mNext = std::move(detailsHead);
     newHead->mStart = AssertedCast<int32_t>(*start);
@@ -4785,7 +4784,7 @@ void Selection::SetColors(const nsAString& aForegroundColor,
     return;
   }
 
-  mCustomColors = std::make_unique<SelectionCustomColors>();
+  mCustomColors.reset(new SelectionCustomColors);
 
   constexpr auto currentColorStr = u"currentColor"_ns;
   constexpr auto transparentStr = u"transparent"_ns;

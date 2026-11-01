@@ -9,8 +9,6 @@
 #include "libANGLE/renderer/d3d/d3d11/StateManager11.h"
 #include "common/unsafe_buffers.h"
 
-#include <algorithm>
-
 #include "common/angleutils.h"
 #include "common/bitset_utils.h"
 #include "common/mathutil.h"
@@ -215,7 +213,8 @@ void StateManager11::ViewCache<ViewType, DescType>::clear()
         return;
     }
 
-    std::ranges::fill(mCurrentViews, ViewRecord<DescType>{});
+    ANGLE_UNSAFE_TODO(
+        memset(&mCurrentViews[0], 0, sizeof(ViewRecord<DescType>) * mCurrentViews.size()));
     mHighestUsedView = 0;
 }
 
@@ -943,19 +942,20 @@ void StateManager11::syncState(const gl::Context *context,
             case gl::state::DIRTY_BIT_PROVOKING_VERTEX:
                 invalidateShaders();
                 break;
-            case gl::state::DIRTY_BIT_CLIP_CONTROL:
-                checkPresentPath(context);
-                if (mShaderConstants.onClipDepthModeChange(state.isClipDepthModeZeroToOne()))
-                {
-                    invalidateDriverUniforms();
-                }
-                break;
             case gl::state::DIRTY_BIT_EXTENDED:
             {
                 for (size_t extendedDirtyBit : extendedDirtyBits)
                 {
                     switch (extendedDirtyBit)
                     {
+                        case gl::state::EXTENDED_DIRTY_BIT_CLIP_CONTROL:
+                            checkPresentPath(context);
+                            if (mShaderConstants.onClipDepthModeChange(
+                                    state.isClipDepthModeZeroToOne()))
+                            {
+                                invalidateDriverUniforms();
+                            }
+                            break;
                         case gl::state::EXTENDED_DIRTY_BIT_CLIP_DISTANCES:
                             if (mShaderConstants.onClipDistancesEnabledChange(
                                     state.getEnabledClipDistances().bits()))

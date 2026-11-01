@@ -22,7 +22,7 @@ DateTimePatternGenerator::TryCreate(const char* aLocale) {
   if (U_FAILURE(status)) {
     return Err(ToICUError(status));
   }
-  return std::make_unique<DateTimePatternGenerator>(generator);
+  return MakeUnique<DateTimePatternGenerator>(generator);
 };
 
 DateTimePatternGenerator::DateTimePatternGenerator(

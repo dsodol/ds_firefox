@@ -5,67 +5,71 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use crate::{
-    clock::{CacheClock, Clock},
-    http_cache::{
-        connection_initializer::HttpCacheConnectionInitializer, request_hash::RequestHash, ByteSize,
-    },
+    common::clock::{CacheClock, Clock},
+    http_cache::{request_hash::RequestHash, ByteSize},
 };
-use rusqlite::{params, OptionalExtension};
-use sql_support::{open_database, LazyDb};
+use parking_lot::Mutex;
+use rusqlite::{params, Connection, OptionalExtension, Result as SqliteResult};
 use viaduct::{Header, Response};
 
 #[cfg(test)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FaultKind {
-    Cleanup,
-    Lookup,
     None,
+    Lookup,
     Store,
     Trim,
+    Cleanup,
 }
 
 pub struct HttpCacheStore {
+    conn: Mutex<Connection>,
     clock: Arc<dyn Clock>,
-    db: LazyDb<HttpCacheConnectionInitializer>,
     #[cfg(test)]
     fault: parking_lot::Mutex<FaultKind>,
 }
 
 impl HttpCacheStore {
-    pub fn new(db: LazyDb<HttpCacheConnectionInitializer>) -> Self {
+    pub fn new(conn: Connection) -> Self {
         Self {
+            conn: Mutex::new(conn),
             clock: Arc::new(CacheClock),
-            db,
+            #[cfg(test)]
+            fault: parking_lot::Mutex::new(FaultKind::None),
+        }
+    }
+
+    pub fn close(self) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.into_inner();
+        conn.close().map_err(|(_, err)| err)
+    }
+
+    #[cfg(test)]
+    pub fn new_with_test_clock(conn: Connection) -> Self {
+        use crate::common::clock::TestClock;
+
+        Self {
+            conn: Mutex::new(conn),
+            clock: Arc::new(TestClock::new(chrono::Utc::now().timestamp())),
             #[cfg(test)]
             fault: parking_lot::Mutex::new(FaultKind::None),
         }
     }
 
     #[cfg(test)]
-    pub fn new_with_test_clock(db: LazyDb<HttpCacheConnectionInitializer>) -> Self {
-        use crate::clock::TestClock;
-
-        Self {
-            clock: Arc::new(TestClock::new(chrono::Utc::now().timestamp())),
-            db,
-            #[cfg(test)]
-            fault: parking_lot::Mutex::new(FaultKind::None),
-        }
+    pub fn get_clock(&self) -> &dyn Clock {
+        &*self.clock
     }
 
     /// Removes all entries from cache.
-    pub fn clear_all(&self) -> Result<usize, open_database::Error> {
-        let (conn, _) = self.db.lock()?;
-        Ok(conn.execute("DELETE FROM http_cache", [])?)
-    }
-
-    pub fn close(&self) {
-        self.db.close(true);
+    pub fn clear_all(&self) -> SqliteResult<usize> {
+        let conn = self.conn.lock();
+        conn.execute("DELETE FROM http_cache", [])
     }
 
     /// Returns total size of the cache in bytes.
-    pub fn current_total_size_bytes(&self) -> Result<ByteSize, open_database::Error> {
-        let (conn, _) = self.db.lock()?;
+    pub fn current_total_size_bytes(&self) -> SqliteResult<ByteSize> {
+        let conn = self.conn.lock();
         let size_bytes = conn.query_row(
             "SELECT COALESCE(SUM(size_bytes),0) FROM http_cache",
             [],
@@ -75,45 +79,26 @@ impl HttpCacheStore {
     }
 
     /// Removes all entries from the store whose expires_at is at or before the current time.
-    pub fn delete_expired_entries(&self) -> Result<usize, open_database::Error> {
+    pub fn delete_expired_entries(&self) -> SqliteResult<usize> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Cleanup {
-            return Err(Self::forced_fault_error("forced cleanup failure"))?;
+            return Err(Self::forced_fault_error("forced cleanup failure"));
         }
-        let (conn, _) = self.db.lock()?;
-        Ok(conn.execute(
+        let conn = self.conn.lock();
+        conn.execute(
             "DELETE FROM http_cache WHERE expires_at <= ?1",
             params![self.clock.now_epoch_seconds()],
-        )?)
-    }
-
-    #[cfg(test)]
-    pub fn get_clock(&self) -> &dyn Clock {
-        &*self.clock
-    }
-
-    pub fn invalidate_by_hash(
-        &self,
-        request_hash: &RequestHash,
-    ) -> Result<usize, open_database::Error> {
-        let (conn, _) = self.db.lock()?;
-        Ok(conn.execute(
-            "DELETE FROM http_cache WHERE request_hash = ?1",
-            params![request_hash.to_string()],
-        )?)
+        )
     }
 
     /// Lookup is agnostic to expiration. If it exists in the store, it will return the result.
-    pub fn lookup(
-        &self,
-        request_hash: &RequestHash,
-    ) -> Result<Option<Response>, open_database::Error> {
+    pub fn lookup(&self, request_hash: &RequestHash) -> SqliteResult<Option<Response>> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Lookup {
-            return Err(Self::forced_fault_error("forced lookup failure"))?;
+            return Err(Self::forced_fault_error("forced lookup failure"));
         }
-        let (conn, _) = self.db.lock()?;
-        Ok(conn.query_row(
+        let conn = self.conn.lock();
+        conn.query_row(
             "SELECT response_body, response_headers, response_status, request_method, request_url
              FROM http_cache WHERE request_hash = ?1",
             params![request_hash.to_string()],
@@ -160,12 +145,7 @@ impl HttpCacheStore {
                 })
             },
         )
-        .optional()?)
-    }
-
-    #[cfg(test)]
-    pub fn set_fault(&self, kind: FaultKind) {
-        *self.fault.lock() = kind;
+        .optional()
     }
 
     /// Upsert an object into the store with an expires_at defined by the given ttl_seconds.
@@ -176,10 +156,10 @@ impl HttpCacheStore {
         request_hash: &RequestHash,
         response: &Response,
         ttl: &Duration,
-    ) -> Result<(), open_database::Error> {
+    ) -> SqliteResult<()> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Store {
-            return Err(Self::forced_fault_error("forced store failure"))?;
+            return Err(Self::forced_fault_error("forced store failure"));
         }
         let headers_map: HashMap<String, String> = response.headers.clone().into();
         let response_headers = serde_json::to_vec(&headers_map).unwrap_or_default();
@@ -188,7 +168,7 @@ impl HttpCacheStore {
         let ttl_seconds = ttl.as_secs();
         let expires_at = now + ttl_seconds as i64;
 
-        let (conn, _) = self.db.lock()?;
+        let conn = self.conn.lock();
         conn.execute(
             "INSERT INTO http_cache (
                 cached_at,
@@ -229,18 +209,26 @@ impl HttpCacheStore {
         Ok(())
     }
 
+    pub fn invalidate_by_hash(&self, request_hash: &RequestHash) -> SqliteResult<usize> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "DELETE FROM http_cache WHERE request_hash = ?1",
+            params![request_hash.to_string()],
+        )
+    }
+
     /// Trim cache to
-    pub fn trim_to_max_size(&self, max_size: &ByteSize) -> Result<(), open_database::Error> {
+    pub fn trim_to_max_size(&self, max_size: &ByteSize) -> SqliteResult<()> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Trim {
-            return Err(Self::forced_fault_error("forced trim failure"))?;
+            return Err(Self::forced_fault_error("forced trim failure"));
         }
         loop {
             let total = self.current_total_size_bytes()?;
             if total.as_u64() <= max_size.as_u64() {
                 break;
             }
-            let (conn, _) = self.db.lock()?;
+            let conn = self.conn.lock();
             conn.execute(
                 "DELETE FROM http_cache WHERE rowid IN (
                     SELECT rowid FROM http_cache ORDER BY cached_at ASC LIMIT 1
@@ -249,6 +237,11 @@ impl HttpCacheStore {
             )?;
         }
         Ok(())
+    }
+
+    #[cfg(test)]
+    pub fn set_fault(&self, kind: FaultKind) {
+        *self.fault.lock() = kind;
     }
 
     #[cfg(test)]
@@ -267,9 +260,8 @@ impl HttpCacheStore {
 mod tests {
     use super::*;
     use crate::http_cache::connection_initializer::HttpCacheConnectionInitializer;
-    use rusqlite::OpenFlags;
     use sql_support::open_database;
-    use std::{path::Path, time::Duration};
+    use std::time::Duration;
     use viaduct::{header_names, Headers, Method, Request, Response};
 
     fn hash_for_request(req: &Request) -> RequestHash {
@@ -277,7 +269,7 @@ mod tests {
     }
 
     fn fetch_timestamps(store: &HttpCacheStore, hash: &RequestHash) -> (i64, i64, i64) {
-        let (conn, _) = store.db.lock().unwrap();
+        let conn = store.conn.lock();
         conn.query_row(
             "SELECT
                     cached_at,
@@ -297,10 +289,10 @@ mod tests {
 
     fn create_test_request(url: &str, body: &[u8]) -> Request {
         Request {
-            body: Some(body.to_vec()),
-            headers: Headers::new(),
             method: Method::Get,
             url: url.parse().unwrap(),
+            headers: Headers::new(),
+            body: Some(body.to_vec()),
         }
     }
 
@@ -311,18 +303,19 @@ mod tests {
             .unwrap();
 
         Response {
-            body: body.to_vec(),
-            headers,
             request_method: Method::Get,
-            status,
             url: "https://example.com/test".parse().unwrap(),
+            status,
+            headers,
+            body: body.to_vec(),
         }
     }
 
     fn create_test_store() -> HttpCacheStore {
         let initializer = HttpCacheConnectionInitializer {};
-        let db = LazyDb::new(Path::new(":memory:"), OpenFlags::default(), initializer);
-        HttpCacheStore::new_with_test_clock(db)
+        let conn = open_database::open_memory_database(&initializer)
+            .expect("failed to open memory cache db");
+        HttpCacheStore::new_with_test_clock(conn)
     }
 
     #[test]
@@ -335,7 +328,7 @@ mod tests {
         let err = store.lookup(&hash).unwrap_err();
 
         match err {
-            open_database::Error::SqlError(rusqlite::Error::SqliteFailure(_, Some(msg))) => {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) => {
                 assert!(msg.contains("forced lookup failure"));
             }
             other => panic!("unexpected error: {other:?}"),
@@ -354,7 +347,7 @@ mod tests {
             .store_with_ttl(&hash, &resp, &Duration::from_secs(300))
             .unwrap_err();
         match err {
-            open_database::Error::SqlError(rusqlite::Error::SqliteFailure(_, Some(msg))) => {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) => {
                 assert!(msg.contains("forced store failure"));
             }
             other => panic!("unexpected error: {other:?}"),
@@ -375,7 +368,7 @@ mod tests {
 
         let err = store.trim_to_max_size(&ByteSize::b(1)).unwrap_err();
         match err {
-            open_database::Error::SqlError(rusqlite::Error::SqliteFailure(_, Some(msg))) => {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) => {
                 assert!(msg.contains("forced trim failure"));
             }
             other => panic!("unexpected error: {other:?}"),
@@ -389,7 +382,7 @@ mod tests {
 
         let err = store.delete_expired_entries().unwrap_err();
         match err {
-            open_database::Error::SqlError(rusqlite::Error::SqliteFailure(_, Some(msg))) => {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) => {
                 assert!(msg.contains("forced cleanup failure"));
             }
             other => panic!("unexpected error: {other:?}"),
@@ -547,7 +540,10 @@ mod tests {
 
     #[test]
     fn test_max_size_eviction() {
-        let store = create_test_store();
+        let initializer = HttpCacheConnectionInitializer {};
+        let conn = open_database::open_memory_database(&initializer)
+            .expect("failed to open memory cache db");
+        let store = HttpCacheStore::new(conn);
 
         for i in 0..5 {
             let request = create_test_request(&format!("https://example.com/api/{}", i), b"");

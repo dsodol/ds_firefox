@@ -166,7 +166,7 @@ class BrowserMenuTest {
         val state = browserState.copy(extensions = mapOf(extension.id to extension))
         val item = menu(state).currentMenuGroups().flatMap { it.items }.item(Item.ReportSiteIssue)
 
-        assertEquals(Text.String("Report broken site…"), item.title.text)
+        assertEquals(Text.String("Report broken site…"), item.title)
         assertEquals(action, state.webCompatReporterAction())
     }
 
@@ -217,7 +217,7 @@ class BrowserMenuTest {
         assertEquals(override, state.webCompatReporterAction())
         assertEquals(
             Text.String("Report this tab"),
-            menu(state).currentMenuGroups().flatMap { it.items }.item(Item.ReportSiteIssue).title.text,
+            menu(state).currentMenuGroups().flatMap { it.items }.item(Item.ReportSiteIssue).title,
         )
 
         val disabledOverride = extension.copy(pageAction = override.copy(enabled = false))

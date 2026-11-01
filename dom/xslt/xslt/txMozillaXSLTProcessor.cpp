@@ -4,8 +4,6 @@
 
 #include "txMozillaXSLTProcessor.h"
 
-#include <memory>
-
 #include "XPathResult.h"
 #include "jsapi.h"
 #include "mozilla/AutoRestore.h"
@@ -80,8 +78,8 @@ nsresult txToDocHandlerFactory::createHandlerWith(
     }
 
     case eHTMLOutput: {
-      auto handler = std::make_unique<txMozillaXMLOutput>(mSourceDocument,
-                                                          aFormat, mObserver);
+      UniquePtr<txMozillaXMLOutput> handler(
+          new txMozillaXMLOutput(mSourceDocument, aFormat, mObserver));
 
       nsresult rv = handler->createResultDocument(
           u""_ns, kNameSpaceID_None, mSourceDocument, mDocumentIsData);
@@ -93,8 +91,8 @@ nsresult txToDocHandlerFactory::createHandlerWith(
     }
 
     case eTextOutput: {
-      auto handler =
-          std::make_unique<txMozillaTextOutput>(mSourceDocument, mObserver);
+      UniquePtr<txMozillaTextOutput> handler(
+          new txMozillaTextOutput(mSourceDocument, mObserver));
 
       nsresult rv = handler->createResultDocument(mDocumentIsData);
       if (NS_SUCCEEDED(rv)) {
@@ -122,8 +120,8 @@ nsresult txToDocHandlerFactory::createHandlerWith(
 
     case eXMLOutput:
     case eHTMLOutput: {
-      auto handler = std::make_unique<txMozillaXMLOutput>(mSourceDocument,
-                                                          aFormat, mObserver);
+      UniquePtr<txMozillaXMLOutput> handler(
+          new txMozillaXMLOutput(mSourceDocument, aFormat, mObserver));
 
       nsresult rv = handler->createResultDocument(aName, aNsID, mSourceDocument,
                                                   mDocumentIsData);
@@ -135,8 +133,8 @@ nsresult txToDocHandlerFactory::createHandlerWith(
     }
 
     case eTextOutput: {
-      auto handler =
-          std::make_unique<txMozillaTextOutput>(mSourceDocument, mObserver);
+      UniquePtr<txMozillaTextOutput> handler(
+          new txMozillaTextOutput(mSourceDocument, mObserver));
 
       nsresult rv = handler->createResultDocument(mDocumentIsData);
       if (NS_SUCCEEDED(rv)) {
@@ -450,7 +448,8 @@ txMozillaXSLTProcessor::AddXSLTParam(const nsString& aName,
     return error.StealNSResult();
   }
 
-  auto varValue = std::make_unique<OwningXSLTParameterValue>();
+  UniquePtr<OwningXSLTParameterValue> varValue =
+      MakeUnique<OwningXSLTParameterValue>();
   varValue->SetAsXPathResult() = xpathResult.forget();
 
   txExpandedName varName(nsId, name);
@@ -880,7 +879,7 @@ void txMozillaXSLTProcessor::SetParameter(const nsAString& aNamespaceURI,
     return;
   }
 
-  auto newVar = std::make_unique<txVariable>(std::move(value));
+  UniquePtr<txVariable> newVar = MakeUnique<txVariable>(std::move(value));
   mVariables.add(varName, newVar.release());
 }
 
@@ -1287,7 +1286,8 @@ void txMozillaXSLTProcessor::Shutdown() { txXSLTProcessor::shutdown(); }
 /* static */
 UniquePtr<txVariable::OwningXSLTParameterValue> txVariable::convertToOwning(
     const XSLTParameterValue& aValue, ErrorResult& aError) {
-  auto value = std::make_unique<OwningXSLTParameterValue>();
+  UniquePtr<OwningXSLTParameterValue> value =
+      MakeUnique<OwningXSLTParameterValue>();
   if (aValue.IsUnrestrictedDouble()) {
     value->SetAsUnrestrictedDouble() = aValue.GetAsUnrestrictedDouble();
   } else if (aValue.IsBoolean()) {

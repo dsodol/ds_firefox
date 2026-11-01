@@ -2,67 +2,83 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Scrolling fires continuously; report each direction at most this often.
-const SCROLL_REPORT_MAX_INTERVAL_MS = 250;
+const lazy = {};
+ChromeUtils.defineLazyGetter(lazy, "logConsole", () =>
+  console.createInstance({
+    prefix: "MiniWindowChild",
+    maxLogLevel: Services.prefs.getBoolPref("browser.mini-window.log", false)
+      ? "Debug"
+      : "Error",
+  })
+);
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  DeferredTask: "resource://gre/modules/DeferredTask.sys.mjs",
+});
+
+// Scrolling fires continuously, so sample it on a timer instead of reading the
+// position on every event.
+const SCROLL_SAMPLE_MS = 100;
 
 /**
  * Content-side actor for Mini Window.
  */
 export class MiniWindowChild extends JSWindowActorChild {
   #lastScrollY = 0;
-  #lastReportUp = null;
-  #lastReportTime = 0;
+  #scrollTask = null;
 
   /**
-   * Start reporting the user's scrolling to show and hide the toolbar.
+   * Start reporting upward scrolls to reveal the toolbar.
    */
   #enableScrollReveal() {
     this.#lastScrollY = this.#scrollY();
-    this.contentWindow?.addEventListener("mozvisualscroll", this, {
-      mozSystemGroup: true,
-      wantUntrusted: false,
+    this.contentWindow?.addEventListener("scroll", this, {
+      capture: true,
+      passive: true,
     });
   }
 
   handleEvent(event) {
-    if (event.type === "mozvisualscroll") {
-      this.#onScroll(event);
+    if (event.type === "scroll") {
+      this.#scrollTask ??= new lazy.DeferredTask(
+        () => this.#onScroll(),
+        SCROLL_SAMPLE_MS
+      );
+      this.#scrollTask.arm();
     }
   }
 
   /**
-   * @returns {number} The visual viewport's vertical offset in the page.
+   * @returns {number} The window's vertical scroll offset, read without
+   *   flushing layout - this runs off a timer, so layout may well be dirty.
    */
   #scrollY() {
     let utils = this.contentWindow?.windowUtils;
     if (!utils) {
       return 0;
     }
-    let x = {},
-      y = {};
-    utils.getVisualViewportOffset(x, y);
-    return y.value;
+    let scrollX = {},
+      scrollY = {};
+    utils.getScrollXY(false, scrollX, scrollY);
+    return scrollY.value;
   }
 
   /**
-   * @param {Event} event
+   * Called when the content window is scrolled.
+   * The parent can't observe scrolling in remote content itself.
    */
-  #onScroll(event) {
+  #onScroll() {
     let y = this.#scrollY();
     if (y === this.#lastScrollY) {
       return;
     }
     let up = y < this.#lastScrollY;
     this.#lastScrollY = y;
-    if (
-      up === this.#lastReportUp &&
-      event.timeStamp - this.#lastReportTime < SCROLL_REPORT_MAX_INTERVAL_MS
-    ) {
-      return;
-    }
-    this.#lastReportUp = up;
-    this.#lastReportTime = event.timeStamp;
     this.sendAsyncMessage("Scrolled", { up });
+  }
+
+  didDestroy() {
+    this.#scrollTask?.disarm();
   }
 
   receiveMessage(message) {
@@ -70,57 +86,50 @@ export class MiniWindowChild extends JSWindowActorChild {
       case "EnableScrollReveal":
         this.#enableScrollReveal();
         break;
-      case "ApzFrame":
-        this.#apzFrame(message.data);
-        break;
-      case "ResetApzFrame":
-        this.#resetApzFrame();
+      case "GetSize":
+        return this.#getSize();
+      case "ScrollTo":
+        this.#scrollTo(message.data);
         break;
     }
     return undefined;
   }
 
   /**
-   * Hold the page at the layout viewport size the crop was captured against,
-   * and zoom its visual viewport onto the crop.
+   * Measures the whole page size.
    *
-   * @param {object} data
-   * @param {object} data.crop - crop rect, content CSS px {left, top, width, height}.
-   * @param {number} data.layoutWidth - the layout viewport width to hold.
-   * @param {number} data.layoutHeight - the layout viewport height to hold.
+   * @returns {?{width: number, height: number}} The page size in content CSS
+   *   px, or null if the content window is already gone.
    */
-  #apzFrame({ crop, layoutWidth, layoutHeight }) {
+  #getSize() {
     let win = this.contentWindow;
-    let utils = win?.windowUtils;
-    if (!utils) {
-      return;
+    let el = win?.document?.documentElement;
+    if (!win || !el) {
+      return null;
     }
-    win.document.setViewportSizeOverrideForMiniWindow(
-      layoutWidth,
-      layoutHeight
-    );
-
-    let current = utils.getResolution();
-    utils.setResolutionAndScaleTo(
-      (win.visualViewport.width * current) / crop.width
-    );
-
-    utils.scrollToVisual(
-      crop.left,
-      crop.top,
-      utils.UPDATE_TYPE_MAIN_THREAD,
-      utils.SCROLL_MODE_INSTANT
-    );
-
-    // Framing isn't the user scrolling, so don't report it.
-    this.#lastScrollY = Math.round(crop.top);
+    let size = {
+      width: Math.max(el.scrollWidth, win.innerWidth),
+      height: Math.max(el.scrollHeight, win.innerHeight),
+    };
+    lazy.logConsole.debug("size of original page is ", size);
+    return size;
   }
 
   /**
-   * Lift the layout viewport override, which also resets the zoom, so the tab
-   * goes back to its origin window unframed.
+   * Scroll the content to an absolute position. The parent normalizes scroll
+   * to 0,0 before framing, since the framing transform is applied relative to
+   * the page origin.
+   *
+   * @param {object} position - Absolute scroll offset, in content CSS px.
+   * @param {number} position.x
+   * @param {number} position.y
    */
-  #resetApzFrame() {
-    this.contentWindow?.document.clearViewportSizeOverrideForMiniWindow();
+  #scrollTo({ x, y }) {
+    lazy.logConsole.debug("scroll position of original tab is ", { x, y });
+    try {
+      this.contentWindow?.scrollTo(x, y);
+    } catch (e) {
+      lazy.logConsole.error("Failed to scroll content", e);
+    }
   }
 }

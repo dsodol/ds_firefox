@@ -46,8 +46,11 @@ class IntermNodePatternMatcher
         // Matches declarations of arrays.
         kArrayDeclaration = 1u << 4u,
 
+        // Matches declarations of structs where the struct type does not have a name.
+        kNamelessStructDeclaration = 1u << 5u,
+
         // Matches array length() method.
-        kArrayLengthMethod = 1u << 5u,
+        kArrayLengthMethod = 1u << 6u,
     };
     IntermNodePatternMatcher(const unsigned int mask);
 

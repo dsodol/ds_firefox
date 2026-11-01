@@ -38,7 +38,7 @@ void Client::EnsureHandle() {
 }
 
 Client::Client(nsIGlobalObject* aGlobal, const ClientInfoAndState& aData)
-    : mGlobal(aGlobal), mData(std::make_unique<ClientInfoAndState>(aData)) {
+    : mGlobal(aGlobal), mData(MakeUnique<ClientInfoAndState>(aData)) {
   MOZ_DIAGNOSTIC_ASSERT(mGlobal);
 }
 

@@ -12,7 +12,7 @@ struct SingleSubstFormat1_3
 {
   protected:
   HBUINT16      format;                 /* Format identifier--format = 1 */
-  typename Types::template LOffsetTo<Coverage>
+  typename Types::template OffsetTo<Coverage>
                 coverage;               /* Offset to Coverage table--from
                                          * beginning of Substitution table */
   typename Types::HBUINT
@@ -20,7 +20,7 @@ struct SingleSubstFormat1_3
                                          * substitute GlyphID, modulo 0x10000 */
 
   public:
-  DEFINE_SIZE_STATIC (2 + Types::LOffset::static_size + Types::HBUINT::static_size);
+  DEFINE_SIZE_STATIC (2 + 2 * Types::size);
 
   bool sanitize (hb_sanitize_context_t *c) const
   {

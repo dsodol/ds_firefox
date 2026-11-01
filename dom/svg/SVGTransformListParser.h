@@ -20,7 +20,8 @@ class SVGTransform;
 
 class SVGTransformListParser : public SVGDataParser {
  public:
-  explicit SVGTransformListParser(const nsAString& aValue);
+  explicit SVGTransformListParser(const nsAString& aValue)
+      : SVGDataParser(aValue) {}
 
   bool Parse();
 

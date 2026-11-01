@@ -395,7 +395,7 @@ class VideoInfo : public TrackInfo {
   const VideoInfo* GetAsVideoInfo() const override { return this; }
 
   UniquePtr<TrackInfo> Clone() const override {
-    return std::make_unique<VideoInfo>(*this);
+    return MakeUnique<VideoInfo>(*this);
   }
 
   void SetAlpha(bool aAlphaPresent) { mAlphaPresent = aAlphaPresent; }
@@ -547,7 +547,7 @@ class AudioInfo : public TrackInfo {
   nsCString ToString() const override;
 
   UniquePtr<TrackInfo> Clone() const override {
-    return std::make_unique<AudioInfo>(*this);
+    return MakeUnique<AudioInfo>(*this);
   }
 
   // Sample rate.

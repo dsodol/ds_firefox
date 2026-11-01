@@ -37,7 +37,8 @@ mozilla::LazyLogModule gLayoutPrintingLog("printing-layout");
 
 nsPageSequenceFrame* NS_NewPageSequenceFrame(PresShell* aPresShell,
                                              ComputedStyle* aStyle) {
-  return new nsPageSequenceFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      nsPageSequenceFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsPageSequenceFrame)
@@ -670,7 +671,7 @@ void nsPageSequenceFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
   aBuilder->SetDisablePartialUpdates(true);
   DisplayBorderBackgroundOutline(aBuilder, aLists);
 
-  nsDisplayList content;
+  nsDisplayList content(aBuilder);
 
   {
     // Clear clip state while we construct the children of the

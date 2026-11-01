@@ -186,14 +186,9 @@ export class MessageEvent extends SimpleEventAPI {
   }
 
   wrapResponse(fire, message, sender) {
-    let response, sendResponse, resultIsPromise, warned;
-
+    let response, sendResponse;
     let promise = new Promise(resolve => {
       sendResponse = Cu.exportFunction(value => {
-        if (resultIsPromise && !warned) {
-          this.logSendResponseIgnored(fire);
-          warned = true;
-        }
         resolve(value);
         response = promise;
       }, this.context.cloneScope);
@@ -205,35 +200,17 @@ export class MessageEvent extends SimpleEventAPI {
     } catch (e) {
       return Promise.reject(e);
     }
-
-    resultIsPromise =
+    if (
       result &&
       typeof result === "object" &&
       Cu.getClassName(result, true) === "Promise" &&
-      this.context.principal.subsumes(Cu.getObjectPrincipal(result));
-
-    if (resultIsPromise) {
-      if (response && !warned) {
-        this.logSendResponseIgnored(fire);
-        warned = true;
-      }
+      this.context.principal.subsumes(Cu.getObjectPrincipal(result))
+    ) {
       return StrongPromise.wrap(result, fire.location);
     } else if (result === true) {
       return StrongPromise.wrap(promise, fire.location);
     }
     return response;
-  }
-
-  logSendResponseIgnored(fire) {
-    this.context.logConsoleScriptError({
-      message:
-        `sendResponse() has no effect because the ${this.name} handler has ` +
-        `already returned a Promise. (extension: ${this.context.extension.id})`,
-      fileName: fire.location?.source,
-      lineNumber: fire.location?.line,
-      columnNumber: fire.location?.column,
-      flags: Ci.nsIScriptError.warningFlag,
-    });
   }
 }
 

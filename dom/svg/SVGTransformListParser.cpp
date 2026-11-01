@@ -11,9 +11,6 @@
 
 namespace mozilla {
 
-SVGTransformListParser::SVGTransformListParser(const nsAString& aValue)
-    : SVGDataParser(aValue) {}
-
 //----------------------------------------------------------------------
 // private methods
 

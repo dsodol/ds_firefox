@@ -18,7 +18,7 @@ ServiceWorkerDescriptor::ServiceWorkerDescriptor(
     uint64_t aId, uint64_t aRegistrationId, uint64_t aRegistrationVersion,
     nsIPrincipal* aPrincipal, const nsACString& aScope, WorkerType aType,
     const nsACString& aScriptURL, ServiceWorkerState aState)
-    : mData(std::make_unique<IPCServiceWorkerDescriptor>()) {
+    : mData(MakeUnique<IPCServiceWorkerDescriptor>()) {
   MOZ_ALWAYS_SUCCEEDS(
       PrincipalToPrincipalInfo(aPrincipal, &mData->principalInfo()));
 
@@ -37,13 +37,13 @@ ServiceWorkerDescriptor::ServiceWorkerDescriptor(
     uint64_t aId, uint64_t aRegistrationId, uint64_t aRegistrationVersion,
     const mozilla::ipc::PrincipalInfo& aPrincipalInfo, const nsACString& aScope,
     WorkerType aType, const nsACString& aScriptURL, ServiceWorkerState aState)
-    : mData(std::make_unique<IPCServiceWorkerDescriptor>(
+    : mData(MakeUnique<IPCServiceWorkerDescriptor>(
           aId, aRegistrationId, aRegistrationVersion, aPrincipalInfo,
           nsCString(aScriptURL), aType, nsCString(aScope), aState, true)) {}
 
 ServiceWorkerDescriptor::ServiceWorkerDescriptor(
     const IPCServiceWorkerDescriptor& aDescriptor)
-    : mData(std::make_unique<IPCServiceWorkerDescriptor>(aDescriptor)) {}
+    : mData(MakeUnique<IPCServiceWorkerDescriptor>(aDescriptor)) {}
 
 ServiceWorkerDescriptor::ServiceWorkerDescriptor(
     const ServiceWorkerDescriptor& aRight) {
@@ -56,7 +56,7 @@ ServiceWorkerDescriptor& ServiceWorkerDescriptor::operator=(
     return *this;
   }
   mData.reset();
-  mData = std::make_unique<IPCServiceWorkerDescriptor>(*aRight.mData);
+  mData = MakeUnique<IPCServiceWorkerDescriptor>(*aRight.mData);
   return *this;
 }
 

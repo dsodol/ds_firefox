@@ -11,6 +11,7 @@ import java.io.ByteArrayInputStream
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +21,6 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.menu.data.MenuItemSummary
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.ui.MenuItemIconBitmap
 import mozilla.components.compose.menu.ui.MenuItemIconDrawable
@@ -32,6 +32,7 @@ import mozilla.components.concept.fetch.Response
 import mozilla.components.concept.sync.Avatar
 import mozilla.components.service.fxa.manager.AccountState
 import mozilla.components.service.fxa.manager.AccountState.Authenticated
+import mozilla.components.service.fxa.manager.AccountState.Authenticating
 import mozilla.components.service.fxa.manager.AccountState.AuthenticationProblem
 import mozilla.components.service.fxa.manager.AccountState.NotAuthenticated
 import mozilla.components.service.fxa.manager.AccountState.Unknown
@@ -46,7 +47,6 @@ import org.junit.runner.RunWith
 import org.mozilla.fenix.NavGraphDirections
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.menu.MenuAccessPoint
-import org.mozilla.fenix.components.menu.MenuTarget
 import org.mozilla.fenix.components.menu.fake.FakeMenuHost
 import org.mozilla.fenix.components.menu.store.MenuAction
 import org.robolectric.RobolectricTestRunner
@@ -69,27 +69,7 @@ class MozillaAccountMenuItemProviderTest {
                 summary = Text.Resource(R.string.browser_menu_sign_in_caption_3),
                 accountState = NotAuthenticated,
             ),
-            provider().itemsFlow.value.single(),
-        )
-    }
-
-    @Test
-    fun `GIVEN target is CustomizeMenu WHEN providing the item THEN show item without click event`() = runTest {
-        syncState.value = SyncState(accountState = NotAuthenticated)
-
-        assertEquals(
-            StandardMenuItem(
-                title = MenuItemTitle(Text.Resource(R.string.browser_menu_sign_in)),
-                summary =
-                    MenuItemSummary(
-                        text = Text.Resource(R.string.browser_menu_sign_in_caption_3),
-                        maxLines = SUMMARY_MAX_LINES,
-                    ),
-                icon = MenuItemIconRes(iconsR.drawable.mozac_ic_avatar_circle_24),
-                onClickEvent = null,
-                state = MenuItemState.DEFAULT,
-            ),
-            provider(target = MenuTarget.CustomizeMenu).itemsFlow.value.single(),
+            provider().itemFlow.value,
         )
     }
 
@@ -103,7 +83,7 @@ class MozillaAccountMenuItemProviderTest {
                 summary = Text.Resource(R.string.browser_menu_sign_in_caption_3),
                 accountState = Unknown,
             ),
-            provider().itemsFlow.value.single(),
+            provider().itemFlow.value,
         )
     }
 
@@ -117,7 +97,7 @@ class MozillaAccountMenuItemProviderTest {
                 summary = Text.Resource(R.string.browser_menu_signed_in_caption),
                 accountState = Authenticated,
             ),
-            provider().itemsFlow.value.single(),
+            provider().itemFlow.value,
         )
     }
 
@@ -131,7 +111,7 @@ class MozillaAccountMenuItemProviderTest {
                 summary = Text.Resource(R.string.browser_menu_signed_in_caption),
                 accountState = Authenticated,
             ),
-            provider().itemsFlow.value.single(),
+            provider().itemFlow.value,
         )
     }
 
@@ -146,7 +126,7 @@ class MozillaAccountMenuItemProviderTest {
                 summary = Text.Resource(R.string.browser_menu_signed_in_caption),
                 accountState = Authenticated,
             ),
-            provider().itemsFlow.value.single(),
+            provider().itemFlow.value,
         )
     }
 
@@ -155,9 +135,9 @@ class MozillaAccountMenuItemProviderTest {
         runTest {
             syncState.value = SyncState(account = account, accountState = AuthenticationProblem)
 
-            val item = provider().itemsFlow.value.single() as StandardMenuItem
+            val item = provider().itemFlow.value as StandardMenuItem
 
-            assertEquals(Text.String(DISPLAY_NAME), item.title.text)
+            assertEquals(Text.String(DISPLAY_NAME), item.title)
             assertEquals(
                 MenuItemSummary(
                     text = Text.Resource(R.string.browser_menu_syncing_paused_caption),
@@ -179,10 +159,28 @@ class MozillaAccountMenuItemProviderTest {
                     accountState = AuthenticationProblem,
                 )
 
-            val item = provider().itemsFlow.value.single() as StandardMenuItem
+            val item = provider().itemFlow.value as StandardMenuItem
 
-            assertEquals(Text.Resource(R.string.browser_menu_sign_back_in_to_sync), item.title.text)
+            assertEquals(Text.Resource(R.string.browser_menu_sign_back_in_to_sync), item.title)
         }
+
+    @Test
+    fun `GIVEN signing in is in progress WHEN providing the item THEN don't show it`() = runTest {
+        syncState.value = SyncState(account = account, accountState = Authenticating(oAuthUrl = OAUTH_URL))
+
+        assertNull(provider().itemFlow.value)
+    }
+
+    @Test
+    fun `WHEN signing in finishes THEN show the account it was signed in to`() = runTest {
+        syncState.value = SyncState(accountState = Authenticating(oAuthUrl = OAUTH_URL))
+        val provider = provider()
+        assertNull(provider.itemFlow.value)
+
+        syncState.value = SyncState(account = account, accountState = Authenticated)
+
+        assertEquals(Text.String(DISPLAY_NAME), provider.itemFlow.first { it != null }?.title)
+    }
 
     @Test
     fun `GIVEN the signed in account has an avatar WHEN it is loaded THEN show it`() = runTest {
@@ -194,10 +192,9 @@ class MozillaAccountMenuItemProviderTest {
         val provider = provider(httpClient = clientReturning(avatarBytes))
 
         // The item is shown with a placeholder icon until the avatar is downloaded.
-        assertIs<MenuItemIconRes>((provider.itemsFlow.value.single() as StandardMenuItem).icon)
+        assertIs<MenuItemIconRes>((provider.itemFlow.value as StandardMenuItem).icon)
 
-        val menuItemWithAvatar =
-            provider.itemsFlow.first { (it.single() as StandardMenuItem).icon is MenuItemIconBitmap }.single()
+        val menuItemWithAvatar = provider.itemFlow.first { (it as StandardMenuItem).icon is MenuItemIconBitmap }
 
         val avatar = ((menuItemWithAvatar as StandardMenuItem).icon as MenuItemIconBitmap).icon
         assertEquals(avatar.width, avatar.height)
@@ -213,7 +210,7 @@ class MozillaAccountMenuItemProviderTest {
                 )
             val httpClient = clientReturning(avatarBytes)
 
-            val item = provider(httpClient = httpClient).itemsFlow.value.single() as StandardMenuItem
+            val item = provider(httpClient = httpClient).itemFlow.value as StandardMenuItem
 
             assertIs<MenuItemIconDrawable>(item.icon)
             verify(exactly = 0) { httpClient.fetch(any()) }
@@ -223,13 +220,13 @@ class MozillaAccountMenuItemProviderTest {
     fun `WHEN the account changes THEN update the item`() = runTest {
         syncState.value = SyncState(accountState = NotAuthenticated)
         val provider = provider()
-        assertEquals(Text.Resource(R.string.browser_menu_sign_in), provider.itemsFlow.value.single().title.text)
+        assertEquals(Text.Resource(R.string.browser_menu_sign_in), provider.itemFlow.value?.title)
 
         syncState.value = SyncState(account = account, accountState = Authenticated)
 
-        val updated = provider.itemsFlow.first { it.single().title.text == Text.String(DISPLAY_NAME) }.single()
+        val updated = provider.itemFlow.first { it?.title == Text.String(DISPLAY_NAME) }
 
-        assertEquals(Text.String(DISPLAY_NAME), updated.title.text)
+        assertEquals(Text.String(DISPLAY_NAME), updated?.title)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -243,7 +240,7 @@ class MozillaAccountMenuItemProviderTest {
                 )
             val httpClient = clientReturning(avatarBytes)
             val provider = provider(httpClient = httpClient)
-            provider.itemsFlow.first { (it.single() as StandardMenuItem).icon is MenuItemIconBitmap }
+            provider.itemFlow.first { (it as StandardMenuItem).icon is MenuItemIconBitmap }
 
             syncState.value = syncState.value.copy(status = SyncStatus.Started)
             runCurrent()
@@ -294,16 +291,12 @@ class MozillaAccountMenuItemProviderTest {
     }
 
     // The account is observed and its avatar downloaded on a scope that runTest cancels at the end of each test.
-    private fun TestScope.provider(
-        httpClient: Client = mockk(relaxed = true),
-        target: MenuTarget = MenuTarget.BrowserTab,
-    ) =
+    private fun TestScope.provider(httpClient: Client = mockk(relaxed = true)) =
         MozillaAccountMenuItemProvider(
             syncStore = syncStore,
             httpClient = httpClient,
             context = testContext,
             accessPoint = MenuAccessPoint.Browser,
-            target = target,
             scope = backgroundScope,
         )
 
@@ -325,7 +318,7 @@ class MozillaAccountMenuItemProviderTest {
         accountState: AccountState,
     ) =
         StandardMenuItem(
-            title = MenuItemTitle(title),
+            title = title,
             summary = MenuItemSummary(text = summary, maxLines = SUMMARY_MAX_LINES),
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_avatar_circle_24),
             onClickEvent =
@@ -342,6 +335,7 @@ class MozillaAccountMenuItemProviderTest {
         const val DISPLAY_NAME = "Mozilla user"
         const val EMAIL = "user@mozilla.org"
         const val AVATAR_URL = "https://mozilla.org/avatar.png"
+        const val OAUTH_URL = "https://mozilla.org/oauth"
         const val SUMMARY_MAX_LINES = 2
 
         val account =

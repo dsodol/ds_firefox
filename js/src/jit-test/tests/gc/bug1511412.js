@@ -12,6 +12,6 @@ Object.defineProperty(this, "fuzzutils", {
   });
   gczeal(21, 10);
   fuzzutils.evaluate(`
-enableTrackAllocations();
+enableShellAllocationMetadataBuilder();
 function test() {}
 `);

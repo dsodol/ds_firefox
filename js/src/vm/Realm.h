@@ -207,7 +207,6 @@ class MOZ_NON_TEMPORARY_CLASS PlainObjectCopyPropsCache {
 // (if it was even allocated).
 
 class PropertyIteratorObject;
-class SavedFrame;
 
 struct IteratorHashPolicy {
   struct Lookup {
@@ -258,9 +257,9 @@ class ObjectRealm {
                     js::ZoneAllocPolicy>;
   JS::WeakCache<ModuleScriptSourceSet> moduleScriptSources;
 
-  // Keep track of the allocation site SavedFrame which can be associated with
-  // each JS object. Both keys and values are in this realm.
-  using ObjectMetadataTable = WeakMap<JSObject*, SavedFrame*, ZoneAllocPolicy>;
+  // Keep track of the metadata objects which can be associated with each JS
+  // object. Both keys and values are in this realm.
+  using ObjectMetadataTable = WeakMap<JSObject*, JSObject*, ZoneAllocPolicy>;
   js::UniquePtr<ObjectMetadataTable> objectMetadataTable;
 
   using IteratorCache =
@@ -354,6 +353,7 @@ class JS::Realm : public JS::shadow::Realm {
   // Used by memory reporters and invalid otherwise.
   JS::RealmStats* realmStats_ = nullptr;
 
+  const js::AllocationMetadataBuilder* allocationMetadataBuilder_ = nullptr;
   void* realmPrivate_ = nullptr;
 
   // Default locale for realms with non-default locales.
@@ -379,10 +379,6 @@ class JS::Realm : public JS::shadow::Realm {
   // This lets us set Compartment::hasEnteredRealm without walking the
   // stack.
   unsigned enterRealmDepthIgnoringJit_ = 0;
-
-  // Whether SavedStacks::buildAllocationMetadata is called for new objects.
-  // The Debugger API and JS::EnableRecordingAllocations can enable this.
-  uint32_t hasAllocationMetadataBuilder_ = false;
 
  public:
   // Various timers for collecting time spent delazifying, jit compiling,
@@ -625,13 +621,18 @@ class JS::Realm : public JS::shadow::Realm {
   }
 
   bool hasAllocationMetadataBuilder() const {
-    return hasAllocationMetadataBuilder_;
+    return allocationMetadataBuilder_;
   }
-  const void* addressOfHasAllocationMetadataBuilder() const {
-    return &hasAllocationMetadataBuilder_;
+  const js::AllocationMetadataBuilder* getAllocationMetadataBuilder() const {
+    return allocationMetadataBuilder_;
   }
-  void enableAllocationMetadataBuilder();
-  void disableAllocationMetadataBuilder();
+  const void* addressOfMetadataBuilder() const {
+    return &allocationMetadataBuilder_;
+  }
+  bool isRecordingAllocations();
+  void setAllocationMetadataBuilder(
+      const js::AllocationMetadataBuilder* builder);
+  void forgetAllocationMetadataBuilder();
   void setNewObjectMetadata(JSContext* cx, JS::HandleObject obj);
 
   bool hasObjectPendingMetadata() const {
@@ -883,8 +884,8 @@ class JS::Realm : public JS::shadow::Realm {
   static constexpr size_t offsetOfCompartment() {
     return offsetof(JS::Realm, compartment_);
   }
-  static constexpr size_t offsetOfHasAllocationMetadataBuilder() {
-    return offsetof(JS::Realm, hasAllocationMetadataBuilder_);
+  static constexpr size_t offsetOfAllocationMetadataBuilder() {
+    return offsetof(JS::Realm, allocationMetadataBuilder_);
   }
   static constexpr size_t offsetOfDebugModeBits() {
     return offsetof(JS::Realm, debugModeBits_);
@@ -1047,9 +1048,6 @@ class MOZ_RAII AutoSetNewObjectMetadata {
   AutoSetNewObjectMetadata(const AutoSetNewObjectMetadata& aOther) = delete;
   void operator=(const AutoSetNewObjectMetadata& aOther) = delete;
 };
-
-// Get the allocation metadata associated with an object, or nullptr.
-SavedFrame* GetAllocationMetadata(JSObject* obj);
 
 } /* namespace js */
 

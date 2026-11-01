@@ -233,7 +233,7 @@ EGLint SurfaceMtl::getSwapBehavior() const
 
 angle::Result SurfaceMtl::initializeContents(const gl::Context *context,
                                              GLenum binding,
-                                             const gl::ImageIndex &imageIndex)
+                                             const gl::OwnImageIndex &ownImageIndex)
 {
     ASSERT(mColorTexture);
 
@@ -292,7 +292,7 @@ angle::Result SurfaceMtl::initializeContents(const gl::Context *context,
 
 angle::Result SurfaceMtl::getAttachmentRenderTarget(const gl::Context *context,
                                                     GLenum binding,
-                                                    const gl::ImageIndex &imageIndex,
+                                                    const gl::OwnImageIndex &ownImageIndex,
                                                     GLsizei samples,
                                                     FramebufferAttachmentRenderTarget **rtOut)
 {
@@ -316,6 +316,17 @@ angle::Result SurfaceMtl::getAttachmentRenderTarget(const gl::Context *context,
     }
 
     return angle::Result::Continue;
+}
+
+egl::Error SurfaceMtl::attachToFramebuffer(const gl::Context *context, gl::Framebuffer *framebuffer)
+{
+    return egl::NoError();
+}
+
+egl::Error SurfaceMtl::detachFromFramebuffer(const gl::Context *context,
+                                             gl::Framebuffer *framebuffer)
+{
+    return egl::NoError();
 }
 
 angle::Result SurfaceMtl::ensureCompanionTexturesSizeCorrect(const gl::Context *context,
@@ -497,36 +508,40 @@ EGLint WindowSurfaceMtl::getSwapBehavior() const
 
 angle::Result WindowSurfaceMtl::initializeContents(const gl::Context *context,
                                                    GLenum binding,
-                                                   const gl::ImageIndex &imageIndex)
+                                                   const gl::OwnImageIndex &ownImageIndex)
 {
     ANGLE_TRY(ensureCurrentDrawableObtained(context));
-    return SurfaceMtl::initializeContents(context, binding, imageIndex);
+    return SurfaceMtl::initializeContents(context, binding, ownImageIndex);
 }
 
 angle::Result WindowSurfaceMtl::getAttachmentRenderTarget(const gl::Context *context,
                                                           GLenum binding,
-                                                          const gl::ImageIndex &imageIndex,
+                                                          const gl::OwnImageIndex &ownImageIndex,
                                                           GLsizei samples,
                                                           FramebufferAttachmentRenderTarget **rtOut)
 {
     ANGLE_TRY(ensureCurrentDrawableObtained(context));
     ANGLE_TRY(ensureCompanionTexturesSizeCorrect(context));
 
-    return SurfaceMtl::getAttachmentRenderTarget(context, binding, imageIndex, samples, rtOut);
+    return SurfaceMtl::getAttachmentRenderTarget(context, binding, ownImageIndex, samples, rtOut);
 }
 
-void WindowSurfaceMtl::attachToFramebuffer(const gl::Context *context, gl::Framebuffer *framebuffer)
+egl::Error WindowSurfaceMtl::attachToFramebuffer(const gl::Context *context,
+                                                 gl::Framebuffer *framebuffer)
 {
     FramebufferMtl *framebufferMtl = GetImplAs<FramebufferMtl>(framebuffer);
     ASSERT(!framebufferMtl->getBackbuffer());
     framebufferMtl->setBackbuffer(this, true);
+    return egl::NoError();
 }
 
-void WindowSurfaceMtl::detachFromFramebuffer(gl::Framebuffer *framebuffer)
+egl::Error WindowSurfaceMtl::detachFromFramebuffer(const gl::Context *context,
+                                                   gl::Framebuffer *framebuffer)
 {
     FramebufferMtl *framebufferMtl = GetImplAs<FramebufferMtl>(framebuffer);
     ASSERT(framebufferMtl->getBackbuffer() == this);
     framebufferMtl->setBackbuffer(nullptr, false);
+    return egl::NoError();
 }
 
 angle::Result WindowSurfaceMtl::ensureCurrentDrawableObtained(const gl::Context *context)
@@ -754,14 +769,14 @@ egl::Error OffscreenSurfaceMtl::releaseTexImage(const gl::Context *context, EGLi
 angle::Result OffscreenSurfaceMtl::getAttachmentRenderTarget(
     const gl::Context *context,
     GLenum binding,
-    const gl::ImageIndex &imageIndex,
+    const gl::OwnImageIndex &ownImageIndex,
     GLsizei samples,
     FramebufferAttachmentRenderTarget **rtOut)
 {
     // Initialize offscreen textures if needed:
     ANGLE_TRY(ensureTexturesSizeCorrect(context));
 
-    return SurfaceMtl::getAttachmentRenderTarget(context, binding, imageIndex, samples, rtOut);
+    return SurfaceMtl::getAttachmentRenderTarget(context, binding, ownImageIndex, samples, rtOut);
 }
 
 angle::Result OffscreenSurfaceMtl::ensureTexturesSizeCorrect(const gl::Context *context)

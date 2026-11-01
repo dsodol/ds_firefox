@@ -4,7 +4,7 @@
 
 #include "ModuleVersionInfo.h"
 
-#include <memory>
+#include "mozilla/UniquePtr.h"
 
 namespace mozilla {
 
@@ -78,7 +78,7 @@ bool ModuleVersionInfo::GetFromImage(const nsAString& aPath) {
     return false;
   }
 
-  auto verInfo = std::make_unique<BYTE[]>(infoSize);
+  auto verInfo = MakeUnique<BYTE[]>(infoSize);
   if (!::GetFileVersionInfoW(path.get(), 0, infoSize, verInfo.get())) {
     return false;
   }

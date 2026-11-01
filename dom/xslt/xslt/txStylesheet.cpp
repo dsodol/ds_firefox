@@ -4,7 +4,6 @@
 
 #include "txStylesheet.h"
 
-#include <memory>
 #include <utility>
 
 #include "txExpr.h"
@@ -17,6 +16,7 @@
 #include "txXSLTPatterns.h"
 
 using mozilla::LogLevel;
+using mozilla::MakeUnique;
 using mozilla::UniquePtr;
 using mozilla::WrapUnique;
 
@@ -27,7 +27,7 @@ nsresult txStylesheet::init() {
 
   // Create default templates
   // element/root template
-  mContainerTemplate = std::make_unique<txPushParams>();
+  mContainerTemplate = MakeUnique<txPushParams>();
 
   UniquePtr<txNodeTest> nt(new txNodeTypeTest(txNodeTypeTest::NODE_TYPE));
   UniquePtr<Expr> nodeExpr(
@@ -48,18 +48,18 @@ nsresult txStylesheet::init() {
   loopNodeSet->mNext = WrapUnique(popParams);
   pushContext->mBailTarget = loopNodeSet->mNext.get();
 
-  popParams->mNext = std::make_unique<txReturn>();
+  popParams->mNext = MakeUnique<txReturn>();
 
   // attribute/textnode template
-  nt = std::make_unique<txNodeTypeTest>(txNodeTypeTest::NODE_TYPE);
-  nodeExpr = std::make_unique<LocationStep>(nt.get(), LocationStep::SELF_AXIS);
+  nt = MakeUnique<txNodeTypeTest>(txNodeTypeTest::NODE_TYPE);
+  nodeExpr = MakeUnique<LocationStep>(nt.get(), LocationStep::SELF_AXIS);
   (void)nt.release();
 
-  mCharactersTemplate = std::make_unique<txValueOf>(std::move(nodeExpr), false);
-  mCharactersTemplate->mNext = std::make_unique<txReturn>();
+  mCharactersTemplate = MakeUnique<txValueOf>(std::move(nodeExpr), false);
+  mCharactersTemplate->mNext = MakeUnique<txReturn>();
 
   // pi/comment/namespace template
-  mEmptyTemplate = std::make_unique<txReturn>();
+  mEmptyTemplate = MakeUnique<txReturn>();
 
   return NS_OK;
 }
@@ -312,7 +312,7 @@ nsresult txStylesheet::doneCompiling() {
   }
 
   if (!mDecimalFormats.get(txExpandedName())) {
-    auto format = std::make_unique<txDecimalFormat>();
+    UniquePtr<txDecimalFormat> format(new txDecimalFormat);
     rv = mDecimalFormats.add(txExpandedName(), format.get());
     NS_ENSURE_SUCCESS(rv, rv);
 
@@ -348,7 +348,8 @@ nsresult txStylesheet::addTemplate(txTemplateItem* aTemplate,
       aImportFrame->mMatchableTemplates.get(aTemplate->mMode);
 
   if (!templates) {
-    auto newList = std::make_unique<nsTArray<MatchableTemplate>>();
+    UniquePtr<nsTArray<MatchableTemplate>> newList(
+        new nsTArray<MatchableTemplate>);
     nsresult rv =
         aImportFrame->mMatchableTemplates.set(aTemplate->mMode, newList.get());
     NS_ENSURE_SUCCESS(rv, rv);
@@ -482,9 +483,9 @@ nsresult txStylesheet::addGlobalVariable(txVariableItem* aVariable) {
   if (mGlobalVariables.get(aVariable->mName)) {
     return NS_OK;
   }
-  auto var = std::make_unique<GlobalVariable>(
+  UniquePtr<GlobalVariable> var(new GlobalVariable(
       std::move(aVariable->mValue), std::move(aVariable->mFirstInstruction),
-      aVariable->mIsParam);
+      aVariable->mIsParam));
   nsresult rv = mGlobalVariables.add(aVariable->mName, var.get());
   NS_ENSURE_SUCCESS(rv, rv);
 

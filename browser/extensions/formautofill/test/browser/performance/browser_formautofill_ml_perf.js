@@ -3,13 +3,6 @@
 
 "use strict";
 
-let { sinon } = ChromeUtils.importESModule(
-  "resource://testing-common/Sinon.sys.mjs"
-);
-const { FormAutofillML } = ChromeUtils.importESModule(
-  "resource://gre/modules/shared/FormAutofillML.sys.mjs"
-);
-
 MLPerfTestUtils.init(this);
 
 const perfMetadata = {
@@ -257,18 +250,6 @@ requestLongerTimeout(10);
 
 /** This test case measures production ML Form Autofill lifecycles. */
 add_task(async function test_formautofill_ml_performance() {
-  let isModelInstalledStub = sinon.stub(
-    FormAutofillML.prototype,
-    "isModelInstalled"
-  );
-  isModelInstalledStub.callsFake(() => {
-    return true;
-  });
-
-  registerCleanupFunction(() => {
-    isModelInstalledStub.restore();
-  });
-
   for (const architecture of ARCHITECTURES) {
     await SpecialPowers.pushPrefEnv({
       set: [["extensions.formautofill.useml.twoHead", architecture.twoHead]],

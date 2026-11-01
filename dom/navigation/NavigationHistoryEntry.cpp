@@ -30,7 +30,7 @@ NavigationHistoryEntry::NavigationHistoryEntry(
     nsIGlobalObject* aGlobal, const class SessionHistoryInfo* aSHInfo,
     int64_t aIndex)
     : DOMEventTargetHelper(aGlobal),
-      mSHInfo(std::make_unique<class SessionHistoryInfo>(*aSHInfo)),
+      mSHInfo(MakeUnique<class SessionHistoryInfo>(*aSHInfo)),
       mIndex(aIndex) {}
 
 NavigationHistoryEntry::~NavigationHistoryEntry() = default;

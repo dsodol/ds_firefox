@@ -14,12 +14,11 @@ import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.createTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.text.Text
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.ui.MenuItemIconRes
-import mozilla.components.compose.menu.ui.MenuItemState
 import mozilla.components.ui.icons.R as iconsR
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.R
@@ -44,7 +43,7 @@ class SaveToCollectionMenuItemProviderTest {
 
         val provider = SaveToCollectionMenuItemProvider(settings, mockk(), browserStore, MenuTarget.BrowserTab)
 
-        assertTrue(provider.itemsFlow.value.isEmpty())
+        assertNull(provider.itemFlow.value)
     }
 
     @Test
@@ -64,7 +63,7 @@ class SaveToCollectionMenuItemProviderTest {
                 MenuTarget.BrowserTab,
             )
 
-        assertEquals(expectedMenuItem(true), provider.itemsFlow.value.single())
+        assertEquals(expectedMenuItem(true), provider.itemFlow.value)
     }
 
     @Test
@@ -84,35 +83,7 @@ class SaveToCollectionMenuItemProviderTest {
                 MenuTarget.BrowserTab,
             )
 
-        assertEquals(expectedMenuItem(false), provider.itemsFlow.value.single())
-    }
-
-    @Test
-    fun `GIVEN target is CustomizeMenu WHEN building the menu button THEN return a menu item without click event`() {
-        val settings: Settings = mockk {
-            every { collections } returns true
-        }
-        val tabCollectionStorage: TabCollectionStorage = mockk {
-            every { cachedTabCollections } returns emptyList()
-        }
-
-        val provider =
-            SaveToCollectionMenuItemProvider(
-                settings,
-                tabCollectionStorage,
-                browserStore,
-                MenuTarget.CustomizeMenu,
-            )
-
-        assertEquals(
-            StandardMenuItem(
-                title = MenuItemTitle(Text.Resource(R.string.browser_menu_save_to_collection_2)),
-                icon = MenuItemIconRes(iconsR.drawable.mozac_ic_collection_24),
-                onClickEvent = null,
-                state = MenuItemState.DEFAULT,
-            ),
-            provider.itemsFlow.value.single(),
-        )
+        assertEquals(expectedMenuItem(false), provider.itemFlow.value)
     }
 
     @Test
@@ -147,7 +118,7 @@ class SaveToCollectionMenuItemProviderTest {
         listOf(true, false).forEach { collectionsExist ->
             val provider = createProvider(collectionsExist = collectionsExist)
 
-            val events = provider.itemsFlow.value.single().reachableEvents()
+            val events = requireNotNull(provider.itemFlow.value).reachableEvents()
 
             assertTrue(events.all { provider.handles(it) }, "Not all of $events are handled")
             assertFalse(provider.handles(MenuAction.Navigate.Settings))
@@ -187,7 +158,7 @@ class SaveToCollectionMenuItemProviderTest {
 
     private fun expectedMenuItem(collectionsAlreadyExist: Boolean) =
         StandardMenuItem(
-            title = MenuItemTitle(Text.Resource(R.string.browser_menu_save_to_collection_2)),
+            title = Text.Resource(R.string.browser_menu_save_to_collection_2),
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_collection_24),
             onClickEvent = MenuAction.Navigate.SaveToCollection(hasCollection = collectionsAlreadyExist),
         )

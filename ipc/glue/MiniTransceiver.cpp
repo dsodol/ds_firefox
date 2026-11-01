@@ -218,7 +218,7 @@ bool MiniTransceiver::Recv(UniquePtr<IPC::Message>& aMsg) {
   mState = STATE_RECEIVING;
 #endif
 
-  auto databuf = std::make_unique<char[]>(kMaxDataSize);
+  UniquePtr<char[]> databuf = MakeUnique<char[]>(kMaxDataSize);
   uint32_t msgsz = 0;
   int all_fds[kMaxNumFds];
   unsigned num_all_fds = 0;
@@ -229,7 +229,7 @@ bool MiniTransceiver::Recv(UniquePtr<IPC::Message>& aMsg) {
   }
 
   // Create Message from databuf & all_fds.
-  auto msg = std::make_unique<IPC::Message>(databuf.get(), msgsz);
+  UniquePtr<IPC::Message> msg = MakeUnique<IPC::Message>(databuf.get(), msgsz);
   nsTArray<UniqueFileHandle> handles(num_all_fds);
   for (unsigned i = 0; i < num_all_fds; ++i) {
     handles.AppendElement(UniqueFileHandle(all_fds[i]));

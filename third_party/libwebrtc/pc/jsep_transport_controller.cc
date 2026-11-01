@@ -45,7 +45,6 @@
 #include "modules/rtp_rtcp/source/rtp_packet_received.h"
 #include "p2p/base/ice_transport_internal.h"
 #include "p2p/base/p2p_constants.h"
-#include "p2p/base/p2p_transport_channel.h"
 #include "p2p/base/packet_transport_internal.h"
 #include "p2p/base/port.h"
 #include "p2p/base/port_allocator.h"
@@ -56,7 +55,6 @@
 #include "pc/dtls_srtp_transport.h"
 #include "pc/dtls_transport.h"
 #include "pc/jsep_transport.h"
-#include "pc/media_protocol_names.h"
 #include "pc/rtp_transport.h"
 #include "pc/rtp_transport_internal.h"
 #include "pc/sctp_transport.h"
@@ -73,21 +71,6 @@
 #include "rtc_base/trace_event.h"
 
 namespace webrtc {
-namespace {
-
-bool BundleUsesCryptex(const SessionDescription& description,
-                       const ContentGroup& bundle_group) {
-  for (const std::string& mid : bundle_group.content_names()) {
-    const ContentInfo* content = description.GetContentByName(mid);
-    if (content && !content->rejected &&
-        IsRtpProtocol(content->media_description()->protocol())) {
-      return content->media_description()->cryptex();
-    }
-  }
-  return false;
-}
-
-}  // namespace
 
 JsepTransportController::JsepTransportController(
     const Environment& env,
@@ -160,14 +143,14 @@ RTCError JsepTransportController::SetLocalDescription(
   RTC_DCHECK(local_desc);
   TRACE_EVENT0("webrtc", "JsepTransportController::SetLocalDescription");
 
-  TransportStateSnapshot new_states;
+  flat_map<std::string, TransportState> new_states;
   RTCError error = network_thread_->BlockingCall([&] {
     RTC_DCHECK_RUN_ON(network_thread_);
     RTCError err = SetLocalDescription_n(type, local_desc, remote_desc);
     new_states = GetTransportStates_n();
     return err;
   });
-  SetTransportStates(std::move(new_states));
+  transport_states_ = std::move(new_states);
   return error;
 }
 
@@ -176,48 +159,20 @@ RTCError JsepTransportController::SetLocalDescription_n(
     SdpType type,
     const SessionDescription* local_desc,
     const SessionDescription* remote_desc) {
-  // Per RFC 8445 Section 6.1.1, the ICE role must remain fixed for the ICE
-  // session unless an ICE restart occurs. Set the role based on the initial
-  // SetLocalDescription (controlling for offer, controlled for answer).
-  // Subsequent descriptions (e.g. renegotiation without ICE restart) must not
-  // modify the existing role. When an ICE restart occurs, re-evaluate the role
-  // for the new ICE session.
-  // Note that ApplyDescription_n() will call DetermineIceRole() which handles
-  // special cases such as when the remote endpoint uses ICE-Lite.
-  if (config_.redetermine_role_on_ice_restart && HasIceRestart_n(local_desc)) {
-    ice_role_initialized_ = false;
-  }
-
-  if (!ice_role_initialized_) {
-    ice_role_initialized_ = true;
+  // ice_role_ is initialized to ICEROLE_CONTROLLING. Check if we still have the
+  // initialized value and might need to set the role. For a non-offer, we'll
+  // set the ice role to `controlled`. In the case where `type` is kOffer and
+  // the ice_role_ is already 'controlling' we'll still call `SetRole_n()`. That
+  // call will either will be a noop or initialization for the transports.
+  if (ice_role_ == ICEROLE_CONTROLLING) {
     const IceRole role =
         (type == SdpType::kOffer) ? ICEROLE_CONTROLLING : ICEROLE_CONTROLLED;
+    // Note that ApplyDescription_n() will always call DetermineIceRole() where
+    // SetIceRole_n() will be called again such as in the case where the answer
+    // side takes the controlling role. See "Section 5.1.1" below.
     SetIceRole_n(role);
   }
   return ApplyDescription_n(/*local=*/true, type, local_desc, remote_desc);
-}
-
-bool JsepTransportController::HasIceRestart_n(
-    const SessionDescription* local_desc) const {
-  RTC_DCHECK_RUN_ON(network_thread_);
-  for (const ContentInfo& content_info : local_desc->contents()) {
-    const JsepTransport* transport = GetJsepTransportForMid(content_info.mid());
-    const TransportInfo* transport_info =
-        local_desc->GetTransportInfoByName(content_info.mid());
-    if (!transport || !transport->local_description() || !transport_info) {
-      continue;
-    }
-
-    const TransportDescription& old_description =
-        transport->local_description()->transport_desc;
-    const TransportDescription& new_description = transport_info->description;
-    if (IceCredentialsChanged(
-            old_description.ice_ufrag, old_description.ice_pwd,
-            new_description.ice_ufrag, new_description.ice_pwd)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 RTCError JsepTransportController::SetRemoteDescription(
@@ -228,14 +183,14 @@ RTCError JsepTransportController::SetRemoteDescription(
   RTC_DCHECK(remote_desc);
   TRACE_EVENT0("webrtc", "JsepTransportController::SetRemoteDescription");
 
-  TransportStateSnapshot new_states;
+  flat_map<std::string, TransportState> new_states;
   RTCError error = network_thread_->BlockingCall([&] {
     RTC_DCHECK_RUN_ON(network_thread_);
     RTCError err = SetRemoteDescription_n(type, local_desc, remote_desc);
     new_states = GetTransportStates_n();
     return err;
   });
-  SetTransportStates(std::move(new_states));
+  transport_states_ = std::move(new_states);
   return error;
 }
 
@@ -322,8 +277,8 @@ void JsepTransportController::SetNeedsIceRestartFlag() {
 bool JsepTransportController::NeedsIceRestart(
     absl::string_view transport_name) const {
   RTC_DCHECK_RUN_ON(signaling_thread_);
-  auto it = transport_states_.states.find(std::string(transport_name));
-  if (it != transport_states_.states.end()) {
+  auto it = transport_states_.find(std::string(transport_name));
+  if (it != transport_states_.end()) {
     return it->second.needs_ice_restart;
   }
   return false;
@@ -333,8 +288,8 @@ std::optional<SSLRole> JsepTransportController::GetDtlsRole(
     absl::string_view mid) const {
   if (signaling_thread_->IsCurrent()) {
     RTC_DCHECK_RUN_ON(signaling_thread_);
-    auto it = transport_states_.states.find(std::string(mid));
-    if (it != transport_states_.states.end()) {
+    auto it = transport_states_.find(std::string(mid));
+    if (it != transport_states_.end()) {
       return it->second.dtls_role;
     }
     return std::nullopt;
@@ -350,15 +305,9 @@ std::optional<SSLRole> JsepTransportController::GetDtlsRole(
 }
 
 void JsepTransportController::SetTransportStates(
-    TransportStateSnapshot snapshot) {
+    flat_map<std::string, TransportState> states) {
   RTC_DCHECK_RUN_ON(signaling_thread_);
-  // Snapshots posted from the network thread (see OnDtlsRoleChange_n()) can
-  // arrive after a newer snapshot has been applied, e.g. when they were taken
-  // while a description was being applied.
-  if (snapshot.version <= transport_states_.version) {
-    return;
-  }
-  transport_states_ = std::move(snapshot);
+  transport_states_ = std::move(states);
 }
 
 bool JsepTransportController::SetLocalCertificate(
@@ -499,7 +448,7 @@ RTCError JsepTransportController::RollbackTransports() {
   RTC_DCHECK_RUN_ON(signaling_thread_);
   scoped_refptr<PendingTaskSafetyFlag> new_flag =
       PendingTaskSafetyFlag::CreateAttachedToTaskQueue(true, signaling_thread_);
-  TransportStateSnapshot new_states;
+  flat_map<std::string, TransportState> new_states;
   RTCError error = network_thread_->BlockingCall([&] {
     RTC_DCHECK_RUN_ON(network_thread_);
     RTCError err = RollbackTransports_n();
@@ -507,7 +456,7 @@ RTCError JsepTransportController::RollbackTransports() {
     role_update_safety_flag_n_ = new_flag;
     return err;
   });
-  SetTransportStates(std::move(new_states));
+  transport_states_ = std::move(new_states);
   role_update_safety_flag_s_->SetNotAlive();
   role_update_safety_flag_s_ = std::move(new_flag);
   return error;
@@ -836,9 +785,7 @@ RTCError JsepTransportController::ApplyDescription_n(
     JsepTransportDescription jsep_description = CreateJsepTransportDescription(
         content_info, transport_info, extension_ids);
     jsep_description.transport_desc.cryptex =
-        established_bundle_group
-            ? BundleUsesCryptex(*description, *established_bundle_group)
-            : content_info.media_description()->cryptex();
+        content_info.media_description()->cryptex();
     if (local) {
       error =
           transport->SetLocalJsepTransportDescription(jsep_description, type);
@@ -861,12 +808,10 @@ RTCError JsepTransportController::ApplyDescription_n(
   return RTCError::OK();
 }
 
-JsepTransportController::TransportStateSnapshot
+flat_map<std::string, JsepTransportController::TransportState>
 JsepTransportController::GetTransportStates_n() {
   RTC_DCHECK_RUN_ON(network_thread_);
-  TransportStateSnapshot snapshot;
-  snapshot.version = ++transport_states_version_n_;
-  flat_map<std::string, TransportState>& states = snapshot.states;
+  flat_map<std::string, TransportState> states;
   transports_.ForEachTransport([&](JsepTransport& t) {
     std::optional<SSLRole> role = t.GetDtlsRole();
     bool needs_ice_restart = t.needs_ice_restart();
@@ -891,7 +836,7 @@ JsepTransportController::GetTransportStates_n() {
       states[std::string(t.name())] = state;
     }
   });
-  return snapshot;
+  return states;
 }
 
 RTCError JsepTransportController::ValidateAndMaybeUpdateBundleGroups(
@@ -1617,12 +1562,12 @@ void JsepTransportController::OnDtlsRoleChange_n(
     DtlsTransportInternal* transport,
     SSLRole role) {
   RTC_DCHECK_RUN_ON(network_thread_);
-  TransportStateSnapshot new_states = GetTransportStates_n();
+  flat_map<std::string, TransportState> new_states = GetTransportStates_n();
   signaling_thread_->PostTask(
       SafeTask(role_update_safety_flag_n_,
                [this, new_states = std::move(new_states)]() mutable {
                  RTC_DCHECK_RUN_ON(signaling_thread_);
-                 SetTransportStates(std::move(new_states));
+                 transport_states_ = std::move(new_states);
                }));
 }
 

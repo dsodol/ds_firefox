@@ -220,12 +220,11 @@ BOOL WINAPI GetThreadInformation(
 #endif
 
 // Linux/BSD builds use LUL, which uses DWARF info to unwind stacks.
-#if defined(GP_PLAT_amd64_linux) || defined(GP_PLAT_x86_linux) ||           \
-    defined(GP_PLAT_amd64_android) || defined(GP_PLAT_x86_android) ||       \
-    defined(GP_PLAT_mips64_linux) || defined(GP_PLAT_arm64_linux) ||        \
-    defined(GP_PLAT_arm64_android) || defined(GP_PLAT_amd64_freebsd) ||     \
-    defined(GP_PLAT_arm64_freebsd) || defined(GP_PLAT_loongarch64_linux) || \
-    defined(GP_PLAT_riscv64_linux)
+#if defined(GP_PLAT_amd64_linux) || defined(GP_PLAT_x86_linux) ||       \
+    defined(GP_PLAT_amd64_android) || defined(GP_PLAT_x86_android) ||   \
+    defined(GP_PLAT_mips64_linux) || defined(GP_PLAT_arm64_linux) ||    \
+    defined(GP_PLAT_arm64_android) || defined(GP_PLAT_amd64_freebsd) || \
+    defined(GP_PLAT_arm64_freebsd)
 #  define HAVE_NATIVE_UNWIND
 #  define USE_LUL_STACKWALK
 #  include "lul/LulMain.h"
@@ -1226,7 +1225,7 @@ class ActivePS {
         mProfileBufferChunkManager(
             aChunkManagerOrNull
                 ? std::move(aChunkManagerOrNull)
-                : std::make_unique<ProfileBufferChunkManagerWithLocalLimit>(
+                : MakeUnique<ProfileBufferChunkManagerWithLocalLimit>(
                       size_t(ClampToAllowedEntries(aCapacity.Value())) *
                           scBytesPerEntry,
                       ChunkSizeForEntries(aCapacity.Value()))),
@@ -2126,7 +2125,7 @@ void profiler_add_state_change_callback(
   }
 
   (void)mIdentifiedProfilingStateChangeCallbacks.append(
-      std::make_unique<IdentifiedProfilingStateChangeCallback>(
+      MakeUnique<IdentifiedProfilingStateChangeCallback>(
           aProfilingStateSet, std::move(aCallback), aUniqueIdentifier));
 }
 
@@ -2191,8 +2190,6 @@ static const char* const kMainThreadName = "GeckoMain";
     defined(GP_PLAT_arm64_freebsd) || defined(GP_ARCH_arm64) ||         \
     defined(__aarch64__)
 #  define UNWINDING_REGS_HAVE_LR_R11
-#elif defined(GP_PLAT_loongarch64_linux) || defined(GP_PLAT_riscv64_linux)
-#  define UNWINDING_REGS_HAVE_RA_T3
 #endif
 
 // The registers used for stack unwinding and a few other sampling purposes.
@@ -2221,9 +2218,6 @@ class Registers {
 #elif defined(UNWINDING_REGS_HAVE_LR_R11)
   Address mLR{nullptr};   // ARM link register, or temp for return address.
   Address mR11{nullptr};  // Temp for frame pointer.
-#elif defined(UNWINDING_REGS_HAVE_RA_T3)
-  Address mRA{nullptr};  // Return address register.
-  Address mT3{nullptr};  // Temp for frame pointer.
 #endif
 
 #if defined(GP_OS_linux) || defined(GP_OS_android) || defined(GP_OS_freebsd)
@@ -2371,9 +2365,6 @@ static uint32_t ExtractJsFrames(
 #elif defined(UNWINDING_REGS_HAVE_LR_R11)
       registerState.lr = aRegs.mLR;
       registerState.tempFP = aRegs.mR11;
-#elif defined(UNWINDING_REGS_HAVE_RA_T3)
-      registerState.tempRA = aRegs.mRA;
-      registerState.tempFP = aRegs.mT3;
 #endif
 
       // Non-periodic sampling passes Nothing() as the buffer write position to
@@ -2844,6 +2835,23 @@ static void DoEHABIBacktrace(
 
 #ifdef USE_LUL_STACKWALK
 
+// See the comment at the callsite for why this function is necessary.
+#  if defined(MOZ_HAVE_ASAN_IGNORE)
+MOZ_ASAN_IGNORE static void ASAN_memcpy(void* aDst, const void* aSrc,
+                                        size_t aLen) {
+  // The obvious thing to do here is call memcpy(). However, although
+  // ASAN_memcpy() is not instrumented by ASAN, memcpy() still is, and the
+  // false positive still manifests! So we must implement memcpy() ourselves
+  // within this function.
+  char* dst = static_cast<char*>(aDst);
+  const char* src = static_cast<const char*>(aSrc);
+
+  for (size_t i = 0; i < aLen; i++) {
+    dst[i] = src[i];
+  }
+}
+#  endif
+
 static void DoLULBacktrace(
     const ThreadRegistration::UnlockedReaderAndAtomicRWOnThread& aThreadData,
     const Registers& aRegs, NativeStack& aNativeStack,
@@ -2892,17 +2900,6 @@ static void DoLULBacktrace(
   startRegs.pc = lul::TaggedUWord(mc->pc);
   startRegs.sp = lul::TaggedUWord(mc->gregs[29]);
   startRegs.fp = lul::TaggedUWord(mc->gregs[30]);
-#  elif defined(GP_PLAT_loongarch64_linux)
-  startRegs.ra = lul::TaggedUWord(mc->__gregs[1]);
-  startRegs.sp = lul::TaggedUWord(mc->__gregs[3]);
-  startRegs.fp = lul::TaggedUWord(mc->__gregs[22]);
-  startRegs.s0 = lul::TaggedUWord(mc->__gregs[23]);
-  startRegs.pc = lul::TaggedUWord(mc->__pc);
-#  elif defined(GP_PLAT_riscv64_linux)
-  startRegs.ra = lul::TaggedUWord(mc->__gregs[1]);
-  startRegs.sp = lul::TaggedUWord(mc->__gregs[2]);
-  startRegs.fp = lul::TaggedUWord(mc->__gregs[8]);
-  startRegs.pc = lul::TaggedUWord(mc->__gregs[0]);  // REG_PC
 #  else
 #    error "Unknown plat"
 #  endif
@@ -2912,12 +2909,31 @@ static void DoLULBacktrace(
   // assumes that the TaggedUWord holding the stack pointer value is valid, but
   // it should be, since it was constructed that way in the code just above.
 
-  // Point the StackImage directly at the target thread's stack, avoiding
-  // memcpy. This is safe because the target thread is
-  // suspended for the duration of the unwind (periodic path) or we are
-  // unwinding our own stack (synchronous path). Sanitizer tools (ASan,
-  // TSan, Valgrind) may report false positives from LUL reading the
-  // stack directly; suppress with appropriate annotations if needed.
+  // We could construct |stackImg| so that LUL reads directly from the stack in
+  // question, rather than from a copy of it.  That would reduce overhead and
+  // space use a bit.  However, it gives a problem with dynamic analysis tools
+  // (ASan, TSan, Valgrind) which is that such tools will report invalid or
+  // racing memory accesses, and such accesses will be reported deep inside LUL.
+  // By taking a copy here, we can either sanitise the copy (for Valgrind) or
+  // copy it using an unchecked memcpy (for ASan, TSan).  That way we don't have
+  // to try and suppress errors inside LUL.
+  //
+  // N_STACK_BYTES is set to 160KB.  This is big enough to hold all stacks
+  // observed in some minutes of testing, whilst keeping the size of this
+  // function (DoNativeBacktrace)'s frame reasonable.  Most stacks observed in
+  // practice are small, 4KB or less, and so the copy costs are insignificant
+  // compared to other profiler overhead.
+  //
+  // |stackImg| is allocated on this (the sampling thread's) stack.  That
+  // implies that the frame for this function is at least N_STACK_BYTES large.
+  // In general it would be considered unacceptable to have such a large frame
+  // on a stack, but it only exists for the unwinder thread, and so is not
+  // expected to be a problem.  Allocating it on the heap is troublesome because
+  // this function runs whilst the sampled thread is suspended, so any heap
+  // allocation risks deadlock.  Allocating it as a global variable is not
+  // thread safe, which would be a problem if we ever allow multiple sampler
+  // threads.  Hence allocating it on the stack seems to be the least-worst
+  // option.
 
   lul::StackImage stackImg;
 
@@ -2939,12 +2955,6 @@ static void DoLULBacktrace(
 #  elif defined(GP_PLAT_mips64_linux)
     uintptr_t REDZONE_SIZE = 0;
     uintptr_t start = startRegs.sp.Value() - REDZONE_SIZE;
-#  elif defined(GP_PLAT_loongarch64_linux)
-    uintptr_t REDZONE_SIZE = 0;
-    uintptr_t start = startRegs.sp.Value() - REDZONE_SIZE;
-#  elif defined(GP_PLAT_riscv64_linux)
-    uintptr_t REDZONE_SIZE = 0;
-    uintptr_t start = startRegs.sp.Value() - REDZONE_SIZE;
 #  else
 #    error "Unknown plat"
 #  endif
@@ -2956,6 +2966,9 @@ static void DoLULBacktrace(
     if (start < end) {
       nToCopy = end - start;
       if (nToCopy >= 1024u * 1024u) {
+        // start is abnormally far from end, possibly due to some special code
+        // that uses a separate stack elsewhere (e.g.: rr). In this case we just
+        // give up on this sample.
         nToCopy = 0;
       } else if (nToCopy > lul::N_STACK_BYTES) {
         nToCopy = lul::N_STACK_BYTES;
@@ -2964,7 +2977,23 @@ static void DoLULBacktrace(
     MOZ_ASSERT(nToCopy <= lul::N_STACK_BYTES);
     stackImg.mLen = nToCopy;
     stackImg.mStartAvma = start;
-    stackImg.mContents = reinterpret_cast<uint8_t*>(start);
+    if (nToCopy > 0) {
+      // If this is a vanilla memcpy(), ASAN makes the following complaint:
+      //
+      //   ERROR: AddressSanitizer: stack-buffer-underflow ...
+      //   ...
+      //   HINT: this may be a false positive if your program uses some custom
+      //   stack unwind mechanism or swapcontext
+      //
+      // This code is very much a custom stack unwind mechanism! So we use an
+      // alternative memcpy() implementation that is ignored by ASAN.
+#  if defined(MOZ_HAVE_ASAN_IGNORE)
+      ASAN_memcpy(&stackImg.mContents[0], (void*)start, nToCopy);
+#  else
+      memcpy(&stackImg.mContents[0], (void*)start, nToCopy);
+#  endif
+      (void)VALGRIND_MAKE_MEM_DEFINED(&stackImg.mContents[0], nToCopy);
+    }
   }
 
   size_t framePointerFramesAcquired = 0;
@@ -3079,11 +3108,11 @@ void DoNativeBacktraceDirect(const void* stackTop, NativeStack& aNativeStack,
 
 // Writes some components shared by periodic and synchronous profiles to
 // ActivePS's ProfileBuffer. (This should only be called from DoSyncSample()
-// and DoPeriodicSample().) Returns whether JitReturnAddr entries were written.
+// and DoPeriodicSample().)
 //
 // The grammar for entry sequences is in a comment above
 // ProfileBuffer::StreamSamplesToJSON.
-static inline bool DoSharedSample(
+static inline void DoSharedSample(
     bool aIsSynchronous, uint32_t aFeatures,
     const ThreadRegistration::UnlockedReaderAndAtomicRWOnThread& aThreadData,
     JsFrame* aJsFrames, const Registers& aRegs, uint64_t aSamplePos,
@@ -3129,8 +3158,6 @@ static inline bool DoSharedSample(
       aBuffer.AddEntry(ProfileBufferEntry::NativeLeafAddr((void*)aRegs.mPC));
     }
   }
-
-  return collector.HasCollectedJitReturnAddr();
 }
 
 // Writes the components of a synchronous sample to the given ProfileBuffer.
@@ -3176,8 +3203,7 @@ static void DoSyncSample(
 // Writes the components of a periodic sample to ActivePS's ProfileBuffer.
 // The ThreadId entry is already written in the main ProfileBuffer, its location
 // is `aSamplePos`, we can write the rest to `aBuffer` (which may be different).
-// Returns whether JitReturnAddr entries were written.
-static inline bool DoPeriodicSample(
+static inline void DoPeriodicSample(
     PSLockRef aLock,
     const ThreadRegistration::UnlockedReaderAndAtomicRWOnThread& aThreadData,
     const Registers& aRegs, uint64_t aSamplePos, uint64_t aBufferRangeStart,
@@ -3187,16 +3213,15 @@ static inline bool DoPeriodicSample(
   MOZ_RELEASE_ASSERT(ActivePS::Exists(aLock));
 
   JsFrameBuffer& jsFrames = CorePS::JsFrames(aLock);
-  return DoSharedSample(/* aIsSynchronous = */ false, ActivePS::Features(aLock),
-                        aThreadData, jsFrames, aRegs, aSamplePos,
-                        aBufferRangeStart, aBuffer);
+  DoSharedSample(/* aIsSynchronous = */ false, ActivePS::Features(aLock),
+                 aThreadData, jsFrames, aRegs, aSamplePos, aBufferRangeStart,
+                 aBuffer);
 }
 
 #undef UNWINDING_REGS_HAVE_ECX_EDX
 #undef UNWINDING_REGS_HAVE_R10_R12
 #undef UNWINDING_REGS_HAVE_LR_R7
 #undef UNWINDING_REGS_HAVE_LR_R11
-#undef UNWINDING_REGS_HAVE_RA_T3
 
 // END sampling/unwinding code
 ////////////////////////////////////////////////////////////////////////
@@ -3836,8 +3861,7 @@ profiler_code_address_service_for_presymbolication() {
     const char* symbolicate = getenv("MOZ_PROFILER_SYMBOLICATE");
     return symbolicate && symbolicate[0] != '\0';
   }();
-  return preSymbolicate ? std::make_unique<ProfilerCodeAddressService>()
-                        : nullptr;
+  return preSymbolicate ? MakeUnique<ProfilerCodeAddressService>() : nullptr;
 }
 
 static ProfilerResult<ProfileGenerationAdditionalInformation>
@@ -4520,7 +4544,7 @@ class SamplerThread {
     // Also this means the sampler has not started its run yet, so any callback
     // added now will be invoked at the end of the next loop; this guarantees
     // that the callback will be invoked after at least one full sampling loop.
-    mPostSamplingCallbackList = std::make_unique<PostSamplingCallbackListItem>(
+    mPostSamplingCallbackList = MakeUnique<PostSamplingCallbackListItem>(
         std::move(mPostSamplingCallbackList), std::move(aCallback));
   }
 
@@ -4622,7 +4646,6 @@ class SamplerThread {
 
 #if defined(GP_OS_windows)
   bool mNoTimerResolutionChange = true;
-  HANDLE mHiResTimer = nullptr;
 #endif
 
   struct SpiedThread {
@@ -5017,9 +5040,7 @@ void SamplerThread::Run() {
                  runningTimesDiff.GetThreadCPUDelta() == Some(uint64_t(0)))) {
               const bool dup_ok = ActivePS::Buffer(lock).DuplicateLastSample(
                   threadId, threadSampleDeltaMs,
-                  profiledThreadData->LastSample(),
-                  profiledThreadData->LastSampleHasJitReturnAddrs(),
-                  runningTimesDiff);
+                  profiledThreadData->LastSample(), runningTimesDiff);
               if (dup_ok) {
                 continue;
               }
@@ -5036,7 +5057,6 @@ void SamplerThread::Run() {
             // (DoPeriodicSample only knows about the temporary local buffer.)
             const uint64_t samplePos = buffer.AddThreadIdEntry(threadId);
             profiledThreadData->LastSample() = Some(samplePos);
-            profiledThreadData->LastSampleHasJitReturnAddrs() = false;
 
             // Also add the time, so it's always there after the thread ID, as
             // expected by the parser. (Other stack data is optional.)
@@ -5061,10 +5081,9 @@ void SamplerThread::Run() {
               mSampler.SuspendAndSampleAndResumeThread(
                   lock, lockedThreadData.DataCRef(), now,
                   [&](const Registers& aRegs, const TimeStamp& aNow) {
-                    profiledThreadData->LastSampleHasJitReturnAddrs() =
-                        DoPeriodicSample(lock, lockedThreadData.DataCRef(),
-                                         aRegs, samplePos, bufferRangeStart,
-                                         localProfileBuffer);
+                    DoPeriodicSample(lock, lockedThreadData.DataCRef(), aRegs,
+                                     samplePos, bufferRangeStart,
+                                     localProfileBuffer);
 
                     // For "eventDelay", we want the input delay - but if
                     // there are no events in the input queue (or even if there
@@ -5829,7 +5848,7 @@ static ProfilingStack* locked_register_thread(
           lockedRWFromAnyThread = aOffThreadRef.GetLockedRWFromAnyThread();
 
       ProfiledThreadData* profiledThreadData = ActivePS::AddLiveProfiledThread(
-          aLock, std::make_unique<ProfiledThreadData>(
+          aLock, MakeUnique<ProfiledThreadData>(
                      aOffThreadRef.UnlockedConstReaderCRef().Info()));
       lockedRWFromAnyThread->SetProfilingFeaturesAndData(
           threadProfilingFeatures, profiledThreadData, aLock);
@@ -5913,7 +5932,7 @@ static void locked_profiler_start(PSLockRef aLock, PowerOfTwo32 aCapacity,
 static Vector<const char*> SplitAtCommas(const char* aString,
                                          UniquePtr<char[]>& aStorage) {
   size_t len = strlen(aString);
-  aStorage = std::make_unique<char[]>(len + 1);
+  aStorage = MakeUnique<char[]>(len + 1);
   PodCopy(aStorage.get(), aString, len + 1);
 
   // Iterate over all characters in aStorage and split at commas, by
@@ -7040,7 +7059,7 @@ static void locked_profiler_start(PSLockRef aLock, PowerOfTwo32 aCapacity,
       ThreadRegistry::OffThreadRef::RWFromAnyThreadWithLock lockedThreadData =
           offThreadRef.GetLockedRWFromAnyThread();
       ProfiledThreadData* profiledThreadData = ActivePS::AddLiveProfiledThread(
-          aLock, std::make_unique<ProfiledThreadData>(info));
+          aLock, MakeUnique<ProfiledThreadData>(info));
       lockedThreadData->SetProfilingFeaturesAndData(threadProfilingFeatures,
                                                     profiledThreadData, aLock);
       lockedThreadData->GetNewCpuTimeInNs();
@@ -8280,7 +8299,7 @@ UniquePtr<ProfileChunkedBuffer> profiler_capture_backtrace() {
 
   ProfileChunkedBuffer captureBuffer(
       ProfileChunkedBuffer::ThreadSafety::WithoutMutex,
-      std::make_unique<ProfileBufferChunkManagerSingle>(
+      MakeUnique<ProfileBufferChunkManagerSingle>(
           ProfileBufferChunkManager::scExpectedMaximumStackSize));
 
   if (!profiler_capture_backtrace_into(captureBuffer,

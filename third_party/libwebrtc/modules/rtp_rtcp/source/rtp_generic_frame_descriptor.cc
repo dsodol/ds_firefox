@@ -81,13 +81,15 @@ std::span<const uint16_t> RtpGenericFrameDescriptor::FrameDependenciesDiffs()
   return std::span(frame_deps_id_diffs_, num_frame_deps_);
 }
 
-bool RtpGenericFrameDescriptor::AddFrameDependencyDiff(int64_t fdiff) {
+bool RtpGenericFrameDescriptor::AddFrameDependencyDiff(uint16_t fdiff) {
   RTC_DCHECK(FirstPacketInSubFrame());
   if (num_frame_deps_ == kMaxNumFrameDependencies)
     return false;
-  if (fdiff <= 0 || fdiff > kMaxFrameDependencyDiff)
+  if (fdiff == 0)
     return false;
-  frame_deps_id_diffs_[num_frame_deps_] = static_cast<uint16_t>(fdiff);
+  RTC_DCHECK_LT(fdiff, 1 << 14);
+  RTC_DCHECK_GT(fdiff, 0);
+  frame_deps_id_diffs_[num_frame_deps_] = fdiff;
   num_frame_deps_++;
   return true;
 }

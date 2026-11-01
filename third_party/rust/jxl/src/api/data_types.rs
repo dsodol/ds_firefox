@@ -3,7 +3,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-pub use crate::headers::extra_channels::ExtraChannel;
+use crate::headers::extra_channels::ExtraChannel;
+use crate::image::DataTypeTag;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum JxlColorType {
@@ -130,8 +131,16 @@ impl JxlDataFormat {
         }
     }
 
+    pub(crate) fn data_type(&self) -> DataTypeTag {
+        match self {
+            JxlDataFormat::U8 { .. } => DataTypeTag::U8,
+            JxlDataFormat::U16 { .. } => DataTypeTag::U16,
+            JxlDataFormat::F16 { .. } => DataTypeTag::F16,
+            JxlDataFormat::F32 { .. } => DataTypeTag::F32,
+        }
+    }
+
     /// Returns the byte representation of opaque alpha (1.0) for this format.
-    #[cfg(test)]
     pub(crate) fn opaque_alpha_bytes(&self) -> Vec<u8> {
         match self {
             JxlDataFormat::U8 { bit_depth } => {

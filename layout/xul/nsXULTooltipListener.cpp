@@ -447,8 +447,7 @@ static void SetTitletipLabel(XULTreeElement* aTree, Element* aTooltip,
 #endif
         view->GetCellText(aRow, aCol, label);
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "Couldn't get the cell text!");
-    aTooltip->SetAttr(kNameSpaceID_None, nsGkAtoms::label, label, true,
-                      IsKnownNewAttr::No);
+    aTooltip->SetAttr(kNameSpaceID_None, nsGkAtoms::label, label, true);
   }
 }
 
@@ -467,7 +466,7 @@ void nsXULTooltipListener::LaunchTooltip() {
       return;
     }
     currentTooltip->SetAttr(kNameSpaceID_None, nsGkAtoms::titletip, u"true"_ns,
-                            true, IsKnownNewAttr::No);
+                            true);
   } else {
     currentTooltip->UnsetAttr(kNameSpaceID_None, nsGkAtoms::titletip, true);
   }
@@ -571,8 +570,7 @@ nsresult nsXULTooltipListener::FindTooltip(nsIContent* aTarget,
         nsIPopupContainer::GetPopupContainer(document->GetPresShell());
     NS_ENSURE_STATE(popupContainer);
     if (RefPtr<Element> tooltip = popupContainer->GetDefaultTooltip()) {
-      tooltip->SetAttr(kNameSpaceID_None, nsGkAtoms::label, tooltipText, true,
-                       IsKnownNewAttr::No);
+      tooltip->SetAttr(kNameSpaceID_None, nsGkAtoms::label, tooltipText, true);
       tooltip.forget(aTooltip);
     }
     return NS_OK;

@@ -992,9 +992,7 @@ NSS_CMSSignedData_AddDigest(PLArenaPool *poolp,
                             SECItem *digest)
 {
     SECAlgorithmID *digestalg;
-    SECItem **digests;
     void *mark;
-    int n, i;
 
     if (!sigd || !poolp) {
         PORT_SetError(SEC_ERROR_INVALID_ARGS);
@@ -1010,25 +1008,13 @@ NSS_CMSSignedData_AddDigest(PLArenaPool *poolp,
     if (SECOID_SetAlgorithmID(poolp, digestalg, digestalgtag, NULL) != SECSuccess) /* no params */
         goto loser;
 
-    /* sigd->digests is indexed by the position of the matching entry in
-     * sigd->digestAlgorithms and an entry stays NULL until its value is
-     * supplied. A NULL-terminated array cannot represent an interior NULL, so
-     * grow this one explicitly rather than through NSS_CMSArray_Add. */
-    n = NSS_CMSArray_Count((void **)sigd->digestAlgorithms);
-    digests = PORT_ArenaZNewArray(poolp, SECItem *, n + 2);
-    if (digests == NULL)
-        goto loser;
-    if (sigd->digests != NULL) {
-        for (i = 0; i < n; i++)
-            digests[i] = sigd->digests[i];
-    }
-    digests[n] = digest;
-
     if (NSS_CMSArray_Add(poolp, (void ***)&(sigd->digestAlgorithms),
-                         (void *)digestalg) != SECSuccess) {
+                         (void *)digestalg) != SECSuccess ||
+        /* even if digest is NULL, add dummy to have same-size array */
+        NSS_CMSArray_Add(poolp, (void ***)&(sigd->digests),
+                         (void *)digest) != SECSuccess) {
         goto loser;
     }
-    sigd->digests = digests;
 
     PORT_ArenaUnmark(poolp, mark);
     return SECSuccess;

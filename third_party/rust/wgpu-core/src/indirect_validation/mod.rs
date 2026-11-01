@@ -1,6 +1,6 @@
 use crate::{
     device::DeviceError,
-    pipeline::{CreatePipelineError, CreateShaderModuleError},
+    pipeline::{CreateComputePipelineError, CreateShaderModuleError},
 };
 use alloc::boxed::Box;
 use scopeguard::{guard, ScopeGuard};
@@ -21,7 +21,7 @@ enum CreateIndirectValidationPipelineError {
     #[error(transparent)]
     ShaderModule(#[from] CreateShaderModuleError),
     #[error(transparent)]
-    ComputePipeline(#[from] CreatePipelineError),
+    ComputePipeline(#[from] CreateComputePipelineError),
 }
 
 pub(crate) struct IndirectValidation {
@@ -80,10 +80,6 @@ pub(crate) struct BindGroups {
 }
 
 impl BindGroups {
-    /// Creates the bind groups for indirect validation shaders to read from `buffer`.
-    ///
-    /// `buffer_size` is the user-requested size of the buffer.
-    ///
     /// `Ok(None)` will only be returned if `buffer_size` is `0`.
     pub(crate) fn new(
         indirect_validation: &IndirectValidation,

@@ -24,7 +24,12 @@ ShortcutKeys::ShortcutKeys()
   nsContentUtils::RegisterShutdownObserver(this);
 }
 
-ShortcutKeys::~ShortcutKeys() = default;
+ShortcutKeys::~ShortcutKeys() {
+  delete mBrowserHandlers;
+  delete mEditorHandlers;
+  delete mInputHandlers;
+  delete mTextAreaHandlers;
+}
 
 nsresult ShortcutKeys::Observe(nsISupports* aSubject, const char* aTopic,
                                const char16_t* aData) {
@@ -69,7 +74,7 @@ nsAtom* ShortcutKeys::ConvertEventToDOMEventType(
 
 KeyEventHandler* ShortcutKeys::EnsureHandlers(HandlerType aType) {
   ShortcutKeyData* keyData;
-  RefPtr<KeyEventHandler>* cache;
+  KeyEventHandler** cache;
 
   switch (aType) {
     case HandlerType::eBrowser:
@@ -98,7 +103,7 @@ KeyEventHandler* ShortcutKeys::EnsureHandlers(HandlerType aType) {
 
   KeyEventHandler* lastHandler = nullptr;
   while (keyData->event) {
-    RefPtr handler = MakeRefPtr<KeyEventHandler>(keyData);
+    KeyEventHandler* handler = new KeyEventHandler(keyData);
     if (lastHandler) {
       lastHandler->SetNextHandler(handler);
     } else {

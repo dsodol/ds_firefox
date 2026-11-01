@@ -235,9 +235,9 @@ You will also need to add a new test page and [register](https://searchfox.org/m
 [Filter Expressions]: https://remote-settings.readthedocs.io/en/latest/target-filters.html#filter-expressions
 [Firefox Release Schedule]: https://wiki.mozilla.org/Release_Management/Calendar
 [generate functions]: https://emscripten.org/docs/api_reference/emscripten.h.html?highlight=dynamic_execution#functions
-[Getting Set Up To Work On The Firefox Codebase]: /setup/index.md
+[Getting Set Up To Work On The Firefox Codebase]: https://firefox-source-docs.mozilla.org/setup/index.html
 [importScripts()]: https://developer.mozilla.org/en-US/docs/Web/API/WorkerGlobalScope/importScripts
-[JSWindowActors]: /dom/ipc/jsactors.md#jswindowactor
+[JSWindowActors]: https://firefox-source-docs.mozilla.org/dom/ipc/jsactors.html#jswindowactor
 [kernel density estimation]: https://en.wikipedia.org/wiki/Kernel_density_estimation
 [minify]: https://github.com/tdewolff/minify
 [mozilla/translations]: https://github.com/mozilla/translations

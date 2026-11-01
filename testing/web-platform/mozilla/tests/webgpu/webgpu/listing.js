@@ -3849,16 +3849,6 @@ export const listing = [
       "expression",
       "call",
       "user",
-      "ptr_aliasing"
-    ]
-  },
-  {
-    "file": [
-      "shader",
-      "execution",
-      "expression",
-      "call",
-      "user",
       "ptr_params"
     ]
   },
@@ -4278,15 +4268,6 @@ export const listing = [
       "shader",
       "execution",
       "stage"
-    ]
-  },
-  {
-    "file": [
-      "shader",
-      "execution",
-      "statement",
-      "assignment",
-      "vector"
     ]
   },
   {

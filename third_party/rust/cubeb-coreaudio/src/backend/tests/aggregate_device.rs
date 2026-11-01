@@ -476,8 +476,7 @@ fn test_panic_aggregate_activate_clock_drift_compensation_for_a_blank_aggregate_
         let onwed_devices = test_get_all_owned_devices(device);
         assert!(onwed_devices.is_empty());
 
-        // No sub devices to be set compensation. The panic comes from
-        // test_get_all_owned_devices above.
+        // Get a panic since no sub devices to be set compensation.
         assert!(AggregateDevice::activate_clock_drift_compensation(device).is_err());
 
         assert!(AggregateDevice::destroy_device(plugin, device).is_ok());

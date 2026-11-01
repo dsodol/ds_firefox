@@ -151,15 +151,17 @@ class ShareViewModel(
         }
     }
 
-    private suspend fun updateRecentAppsStorage(apps: List<AppShareOption>) {
-        recentAppsStorage.updateDatabaseWithNewApps(apps.map { it.activityName })
-    }
+    private suspend fun updateRecentAppsStorage(apps: List<AppShareOption>) =
+        withContext(ioDispatcher) {
+            recentAppsStorage.updateDatabaseWithNewApps(apps.map { it.activityName })
+        }
 
-    private suspend fun fetchRecentApps(allApps: List<AppShareOption>): List<AppShareOption> {
-        val recentActivityNames = recentAppsStorage.getRecentAppsUpTo(RECENT_APPS_LIMIT).map { it.activityName }
+    private suspend fun fetchRecentApps(allApps: List<AppShareOption>): List<AppShareOption> =
+        withContext(ioDispatcher) {
+            val recentActivityNames = recentAppsStorage.getRecentAppsUpTo(RECENT_APPS_LIMIT).map { it.activityName }
 
-        return allApps.filter { it.activityName in recentActivityNames }
-    }
+            allApps.filter { it.activityName in recentActivityNames }
+        }
 
     override fun onCleared() {
         if (isNetworkCallbackRegistered) {

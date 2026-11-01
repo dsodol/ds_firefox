@@ -7,6 +7,7 @@
 #include "MLSFallback.h"
 #include "mozilla/FloatingPoint.h"
 #include "mozilla/Logging.h"
+#include "mozilla/UniquePtr.h"
 #include "mozilla/dom/GeolocationPositionErrorBinding.h"
 #include "mozilla/glean/DomGeolocationMetrics.h"
 #include "nsCOMPtr.h"
@@ -21,8 +22,6 @@
 
 #include <objc/objc-runtime.h>
 #include <objc/objc.h>
-
-#include <memory>
 
 #include "nsObjCExceptions.h"
 
@@ -241,7 +240,7 @@ CoreLocationLocationProvider::CoreLocationLocationProvider()
 NS_IMETHODIMP
 CoreLocationLocationProvider::Startup() {
   if (!mCLObjects) {
-    auto clObjs = std::make_unique<CoreLocationObjects>();
+    auto clObjs = MakeUnique<CoreLocationObjects>();
 
     nsresult rv = clObjs->Init(this);
     NS_ENSURE_SUCCESS(rv, rv);

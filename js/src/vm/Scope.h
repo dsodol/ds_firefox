@@ -479,9 +479,8 @@ struct alignas(alignof(AbstractBindingName<frontend::TaggedParserAtomIndex>))
 //     word of `js::Scope`
 static_assert(alignof(BindingName) <= ScopeDataAlignBytes);
 template <typename SlotInfo>
-struct MOZ_EMPTY_BASES alignas(ScopeDataAlignBytes) RuntimeScopeData
-    : public AbstractBaseScopeData<JSAtom>,
-      public gc::Buffer {
+struct alignas(ScopeDataAlignBytes) RuntimeScopeData
+    : public AbstractBaseScopeData<JSAtom> {
   SlotInfo slotInfo;
 
   explicit RuntimeScopeData(size_t length) { PoisonNames(this, length); }
@@ -713,9 +712,8 @@ class FunctionScope : public Scope {
     void setHasParameterExprs() { flags |= HasParameterExprsFlag; }
   };
 
-  struct MOZ_EMPTY_BASES alignas(ScopeDataAlignBytes) RuntimeData
-      : public AbstractBaseScopeData<JSAtom>,
-        public gc::Buffer {
+  struct alignas(ScopeDataAlignBytes) RuntimeData
+      : public AbstractBaseScopeData<JSAtom> {
     SlotInfo slotInfo;
     // The canonical function of the scope, as during a scope walk we
     // often query properties of the JSFunction (e.g., is the function an
@@ -1008,9 +1006,8 @@ class ModuleScope : public Scope {
     uint32_t usingStart = 0;
   };
 
-  struct MOZ_EMPTY_BASES alignas(ScopeDataAlignBytes) RuntimeData
-      : public AbstractBaseScopeData<JSAtom>,
-        public gc::Buffer {
+  struct alignas(ScopeDataAlignBytes) RuntimeData
+      : public AbstractBaseScopeData<JSAtom> {
     SlotInfo slotInfo;
     // The module of the scope.
     GCPtr<ModuleObject*> module = {};
@@ -1071,9 +1068,8 @@ class WasmInstanceScope : public Scope {
     uint32_t globalsStart = 0;
   };
 
-  struct MOZ_EMPTY_BASES alignas(ScopeDataAlignBytes) RuntimeData
-      : public AbstractBaseScopeData<JSAtom>,
-        public gc::Buffer {
+  struct alignas(ScopeDataAlignBytes) RuntimeData
+      : public AbstractBaseScopeData<JSAtom> {
     SlotInfo slotInfo;
     // The wasm instance of the scope.
     GCPtr<WasmInstanceObject*> instance = {};

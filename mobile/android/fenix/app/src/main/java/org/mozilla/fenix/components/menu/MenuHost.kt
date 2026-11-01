@@ -4,7 +4,6 @@
 
 package org.mozilla.fenix.components.menu
 
-import androidx.annotation.IdRes
 import androidx.navigation.NavController
 import androidx.navigation.NavDirections
 import androidx.navigation.NavOptions
@@ -18,13 +17,6 @@ interface MenuHost {
 
     /** Close the menu and opens the screen [directions] lead to. */
     fun navigate(directions: NavDirections)
-
-    /**
-     * Close the menu and go back to the [destinationId] screen if it was opened before.
-     *
-     * @return Whether the [destinationId] screen was found and shown, otherwise the menu stays open.
-     */
-    fun navigateBackTo(@IdRes destinationId: Int): Boolean
 }
 
 /**
@@ -44,6 +36,4 @@ internal class DefaultMenuHost(private val navController: NavController) : MenuH
             navOptions = NavOptions.Builder().setPopUpTo(R.id.menuFragment, true).build(),
         )
     }
-
-    override fun navigateBackTo(@IdRes destinationId: Int) = navController.popBackStack(destinationId, false)
 }

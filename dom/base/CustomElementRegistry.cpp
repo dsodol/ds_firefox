@@ -147,9 +147,10 @@ UniquePtr<CustomElementCallback> CustomElementCallback::Create(
       if (aDefinition->mCallbacks->mConnectedMoveCallback.WasPassed()) {
         func = aDefinition->mCallbacks->mConnectedMoveCallback.Value();
       } else if (aDefinition->mCallbacks->mDisconnectedCallback.WasPassed()) {
-        auto callback = std::make_unique<CustomElementCallback>(
-            aCustomElement, ElementCallbackType::eDisconnected,
-            aDefinition->mCallbacks->mDisconnectedCallback.Value(), aArgs);
+        UniquePtr<CustomElementCallback> callback =
+            MakeUnique<CustomElementCallback>(
+                aCustomElement, ElementCallbackType::eDisconnected,
+                aDefinition->mCallbacks->mDisconnectedCallback.Value(), aArgs);
         if (aDefinition->mCallbacks->mConnectedCallback.WasPassed()) {
           callback->SetSecondaryCallback(
               ElementCallbackType::eConnected,
@@ -157,7 +158,7 @@ UniquePtr<CustomElementCallback> CustomElementCallback::Create(
         }
         return callback;
       } else if (aDefinition->mCallbacks->mConnectedCallback.WasPassed()) {
-        return std::make_unique<CustomElementCallback>(
+        return MakeUnique<CustomElementCallback>(
             aCustomElement, ElementCallbackType::eConnected,
             aDefinition->mCallbacks->mConnectedCallback.Value(), aArgs);
       }
@@ -212,8 +213,7 @@ UniquePtr<CustomElementCallback> CustomElementCallback::Create(
   }
 
   // Add CALLBACK to ELEMENT's callback queue.
-  return std::make_unique<CustomElementCallback>(aCustomElement, aType, func,
-                                                 aArgs);
+  return MakeUnique<CustomElementCallback>(aCustomElement, aType, func, aArgs);
 }
 
 void CustomElementCallback::Invoke(Element* aElement, ErrorResult& aRv) {
@@ -514,10 +514,8 @@ CustomElementRegistry::RunCustomElementCreationCallback::Run() {
   ErrorResult er;
   nsDependentAtomString value(mAtom);
   mCallback->Call(value, er);
-  if (er.Failed()) {
-    mRegistry->mElementCreationCallbacksUpgradeCandidatesMap.Remove(mAtom);
-    return er.StealNSResult();
-  }
+  MOZ_ASSERT(NS_SUCCEEDED(er.StealNSResult()),
+             "chrome JavaScript error in the callback.");
 
   RefPtr<CustomElementDefinition> definition =
       mRegistry->mCustomDefinitions.Get(mAtom);
@@ -1134,9 +1132,9 @@ void CustomElementRegistry::Define(
     return;
   }
 
-  auto callbacksHolder = std::make_unique<LifecycleCallbacks>();
+  auto callbacksHolder = MakeUnique<LifecycleCallbacks>();
   auto formAssociatedCallbacksHolder =
-      std::make_unique<FormAssociatedLifecycleCallbacks>();
+      MakeUnique<FormAssociatedLifecycleCallbacks>();
   nsTArray<RefPtr<nsAtom>> observedAttributes;
   AutoTArray<RefPtr<nsAtom>, 2> disabledFeatures;
   bool formAssociated = false;
@@ -1792,7 +1790,7 @@ void CustomElementReactionsStack::CreateAndPushElementQueue() {
     MOZ_ASSERT(mCachedElementQueue->IsEmpty());
     mReactionsStack.AppendElement(std::move(mCachedElementQueue));
   } else {
-    mReactionsStack.AppendElement(std::make_unique<ElementQueue>());
+    mReactionsStack.AppendElement(MakeUnique<ElementQueue>());
   }
   mIsElementQueuePushedForCurrentRecursionDepth = true;
 }

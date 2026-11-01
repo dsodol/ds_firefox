@@ -411,10 +411,6 @@ class InputModule extends RootBiDiModule {
     });
   }
 
-  static get supportedCommandsInRestrictedSession() {
-    return ["performActions", "releaseActions", "setFiles"];
-  }
-
   static get supportedEvents() {
     return ["input.fileDialogOpened"];
   }

@@ -33,7 +33,7 @@ const window_dip = variants.get('window_dip') == 'none'
 const worker_dip = variants.get('worker_dip') == 'none'
   ? dip_none
   : dip_credentialless;
-const request_origin = variants.get('request_origin') == 'same_origin'
+const request_origin = variants.get('request_origin') == 'same-origin'
   ? same_origin
   : cross_origin;
 

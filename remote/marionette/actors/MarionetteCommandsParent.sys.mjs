@@ -20,9 +20,9 @@ ChromeUtils.defineLazyGetter(lazy, "logger", () =>
   lazy.Log.get(lazy.Log.TYPES.MARIONETTE)
 );
 
-// Because Marionette supports a single session only we store it globally
-// so that the parent actor can access it.
-let webDriverSession = null;
+// Because Marionette supports a single session only we store its id
+// globally so that the parent actor can access it.
+let webDriverSessionId = null;
 
 export class MarionetteCommandsParent extends JSWindowActorParent {
   #deferredDialogOpened;
@@ -76,7 +76,7 @@ export class MarionetteCommandsParent extends JSWindowActorParent {
 
   async sendQuery(name, serializedValue) {
     const seenNodes = lazy.getSeenNodesForBrowsingContext(
-      webDriverSession,
+      webDriverSessionId,
       this.manager.browsingContext
     );
 
@@ -167,9 +167,8 @@ export class MarionetteCommandsParent extends JSWindowActorParent {
 
   clickElement(webEl, capabilities) {
     return this.sendQuery("MarionetteCommandsParent:clickElement", {
-      accessibilityChecks: capabilities.get("moz:accessibilityChecks"),
       elem: webEl,
-      webdriverClick: capabilities.get("moz:webdriverClick"),
+      capabilities: capabilities.toJSON(),
     });
   }
 
@@ -292,32 +291,30 @@ export class MarionetteCommandsParent extends JSWindowActorParent {
 
   async isElementDisplayed(webEl, capabilities) {
     return this.sendQuery("MarionetteCommandsParent:isElementDisplayed", {
-      accessibilityChecks: capabilities.get("moz:accessibilityChecks"),
+      capabilities: capabilities.toJSON(),
       elem: webEl,
     });
   }
 
   async isElementEnabled(webEl, capabilities) {
     return this.sendQuery("MarionetteCommandsParent:isElementEnabled", {
-      accessibilityChecks: capabilities.get("moz:accessibilityChecks"),
+      capabilities: capabilities.toJSON(),
       elem: webEl,
     });
   }
 
   async isElementSelected(webEl, capabilities) {
     return this.sendQuery("MarionetteCommandsParent:isElementSelected", {
-      accessibilityChecks: capabilities.get("moz:accessibilityChecks"),
+      capabilities: capabilities.toJSON(),
       elem: webEl,
     });
   }
 
   async sendKeysToElement(webEl, text, capabilities) {
     return this.sendQuery("MarionetteCommandsParent:sendKeysToElement", {
-      accessibilityChecks: capabilities.get("moz:accessibilityChecks"),
+      capabilities: capabilities.toJSON(),
       elem: webEl,
-      strictFileInteractability: capabilities.get("strictFileInteractability"),
       text,
-      webdriverClick: capabilities.get("moz:webdriverClick"),
     });
   }
 
@@ -519,10 +516,10 @@ export function getMarionetteCommandsActorProxy(
 /**
  * Register the MarionetteCommands actor that holds all the commands.
  *
- * @param {WebDriverSession} session
- *     The current WebDriver session.
+ * @param {string} sessionId
+ *     The id of the current WebDriver session.
  */
-export function registerCommandsActor(session) {
+export function registerCommandsActor(sessionId) {
   try {
     ChromeUtils.registerWindowActor("MarionetteCommands", {
       parent: {
@@ -546,11 +543,11 @@ export function registerCommandsActor(session) {
     }
   }
 
-  webDriverSession = session;
+  webDriverSessionId = sessionId;
 }
 
 export function unregisterCommandsActor() {
-  webDriverSession = null;
+  webDriverSessionId = null;
 
   ChromeUtils.unregisterWindowActor("MarionetteCommands");
 }

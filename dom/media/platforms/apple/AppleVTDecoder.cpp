@@ -195,7 +195,7 @@ void AppleVTDecoder::ProcessDecode(MediaRawData* aSample) {
 
   if (mIsFlushing) {
     MonitorAutoLock mon(mMonitor);
-    mPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
+    mPromise.Reject(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
     return;
   }
 
@@ -244,7 +244,7 @@ void AppleVTDecoder::ProcessDecode(MediaRawData* aSample) {
   if (rv != noErr) {
     NS_ERROR("Couldn't create CMBlockBuffer");
     MonitorAutoLock mon(mMonitor);
-    mPromise.RejectIfExists(
+    mPromise.Reject(
         MediaResult(NS_ERROR_OUT_OF_MEMORY,
                     RESULT_DETAIL("CMBlockBufferCreateWithMemoryBlock:%x", rv)),
         __func__);
@@ -258,10 +258,9 @@ void AppleVTDecoder::ProcessDecode(MediaRawData* aSample) {
   if (rv != noErr) {
     NS_ERROR("Couldn't create CMSampleBuffer");
     MonitorAutoLock mon(mMonitor);
-    mPromise.RejectIfExists(
-        MediaResult(NS_ERROR_OUT_OF_MEMORY,
-                    RESULT_DETAIL("CMSampleBufferCreate:%x", rv)),
-        __func__);
+    mPromise.Reject(MediaResult(NS_ERROR_OUT_OF_MEMORY,
+                                RESULT_DETAIL("CMSampleBufferCreate:%x", rv)),
+                    __func__);
     return;
   }
 
@@ -530,7 +529,7 @@ void AppleVTDecoder::OutputFrame(CVPixelBufferRef aImage,
     if (rv != kCVReturnSuccess) {
       NS_ERROR("error locking pixel data");
       MonitorAutoLock mon(mMonitor);
-      mPromise.RejectIfExists(
+      mPromise.Reject(
           MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR,
                       RESULT_DETAIL("CVPixelBufferLockBaseAddress:%x", rv)),
           __func__);
@@ -664,8 +663,7 @@ void AppleVTDecoder::OutputFrame(CVPixelBufferRef aImage,
   if (!data) {
     NS_ERROR("Couldn't create VideoData for frame");
     MonitorAutoLock mon(mMonitor);
-    mPromise.RejectIfExists(MediaResult(NS_ERROR_OUT_OF_MEMORY, __func__),
-                            __func__);
+    mPromise.Reject(MediaResult(NS_ERROR_OUT_OF_MEMORY, __func__), __func__);
     return;
   }
 

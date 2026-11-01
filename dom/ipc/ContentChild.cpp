@@ -32,9 +32,6 @@
 #include "mozilla/NullPrincipal.h"
 #include "mozilla/PerfStats.h"
 #include "mozilla/Preferences.h"
-#ifdef MOZ_WIDGET_ANDROID
-#  include "mozilla/ProcInfoChild.h"
-#endif
 #include "mozilla/ProcessHangMonitorIPC.h"
 #include "mozilla/RemoteLazyInputStreamChild.h"
 #include "mozilla/RemoteMediaManagerChild.h"
@@ -117,7 +114,6 @@
 #include "mozilla/layers/CompositorManagerChild.h"
 #include "mozilla/layers/ContentProcessController.h"
 #include "mozilla/layers/ImageBridgeChild.h"
-#include "mozilla/layers/LayerTreeLog.h"
 #include "mozilla/layout/RemotePrintJobChild.h"
 #include "mozilla/loader/ScriptCacheActors.h"
 #include "mozilla/media/MediaChild.h"
@@ -1455,13 +1451,14 @@ mozilla::ipc::IPCResult ContentChild::RecvRequestMemoryReport(
 
 mozilla::ipc::IPCResult ContentChild::RecvDecodeImage(
     NotNull<nsIURI*> aURI, const ImageIntSize& aSize, const bool& aStretch,
-    const ColorScheme& aColorScheme, NotNull<nsIPrincipal*> aPrincipal,
-    DecodeImageResolver&& aResolver) {
+    const ColorScheme& aColorScheme, DecodeImageResolver&& aResolver) {
   // We're about to decode a potentially untrusted image.
   MaybeBecomeUntrusted();
 
   auto size = aSize.ToUnknownSize();
-  image::FetchDecodedImage(aURI, size, aPrincipal)
+  // TODO(Bug 1999930): Investigate using  a content-principal for
+  // moz-remote-image: requests
+  image::FetchDecodedImage(aURI, size, nsContentUtils::GetSystemPrincipal())
       ->Then(
           GetCurrentSerialEventTarget(), __func__,
           [size, aStretch, aColorScheme,
@@ -1563,14 +1560,6 @@ mozilla::ipc::IPCResult ContentChild::RecvInitProfiler(
   return IPC_OK();
 }
 
-#ifdef MOZ_WIDGET_ANDROID
-mozilla::ipc::IPCResult ContentChild::RecvInitProcInfo(
-    Endpoint<PProcInfoChild>&& aEndpoint) {
-  ProcInfoChild::Create(std::move(aEndpoint));
-  return IPC_OK();
-}
-#endif
-
 mozilla::ipc::IPCResult ContentChild::RecvGMPsChanged(
     nsTArray<GMPCapabilityData>&& capabilities) {
   GeckoMediaPluginServiceChild::UpdateGMPCapabilities(std::move(capabilities));
@@ -1610,8 +1599,6 @@ mozilla::ipc::IPCResult ContentChild::RecvInitRendering(
     Endpoint<PRemoteMediaManagerChild>&& aVideoManager,
     nsTArray<uint32_t>&& namespaces) {
   MOZ_ASSERT(namespaces.Length() == 4);
-  LAYERTREE_LOG("Initializing rendering, compositor manager namespace {}",
-                namespaces[0]);
   const uint32_t compositorManagerNamespace = namespaces[0];
   const uint32_t compositorBridgeNamespace = namespaces[1];
   const uint32_t imageBridgeNamespace = namespaces[2];
@@ -1661,8 +1648,6 @@ mozilla::ipc::IPCResult ContentChild::RecvReinitRendering(
     Endpoint<PRemoteMediaManagerChild>&& aVideoManager,
     nsTArray<uint32_t>&& namespaces) {
   MOZ_ASSERT(namespaces.Length() == 4);
-  LAYERTREE_LOG("Reinitializing rendering, compositor manager namespace {}",
-                namespaces[0]);
   const uint32_t compositorManagerNamespace = namespaces[0];
   const uint32_t compositorBridgeNamespace = namespaces[1];
   const uint32_t imageBridgeNamespace = namespaces[2];
@@ -1711,7 +1696,6 @@ mozilla::ipc::IPCResult ContentChild::RecvReinitRendering(
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvReinitRenderingForDeviceReset() {
-  LAYERTREE_LOG("Reinitializing rendering for device reset");
   gfxPlatform::GetPlatform()->CompositorUpdated();
 
   nsTArray<RefPtr<BrowserChild>> tabs = BrowserChild::GetAll();
@@ -2842,11 +2826,9 @@ mozilla::ipc::IPCResult ContentChild::RecvInitBlobURLs(
     nsTArray<BlobURLRegistrationData>&& aRegistrations) {
   for (uint32_t i = 0; i < aRegistrations.Length(); ++i) {
     BlobURLRegistrationData& registration = aRegistrations[i];
-    if (NS_FAILED(BlobURLProtocolHandler::AddDataEntryChild(
-            registration.url(), registration.principal(),
-            registration.partitionKey()))) {
-      return IPC_FAIL(this, "Conflicting Blob URL principal");
-    }
+    BlobURLProtocolHandler::AddDataEntryChild(registration.url(),
+                                              registration.principal(),
+                                              registration.partitionKey());
     // If we have received an already-revoked blobURL, we have to keep it alive
     // for a while (see BlobURLProtocolHandler) in order to support pending
     // operations such as navigation, download and so on.
@@ -3286,10 +3268,7 @@ mozilla::ipc::IPCResult ContentChild::RecvPWebBrowserPersistDocumentConstructor(
 mozilla::ipc::IPCResult ContentChild::RecvBlobURLRegistration(
     const nsCString& aURI, nsIPrincipal* aPrincipal,
     const nsCString& aPartitionKey) {
-  if (NS_FAILED(BlobURLProtocolHandler::AddDataEntryChild(aURI, aPrincipal,
-                                                          aPartitionKey))) {
-    return IPC_FAIL(this, "Conflicting Blob URL principal");
-  }
+  BlobURLProtocolHandler::AddDataEntryChild(aURI, aPrincipal, aPartitionKey);
   return IPC_OK();
 }
 
@@ -4697,65 +4676,15 @@ mozilla::ipc::IPCResult ContentChild::RecvStopLoad(
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvDeactivateDocuments(
-    const MaybeDiscarded<BrowsingContext>& aContext,
-    const Maybe<SessionHistoryInfo>& aPageSwapTargetInfo,
-    const NavigationType& aNavigationType, const bool aForUnload) {
+    const MaybeDiscarded<BrowsingContext>& aContext) {
   if (aContext.IsNullOrDiscarded()) {
     return IPC_OK();
   }
   BrowsingContext* browsingContext = aContext.get();
   MOZ_DIAGNOSTIC_ASSERT(browsingContext->IsTopContent());
-  MOZ_DIAGNOSTIC_ASSERT(browsingContext->IsInProcess() || !aPageSwapTargetInfo);
 
-  browsingContext->DeactivateDocuments(aPageSwapTargetInfo.ptrOr(nullptr),
-                                       aNavigationType, aForUnload);
+  browsingContext->DeactivateDocuments();
 
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult
-ContentChild::RecvBeginOutboundCrossDocumentViewTransition(
-    const MaybeDiscarded<BrowsingContext>& aContext,
-    const Maybe<SessionHistoryInfo>& aPageSwapTargetInfo,
-    const NavigationType& aNavigationType, const TabId& aSnapshotTargetTab,
-    BeginOutboundCrossDocumentViewTransitionResolver&& aResolver) {
-  if (aContext.IsNullOrDiscarded()) {
-    aResolver(false);
-    return IPC_OK();
-  }
-  BrowsingContext* browsingContext = aContext.get();
-  // Both top-level and subframe navigations can drive an outbound
-  // cross-document view transition.
-  MOZ_DIAGNOSTIC_ASSERT(browsingContext->IsContent());
-  RefPtr<nsDocShell> docShell =
-      nsDocShell::Cast(browsingContext->GetDocShell());
-  if (!docShell) {
-    aResolver(false);
-    return IPC_OK();
-  }
-
-  docShell->BeginDeferredOutboundCrossDocumentViewTransition(
-      aPageSwapTargetInfo.ptrOr(nullptr), aNavigationType,
-      uint64_t(aSnapshotTargetTab),
-      [resolver = std::move(aResolver)](bool aCaptured) {
-        resolver(aCaptured);
-      });
-
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult ContentChild::RecvFirePageSwap(
-    const MaybeDiscarded<BrowsingContext>& aContext,
-    const Maybe<SessionHistoryInfo>& aPageSwapTargetInfo,
-    const NavigationType& aNavigationType) {
-  if (aContext.IsNullOrDiscarded()) {
-    return IPC_OK();
-  }
-  if (RefPtr<nsDocShell> docShell =
-          nsDocShell::Cast(aContext.get()->GetDocShell())) {
-    docShell->FirePageSwapWithoutTransition(aPageSwapTargetInfo.ptrOr(nullptr),
-                                            aNavigationType);
-  }
   return IPC_OK();
 }
 
@@ -4771,8 +4700,6 @@ mozilla::ipc::IPCResult ContentChild::RecvReactivateDocuments(
   }
   RefPtr browsingContext = aContext.get();
   MOZ_DIAGNOSTIC_ASSERT(browsingContext->IsTopContent());
-  MOZ_DIAGNOSTIC_ASSERT(browsingContext->IsInProcess() ||
-                        !aPreviousEntryForActivation);
 
   browsingContext->ReactivateDocuments(aReactivatedEntry, aNewSHEs,
                                        aPreviousEntryForActivation);

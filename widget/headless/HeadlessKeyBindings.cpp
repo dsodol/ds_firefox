@@ -4,8 +4,6 @@
 
 #include "HeadlessKeyBindings.h"
 
-#include <memory>
-
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/NativeKeyBindingsType.h"
@@ -17,7 +15,7 @@ namespace widget {
 HeadlessKeyBindings& HeadlessKeyBindings::GetInstance() {
   static UniquePtr<HeadlessKeyBindings> sInstance;
   if (!sInstance) {
-    sInstance = std::make_unique<HeadlessKeyBindings>();
+    sInstance.reset(new HeadlessKeyBindings());
     ClearOnShutdown(&sInstance);
   }
   return *sInstance;

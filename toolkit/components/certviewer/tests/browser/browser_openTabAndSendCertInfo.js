@@ -340,9 +340,12 @@ add_task(async function testPreferencesCert() {
     { gBrowser, url },
     async function (browser) {
       tabsCount = gBrowser.tabs.length;
-
-      await browser.contentWindow.gotoPref("connectionSecurity");
-      await new Promise(r => browser.contentWindow.requestAnimationFrame(r));
+      if (
+        Services.prefs.getBoolPref("browser.settings-redesign.enabled", false)
+      ) {
+        await browser.contentWindow.gotoPref("connectionSecurity");
+        await new Promise(r => browser.contentWindow.requestAnimationFrame(r));
+      }
       checkAndClickButton(browser.contentDocument, "viewCertificatesButton");
 
       let certDialogLoaded = promiseLoadSubDialog(

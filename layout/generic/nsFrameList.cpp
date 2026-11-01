@@ -17,15 +17,15 @@ using namespace mozilla;
 
 const nsFrameList nsFrameList::sEmptyList;
 
-void* nsFrameList::operator new(size_t sz) {
-  return FrameArena::Allocate(eArenaObjectID_nsFrameList, sz);
+void* nsFrameList::operator new(size_t sz, mozilla::PresShell* aPresShell) {
+  return aPresShell->AllocateByObjectID(eArenaObjectID_nsFrameList, sz);
 }
 
-void nsFrameList::Delete() {
+void nsFrameList::Delete(mozilla::PresShell* aPresShell) {
   MOZ_ASSERT(this != &EmptyList(), "Shouldn't Delete() this list");
   NS_ASSERTION(IsEmpty(), "Shouldn't Delete() a non-empty list");
 
-  FrameArena::Free(eArenaObjectID_nsFrameList, this);
+  aPresShell->FreeByObjectID(eArenaObjectID_nsFrameList, this);
 }
 
 void nsFrameList::DestroyFrames(FrameDestroyContext& aContext) {
@@ -481,7 +481,7 @@ const char* ChildListName(FrameChildListID aListID) {
 
 AutoFrameListPtr::~AutoFrameListPtr() {
   if (mFrameList) {
-    mFrameList->Delete();
+    mFrameList->Delete(mPresContext->PresShell());
   }
 }
 

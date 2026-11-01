@@ -15,8 +15,6 @@ prefs = [
 
 ["browser_framing.js"]
 
-["browser_framing_resize.js"]
-
 ["browser_last_tab.js"]
 
 ["browser_open_close.js"]
@@ -39,11 +37,6 @@ skip-if = [
 
 ["browser_sessionstore.js"]
 
-["browser_sessionstore_taskbartabs.js"]
-run-if = [
-  "os == 'win'",
-]
-
 ["browser_sidebar.js"]
 
 ["browser_telemetry.js"]
@@ -51,5 +44,3 @@ run-if = [
 ["browser_toolbar.js"]
 
 ["browser_toolbar_button.js"]
-
-["browser_zoom.js"]

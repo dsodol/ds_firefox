@@ -10,7 +10,6 @@
 #include "vm/EnvironmentObject.h"
 #include "vm/PlainObject.h"  // js::PlainObject
 #include "vm/RegExpObject.h"
-#include "vm/TypedArrayObject.h"
 
 namespace js {
 namespace jit {

@@ -27,7 +27,6 @@ const EXPECTED_PREFS_SUGGEST_DISABLED = {
   "amp.featureGate": false,
   "importantDates.featureGate": false,
   "mdn.featureGate": false,
-  "temporal.featureGate": false,
   "weather.featureGate": false,
   "wikipedia.featureGate": false,
   "yelp.featureGate": false,

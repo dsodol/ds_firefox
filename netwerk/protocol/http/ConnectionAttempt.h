@@ -62,7 +62,7 @@ class ConnectionAttempt : public nsSupportsWeakReference {
 
   // Drop our reference to the real transaction without acting on it, so a
   // following Abandon()'s teardown won't re-queue or close it (bug 2051415).
-  virtual void ForgetRealTransaction();
+  void ForgetRealTransaction() { mTransaction = nullptr; }
 
  protected:
   virtual ~ConnectionAttempt() = default;

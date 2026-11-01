@@ -1,4 +1,4 @@
 gczeal(7, 1);
-enableTrackAllocations();
+enableShellAllocationMetadataBuilder();
 var testMap = new Map();
 for (var [k, v] of testMap) {}

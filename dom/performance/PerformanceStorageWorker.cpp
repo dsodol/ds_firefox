@@ -4,8 +4,6 @@
 
 #include "PerformanceStorageWorker.h"
 
-#include <memory>
-
 #include "Performance.h"
 #include "PerformanceResourceTiming.h"
 #include "PerformanceTiming.h"
@@ -114,8 +112,8 @@ void PerformanceStorageWorker::AddEntry(nsIHttpChannel* aChannel,
     return;
   }
 
-  auto data = std::make_unique<PerformanceProxyData>(
-      std::move(performanceTimingData), initiatorType, entryName);
+  UniquePtr<PerformanceProxyData> data(new PerformanceProxyData(
+      std::move(performanceTimingData), initiatorType, entryName));
 
   RefPtr<PerformanceEntryAdder> r =
       new PerformanceEntryAdder(workerPrivate, this, std::move(data));
@@ -130,7 +128,7 @@ void PerformanceStorageWorker::AddEntry(
     return;
   }
 
-  auto data = std::make_unique<PerformanceProxyData>(
+  UniquePtr<PerformanceProxyData> data = MakeUnique<PerformanceProxyData>(
       std::move(aData), aInitiatorType, aEntryName);
 
   AddEntryOnWorker(std::move(data));

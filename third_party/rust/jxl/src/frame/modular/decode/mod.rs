@@ -10,4 +10,3 @@ pub(super) mod specialized_trees;
 
 pub(super) use bitstream::decode_modular_subbitstream;
 pub use common::ModularStreamId;
-pub(super) use common::References;

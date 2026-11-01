@@ -196,7 +196,7 @@ void ImageLoader::AssociateRequestToFrame(imgIRequest* aRequest,
                   nsLayoutUtils::RegisterImageRequestIfAnimated(
                       presContext, aRequest, nullptr);
                 }
-                return std::make_unique<FrameSet>();
+                return MakeUnique<FrameSet>();
               })
           .get();
 
@@ -205,7 +205,7 @@ void ImageLoader::AssociateRequestToFrame(imgIRequest* aRequest,
           .LookupOrInsertWith(aFrame,
                               [=]() {
                                 aFrame->SetHasImageRequest(true);
-                                return std::make_unique<RequestSet>();
+                                return MakeUnique<RequestSet>();
                               })
           .get();
 

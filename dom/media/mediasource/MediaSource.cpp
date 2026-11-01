@@ -210,7 +210,6 @@ already_AddRefed<MediaSource> MediaSource::Constructor(
 MediaSource::~MediaSource() {
   MOZ_ASSERT(NS_IsMainThread());
   MSE_API("");
-  CompletePendingTransactions();
   if (mDecoder) {
     mDecoder->DetachMediaSource();
   }
@@ -503,7 +502,7 @@ bool MediaSource::Attach(MediaSourceDecoder* aDecoder) {
 
 void MediaSource::Detach() {
   MOZ_ASSERT(NS_IsMainThread());
-  CompletePendingTransactions();
+  MOZ_RELEASE_ASSERT(mCompletionPromises.IsEmpty());
   MSE_DEBUG("mDecoder={} owner={}", fmt::ptr(mDecoder.get()),
             fmt::ptr(mDecoder ? mDecoder->GetOwner() : nullptr));
   if (!mDecoder) {
@@ -678,7 +677,8 @@ already_AddRefed<Promise> MediaSource::MozDebugReaderData(ErrorResult& aRv) {
     return nullptr;
   }
   MOZ_ASSERT(domPromise);
-  auto info = std::make_unique<MediaSourceDecoderDebugInfo>();
+  UniquePtr<MediaSourceDecoderDebugInfo> info =
+      MakeUnique<MediaSourceDecoderDebugInfo>();
   mDecoder->RequestDebugInfo(*info)->Then(
       mAbstractMainThread, __func__,
       [domPromise, infoPtr = std::move(info)] {

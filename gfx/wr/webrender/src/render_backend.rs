@@ -17,8 +17,10 @@ use api::units::*;
 use api::channel::{single_msg_channel, Sender, Receiver};
 use crate::bump_allocator::ChunkPool;
 use crate::AsyncPropertySampler;
+use crate::box_shadow::BoxShadow;
 #[cfg(feature = "replay")]
 use crate::dl_interner::DlBuilderMap;
+use crate::prim_store::rectangle::RectanglePrim;
 #[cfg(any(feature = "capture", feature = "replay"))]
 use crate::render_api::CaptureBits;
 #[cfg(feature = "replay")]
@@ -176,6 +178,8 @@ macro_rules! declare_dl_stores {
             $( pub $field: crate::dl_interner::DlStore<$key, $template>, )*
         }
 
+        // Until the first type is listed nothing in here has anything to do.
+        #[allow(unused_variables, unused_mut)]
         impl DlStores {
             /// Apply a transaction's ops and report what they did. The counts
             /// join the interners' in `INTERN_INSERTIONS` / `INTERN_REMOVALS`,
@@ -195,17 +199,6 @@ macro_rules! declare_dl_stores {
                     profile.set(profiler::$gauge, self.$field.len());
                 )*
                 totals
-            }
-
-            /// A copy of these stores with `updates` applied, closes aside,
-            /// for frame building against ops that are held back from the
-            /// stores themselves.
-            fn with_pending(&self, updates: &DlUpdates) -> DlStores {
-                let mut stores = DlStores {
-                    $( $field: self.$field.clone(), )*
-                };
-                $( stores.$field.apply(updates.$field.clone()); )*
-                stores
             }
 
             /// Release the namespaces a transaction's `DlUpdates::closes`
@@ -296,14 +289,13 @@ impl DataStores {
     pub fn prim_has_anti_aliasing(
         &self,
         prim_instance: &PrimitiveInstance,
-        dl_stores: &DlStores,
     ) -> bool {
         match prim_instance.kind {
             PrimitiveKind::Picture { .. } => {
                 false
             }
             _ => {
-                self.as_common_data(prim_instance, dl_stores).flags.contains(PrimitiveFlags::ANTIALISED)
+                self.as_common_data(prim_instance).flags.contains(PrimitiveFlags::ANTIALISED)
             }
         }
     }
@@ -315,11 +307,10 @@ impl DataStores {
     pub fn prim_rect(
         &self,
         prim_inst: &PrimitiveInstance,
-        dl_stores: &DlStores,
     ) -> LayoutRect {
         match prim_inst.kind {
             PrimitiveKind::Picture { .. } => LayoutRect::zero(),
-            _ => self.as_common_data(prim_inst, dl_stores).prim_rect,
+            _ => self.as_common_data(prim_inst).prim_rect,
         }
     }
 
@@ -330,25 +321,21 @@ impl DataStores {
     pub fn local_clip_rect(
         &self,
         prim_inst: &PrimitiveInstance,
-        dl_stores: &DlStores,
     ) -> LayoutRect {
         match prim_inst.kind {
             PrimitiveKind::Picture { .. } => LayoutRect::max_rect(),
-            _ => self.as_common_data(prim_inst, dl_stores).local_clip_rect,
+            _ => self.as_common_data(prim_inst).local_clip_rect,
         }
     }
 
-    /// The common template data of a primitive, whichever side interned it:
-    /// `self` for the scene builder's interners, `dl_stores` for the content
-    /// display list builder's.
-    pub fn as_common_data<'a>(
-        &'a self,
-        prim_inst: &PrimitiveInstance,
-        dl_stores: &'a DlStores,
-    ) -> &'a PrimTemplateCommonData {
+    pub fn as_common_data(
+        &self,
+        prim_inst: &PrimitiveInstance
+    ) -> &PrimTemplateCommonData {
         match prim_inst.kind {
-            PrimitiveKind::Rectangle { handle } => {
-                &dl_stores.rectangles[handle].common
+            PrimitiveKind::Rectangle { data_handle, .. } => {
+                let prim_data = &self.prim[data_handle];
+                &prim_data.common
             }
             PrimitiveKind::Image { data_handle, .. } => {
                 let prim_data = &self.image[data_handle];
@@ -358,8 +345,9 @@ impl DataStores {
                 let prim_data = &self.image_border[data_handle];
                 &prim_data.common
             }
-            PrimitiveKind::LineDecoration { handle } => {
-                &dl_stores.line_decorations[handle].common
+            PrimitiveKind::LineDecoration { data_handle, .. } => {
+                let prim_data = &self.line_decoration[data_handle];
+                &prim_data.common
             }
             PrimitiveKind::LinearGradient { data_handle, .. } => {
                 let prim_data = &self.linear_grad[data_handle];
@@ -396,8 +384,9 @@ impl DataStores {
                 let prim_data = &self.backdrop_render[data_handle];
                 &prim_data.common
             }
-            PrimitiveKind::BoxShadow { handle } => {
-                &dl_stores.box_shadows[handle].common
+            PrimitiveKind::BoxShadow { data_handle, .. } => {
+                let prim_data = &self.box_shadow[data_handle];
+                &prim_data.common
             }
         }
     }
@@ -629,7 +618,6 @@ impl Document {
     fn build_frame(
         &mut self,
         resource_cache: &mut ResourceCache,
-        dl_stores: &DlStores,
         debug_flags: DebugFlags,
         tile_caches: &mut FastHashMap<SliceId, Box<TileCacheInstance>>,
         frame_stats: Option<FullFrameStats>,
@@ -655,7 +643,6 @@ impl Document {
                 self.view.scene.device_rect.min,
                 &self.dynamic_properties,
                 &mut self.data_stores,
-                dl_stores,
                 &mut self.scratch,
                 debug_flags,
                 &self.debug_override,
@@ -705,7 +692,6 @@ impl Document {
         &mut self,
         mut txn: OffscreenBuiltScene,
         resource_cache: &mut ResourceCache,
-        dl_stores: &DlStores,
         chunk_pool: Arc<ChunkPool>,
         debug_flags: DebugFlags,
     ) -> RenderedDocument {
@@ -740,7 +726,6 @@ impl Document {
             self.view.scene.device_rect.min,
             &self.dynamic_properties,
             &self.data_stores,
-            dl_stores,
             &mut self.scratch,
             debug_flags,
             &SceneDebugOverride::empty(),
@@ -872,11 +857,10 @@ impl Document {
     /// Serialize the picture / primitive tree of the current built scene for
     /// the remote debugger.
     #[cfg(feature = "debugger")]
-    fn scene_debug_tree(&self, dl_stores: &DlStores) -> api::debugger::SceneDebugTree {
+    fn scene_debug_tree(&self) -> api::debugger::SceneDebugTree {
         crate::scene_debug::build_debug_tree(
             &self.scene,
             &self.data_stores,
-            dl_stores,
             &self.spatial_tree,
             &self.scratch.primitive.frame,
             &self.dynamic_properties,
@@ -1312,16 +1296,10 @@ impl RenderBackend {
                 .remove(&txn.document_id)
                 .unwrap_or_default();
             dl_updates.append(mem::take(&mut txn.dl_updates));
-            let mut offscreen_dl_stores = None;
             let dl_counts = if has_built_scene || !self.documents.contains_key(&txn.document_id) {
                 dl_closes = mem::take(&mut dl_updates.closes);
                 self.dl_stores.apply(dl_updates, &mut txn.profile)
             } else {
-                // The offscreen scenes were built against these ops, so they
-                // are frame-built against a copy of the stores that has them.
-                if !txn.offscreen_scenes.is_empty() {
-                    offscreen_dl_stores = Some(self.dl_stores.with_pending(&dl_updates));
-                }
                 if !dl_updates.is_empty() {
                     self.held_dl_updates.insert(txn.document_id, dl_updates);
                 }
@@ -1431,7 +1409,6 @@ impl RenderBackend {
                     let rendered_document = doc.process_offscreen_scene(
                         offscreen_scene,
                         &mut win.resource_cache,
-                        offscreen_dl_stores.as_ref().unwrap_or(&self.dl_stores),
                         win.chunk_pool.clone(),
                         win.debug_flags,
                     );
@@ -1775,7 +1752,7 @@ impl RenderBackend {
                             DebugQueryKind::Scene { .. } => {
                                 if let Some(doc_id) = self.documents_for_window(backend_id).first() {
                                     if let Some(doc) = self.documents.get(doc_id) {
-                                        let tree = doc.scene_debug_tree(&self.dl_stores);
+                                        let tree = doc.scene_debug_tree();
                                         let result = serde_json::to_string(&tree).expect("bug");
                                         query.result.send(result).ok();
                                     }
@@ -2213,7 +2190,6 @@ impl RenderBackend {
 
                 let rendered_document = doc.build_frame(
                     &mut win.resource_cache,
-                    &self.dl_stores,
                     win.debug_flags,
                     &mut win.tile_caches,
                     frame_stats,
@@ -2444,7 +2420,6 @@ impl RenderBackend {
                 let force_invalidation = std::mem::replace(&mut doc.scene.config.force_invalidation, true);
                 let rendered_document = doc.build_frame(
                     &mut win.resource_cache,
-                    &self.dl_stores,
                     win.debug_flags,
                     &mut win.tile_caches,
                     None,

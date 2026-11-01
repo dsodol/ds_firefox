@@ -161,7 +161,7 @@ class ShutdownBlockingTicketImpl : public ShutdownBlockingTicket {
     //   blocker to, see GetShutdownBarrier()) is notified,
     // - which is when AsyncShutdown prevents further conditions (blockers)
     //   being added to the profile-before-change barrier.
-    return std::make_unique<ShutdownBlockingTicketImpl>(std::move(blocker));
+    return MakeUnique<ShutdownBlockingTicketImpl>(std::move(blocker));
   }
 
   ~ShutdownBlockingTicketImpl() {

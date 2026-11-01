@@ -5,10 +5,8 @@
 package org.mozilla.fenix.pdf
 
 import android.view.View
-import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.FrameLayout
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.runtime.Composable
@@ -32,7 +30,6 @@ import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.theme.layout.AcornWindowSize
 import mozilla.components.support.base.feature.LifecycleAwareFeature
-import mozilla.components.support.ktx.android.view.ImeInsetsSynchronizer
 import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.GleanMetrics.PdfViewer
 import org.mozilla.fenix.R
@@ -58,20 +55,14 @@ class PdfToolsIntegration(
     private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
 ) : LifecycleAwareFeature {
 
-    private var overlays = emptyList<View>()
+    private var overlays = emptyList<ComposeView>()
     private var scope: CoroutineScope? = null
     private var pdfTabId by mutableStateOf(browserStore.state.selectedPdfTabId)
     private var isSigning by mutableStateOf(false)
-    private var isAddingSignature by mutableStateOf(false)
     private val signature = TextFieldState()
 
     internal val signatureState: SignatureState
-        get() =
-            SignatureState(
-                isSigning = isSigning,
-                isAddingSignature = isAddingSignature,
-                signature = signature,
-            )
+        get() = SignatureState(isSigning = isSigning, signature = signature)
 
     internal val toolActions =
         PdfToolActions(
@@ -125,7 +116,7 @@ class PdfToolsIntegration(
                 )
             }
 
-        val created = listOf(tools, moveWithKeyboard(dialog))
+        val created = listOf(tools, dialog)
         overlays = created
 
         // Add once the container has attached, since the chrome removes a sibling during that pass (Bug 2065098).
@@ -142,7 +133,6 @@ class PdfToolsIntegration(
         scope = null
 
         container.pageContent?.accessibilityTraversalAfter = View.NO_ID
-        container.addressBar?.accessibilityTraversalAfter = View.NO_ID
         overlays.forEach(container::removeView)
         overlays = emptyList()
     }
@@ -163,43 +153,7 @@ class PdfToolsIntegration(
         }
 
     /**
-     * Moves the view smoothly with the keyboard.
-     *
-     * @param view An overlay anchored to the bottom of the browser.
-     * @return The view to add to the browser, which is the overlay itself when the browser moves it already.
-     */
-    private fun moveWithKeyboard(view: ComposeView): View {
-        if (isAddressBarAtBottom) {
-            return view
-        }
-
-        val holder =
-            FrameLayout(container.context).apply {
-                layoutParams = view.layoutParams
-                addView(view, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-            }
-
-        ImeInsetsSynchronizer.setup(
-            targetView = view,
-            insetsSource = holder,
-            onIMEAnimationStarted = { isKeyboardShowingUp, keyboardHeight ->
-                if (!isKeyboardShowingUp) {
-                    (view.layoutParams as? ViewGroup.MarginLayoutParams)?.bottomMargin = keyboardHeight
-                    view.requestLayout()
-                }
-            },
-            onIMEAnimationFinished = { isKeyboardShowingUp, keyboardHeight ->
-                if (isKeyboardShowingUp || keyboardHeight == 0) {
-                    (view.layoutParams as? ViewGroup.MarginLayoutParams)?.bottomMargin = 0
-                    view.requestLayout()
-                }
-            },
-        )
-        return holder
-    }
-
-    /**
-     * Ensures the screenreader focus order shows the PDF tools between the address bar and the content.
+     * Ensures the screenreader focus order shows the PDF tools before the content.
      *
      * @param tools The PDF tools overlay.
      * @param dialog The signature dialog overlay.
@@ -208,15 +162,9 @@ class PdfToolsIntegration(
         val addressBar = container.addressBar ?: return
         val pageContent = container.pageContent ?: return
 
-        if (isAddressBarAtBottom) {
-            tools.accessibilityTraversalAfter = pageContent.id
-            dialog.accessibilityTraversalAfter = tools.id
-            addressBar.accessibilityTraversalAfter = dialog.id
-        } else {
-            tools.accessibilityTraversalAfter = addressBar.id
-            dialog.accessibilityTraversalAfter = tools.id
-            pageContent.accessibilityTraversalAfter = dialog.id
-        }
+        tools.accessibilityTraversalAfter = addressBar.id
+        dialog.accessibilityTraversalAfter = tools.id
+        pageContent.accessibilityTraversalAfter = dialog.id
     }
 
     /** Opens the dialog for adding a signature to the PDF. */
@@ -235,10 +183,6 @@ class PdfToolsIntegration(
 
     /** Adds the typed signature to the PDF and closes the dialog. */
     internal fun handleSignAddClick() {
-        if (!isSigning || isAddingSignature) {
-            return
-        }
-
         PdfViewer.signDialogAddTapped.record(
             PdfViewer.SignDialogAddTappedExtra(signatureType = SignatureType.Typed.telemetryName)
         )
@@ -255,16 +199,13 @@ class PdfToolsIntegration(
             return
         }
 
-        isAddingSignature = true
         engineSession.addSignatureToPdf(
             text = signature.text.toString(),
             onResult = {
                 PdfViewer.signDialogAddCompleted.record(
                     PdfViewer.SignDialogAddCompletedExtra(signatureType = SignatureType.Typed.telemetryName)
                 )
-                if (isAddingSignature) {
-                    dismissSignatureDialog()
-                }
+                dismissSignatureDialog()
             },
             onException = {
                 PdfViewer.signDialogAddFailure.record(
@@ -273,20 +214,14 @@ class PdfToolsIntegration(
                         signatureType = SignatureType.Typed.telemetryName,
                     )
                 )
-                if (isAddingSignature) {
-                    dismissSignatureDialog()
-                }
+                dismissSignatureDialog()
             },
         )
     }
 
-    /** Closes the dialog. If the signature is processing, it will keep the signature state. */
+    /** Closes the dialog and discards the signature. */
     internal fun handleSignCloseClick() {
-        if (isAddingSignature) {
-            isSigning = false
-        } else {
-            dismissSignatureDialog()
-        }
+        dismissSignatureDialog()
         PdfViewer.signDialogCloseTapped.record(
             PdfViewer.SignDialogCloseTappedExtra(signatureType = SignatureType.Typed.telemetryName)
         )
@@ -302,7 +237,6 @@ class PdfToolsIntegration(
 
     private fun dismissSignatureDialog() {
         isSigning = false
-        isAddingSignature = false
         signature.clearText()
     }
 

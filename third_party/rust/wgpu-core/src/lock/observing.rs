@@ -79,6 +79,10 @@ impl<T> Mutex<T> {
         }
     }
 
+    pub fn get_mut(&mut self) -> &mut T {
+        self.inner.get_mut()
+    }
+
     pub fn into_inner(self) -> T {
         self.inner.into_inner()
     }
@@ -171,14 +175,6 @@ impl<T> RwLock<T> {
         release(data);
         unsafe { self.inner.force_unlock_read() };
     }
-
-    /// Returns a reference to the underlying [`wgpu_sync::RwLock`].
-    ///
-    /// Marked as unsafe because it allows bypassing the rank system,
-    /// defeating the purpose of this type.
-    pub unsafe fn underlying(&self) -> &wgpu_sync::RwLock<T> {
-        &self.inner
-    }
 }
 
 impl<'a, T> RwLockReadGuard<'a, T> {
@@ -253,64 +249,60 @@ impl Drop for LockStateGuard {
 /// Return the `Option<HeldLock>` state that must be restored when this lock is
 /// released.
 fn acquire(new_rank: LockRank, location: &'static Location<'static>) -> Option<HeldLock> {
-    let result = LOCK_STATE.try_with(|refcell| {
-        let state = &mut *refcell.borrow_mut();
-        match *state {
-            ThreadState::Disabled => None,
-            ThreadState::Initial => {
-                let Ok(dir) = std::env::var("WGPU_CORE_LOCK_OBSERVE_DIR") else {
-                    *state = ThreadState::Disabled;
-                    return None;
-                };
+    LOCK_STATE.with_borrow_mut(|state| match *state {
+        ThreadState::Disabled => None,
+        ThreadState::Initial => {
+            let Ok(dir) = std::env::var("WGPU_CORE_LOCK_OBSERVE_DIR") else {
+                *state = ThreadState::Disabled;
+                return None;
+            };
 
-                // Create the observation log file.
-                let mut log = ObservationLog::create(dir)
-                    .expect("Failed to open lock observation file (does the dir exist?)");
+            // Create the observation log file.
+            let mut log = ObservationLog::create(dir)
+                .expect("Failed to open lock observation file (does the dir exist?)");
 
-                // Log the full set of lock ranks, so that the analysis can even see
-                // locks that are only acquired in isolation.
-                for rank in LockRankSet::all().iter() {
-                    log.write_rank(rank);
-                }
-
-                // Update our state to reflect that we are logging acquisitions, and
-                // that we have acquired this lock.
-                *state = ThreadState::Enabled {
-                    held_lock: Some(HeldLock {
-                        rank: new_rank,
-                        location,
-                    }),
-                    log,
-                };
-
-                // Since this is the first acquisition on this thread, we know that
-                // there is no prior lock held, and thus nothing to log yet.
-                None
+            // Log the full set of lock ranks, so that the analysis can even see
+            // locks that are only acquired in isolation.
+            for rank in LockRankSet::all().iter() {
+                log.write_rank(rank);
             }
-            ThreadState::Enabled {
-                ref mut held_lock,
-                ref mut log,
-            } => {
-                if let Some(ref held_lock) = held_lock {
-                    log.write_acquisition(held_lock, new_rank, location);
-                }
 
-                held_lock.replace(HeldLock {
+            // Update our state to reflect that we are logging acquisitions, and
+            // that we have acquired this lock.
+            *state = ThreadState::Enabled {
+                held_lock: Some(HeldLock {
                     rank: new_rank,
                     location,
-                })
-            }
+                }),
+                log,
+            };
+
+            // Since this is the first acquisition on this thread, we know that
+            // there is no prior lock held, and thus nothing to log yet.
+            None
         }
-    });
-    result.unwrap_or(None)
+        ThreadState::Enabled {
+            ref mut held_lock,
+            ref mut log,
+        } => {
+            if let Some(ref held_lock) = held_lock {
+                log.write_acquisition(held_lock, new_rank, location);
+            }
+
+            held_lock.replace(HeldLock {
+                rank: new_rank,
+                location,
+            })
+        }
+    })
 }
 
 /// Record the release of a lock whose saved state was `saved`.
 fn release(saved: Option<HeldLock>) {
-    let _ = LOCK_STATE.try_with(|refcell| {
+    LOCK_STATE.with_borrow_mut(|state| {
         if let ThreadState::Enabled {
             ref mut held_lock, ..
-        } = *refcell.borrow_mut()
+        } = *state
         {
             *held_lock = saved;
         }

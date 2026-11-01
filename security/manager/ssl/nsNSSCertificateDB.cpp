@@ -89,52 +89,6 @@ nsNSSCertificateDB::FindCertByDBKey(const nsACString& aDBKey,
   return NS_OK;
 }
 
-NS_IMETHODIMP
-nsNSSCertificateDB::AsyncFindCertByDBKey(const nsACString& aDBKey,
-                                         JSContext* aCx,
-                                         mozilla::dom::Promise** aPromise) {
-  NS_ENSURE_ARG_POINTER(aCx);
-
-  nsIGlobalObject* globalObject = xpc::CurrentNativeGlobal(aCx);
-  if (!globalObject) {
-    return NS_ERROR_UNEXPECTED;
-  }
-  mozilla::ErrorResult result;
-  RefPtr<Promise> promise = Promise::Create(globalObject, result);
-  if (result.Failed()) {
-    return result.StealNSResult();
-  }
-  RefPtr<nsNSSCertificateDB> self(this);
-  auto promiseHolder =
-      MakeRefPtr<nsMainThreadPtrHolder<Promise>>(__func__, promise);
-  nsCOMPtr<nsIRunnable> runnable(NS_NewRunnableFunction(
-      __func__, [self, dbKey = nsCString{aDBKey},
-                 promiseHolder(std::move(promiseHolder))]() {
-        nsCOMPtr<nsIX509Cert> cert(nullptr);
-        nsresult rv = self->FindCertByDBKey(dbKey, getter_AddRefs(cert));
-        NS_DispatchToMainThread(NS_NewRunnableFunction(
-            __func__, [rv, cert(std::move(cert)),
-                       promiseHolder(std::move(promiseHolder))]() {
-              if (NS_SUCCEEDED(rv)) {
-                if (cert) {
-                  promiseHolder->get()->MaybeResolve(std::move(cert));
-                } else {
-                  promiseHolder->get()->MaybeResolve(JS::NullHandleValue);
-                }
-              } else {
-                promiseHolder->get()->MaybeReject(rv);
-              }
-            }));
-      }));
-  nsresult rv =
-      NS_DispatchBackgroundTask(runnable.forget(), NS_DISPATCH_EVENT_MAY_BLOCK);
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-  promise.forget(aPromise);
-  return NS_OK;
-}
-
 nsresult nsNSSCertificateDB::FindCertByDBKey(const nsACString& aDBKey,
                                              UniqueCERTCertificate& cert) {
   static_assert(sizeof(uint64_t) == 8, "type size sanity check");
@@ -217,34 +171,28 @@ nsresult nsNSSCertificateDB::getCertsFromPackage(
 // When using the sql-backed softoken, trust settings are authenticated using a
 // key in the secret database. Thus, if the user has a password, we need to
 // authenticate to the token in order to be able to change trust settings.
-nsresult ChangeCertTrustWithPossibleAuthentication(
+SECStatus ChangeCertTrustWithPossibleAuthentication(
     const UniqueCERTCertificate& cert, CERTCertTrust& trust, void* ctx) {
   MOZ_ASSERT(cert, "cert must be non-null");
   if (!cert) {
-    return NS_ERROR_INVALID_ARG;
-  }
-
-  PRBool isTemp = PR_FALSE;
-  // This only fails if `cert` is null, which was checked above.
-  (void)CERT_GetCertIsTemp(cert.get(), &isTemp);
-  // Gecko does not support altering the trust of temporary certificates.
-  if (isTemp) {
-    return NS_ERROR_INVALID_ARG;
+    PR_SetError(SEC_ERROR_LIBRARY_FAILURE, 0);
+    return SECFailure;
   }
 
   RefPtr<SharedCertVerifier> certVerifier(GetDefaultCertVerifier());
   if (!certVerifier) {
-    return NS_ERROR_FAILURE;
+    PR_SetError(SEC_ERROR_LIBRARY_FAILURE, 0);
+    return SECFailure;
   }
 
   // NSS ignores the first argument to CERT_ChangeCertTrust
   SECStatus srv = CERT_ChangeCertTrust(nullptr, cert.get(), &trust);
   if (srv != SECSuccess && PR_GetError() != SEC_ERROR_TOKEN_NOT_LOGGED_IN) {
-    return MapSECStatus(srv);
+    return SECFailure;
   }
   if (srv == SECSuccess) {
     certVerifier->ClearTrustCache();
-    return NS_OK;
+    return SECSuccess;
   }
 
   // CERT_ChangeCertTrust failed with SEC_ERROR_TOKEN_NOT_LOGGED_IN, so
@@ -259,15 +207,15 @@ nsresult ChangeCertTrustWithPossibleAuthentication(
     srv = PK11_Authenticate(internalSlot.get(), PR_TRUE, ctx);
   }
   if (srv != SECSuccess) {
-    return MapSECStatus(srv);
+    return srv;
   }
   srv = CERT_ChangeCertTrust(nullptr, cert.get(), &trust);
   if (srv != SECSuccess) {
-    return MapSECStatus(srv);
+    return srv;
   }
 
   certVerifier->ClearTrustCache();
-  return NS_OK;
+  return SECSuccess;
 }
 
 static nsresult ImportCertsIntoPermanentStorage(
@@ -410,10 +358,10 @@ nsresult nsNSSCertificateDB::handleCACertDownload(NotNull<nsIArray*> x509Certs,
   if (srv != SECSuccess) {
     return MapSECStatus(srv);
   }
-  rv =
+  srv =
       ChangeCertTrustWithPossibleAuthentication(tmpCert, trust.GetTrust(), ctx);
-  if (NS_FAILED(rv)) {
-    return rv;
+  if (srv != SECSuccess) {
+    return MapSECStatus(srv);
   }
 
   // Import additional delivered certificates that can be verified.
@@ -704,13 +652,13 @@ nsNSSCertificateDB::DeleteCertificate(nsIX509Cert* aCert) {
       // For certificates that can't be deleted (e.g. built-in roots), un-set
       // all trust bits.
       nsNSSCertTrust trust(0, 0);
-      rv = ChangeCertTrustWithPossibleAuthentication(cert, trust.GetTrust(),
-                                                     nullptr);
-      if (NS_FAILED(rv)) {
-        return rv;
+      SECStatus srv = ChangeCertTrustWithPossibleAuthentication(
+          cert, trust.GetTrust(), nullptr);
+      if (srv != SECSuccess) {
+        return NS_ERROR_FAILURE;
       }
       if (!PK11_IsReadOnly(cert->slot)) {
-        SECStatus srv = SEC_DeletePermCertificate(cert.get());
+        srv = SEC_DeletePermCertificate(cert.get());
         if (srv != SECSuccess) {
           return NS_ERROR_FAILURE;
         }
@@ -753,8 +701,9 @@ nsNSSCertificateDB::SetCertTrust(nsIX509Cert* cert, uint32_t type,
   }
 
   UniqueCERTCertificate nsscert(cert->GetCert());
-  return ChangeCertTrustWithPossibleAuthentication(nsscert, trust.GetTrust(),
-                                                   nullptr);
+  SECStatus srv = ChangeCertTrustWithPossibleAuthentication(
+      nsscert, trust.GetTrust(), nullptr);
+  return MapSECStatus(srv);
 }
 
 NS_IMETHODIMP
@@ -768,17 +717,12 @@ nsNSSCertificateDB::IsCertTrusted(nsIX509Cert* cert, uint32_t certType,
     return rv;
   }
 
-  nsTArray<uint8_t> certDER;
-  rv = cert->GetRawDER(certDER);
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-  SECItem certItem = {siBuffer, certDER.Elements(),
-                      static_cast<unsigned int>(certDER.Length())};
+  SECStatus srv;
+  UniqueCERTCertificate nsscert(cert->GetCert());
   CERTCertTrust nsstrust;
-  SECStatus srv = CERT_GetDERCertTrust(&certItem, &nsstrust);
+  srv = CERT_GetCertTrust(nsscert.get(), &nsstrust);
   if (srv != SECSuccess) {
-    // CERT_GetDERCertTrust returns SECFailure if given a temporary cert that
+    // CERT_GetCertTrust returns SECFailure if given a temporary cert that
     // doesn't have any trust information yet. This isn't an error.
     return NS_OK;
   }
@@ -840,7 +784,7 @@ nsNSSCertificateDB::ImportCertsFromFile(nsIFile* aFile, uint32_t aType) {
     return NS_ERROR_FAILURE;
   }
 
-  auto buf = std::make_unique<unsigned char[]>(fileInfo.size);
+  auto buf = MakeUnique<unsigned char[]>(fileInfo.size);
   int32_t bytesObtained = PR_Read(fd, buf.get(), fileInfo.size);
   PR_Close(fd);
 
@@ -1126,10 +1070,10 @@ nsNSSCertificateDB::AddCert(const nsACString& aCertDER,
   if (srv != SECSuccess) {
     return MapSECStatus(srv);
   }
-  rv = ChangeCertTrustWithPossibleAuthentication(tmpCert, trust.GetTrust(),
-                                                 nullptr);
-  if (NS_FAILED(rv)) {
-    return rv;
+  srv = ChangeCertTrustWithPossibleAuthentication(tmpCert, trust.GetTrust(),
+                                                  nullptr);
+  if (srv != SECSuccess) {
+    return MapSECStatus(srv);
   }
   newCert.forget(addedCertificate);
   return NS_OK;
@@ -1148,7 +1092,8 @@ nsNSSCertificateDB::SetCertTrustFromString(nsIX509Cert* cert,
   }
   UniqueCERTCertificate nssCert(cert->GetCert());
 
-  return ChangeCertTrustWithPossibleAuthentication(nssCert, trust, nullptr);
+  srv = ChangeCertTrustWithPossibleAuthentication(nssCert, trust, nullptr);
+  return MapSECStatus(srv);
 }
 
 NS_IMETHODIMP nsNSSCertificateDB::AsPKCS7Blob(

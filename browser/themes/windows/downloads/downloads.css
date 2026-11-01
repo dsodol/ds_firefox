@@ -17,10 +17,8 @@
 
 @media (prefers-contrast) {
   .downloadProgress {
-    --download-progress-border-color: ButtonText;
-
     background-color: -moz-Dialog;
-    border: var(--border-width) solid var(--download-progress-border-color);
+    border: 1px solid ButtonText;
   }
 
   .downloadProgress::-moz-progress-bar {

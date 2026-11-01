@@ -715,7 +715,7 @@ nsresult FontFaceSetImpl::SyncLoadFontData(gfxUserFontEntry* aFontToLoad,
 }
 
 void FontFaceSetImpl::OnFontFaceStatusChanged(FontFaceImpl* aFontFace) {
-  gfxFontUtils::AssertSafeThreadOrServoFFILocked();
+  gfxFontUtils::AssertSafeThreadOrServoFontMetricsLocked();
   RecursiveMutexAutoLock lock(mMutex);
   MOZ_ASSERT(HasAvailableFontFace(aFontFace));
 
@@ -753,7 +753,7 @@ void FontFaceSetImpl::CheckLoadingFinishedAfterDelay() {
 }
 
 void FontFaceSetImpl::CheckLoadingStarted() {
-  gfxFontUtils::AssertSafeThreadOrServoFFILocked();
+  gfxFontUtils::AssertSafeThreadOrServoFontMetricsLocked();
   RecursiveMutexAutoLock lock(mMutex);
 
   if (!HasLoadingFontFaces()) {

@@ -802,8 +802,7 @@ bool nsXULPopupManager::ShowNativeMenuInternal(
 
   // Hide the menu from our accessibility code so that we don't dispatch custom
   // accessibility notifications which would conflict with the system ones.
-  aPopup->SetAttr(kNameSpaceID_None, nsGkAtoms::aria_hidden, u"true"_ns, true,
-                  IsKnownNewAttr::No);
+  aPopup->SetAttr(kNameSpaceID_None, nsGkAtoms::aria_hidden, u"true"_ns, true);
 
   nsMenuPopupFrame* popupFrame = GetPopupFrameForContent(aPopup, true);
   if (!popupFrame) {
@@ -1188,8 +1187,8 @@ void nsXULPopupManager::ShowPopupCallback(Element* aPopup,
   bool isNoAutoHide =
       aPopupFrame->IsNoAutoHide() || popupType == PopupType::Tooltip;
 
-  auto item = std::make_unique<nsMenuChainItem>(aPopupFrame, isNoAutoHide,
-                                                aIsContextMenu, popupType);
+  auto item = MakeUnique<nsMenuChainItem>(aPopupFrame, isNoAutoHide,
+                                          aIsContextMenu, popupType);
 
   // install keyboard event listeners for navigating menus. For panels, the
   // escape key may be used to close the panel. However, the ignorekeys
@@ -2279,12 +2278,12 @@ void nsXULPopupManager::UpdateMenuItems(Element* aPopup) {
           nsAutoString commandValue;
           if (commandElement->GetAttr(nsGkAtoms::label, commandValue)) {
             grandChildElement->SetAttr(kNameSpaceID_None, nsGkAtoms::label,
-                                       commandValue, true, IsKnownNewAttr::No);
+                                       commandValue, true);
           }
 
           if (commandElement->GetAttr(nsGkAtoms::accesskey, commandValue)) {
             grandChildElement->SetAttr(kNameSpaceID_None, nsGkAtoms::accesskey,
-                                       commandValue, true, IsKnownNewAttr::No);
+                                       commandValue, true);
           }
         }
       }

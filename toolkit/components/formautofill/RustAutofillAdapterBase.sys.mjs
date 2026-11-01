@@ -30,8 +30,7 @@
  * `getInstance()` stores per subclass either way.
  *
  * A subclass may override the three merge hooks -- `_prepareStoredForMerge()`,
- * `_validateRecord()` and `_recomputeBeforeWrite()` -- which do nothing here,
- * and `_fieldsKeptWhenOmitted`, which is empty here.
+ * `_validateRecord()` and `_recomputeBeforeWrite()` -- which do nothing here.
  */
 
 const lazy = {};
@@ -112,31 +111,6 @@ export class RustAutofillAdapterBase {
    */
   _store() {
     return this.#storePromise;
-  }
-
-  /**
-   * Whether NSS is withholding the store's key; see
-   * RustAutofillStore.primaryPasswordLocked.
-   *
-   * Underscore-named because a test store's key is its own and never NSS's, so
-   * a test that has to answer for the token replaces this.
-   *
-   * @returns {boolean}
-   */
-  _primaryPasswordLocked() {
-    return lazy.RustAutofillStore.primaryPasswordLocked;
-  }
-
-  /**
-   * Run `operation` with the primary password prompt allowed; see
-   * RustAutofillStore.allowingPrompt. Underscore-named for the same reason as
-   * _primaryPasswordLocked.
-   *
-   * @param {Function} operation An async function.
-   * @returns {Promise<*>} What `operation` resolves to.
-   */
-  _allowingPrompt(operation) {
-    return new lazy.RustAutofillStore().allowingPrompt(operation);
   }
 
   /**
@@ -286,9 +260,7 @@ export class RustAutofillAdapterBase {
    *
    * With `preserveOldProperties`, a field the caller omits keeps its stored
    * value; without it, an omitted or empty field is cleared. Mirrors
-   * AutofillRecords.update(). A field in `_fieldsKeptWhenOmitted` keeps its
-   * stored value when omitted either way, and is cleared only by an empty
-   * value.
+   * AutofillRecords.update().
    */
   async update(
     guid,
@@ -296,7 +268,7 @@ export class RustAutofillAdapterBase {
     preserveOldProperties = false,
     { sourceSync = false, action = "update" } = {}
   ) {
-    const stored = await this.get(guid, { rawData: true });
+    const stored = await this.get(guid);
     if (!stored) {
       // The same error the store would raise for the write below, so a missing
       // record groups under one code however it was detected.
@@ -313,10 +285,7 @@ export class RustAutofillAdapterBase {
     let hasValidField = false;
     for (const field of this._validFields) {
       let value = incoming[field];
-      if (
-        value === undefined &&
-        (preserveOldProperties || this._fieldsKeptWhenOmitted.includes(field))
-      ) {
+      if (preserveOldProperties && value === undefined) {
         value = stored[field];
       }
       if (value !== undefined && value !== "") {
@@ -348,7 +317,7 @@ export class RustAutofillAdapterBase {
    *   guid was not present.
    */
   async remove(guid, { sourceSync = false, action = "remove" } = {}) {
-    const removed = guid && (await this._delete(await this._store(), guid));
+    const removed = await this._delete(await this._store(), guid);
     // Nothing changed, so nothing to announce. The JSON collection returns
     // without notifying for a guid it does not hold, and an event here would
     // put every observer -- including the saved-field-names recompute -- to
@@ -374,17 +343,7 @@ export class RustAutofillAdapterBase {
     await this.#notifyAndRecordCount(null, sourceSync, action);
   }
 
-  /**
-   * @param {string} guid
-   * @param {object} [options]
-   * @param {boolean} [options.rawData=false] As for getAll().
-   * @returns {Promise<?object>}
-   */
-  async get(guid, { rawData = false } = {}) {
-    // The UniFFI binding throws for a missing guid.
-    if (!guid) {
-      return null;
-    }
+  async get(guid) {
     let found;
     try {
       found = await this._get(await this._store(), guid);
@@ -401,7 +360,7 @@ export class RustAutofillAdapterBase {
       }
       throw e;
     }
-    return found && this._recordFromRust(found, { rawData });
+    return found && this._recordFromRust(found);
   }
 
   /**
@@ -443,11 +402,8 @@ export class RustAutofillAdapterBase {
   async getSavedFieldNames() {
     // Every non-empty field that is not internal metadata, computed fields
     // included: autofill decides which form fields it can offer from this set.
-    // Read raw, so a field a read hides is still reported: the set is only
-    // recomputed when the store changes, not when what a read hides does, and
-    // whether to offer a field is decided where it would be filled.
     const fieldNames = new Set();
-    for (const record of await this.getAll({ rawData: true, prompt: false })) {
+    for (const record of await this.getAll()) {
       for (const [key, value] of Object.entries(record)) {
         if (value && !INTERNAL_FIELDS.has(key)) {
           fieldNames.add(key);
@@ -628,16 +584,6 @@ export class RustAutofillAdapterBase {
   }
 
   // ---- Merge hooks, for a subclass that needs them -----------------------
-
-  /**
-   * The canonical fields update() keeps as stored when the record it is given
-   * omits them, even without `preserveOldProperties`.
-   *
-   * @returns {Array<string>}
-   */
-  get _fieldsKeptWhenOmitted() {
-    return [];
-  }
 
   /**
    * Restore whatever the subclass derives on read, so a stored record can be

@@ -5,7 +5,6 @@
 #include "mozilla/mscom/EnsureMTA.h"
 
 #include "mozilla/Assertions.h"
-#include "mozilla/Atomics.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/mscom/COMWrappers.h"
@@ -56,10 +55,6 @@ class BackgroundMTAData {
  private:
   nsCOMPtr<nsIThread> mThread;
 };
-
-// Points to the static owning the persistent MTA thread once it was created.
-static mozilla::Atomic<mozilla::StaticLocalAutoPtr<BackgroundMTAData>*>
-    sMTAData;
 
 }  // anonymous namespace
 
@@ -112,11 +107,11 @@ EnsureMTA::EnsureMTA() {
 
 /* static */
 nsCOMPtr<nsIThread> EnsureMTA::GetPersistentMTAThread() {
-  static StaticLocalAutoPtr<BackgroundMTAData> sMTADataOwner(
+  static StaticLocalAutoPtr<BackgroundMTAData> sMTAData(
       []() -> BackgroundMTAData* {
         BackgroundMTAData* bgData = new BackgroundMTAData();
 
-        auto setClearOnShutdown = [ptr = &sMTADataOwner]() -> void {
+        auto setClearOnShutdown = [ptr = &sMTAData]() -> void {
           ClearOnShutdown(ptr, ShutdownPhase::XPCOMShutdownThreads);
         };
 
@@ -132,21 +127,9 @@ nsCOMPtr<nsIThread> EnsureMTA::GetPersistentMTAThread() {
         return bgData;
       }());
 
-  MOZ_ASSERT(sMTADataOwner);
+  MOZ_ASSERT(sMTAData);
 
-  if (!sMTAData) {
-    sMTAData = &sMTADataOwner;
-  }
-
-  return sMTADataOwner->GetThread();
-}
-
-/* static */
-void EnsureMTA::ShutdownPersistentMTAThread() {
-  MOZ_ASSERT(NS_IsMainThread());
-  if (StaticLocalAutoPtr<BackgroundMTAData>* data = sMTAData) {
-    *data = nullptr;
-  }
+  return sMTAData->GetThread();
 }
 
 /* static */

@@ -60,11 +60,6 @@ const loginInfoToLoginEntry = loginInfo =>
     password: loginInfo.password,
   });
 
-const MAX_DATE_MS = 8640000000000000;
-
-const validTimestamp = time =>
-  time > 0 && time <= MAX_DATE_MS ? time : undefined;
-
 // Convert a LoginInfo to a LoginEntryWithMeta, to be used for migrating
 // records between legacy and Rust storage.
 const loginInfoToLoginEntryWithMeta = loginInfo => {
@@ -74,11 +69,11 @@ const loginInfoToLoginEntryWithMeta = loginInfo => {
     meta: new LoginMeta({
       id: loginInfo.guid || Services.uuid.generateUUID().toString(),
       timesUsed: loginInfo.timesUsed || 1,
-      timeCreated: validTimestamp(loginInfo.timeCreated) || now,
-      timeLastUsed: validTimestamp(loginInfo.timeLastUsed) || now,
-      timePasswordChanged: validTimestamp(loginInfo.timePasswordChanged) || now,
+      timeCreated: loginInfo.timeCreated || now,
+      timeLastUsed: loginInfo.timeLastUsed || now,
+      timePasswordChanged: loginInfo.timePasswordChanged || now,
       timeLastBreachAlertDismissed:
-        validTimestamp(loginInfo.timeLastBreachAlertDismissed) || null,
+        loginInfo.timeLastBreachAlertDismissed || null,
     }),
   });
 };

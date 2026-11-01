@@ -23,7 +23,6 @@
 #include "jstypes.h"
 
 #include "frontend/ScriptIndex.h"  // ScriptIndex
-#include "gc/Allocator.h"
 #include "gc/Barrier.h"
 #include "js/ColumnNumber.h"  // JS::LimitedColumnNumberOneOrigin, JS::LimitedColumnNumberOneOrigin
 #include "js/CompileOptions.h"
@@ -1583,9 +1582,8 @@ static_assert(sizeof(ScriptWarmUpData) == sizeof(uintptr_t),
 //
 // Accessing this array just requires calling the appropriate public
 // Span-computing function.
-class MOZ_EMPTY_BASES alignas(uintptr_t) PrivateScriptData final
-    : public TrailingArray<PrivateScriptData>,
-      public gc::Buffer {
+class alignas(uintptr_t) PrivateScriptData final
+    : public TrailingArray<PrivateScriptData> {
   uint32_t ngcthings = 0;
 
   // Note: This is only defined for scripts with an enclosing scope. This

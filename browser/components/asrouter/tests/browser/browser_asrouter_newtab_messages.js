@@ -852,14 +852,8 @@ add_task(async function test_states_targeting_recompose() {
 
   // Start out neither default nor pinned. The state targeting uses the
   // "uncached" attributes, which read these live.
-
-  // Keep the sync stub for trainhop jobs, which run tests from main against
-  // Beta and Release builds whose targeting code still uses the sync API.
-  // Remove it once the async targeting migration reaches Release.
   let isDefaultStub = sandbox.stub(ShellService, "isDefaultBrowser");
   isDefaultStub.returns(false);
-  let isDefaultAsyncStub = sandbox.stub(ShellService, "isDefaultBrowserAsync");
-  isDefaultAsyncStub.resolves(false);
   let needsPinStub = sandbox.stub(ShellService, "doesAppNeedPin");
   needsPinStub.resolves(true);
 
@@ -901,7 +895,6 @@ add_task(async function test_states_targeting_recompose() {
 
     // Become default and pinned, then trigger a re-evaluation.
     isDefaultStub.returns(true);
-    isDefaultAsyncStub.resolves(true);
     needsPinStub.resolves(false);
 
     await SpecialPowers.spawn(
@@ -1009,11 +1002,7 @@ add_task(async function test_states_first_match_wins() {
 add_task(async function test_states_partial_progress() {
   let sandbox = sinon.createSandbox();
 
-  // Keep the sync stub for trainhop jobs, which run tests from main against
-  // Beta and Release builds whose targeting code still uses the sync API.
-  // Remove it once the async targeting migration reaches Release.
   let isDefaultStub = sandbox.stub(ShellService, "isDefaultBrowser");
-  let isDefaultAsyncStub = sandbox.stub(ShellService, "isDefaultBrowserAsync");
   let needsPinStub = sandbox.stub(ShellService, "doesAppNeedPin");
 
   let targetings = gTestPollingNewTabMessage.content.states.map(
@@ -1054,7 +1043,6 @@ add_task(async function test_states_partial_progress() {
 
   // Already the default, but still needs pinning: only "Pin to taskbar" shows.
   isDefaultStub.returns(true);
-  isDefaultAsyncStub.resolves(true);
   needsPinStub.resolves(true);
   await withTestMessage(sandbox, gTestPollingNewTabMessage, async () => {
     await assertSingleButton(
@@ -1065,7 +1053,6 @@ add_task(async function test_states_partial_progress() {
 
   // Already pinned, but not the default: only "Set as default" shows.
   isDefaultStub.returns(false);
-  isDefaultAsyncStub.resolves(false);
   needsPinStub.resolves(false);
   await withTestMessage(sandbox, gTestPollingNewTabMessage, async () => {
     await assertSingleButton(

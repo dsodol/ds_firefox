@@ -25,7 +25,7 @@ using namespace mozilla;
 //
 
 nsIFrame* NS_NewMathMLmoFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
-  return new nsMathMLmoFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell) nsMathMLmoFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMathMLmoFrame)
@@ -88,7 +88,7 @@ void nsMathMLmoFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
       selectedRect.Inflate(nsPresContext::CSSPixelsToAppUnits(1));
       isSelected = true;
     }
-    mMathMLChar.Display(aBuilder, this, aLists, 0, /* aIsArtifact */ false,
+    mMathMLChar.Display(aBuilder, this, aLists, 0,
                         isSelected ? &selectedRect : nullptr);
   }
 }

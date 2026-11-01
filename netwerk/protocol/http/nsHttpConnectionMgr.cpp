@@ -473,7 +473,6 @@ nsresult nsHttpConnectionMgr::PruneDeadConnections() {
 // traffic since they were "marked" and nuke them.
 nsresult nsHttpConnectionMgr::PruneNoTraffic() {
   LOG(("nsHttpConnectionMgr::PruneNoTraffic\n"));
-  MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   mPruningNoTraffic = true;
   return PostEvent(&nsHttpConnectionMgr::OnMsgPruneNoTraffic);
 }
@@ -993,7 +992,7 @@ void nsHttpConnectionMgr::UpdateCoalescingForNewConn(
             coalescingKey.mHash,
             [] {
               LOG(("UpdateCoalescingForNewConn() need new list element\n"));
-              return std::make_unique<nsTArray<CoalescedConnection>>(1);
+              return MakeUnique<nsTArray<CoalescedConnection>>(1);
             })
         ->AppendElement(CoalescedConnection{
             do_GetWeakReference(
@@ -2717,30 +2716,13 @@ void nsHttpConnectionMgr::OnMsgDoShiftReloadConnectionCleanup(int32_t,
   LOG(("nsHttpConnectionMgr::OnMsgDoShiftReloadConnectionCleanup\n"));
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
 
-  nsHttpConnectionInfo* ci = static_cast<nsHttpConnectionInfo*>(param);
+  mCoalescingHash.Clear();
 
-  if (ci) {
-    const OriginAttributes& oa = ci->GetOriginAttributes();
-    for (auto iter = mCoalescingHash.Iter(); !iter.Done(); iter.Next()) {
-      iter.Data()->RemoveElementsBy([&oa](const CoalescedConnection& aEntry) {
-        RefPtr<HttpConnectionBase> conn = do_QueryReferent(aEntry.mConn);
-        return !conn || conn->ConnectionInfo()->GetOriginAttributes() == oa;
-      });
-      if (iter.Data()->IsEmpty()) {
-        iter.Remove();
-      }
-    }
-  } else {
-    mCoalescingHash.Clear();
-  }
+  nsHttpConnectionInfo* ci = static_cast<nsHttpConnectionInfo*>(param);
 
   bool preserveTRR = StaticPrefs::network_trr_preserve_on_background();
   for (const auto& entry : mCT.Values()) {
     if (preserveTRR && entry->mConnInfo->GetIsTrrServiceChannel()) {
-      continue;
-    }
-    if (ci &&
-        entry->mConnInfo->GetOriginAttributes() != ci->GetOriginAttributes()) {
       continue;
     }
     entry->ClosePersistentConnections();
@@ -3957,7 +3939,6 @@ void nsHttpConnectionMgr::RegisterOriginCoalescingKey(HttpConnectionBase* conn,
 }
 
 bool nsHttpConnectionMgr::GetConnectionData(nsTArray<HttpRetParams>* aArg) {
-  MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   for (const RefPtr<ConnectionEntry>& ent : mCT.Values()) {
     aArg->AppendElement(ent->GetConnectionData());
   }
@@ -3967,7 +3948,6 @@ bool nsHttpConnectionMgr::GetConnectionData(nsTArray<HttpRetParams>* aArg) {
 
 bool nsHttpConnectionMgr::GetHttp3ConnectionStatsData(
     nsTArray<Http3ConnectionStatsParams>* aArg) {
-  MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   for (const RefPtr<ConnectionEntry>& ent : mCT.Values()) {
     if (ent->mConnInfo->GetPrivate()) {
       continue;
@@ -3987,7 +3967,6 @@ void nsHttpConnectionMgr::ResetIPFamilyPreference(nsHttpConnectionInfo* ci) {
 }
 
 void nsHttpConnectionMgr::ExcludeHttp2(const nsHttpConnectionInfo* ci) {
-  MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   LOG(("nsHttpConnectionMgr::ExcludeHttp2 excluding ci %s",
        ci->HashKey().get()));
   ConnectionEntry* ent = mCT.GetWeak(ci->HashKey());
@@ -4000,7 +3979,6 @@ void nsHttpConnectionMgr::ExcludeHttp2(const nsHttpConnectionInfo* ci) {
 }
 
 void nsHttpConnectionMgr::ExcludeHttp3(const nsHttpConnectionInfo* ci) {
-  MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   LOG(("nsHttpConnectionMgr::ExcludeHttp3 exclude ci %s", ci->HashKey().get()));
   ConnectionEntry* ent = mCT.GetWeak(ci->HashKey());
   if (!ent) {

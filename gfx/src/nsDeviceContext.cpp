@@ -7,24 +7,24 @@
 #include <algorithm>  // for max
 
 #include "gfxContext.h"
-#include "gfxPoint.h"
+#include "gfxPoint.h"    // for gfxSize
+#include "gfxTextRun.h"  // for gfxFontGroup
 #include "mozilla/LookAndFeel.h"
 #include "mozilla/ProfilerMarkers.h"
 #include "mozilla/StaticPrefs_layout.h"
-#include "mozilla/Try.h"
-#include "mozilla/dom/WindowContext.h"
+#include "mozilla/Try.h"                // for MOZ_TRY
+#include "mozilla/dom/WindowContext.h"  // for WindowContext
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/gfx/PathHelpers.h"
 #include "mozilla/gfx/PrintTarget.h"
-#include "mozilla/widget/Screen.h"
-#include "mozilla/widget/ScreenManager.h"
-#include "nsDebug.h"
-#include "nsFontMetrics.h"
-#include "nsIDeviceContextSpec.h"
-#include "nsIPrintSettings.h"
-#include "nsIWidget.h"
-#include "nsRect.h"
-#include "nsTArray.h"
+#include "mozilla/widget/Screen.h"         // for Screen
+#include "mozilla/widget/ScreenManager.h"  // for ScreenManager
+#include "nsDebug.h"                       // for NS_ASSERTION, etc
+#include "nsFontMetrics.h"                 // for nsFontMetrics
+#include "nsIDeviceContextSpec.h"          // for nsIDeviceContextSpec
+#include "nsIWidget.h"                     // for nsIWidget, NS_NATIVE_WINDOW
+#include "nsRect.h"                        // for nsRect
+#include "nsTArray.h"                      // for nsTArray, nsTArray_Impl
 
 #ifdef ACCESSIBILITY
 #  include "mozilla/a11y/PdfStructTreeBuilder.h"
@@ -157,7 +157,7 @@ UniquePtr<gfxContext> nsDeviceContext::CreateRenderingContextCommon(
 
   dt->AddUserData(&sDisablePixelSnapping, (void*)0x1, nullptr);
 
-  auto pContext = std::make_unique<gfxContext>(dt);
+  auto pContext = MakeUnique<gfxContext>(dt);
 
   gfxMatrix transform;
   transform.PreTranslate(mPrintingTranslate);
@@ -369,8 +369,7 @@ already_AddRefed<widget::Screen> nsDeviceContext::FindScreen() {
 }
 
 bool nsDeviceContext::CalcPrintingSize() {
-  const IntSize size =
-      mDeviceContextSpec->PrintSettings()->GetEffectiveSheetSizeInPoints();
+  gfxSize size(mPrintTarget->GetSize());
   // For printing, CSS inches and physical inches are identical
   // so it doesn't matter which we use here
   mWidth = NSToCoordRound(size.width * AppUnitsPerPhysicalInch() /

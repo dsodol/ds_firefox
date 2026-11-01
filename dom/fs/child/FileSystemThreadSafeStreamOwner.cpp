@@ -41,7 +41,7 @@ FileSystemThreadSafeStreamOwner::FileSystemThreadSafeStreamOwner(
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
       mWritableFileStream(aWritableFileStream),
 #endif
-      mStream(std::move(aStream)),
+      mStream(std::forward<nsCOMPtr<nsIRandomAccessStream>>(aStream)),
       mClosed(false) {
   MOZ_ASSERT(mWritableFileStream);
 }

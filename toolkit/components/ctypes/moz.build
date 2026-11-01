@@ -24,7 +24,3 @@ FINAL_LIBRARY = "xul"
 
 with Files("**"):
     BUG_COMPONENT = ("Core", "js-ctypes")
-
-SOURCE_HEADERS += [
-    "ctypes.h",
-]

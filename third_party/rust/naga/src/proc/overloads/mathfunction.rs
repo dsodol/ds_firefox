@@ -17,8 +17,7 @@ impl ir::MathFunction {
 
         let set: AnyOverloadSet = match self {
             // Component-wise unary numeric operations
-            Mf::Abs => regular!(1, SCALAR|VECN of NUMERIC).into(),
-            Mf::Sign => regular!(1, SCALAR|VECN of SIGNED_NUMERIC).into(),
+            Mf::Abs | Mf::Sign => regular!(1, SCALAR|VECN of NUMERIC).into(),
 
             // Component-wise binary numeric operations
             Mf::Min | Mf::Max => regular!(2, SCALAR|VECN of NUMERIC).into(),

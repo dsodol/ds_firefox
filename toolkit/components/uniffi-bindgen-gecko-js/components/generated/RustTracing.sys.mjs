@@ -83,7 +83,7 @@ return handleRustResult(
 /**
  * TracingLevel
  */
-export const TracingLevel = Object.freeze(/** @lends TracingLevel */ {
+export const TracingLevel = Object.freeze({
     /**
      * ERROR
      */

@@ -134,7 +134,6 @@ class DefaultSessionControlController(
     private val shareUseCases: ShareUseCases,
     private val showAddSearchWidgetPrompt: () -> Unit,
     private val requestSetDefaultBrowserPrompt: () -> Unit,
-    private val applicationScope: CoroutineScope = viewLifecycleScope,
 ) : SessionControlController {
 
     private var callback: SessionControlControllerCallback? = null
@@ -212,7 +211,7 @@ class DefaultSessionControlController(
         if (updatedCollection?.tabs?.size == 1) {
             callback?.removeCollection(collection)
         } else {
-            applicationScope.launch {
+            viewLifecycleScope.launch {
                 tabCollectionStorage.removeTabFromCollection(collection, tab)
             }
         }

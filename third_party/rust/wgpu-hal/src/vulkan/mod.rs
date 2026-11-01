@@ -31,7 +31,6 @@ mod descriptor;
 mod device;
 mod drm;
 mod instance;
-mod memory;
 mod pnext_chain;
 mod sampler;
 mod semaphore_list;
@@ -60,9 +59,6 @@ use naga::FastHashMap;
 use wgt::InternalCounter;
 
 use semaphore_list::SemaphoreList;
-
-pub use memory::MemoryAllocation;
-use memory::{MemoryAllocators, MemoryPool};
 
 use crate::vulkan::semaphore_list::{SemaphoreListMode, SemaphoreType};
 
@@ -274,7 +270,7 @@ impl Surface {
     ///
     /// - If the surface hasn't been configured.
     /// - If the surface has been configured for a DXGI swapchain.
-    /// - If the device doesn't have the [VK_GOOGLE_display_timing] extension enabled.
+    /// - If the device doesn't [support present timing](wgt::Features::VULKAN_GOOGLE_DISPLAY_TIMING).
     ///
     /// [VK_GOOGLE_display_timing]: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_GOOGLE_display_timing.html
     #[track_caller]
@@ -657,7 +653,7 @@ impl Drop for DeviceShared {
     reason = "needs work to not be disastrously verbose"
 )]
 pub struct Device {
-    mem_allocator: MemoryAllocators,
+    mem_allocator: Mutex<gpu_allocator::vulkan::Allocator>,
     desc_allocator: Mutex<descriptor::DescriptorAllocator>,
     valid_ash_memory_types: u32,
     naga_options: naga::back::spv::Options<'static>,
@@ -792,7 +788,7 @@ impl Drop for Queue {
 }
 #[derive(Debug)]
 enum BufferMemoryBacking {
-    Managed(MemoryAllocation),
+    Managed(gpu_allocator::vulkan::Allocation),
     VulkanMemory {
         memory: vk::DeviceMemory,
         offset: u64,
@@ -902,7 +898,7 @@ impl crate::DynBuffer for Buffer {}
 pub struct AccelerationStructure {
     raw: vk::AccelerationStructureKHR,
     buffer: vk::Buffer,
-    allocation: MemoryAllocation,
+    allocation: gpu_allocator::vulkan::Allocation,
     compacted_size_query: Option<vk::QueryPool>,
 }
 
@@ -938,7 +934,7 @@ impl AccelerationStructure {
 #[derive(Debug)]
 pub enum TextureMemory {
     // shared memory in GPU allocator (owned by wgpu-hal)
-    Allocation(MemoryAllocation),
+    Allocation(gpu_allocator::vulkan::Allocation),
 
     // dedicated memory (owned by wgpu-hal)
     Dedicated(vk::DeviceMemory),

@@ -233,17 +233,14 @@ Result<UsageInfo, nsresult> CacheQuotaClient::InitOrigin(
   // XXX Ensure the -wel file is removed if the caches.sqlite doesn't exist.
   QM_TRY(OkIf(!!cachesSQLiteFile), UsageInfo{});
 
-  QM_TRY_UNWRAP(
-      const auto maybeCipherKey,
-      ([this, &aOriginMetadata]() -> Result<Maybe<CipherKey>, nsresult> {
-        QM_TRY_UNWRAP(auto cipherKeyManager,
-                      GetOrCreateCipherKeyManager(aOriginMetadata));
-        if (cipherKeyManager) {
-          QM_TRY_UNWRAP(auto key, cipherKeyManager->Ensure("db"_ns));
-          return Some(key);
-        }
-        return Maybe<CipherKey>{};
-      }()));
+  const auto maybeCipherKey = [this, &aOriginMetadata] {
+    Maybe<CipherKey> maybeCipherKey;
+    auto cipherKeyManager = GetOrCreateCipherKeyManager(aOriginMetadata);
+    if (cipherKeyManager) {
+      maybeCipherKey = Some(cipherKeyManager->Ensure());
+    }
+    return maybeCipherKey;
+  }();
 
   QM_TRY_INSPECT(
       const auto& paddingSize,
@@ -516,32 +513,18 @@ nsresult CacheQuotaClient::WipePaddingFileInternal(
   return NS_OK;
 }
 
-Result<RefPtr<CipherKeyManager>, nsresult>
-CacheQuotaClient::GetOrCreateCipherKeyManager(
+RefPtr<CipherKeyManager> CacheQuotaClient::GetOrCreateCipherKeyManager(
     const PrincipalMetadata& aMetadata) {
   AssertIsOnIOThread();
 
+  auto privateOrigin = aMetadata.mIsPrivate;
+  if (!privateOrigin) {
+    return nullptr;
+  }
+
   const auto& origin = aMetadata.mOrigin;
-  if (aMetadata.mIsPrivate) {
-    return RefPtr<CipherKeyManager>(
-        mCipherKeyManagers.LookupOrInsertWith(origin, [&] {
-          return CipherKeyManager::CreateEphemeral("CacheCipherKeyManager");
-        }));
-  }
-
-  if (!aMetadata.mIsEncrypted) {
-    return RefPtr<CipherKeyManager>(nullptr);
-  }
-
-  if (auto entry = mCipherKeyManagers.Lookup(origin)) {
-    return RefPtr<CipherKeyManager>(entry.Data());
-  }
-
-  QM_TRY_UNWRAP(auto cipherKeyManager,
-                quota::QuotaManager::Get()->GetOrCreateCipherKeyManager(
-                    origin, quota::Client::DOMCACHE));
-  mCipherKeyManagers.InsertOrUpdate(origin, cipherKeyManager);
-  return cipherKeyManager;
+  return mCipherKeyManagers.LookupOrInsertWith(
+      origin, [] { return new CipherKeyManager("CacheCipherKeyManager"); });
 }
 
 CacheQuotaClient::~CacheQuotaClient() {

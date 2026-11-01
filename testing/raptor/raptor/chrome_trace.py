@@ -16,7 +16,7 @@ from logger.logger import RaptorLogger
 
 here = Path(__file__).resolve().parent
 LOG = RaptorLogger(component="raptor-chrome-trace")
-from raptor_profiling import RaptorProfiling, _profile_archive_paths
+from raptor_profiling import RaptorProfiling
 
 
 class ChromeTrace(RaptorProfiling):
@@ -69,26 +69,14 @@ class ChromeTrace(RaptorProfiling):
                 LOG.error("No profiles collected")
             return
 
+        test_type = self.test_config.get("type", "pageload")
         try:
             mode = zipfile.ZIP_DEFLATED
         except NameError:
             mode = zipfile.ZIP_STORED
 
-        # Compute the in-archive paths from the profiles that exist, so that
-        # a missing profile cannot force collision aliases on the others.
-        existing_profiles = []
-        for profile_info in profiles:
-            if not os.path.exists(profile_info["path"]):
-                if self._is_extra_profiler_run:
-                    LOG.info("Trace not found on extra profiler run.")
-                else:
-                    LOG.error("Trace not found.")
-                continue
-            existing_profiles.append(profile_info)
-        archive_paths = _profile_archive_paths(self.test_config, existing_profiles)
-
         with zipfile.ZipFile(self.profile_arcname, "a", mode) as arc:
-            for profile_info, path_in_zip in zip(existing_profiles, archive_paths):
+            for profile_info in profiles:
                 profile_path = profile_info["path"]
 
                 LOG.info(f"Opening profile at {profile_path}")
@@ -102,6 +90,22 @@ class ChromeTrace(RaptorProfiling):
                     continue
 
                 try:
+                    test_run_type = (
+                        "{}-{}".format(test_type, profile_info["type"])
+                        if test_type == "pageload"
+                        else test_type
+                    )
+                    folder_name = f"{self.test_config['name']}-{test_run_type}"
+                    iteration = Path(profile_path).parts[-1].split("-")[-1]
+                    if test_type == "pageload" and profile_info["type"] == "cold":
+                        iteration_type = "browser-cycle"
+                    elif profile_info["type"] == "warm":
+                        iteration_type = "page-cycle"
+                    else:
+                        iteration_type = "iteration"
+                    profile_name = "-".join([iteration_type, iteration])
+                    path_in_zip = Path(folder_name, profile_name)
+
                     LOG.info(
                         f"Adding profile {profile_path} to archive "
                         f"{self.profile_arcname} as {path_in_zip}"

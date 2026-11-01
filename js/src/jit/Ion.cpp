@@ -95,7 +95,6 @@ JitRuntime::~JitRuntime() {
   MOZ_ASSERT(ionLazyLinkList_.ref().isEmpty());
 
   MOZ_ASSERT(ionFreeTaskBatch_.ref().empty());
-  MOZ_ASSERT(debugModeOSRReturnSites_.ref().empty());
 
   // By this point, the jitcode global table should be empty.
   MOZ_ASSERT_IF(jitcodeGlobalTable_, jitcodeGlobalTable_->empty());
@@ -168,10 +167,6 @@ bool JitRuntime::generateTrampolines(JSContext* cx) {
   JitSpew(JitSpew_Codegen, "# Emitting invalidator");
   generateInvalidator(masm, &bailoutTail);
   rangeRecorder.recordOffset("Trampoline: Invalidator");
-
-  JitSpew(JitSpew_Codegen, "# Emitting BaselineDebugModeOSR handler");
-  generateBaselineDebugModeOSRHandler(masm);
-  rangeRecorder.recordOffset("Trampoline: BaselineDebugModeOSR");
 
   JitSpew(JitSpew_Codegen, "# Emitting EnterJIT [Normal] trampoline");
   generateEnterJIT(cx, masm, EnterJitMode::Normal);
@@ -343,6 +338,20 @@ void JitRuntime::freeIonOsrTempData() {
   ionOsrTempDataSize_ = 0;
 }
 
+static bool LinkCodeGen(JSContext* cx, CodeGenerator* codegen,
+                        HandleScript script) {
+  if (!codegen->link(cx)) {
+    return false;
+  }
+
+  // Record Ion compile time in glean.
+  if (mozilla::TimeDuration compileTime = codegen->getCompilationTime()) {
+    cx->metrics().ION_COMPILE_TIME(compileTime);
+  }
+
+  return true;
+}
+
 static bool LinkBackgroundCodeGen(JSContext* cx, IonCompileTask* task) {
   CodeGenerator* codegen = task->backgroundCodegen();
   if (!codegen) {
@@ -350,7 +359,8 @@ static bool LinkBackgroundCodeGen(JSContext* cx, IonCompileTask* task) {
   }
 
   JitContext jctx(cx);
-  return codegen->link(cx);
+  RootedScript script(cx, task->script());
+  return LinkCodeGen(cx, codegen, script);
 }
 
 void jit::LinkIonScript(JSContext* cx, HandleScript calleeScript) {
@@ -1744,6 +1754,7 @@ CodeGenerator* CompileBackEnd(MIRGenerator* mir, WarpSnapshot* snapshot) {
   // Everything in CompileBackEnd can potentially run on a helper thread.
   AutoEnterIonBackend enter;
   AutoSpewEndFunction spewEndFunction(mir);
+  mozilla::TimeStamp compileStartTime = mozilla::TimeStamp::Now();
 
   {
     WarpCompilation comp(mir->alloc());
@@ -1762,7 +1773,11 @@ CodeGenerator* CompileBackEnd(MIRGenerator* mir, WarpSnapshot* snapshot) {
     return nullptr;
   }
 
-  return GenerateCode(mir, lir, snapshot);
+  CodeGenerator* codegen = GenerateCode(mir, lir, snapshot);
+  if (codegen) {
+    codegen->setCompilationTime(mozilla::TimeStamp::Now() - compileStartTime);
+  }
+  return codegen;
 }
 
 static AbortReasonOr<WarpSnapshot*> CreateWarpSnapshot(JSContext* cx,
@@ -1931,7 +1946,7 @@ static AbortReason IonCompile(JSContext* cx, HandleScript script,
       return AbortReason::Disable;
     }
 
-    succeeded = codegen->link(cx);
+    succeeded = LinkCodeGen(cx, codegen.get(), script);
   }
 
   if (succeeded) {

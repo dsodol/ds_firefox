@@ -768,28 +768,13 @@ add_task(
 
 add_task(clear_state);
 
-async function listTempZipFiles() {
-  const children = await IOUtils.getChildren(PathUtils.tempDir);
-  return children.filter(path => path.endsWith(".zip"));
-}
-
-async function assertNoTempZipLeftBehind(zipsBefore) {
-  const leftBehind = (await listTempZipFiles()).filter(
-    path => !zipsBefore.includes(path)
-  );
-  Assert.deepEqual(leftBehind, [], "No zip file is left behind.");
-}
-
 add_task(async function test_cacheAll_happy_path() {
-  const zipsBefore = await listTempZipFiles();
-
   // verify bundle is downloaded succesfully
   const allSuccess = await downloader.cacheAll();
   Assert.ok(
     allSuccess,
     "Attachments cacheAll succesfully downloaded a bundle and saved all attachments"
   );
-  await assertNoTempZipLeftBehind(zipsBefore);
 
   // verify accuracy of attachments downloaded
   Assert.equal(
@@ -880,14 +865,12 @@ add_task(clear_state);
 add_task(async function test_cacheAll_failed_unzip() {
   downloader.bucketName = "error-bucket";
   downloader.collectionName = "bad-zip";
-  const zipsBefore = await listTempZipFiles();
   const allSuccess = await downloader.cacheAll();
   Assert.equal(
     allSuccess,
     false,
     "Attachments cacheAll request failed to extract a bundle and returned false"
   );
-  await assertNoTempZipLeftBehind(zipsBefore);
 });
 
 add_task(clear_state);
@@ -900,7 +883,6 @@ add_task(async function test_cacheAll_failed_save() {
     throw new Error("boom");
   };
 
-  const zipsBefore = await listTempZipFiles();
   const allSuccess = await client.attachments.cacheAll();
 
   Assert.equal(
@@ -908,7 +890,6 @@ add_task(async function test_cacheAll_failed_save() {
     false,
     "Attachments cacheAll failed to save entries in DB and returned false"
   );
-  await assertNoTempZipLeftBehind(zipsBefore);
   client.db.saveAttachments = backup;
 });
 

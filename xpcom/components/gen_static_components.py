@@ -1,4 +1,3 @@
-import functools
 import json
 import os
 import re
@@ -990,14 +989,14 @@ def gen_substs(manifests):
 
 
 # Returns true if the given build config substitution is defined and truthy.
-def defined(subst, config=buildconfig):
-    return bool(config.substs.get(subst))
+def defined(subst):
+    return bool(buildconfig.substs.get(subst))
 
 
-def read_manifest(filename, config=buildconfig):
+def read_manifest(filename):
     glbl = {
-        "buildconfig": config,
-        "defined": functools.partial(defined, config=config),
+        "buildconfig": buildconfig,
+        "defined": defined,
         "ProcessSelector": ProcessSelector,
         "BackgroundTasksSelector": BackgroundTasksSelector,
     }

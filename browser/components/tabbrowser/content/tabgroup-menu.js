@@ -20,8 +20,6 @@
   ChromeUtils.defineESModuleGetters(lazy, {
     AIWindow:
       "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
-    AIWindowMenu:
-      "moz-src:///browser/components/aiwindow/ui/modules/AIWindowMenu.sys.mjs",
   });
 
   ChromeUtils.importESModule(
@@ -394,6 +392,13 @@
         true,
         this.#onSmartTabGroupsPrefChange.bind(this)
       );
+
+      XPCOMUtils.defineLazyPreferenceGetter(
+        this,
+        "aitabEnabled",
+        "browser.smartwindow.aitab.enabled",
+        false
+      );
     }
 
     connectedCallback() {
@@ -544,8 +549,7 @@
       this.#commandButtons.createAITab.addEventListener("command", () => {
         lazy.AIWindow.createAITab(
           window,
-          this.activeGroup.tabs.map(tab => tab.linkedBrowser.currentURI.spec),
-          "tab_group"
+          this.activeGroup.tabs.map(tab => tab.linkedBrowser.currentURI.spec)
         );
         this.close();
       });
@@ -1030,11 +1034,13 @@
 
       this.#commandButtons.shareTabGroup.hidden =
         !ContentSharingUtils.isEnabled;
-      this.#commandButtons.createAITab.hidden =
-        !lazy.AIWindowMenu.canShowAITabMenu(
-          window,
-          this.activeGroup?.tabs.map(tab => tab.linkedBrowser.currentURI) ?? []
-        );
+      this.#commandButtons.createAITab.hidden = !(
+        this.aitabEnabled &&
+        lazy.AIWindow.isAIWindowActiveAndEnabled(window) &&
+        this.activeGroup?.tabs.some(tab =>
+          ["http", "https"].includes(tab.linkedBrowser.currentURI.scheme)
+        )
+      );
     }
 
     on_popuphidden() {

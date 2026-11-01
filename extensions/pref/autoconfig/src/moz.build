@@ -17,9 +17,3 @@ FINAL_LIBRARY = "xul"
 FINAL_TARGET_FILES.defaults.autoconfig += [
     "prefcalls.js",
 ]
-
-SOURCE_HEADERS += [
-    "nsAutoConfig.h",
-    "nsJSConfigTriggers.h",
-    "nsReadConfig.h",
-]

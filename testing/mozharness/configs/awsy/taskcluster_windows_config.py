@@ -22,6 +22,7 @@ config = {
     "default_actions": [
         "clobber",
         "download-and-extract",
+        "populate-webroot",
         "create-virtualenv",
         "install",
         "run-tests",

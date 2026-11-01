@@ -254,7 +254,7 @@ add_task(async function test_source_chip() {
     const chips = await SpecialPowers.spawn(browser, [], () => {
       const shadow = content.document.getElementById("table").shadowRoot;
       return [...shadow.querySelectorAll("tbody tr")].map(row => {
-        const chip = row.querySelector("smartwindow-chip");
+        const chip = row.querySelector("ai-website-chip");
         return (
           chip && { label: chip.label, href: chip.href, icon: chip.iconSrc }
         );
@@ -286,7 +286,7 @@ add_task(async function test_source_chip() {
       });
       const chip = content.document
         .getElementById("table")
-        .shadowRoot.querySelector("smartwindow-chip");
+        .shadowRoot.querySelector("ai-website-chip");
       chip.shadowRoot.querySelector("a").click();
       return opened;
     });

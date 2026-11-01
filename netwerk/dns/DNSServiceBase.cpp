@@ -12,7 +12,6 @@
 #include "nsIPrefBranch.h"
 #include "nsIProtocolProxyService2.h"
 #include "nsIProxyInfo.h"
-#include "nsThreadPool.h"
 #include "nsThreadUtils.h"
 
 #if defined(XP_WIN)
@@ -28,8 +27,6 @@ static const char kPrefDisablePrefetch[] = "network.dns.disablePrefetch";
 static const char kPrefNetworkProxySOCKS[] = "network.proxy.socks";
 static const char kPrefNetworkProxySOCKSVersion[] =
     "network.proxy.socks_version";
-
-StaticRefPtr<nsIThreadPool> DNSServiceBase::sEtcHostsReaderPool;
 
 NS_IMPL_ISUPPORTS(DNSServiceBase, nsIObserver)
 
@@ -124,42 +121,9 @@ void DNSServiceBase::DoReadEtcHostsFile(ParsingCallback aCallback) {
     rust_parse_etc_hosts(&path, aCallback);
   };
 
-  nsIThreadPool* pool = GetEtcHostsReaderPool();
-  if (!pool) {
-    return;
-  }
-  (void)pool->Dispatch(
+  (void)NS_DispatchBackgroundTask(
       NS_NewRunnableFunction("Read /etc/hosts file", readHostsTask),
-      NS_DISPATCH_NORMAL);
-}
-
-// Reading the hosts file can block forever, e.g. when security software
-// holds it. A dedicated pool lets shutdown time out and leak the thread.
-nsIThreadPool* DNSServiceBase::GetEtcHostsReaderPool() {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  if (sEtcHostsReaderPool) {
-    return sEtcHostsReaderPool;
-  }
-  if (PastShutdownPhase(ShutdownPhase::XPCOMShutdown)) {
-    return nullptr;
-  }
-
-  nsCOMPtr<nsIThreadPool> pool = new nsThreadPool();
-  MOZ_ALWAYS_SUCCEEDS(pool->SetThreadLimit(1));
-  MOZ_ALWAYS_SUCCEEDS(pool->SetIdleThreadLimit(0));
-  MOZ_ALWAYS_SUCCEEDS(pool->SetName("EtcHostsReader"_ns));
-  sEtcHostsReaderPool = pool;
-
-  RunOnShutdown(
-      [] {
-        nsCOMPtr<nsIThreadPool> pool = sEtcHostsReaderPool.forget();
-        pool->ShutdownWithTimeout(
-            StaticPrefs::network_dns_resolver_shutdown_timeout_ms());
-      },
-      ShutdownPhase::XPCOMShutdown);
-
-  return sEtcHostsReaderPool;
+      NS_DISPATCH_EVENT_MAY_BLOCK);
 }
 
 }  // namespace mozilla::net

@@ -259,7 +259,7 @@ static bool scanArp(char* ip, char* mac, size_t maclen) {
       return nullptr;
     }
 
-    return std::make_unique<char[]>(needed);
+    return MakeUnique<char[]>(needed);
   };
 
   UniquePtr<char[]> buf = allocateBuf();

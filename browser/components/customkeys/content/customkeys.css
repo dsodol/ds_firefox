@@ -139,8 +139,7 @@ moz-box-group {
 
 /* Edit button */
 
-.internal .change,
-.system-assigned .change {
+.internal .change {
   display: none;
 }
 
@@ -152,7 +151,6 @@ moz-box-group {
     visibility: visible;
   }
   .internal &,
-  .system-assigned &,
   .customized & {
     display: none;
   }
@@ -164,9 +162,6 @@ moz-box-group {
   display: none;
   .customized & {
     display: revert;
-  }
-  .system-assigned & {
-    display: none;
   }
 }
 

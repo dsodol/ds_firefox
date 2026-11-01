@@ -414,7 +414,6 @@ class MockRuntime {
 
     this.world_ = null;
     this.worldDirty_ = false;
-    this.skipUpdatedPlanesData_ = false;
 
     this.anchor_controllers_ = new Map();
     // ID of the next anchor to be assigned.
@@ -623,11 +622,6 @@ class MockRuntime {
   clearWorld() {
     this.world_ = null;
     this.worldDirty_ = true;
-  }
-
-  simulateIncompletePlaneDetectionData() {
-    // Test-only hook for simulating a device that sends an incomplete delta.
-    this.skipUpdatedPlanesData_ = true;
   }
 
   // WebXR Test API Anchor extensions
@@ -1452,8 +1446,6 @@ class MockRuntime {
       allPlanesIds: [],
       updatedPlanesData: []
     };
-    const skipUpdatedPlanesData = this.skipUpdatedPlanesData_;
-    this.skipUpdatedPlanesData_ = false;
 
     if (!this.world_) {
       this.worldDirty_ = false;
@@ -1472,7 +1464,7 @@ class MockRuntime {
       frameData.detectedPlanesData.allPlanesIds.push(planeId);
 
       // Only treat planes as updated if the world state was changed since last frame.
-      if (this.worldDirty_ && !skipUpdatedPlanesData) {
+      if (this.worldDirty_) {
         const planeInfo = region.planeInfo;
         if (planeInfo) {
           let semanticLabel = null;

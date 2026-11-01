@@ -1,5 +1,5 @@
 gczeal(15)
-enableTrackAllocations()
+enableShellAllocationMetadataBuilder()
 gczeal(7, 1)
 a = parseModule(``)
 moduleLoadAndLink(a)

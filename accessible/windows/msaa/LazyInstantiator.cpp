@@ -462,9 +462,7 @@ LazyInstantiator::AddRef() {
 
 ULONG
 LazyInstantiator::Release() {
-  NS_WARNING_ASSERTION(
-      NS_IsMainThread(),
-      "LazyInstantiator should only be released on main thread!");
+  MOZ_DIAGNOSTIC_ASSERT(NS_IsMainThread());
   ULONG result;
 
   // Always delegate refcounting to mRealRootUnk when it exists

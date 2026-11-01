@@ -83,11 +83,7 @@ function run_install_tests(callback) {
         "Should have seen the right result for an install from " + mainURL;
     }
 
-    let install = await AddonManager.getInstallForURL(url, {
-      id: "sslinstall-1@tests.mozilla.org",
-      type: "extension",
-      version: "1.0",
-    });
+    let install = await AddonManager.getInstallForURL(url);
     gPendingInstall = install;
     install.addListener({
       onDownloadEnded(install) {

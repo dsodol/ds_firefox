@@ -116,11 +116,7 @@ class AccessibleCaret {
   // Is the point within the caret's rect? The point should be relative to root
   // frame.
   enum class TouchArea {
-    // Full contains both text overlay and caret image.
-    //
-    // Currently unused. It might need to change to TextOverlay when
-    // implementing bug 1671530 or bug 2082580.
-    Full,
+    Full,  // Contains both text overlay and caret image.
     CaretImage
   };
   bool Contains(const nsPoint& aPoint, TouchArea aTouchArea) const;

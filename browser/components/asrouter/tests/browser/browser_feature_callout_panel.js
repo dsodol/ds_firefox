@@ -858,8 +858,8 @@ add_task(async function feature_callout_more_button_with_dismiss() {
 });
 
 add_task(async function test_content_document_selector() {
-  const { AuthProvider } = ChromeUtils.importESModule(
-    "moz-src:///browser/components/aiwindow/models/AuthProvider.sys.mjs"
+  const { AIWindowAccountAuth } = ChromeUtils.importESModule(
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindowAccountAuth.sys.mjs"
   );
   await SpecialPowers.pushPrefEnv({
     set: [
@@ -867,7 +867,9 @@ add_task(async function test_content_document_selector() {
       ["browser.smartwindow.firstrun.hasCompleted", true],
     ],
   });
-  const stub = sinon.stub(AuthProvider, "maybeSignIn").resolves(true);
+  const stub = sinon
+    .stub(AIWindowAccountAuth, "ensureAIWindowAccess")
+    .resolves(true);
   const win = await BrowserTestUtils.openNewBrowserWindow({ aiWindow: true });
   await BrowserTestUtils.waitForMutationCondition(
     win.document.documentElement,

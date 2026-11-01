@@ -661,7 +661,11 @@ void gfxDWriteFontEntry::GetVariationInstancesInternal(
 
 #if MOZ_FONTATIONS
 void gfxDWriteFontEntry::InitSkrifaFontFace() {
-  RefPtr<IDWriteFontFace> face = mFontFace;
+  RefPtr<IDWriteFontFace> face;
+  {
+    AutoReadLock lock(mLock);
+    face = mFontFace;
+  }
   if (!face) {
     if (!mFont || FAILED(mFont->CreateFontFace(getter_AddRefs(face)))) {
       return;
@@ -705,9 +709,9 @@ void gfxDWriteFontEntry::InitSkrifaFontFace() {
     if (!mappedFile.IsValid()) {
       break;
     }
-    const Span<const uint8_t> span = mappedFile.AsSpan();
-    if (auto* skf = skrifa_font_new_from_index(span.data(), span.size(),
-                                               face->GetIndex())) {
+    const uint8_t* const data = static_cast<const uint8_t*>(mappedFile.Data());
+    const size_t size = mappedFile.Size();
+    if (auto* skf = skrifa_font_new_from_index(data, size, face->GetIndex())) {
       SetSkrifaFont(skf, std::move(mappedFile));
     }
     return;
@@ -2070,12 +2074,12 @@ void gfxDWriteFontList::AddSubstitute(const nsCString& aSubstituteName,
     }
     if (SharedFontList()->FindFamily(aActualFontName,
                                      /*aPrimaryNameOnly*/ true)) {
-      substitutions.InsertOrUpdate(
-          aSubstituteName, std::make_unique<nsCString>(aActualFontName));
+      substitutions.InsertOrUpdate(aSubstituteName,
+                                   MakeUnique<nsCString>(aActualFontName));
     } else if (substitutions.Get(aActualFontName)) {
       substitutions.InsertOrUpdate(
           aSubstituteName,
-          std::make_unique<nsCString>(*substitutions.Get(aActualFontName)));
+          MakeUnique<nsCString>(*substitutions.Get(aActualFontName)));
     } else {
       mNonExistingFonts.AppendElement(aSubstituteName);
     }
@@ -2126,10 +2130,10 @@ void gfxDWriteFontList::GetDirectWriteSubstitutes() {
       BuildKeyNameFromFontName(actualFontName);
       if (SharedFontList()->FindFamily(actualFontName,
                                        /*aPrimaryNameOnly*/ true)) {
-        mSubstitutions.InsertOrUpdate(
-            substituteName, std::make_unique<nsCString>(actualFontName));
+        mSubstitutions.InsertOrUpdate(substituteName,
+                                      MakeUnique<nsCString>(actualFontName));
         mHardcodedSubstitutions.InsertOrUpdate(
-            substituteName, std::make_unique<nsCString>(actualFontName));
+            substituteName, MakeUnique<nsCString>(actualFontName));
       } else {
         mNonExistingFonts.AppendElement(substituteName);
       }

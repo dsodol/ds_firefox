@@ -59,7 +59,7 @@ already_AddRefed<nsFontMetrics> nsFontCache::GetMetricsFor(
     const nsFont& aFont, const nsFontMetrics::Params& aParams) {
   // We may eventually want to put an nsFontCache on canvas2d workers, but for
   // now it is only used by the main-thread layout code and stylo.
-  mozilla::AssertIsMainThreadOrServoFFILocked();
+  mozilla::AssertIsMainThreadOrServoFontMetricsLocked();
 
   nsAtom* language = aParams.language && !aParams.language->IsEmpty()
                          ? aParams.language

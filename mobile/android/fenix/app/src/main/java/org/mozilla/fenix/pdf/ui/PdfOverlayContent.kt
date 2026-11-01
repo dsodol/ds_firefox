@@ -54,7 +54,6 @@ internal fun SignatureDialogContent(
 
         SignatureDialog(
             state = signatureState.signature,
-            isAddingSignature = signatureState.isAddingSignature,
             onCloseClick = signatureActions.onCloseClick,
             onClearClick = signatureActions.onClearClick,
             onAddClick = signatureActions.onAddClick,

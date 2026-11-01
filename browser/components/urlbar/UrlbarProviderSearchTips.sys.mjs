@@ -15,7 +15,9 @@ import {
 } from "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs";
 import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
 
-const lazy = XPCOMUtils.declareLazy({
+const lazy = {};
+
+ChromeUtils.defineESModuleGetters(lazy, {
   AppMenuNotifications: "resource://gre/modules/AppMenuNotifications.sys.mjs",
   DefaultBrowserCheck:
     "moz-src:///browser/components/DefaultBrowserCheck.sys.mjs",
@@ -28,38 +30,40 @@ const lazy = XPCOMUtils.declareLazy({
     "moz-src:///browser/components/urlbar/UrlbarProviderTopSites.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
-  cfrFeaturesUserPref: {
-    pref: "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features",
-    default: true,
-  },
-  SUPPORTED_ENGINES: () => {
-    // Converts a list of Google domains to a pipe separated string of escaped TLDs.
-    // [www.google.com, ..., www.google.co.uk] => "com|...|co\.uk"
-    const googleTLDs = lazy.SearchStaticData.getAlternateDomains(
-      "www.google.com"
-    )
-      .map(str => str.slice("www.google.".length).replaceAll(".", "\\."))
-      .join("|");
+});
 
-    // This maps engine names to regexes matching their homepages. We show the
-    // redirect tip on these pages.
-    return new Map([
-      ["Bing", { domainPath: /^www\.bing\.com\/$/ }],
-      [
-        "DuckDuckGo",
-        {
-          domainPath: /^(start\.)?duckduckgo\.com\/$/,
-          prohibitedSearchParams: ["q"],
-        },
-      ],
-      [
-        "Google",
-        {
-          domainPath: new RegExp(`^www\.google\.(?:${googleTLDs})\/(webhp)?$`),
-        },
-      ],
-    ]);
-  },
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "cfrFeaturesUserPref",
+  "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features",
+  true
+);
+
+ChromeUtils.defineLazyGetter(lazy, "SUPPORTED_ENGINES", () => {
+  // Converts a list of Google domains to a pipe separated string of escaped TLDs.
+  // [www.google.com, ..., www.google.co.uk] => "com|...|co\.uk"
+  const googleTLDs = lazy.SearchStaticData.getAlternateDomains("www.google.com")
+    .map(str => str.slice("www.google.".length).replaceAll(".", "\\."))
+    .join("|");
+
+  // This maps engine names to regexes matching their homepages. We show the
+  // redirect tip on these pages.
+  return new Map([
+    ["Bing", { domainPath: /^www\.bing\.com\/$/ }],
+    [
+      "DuckDuckGo",
+      {
+        domainPath: /^(start\.)?duckduckgo\.com\/$/,
+        prohibitedSearchParams: ["q"],
+      },
+    ],
+    [
+      "Google",
+      {
+        domainPath: new RegExp(`^www\.google\.(?:${googleTLDs})\/(webhp)?$`),
+      },
+    ],
+  ]);
 });
 
 // The maximum number of times we'll show a tip across all sessions.
@@ -204,7 +208,7 @@ export class UrlbarProviderSearchTips extends UrlbarProvider {
    *
    * @param {UrlbarResult} result
    *   The result that was picked.
-   * @param {BrowserWindow} window
+   * @param {window} window
    *   The browser window in which the tip is being displayed.
    */
   #pickResult(result, window) {
@@ -239,7 +243,7 @@ export class UrlbarProviderSearchTips extends UrlbarProvider {
   /**
    * Called from `onLocationChange` in browser.js.
    *
-   * @param {BrowserWindow} window
+   * @param {window} window
    *  The browser window where the location change happened.
    * @param {nsIURI} uri
    *  The URI being navigated to.
@@ -262,7 +266,7 @@ export class UrlbarProviderSearchTips extends UrlbarProvider {
   /**
    * Called by the static function with the same name.
    *
-   * @param {BrowserWindow} window
+   * @param {window} window
    *  The browser window where the location change happened.
    * @param {nsIURI} uri
    *  The URI being navigated to.
@@ -336,7 +340,7 @@ export class UrlbarProviderSearchTips extends UrlbarProvider {
    *
    * @param {string} urlStr
    *   The URL of the page being loaded, in string form.
-   * @param {BrowserWindow} window
+   * @param {window} window
    *   The browser window in which the tip is being displayed.
    */
   async _maybeShowTipForUrl(urlStr, window) {
@@ -519,11 +523,7 @@ async function isDefaultEngineHomepage(urlStr) {
     return false;
   }
 
-  if (
-    homepageMatches.prohibitedSearchParams?.some(param =>
-      url.searchParams.has(param)
-    )
-  ) {
+  if (url.searchParams.has(homepageMatches.prohibitedSearchParams)) {
     return false;
   }
 

@@ -33,6 +33,7 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#ifdef USE_TURN
 
 #include <assert.h>
 #include <string.h>
@@ -1287,3 +1288,4 @@ static int nr_turn_permission_destroy(nr_turn_permission **permp)
   return(0);
 }
 
+#endif /* USE_TURN */

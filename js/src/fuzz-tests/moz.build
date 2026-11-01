@@ -42,7 +42,3 @@ USE_LIBS += [
 ]
 
 DEFINES["topsrcdir"] = "%s/js/src" % TOPSRCDIR
-
-SOURCE_HEADERS += [
-    "tests.h",
-]

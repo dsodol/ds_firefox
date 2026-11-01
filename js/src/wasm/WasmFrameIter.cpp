@@ -151,20 +151,17 @@ WasmFrameIter::WasmFrameIter(JitActivation* activation, wasm::Frame* fp)
     currentFrameStackSwitched_ = dynamicSwitchToMainStack;
 #endif
 
-    // If wasm::StartUnwinding unwound the trapping frame (which only happens
-    // for IndirectCallBadSig), the current frame is the caller's, so its
-    // resume PC is the call site in the caller, not the trap's resume PC in
-    // the callee.  Stackmap lookup and debugEnabled() rely on this.  The top
-    // frame will never be at a ReturnStub callsite, except in this case.
-    if (trapData.unwoundFrame) {
+    // The debugEnabled() relies on valid value of resumePCinCurrentFrame_
+    // to identify DebugFrame. Normally this field is updated at popFrame().
+    // The only case when this can happend is during IndirectCallBadSig
+    // trapping and stack unwinding. The top frame will never be at ReturnStub
+    // callsite, except during IndirectCallBadSig unwinding.
+    CallSite site;
+    if (code_->lookupCallSite(unwoundPC, &site) &&
+        site.kind() == CallSiteKind::ReturnStub) {
       MOZ_ASSERT(trapData.trap == Trap::IndirectCallBadSig);
       resumePCinCurrentFrame_ = (uint8_t*)unwoundPC;
     } else {
-#ifdef DEBUG
-      CallSite site;
-      MOZ_ASSERT(!(code_->lookupCallSite(unwoundPC, &site) &&
-                   site.kind() == CallSiteKind::ReturnStub));
-#endif
       resumePCinCurrentFrame_ = (uint8_t*)trapData.resumePC;
     }
 
@@ -962,8 +959,7 @@ void wasm::GenerateMinimalEpilogue(MacroAssembler& masm, uint32_t* ret) {
 void wasm::GenerateFunctionPrologue(MacroAssembler& masm,
                                     const CallIndirectId& callIndirectId,
                                     const Maybe<uint32_t>& tier1FuncIndex,
-                                    FuncOffsets* offsets,
-                                    FaultingCodeRange* badSigTrap) {
+                                    FuncOffsets* offsets) {
   AutoCreatedBy acb(masm, "wasm::GenerateFunctionPrologue");
 
   // We are going to generate this code layout:
@@ -1071,11 +1067,7 @@ void wasm::GenerateFunctionPrologue(MacroAssembler& masm,
         // up wasm::StartUnwinding, which uses the PC to determine if the frame
         // has been constructed or not.
         masm.bind(&fail);
-        FaultingCodeRange fcr =
-            masm.wasmTrap(Trap::IndirectCallBadSig, TrapSiteDesc());
-        if (badSigTrap) {
-          *badSigTrap = fcr;
-        }
+        masm.wasmTrap(Trap::IndirectCallBadSig, TrapSiteDesc());
         break;
       }
       case CallIndirectIdKind::Immediate: {
@@ -1089,11 +1081,7 @@ void wasm::GenerateFunctionPrologue(MacroAssembler& masm,
         // up wasm::StartUnwinding, which uses the PC to determine if the frame
         // has been constructed or not.
         masm.bind(&fail);
-        FaultingCodeRange fcr =
-            masm.wasmTrap(Trap::IndirectCallBadSig, TrapSiteDesc());
-        if (badSigTrap) {
-          *badSigTrap = fcr;
-        }
+        masm.wasmTrap(Trap::IndirectCallBadSig, TrapSiteDesc());
         break;
       }
       case CallIndirectIdKind::None:

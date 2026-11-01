@@ -62,10 +62,9 @@
 #endif
 
 #if PIXMAN_HAS_ATOMIC_OPS
-
-static cairo_atomic_intptr_t __pixman_transparent_image; /*  (pixman_image_t *) */
-static cairo_atomic_intptr_t __pixman_black_image;
-static cairo_atomic_intptr_t __pixman_white_image;
+static pixman_image_t *__pixman_transparent_image;
+static pixman_image_t *__pixman_black_image;
+static pixman_image_t *__pixman_white_image;
 
 static pixman_image_t *
 _pixman_transparent_image (void)
@@ -74,7 +73,7 @@ _pixman_transparent_image (void)
 
     TRACE ((stderr, "%s\n", __FUNCTION__));
 
-    image = (pixman_image_t *) _cairo_atomic_ptr_get (&__pixman_transparent_image);
+    image = __pixman_transparent_image;
     if (unlikely (image == NULL)) {
 	pixman_color_t color;
 
@@ -106,7 +105,7 @@ _pixman_black_image (void)
 
     TRACE ((stderr, "%s\n", __FUNCTION__));
 
-    image = (pixman_image_t *) _cairo_atomic_ptr_get (&__pixman_black_image);
+    image = __pixman_black_image;
     if (unlikely (image == NULL)) {
 	pixman_color_t color;
 
@@ -138,7 +137,7 @@ _pixman_white_image (void)
 
     TRACE ((stderr, "%s\n", __FUNCTION__));
 
-    image = (pixman_image_t *) _cairo_atomic_ptr_get (&__pixman_white_image);
+    image = __pixman_white_image;
     if (unlikely (image == NULL)) {
 	pixman_color_t color;
 
@@ -179,7 +178,6 @@ static struct {
 static int n_cached;
 
 #else  /* !PIXMAN_HAS_ATOMIC_OPS */
-
 static pixman_image_t *
 _pixman_transparent_image (void)
 {
@@ -200,7 +198,6 @@ _pixman_white_image (void)
     TRACE ((stderr, "%s\n", __FUNCTION__));
     return _pixman_image_for_color (CAIRO_COLOR_WHITE);
 }
-
 #endif /* !PIXMAN_HAS_ATOMIC_OPS */
 
 

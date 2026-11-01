@@ -44,7 +44,7 @@ already_AddRefed<IPDLUnitTestParent> IPDLUnitTestParent::CreateCrossProcess() {
 
   geckoargs::ChildProcessArgs extraArgs;
 
-  auto prefSerializer = std::make_unique<ipc::SharedPreferenceSerializer>();
+  auto prefSerializer = MakeUnique<ipc::SharedPreferenceSerializer>();
   if (!prefSerializer->SerializeToSharedMemory(GeckoProcessType_IPDLUnitTest,
                                                /* remoteType */ {})) {
     ADD_FAILURE()
@@ -87,7 +87,10 @@ already_AddRefed<IPDLUnitTestParent> IPDLUnitTestParent::CreateCrossThread() {
 }
 
 IPDLUnitTestParent::~IPDLUnitTestParent() {
-  mSubprocess = nullptr;
+  if (mSubprocess) {
+    mSubprocess->Destroy();
+    mSubprocess = nullptr;
+  }
   if (mOtherThread) {
     mOtherThread->Shutdown();
   }
@@ -186,7 +189,7 @@ ipc::IPCResult IPDLUnitTestChild::RecvStart(const nsCString& aName,
   return IPC_OK();
 }
 
-void IPDLUnitTestChild::ActorDestroy(ActorDestroyReason /*aWhy*/) {
+void IPDLUnitTestChild::ActorDestroy(ActorDestroyReason aWhy) {
   if (!XRE_IsParentProcess()) {
     XRE_ShutdownChildProcess();
   }
@@ -296,8 +299,8 @@ MOZ_RUNINIT int _childProcessEntryPointStaticConstructor = ([] {
   gMakeIPDLUnitTestProcessChild =
       [](IPC::Channel::ChannelHandle aClientChannel, base::ProcessId aParentPid,
          const nsID& aMessageChannelId) -> UniquePtr<ipc::ProcessChild> {
-    return std::make_unique<IPDLUnitTestProcessChild>(
-        std::move(aClientChannel), aParentPid, aMessageChannelId);
+    return MakeUnique<IPDLUnitTestProcessChild>(std::move(aClientChannel),
+                                                aParentPid, aMessageChannelId);
   };
   return 0;
 })();

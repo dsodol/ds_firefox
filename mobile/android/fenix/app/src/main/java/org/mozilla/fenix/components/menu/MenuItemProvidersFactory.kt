@@ -28,7 +28,6 @@ import org.mozilla.fenix.browser.ForwardMenuItemProvider
 import org.mozilla.fenix.browser.RefreshMenuItemProvider
 import org.mozilla.fenix.browser.ShareMenuItemProvider
 import org.mozilla.fenix.browser.applinks.OpenInAppMenuItemProvider
-import org.mozilla.fenix.browser.applinks.OpenInFirefoxMenuItemProvider
 import org.mozilla.fenix.browser.menu.MoreMenuItemsProvider
 import org.mozilla.fenix.browser.menu.MoveToNormalTabsMenuItemProvider
 import org.mozilla.fenix.browser.readermode.ReaderViewMenuItemProvider
@@ -39,9 +38,7 @@ import org.mozilla.fenix.components.PermissionStorage
 import org.mozilla.fenix.components.TabCollectionStorage
 import org.mozilla.fenix.components.UseCases
 import org.mozilla.fenix.components.accounts.MozillaAccountMenuItemProvider
-import org.mozilla.fenix.customtabs.CustomTabAppMenuItemProvider
 import org.mozilla.fenix.downloads.DownloadsMenuItemProvider
-import org.mozilla.fenix.home.CustomizeHomepageMenuItemProvider
 import org.mozilla.fenix.home.topsites.ShortcutMenuItemProvider
 import org.mozilla.fenix.ipprotection.VpnMenuItemProvider
 import org.mozilla.fenix.library.history.HistoryMenuItemProvider
@@ -96,7 +93,6 @@ class MenuItemProvidersFactory(
     private val menuViewScope: CoroutineScope,
     private val applicationScope: CoroutineScope,
 ) {
-
     /** Build a [MenuItemProvider] for the given [FenixMenuItem]. */
     @Suppress("LongMethod", "CyclomaticComplexMethod")
     fun buildProviderFor(item: FenixMenuItem): MenuItemProvider =
@@ -119,7 +115,6 @@ class MenuItemProvidersFactory(
             FenixMenuItem.IPProtection ->
                 VpnMenuItemProvider(
                     ipProtectionStore = ipProtectionStore,
-                    target = target,
                     scope = menuViewScope,
                 )
 
@@ -134,11 +129,7 @@ class MenuItemProvidersFactory(
                     applicationScope = applicationScope,
                 )
 
-            FenixMenuItem.FindInPage ->
-                FindInPageMenuItemProvider(
-                    appStore = appStore,
-                    target = target,
-                )
+            FenixMenuItem.FindInPage -> FindInPageMenuItemProvider(appStore = appStore)
 
             FenixMenuItem.DesktopSite ->
                 DesktopSiteMenuItemProvider(
@@ -188,7 +179,6 @@ class MenuItemProvidersFactory(
                     browserStore = browserStore,
                     target = target,
                     goBack = useCases.sessionUseCases.goBack,
-                    settings = settings,
                     scope = menuViewScope,
                 )
 
@@ -276,20 +266,6 @@ class MenuItemProvidersFactory(
                     scope = menuViewScope,
                 )
 
-            FenixMenuItem.OpenInFirefox ->
-                OpenInFirefoxMenuItemProvider(
-                    appName = context.getString(R.string.app_name),
-                    appStore = appStore,
-                    target = target,
-                )
-
-            FenixMenuItem.CustomTabAppItems ->
-                CustomTabAppMenuItemProvider(
-                    browserStore = browserStore,
-                    target = target,
-                    context = context,
-                )
-
             FenixMenuItem.SaveAsPdf ->
                 SaveAsPdfMenuItemProvider(
                     browserStore = browserStore,
@@ -305,22 +281,17 @@ class MenuItemProvidersFactory(
                     printContent = useCases.sessionUseCases.printContent,
                 )
 
-            FenixMenuItem.History -> HistoryMenuItemProvider(target = target)
+            FenixMenuItem.History -> HistoryMenuItemProvider()
 
-            FenixMenuItem.Bookmarks -> BookmarksScreenMenuItemProvider(target = target)
+            FenixMenuItem.Bookmarks -> BookmarksScreenMenuItemProvider()
 
             FenixMenuItem.Downloads ->
                 DownloadsMenuItemProvider(
                     appStore = appStore,
-                    target = target,
                     scope = menuViewScope,
                 )
 
-            FenixMenuItem.Passwords ->
-                PasswordsMenuItemProvider(
-                    isAutofillSupported = settings.isAutofillSupported,
-                    target = target,
-                )
+            FenixMenuItem.Passwords -> PasswordsMenuItemProvider(isAutofillSupported = settings.isAutofillSupported)
 
             FenixMenuItem.MozillaAccount ->
                 MozillaAccountMenuItemProvider(
@@ -328,13 +299,10 @@ class MenuItemProvidersFactory(
                     httpClient = httpClient,
                     context = context,
                     accessPoint = accessPoint,
-                    target = target,
                     scope = menuViewScope,
                 )
 
-            FenixMenuItem.CustomizeHomepage -> CustomizeHomepageMenuItemProvider(target = target)
-
-            FenixMenuItem.Settings -> SettingsMenuItemProvider(target = target)
+            FenixMenuItem.Settings -> SettingsMenuItemProvider()
 
             FenixMenuItem.Quit ->
                 QuitMenuItemProvider(
@@ -343,7 +311,6 @@ class MenuItemProvidersFactory(
                     deleteBrowsingDataController = { deleteBrowsingDataController },
                     quitApplicationDelegate = quitApplicationDelegate,
                     applicationScope = applicationScope,
-                    target = target,
                 )
         }
 

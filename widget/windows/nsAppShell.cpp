@@ -599,9 +599,9 @@ nsresult nsAppShell::Init() {
   if (XRE_IsParentProcess()) {
     ScreenManager& screenManager = ScreenManager::GetSingleton();
     if (gfxPlatform::IsHeadless()) {
-      screenManager.SetHelper(std::make_unique<HeadlessScreenHelper>());
+      screenManager.SetHelper(mozilla::MakeUnique<HeadlessScreenHelper>());
     } else {
-      screenManager.SetHelper(std::make_unique<ScreenHelperWin>());
+      screenManager.SetHelper(mozilla::MakeUnique<ScreenHelperWin>());
       ScreenHelperWin::RefreshScreens();
     }
 

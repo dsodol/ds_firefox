@@ -114,12 +114,11 @@ internal class EngineObserver(
         appIntent: Intent?,
         fallbackUrl: String?,
         appName: String?,
-        sourceUrl: String?,
     ) {
         dispatchAsync(
             ContentAction.UpdateAppIntentAction(
                 tabId,
-                AppIntentState(url, appIntent, fallbackUrl, appName, sourceUrl),
+                AppIntentState(url, appIntent, fallbackUrl, appName),
             )
         )
     }

@@ -302,7 +302,6 @@ let DownloadCache = {
           referrer: download.source.referrerInfo
             ? download.source.referrerInfo.originalReferrer
             : null,
-          userContextId: download.source.userContextId,
         },
       ],
     });

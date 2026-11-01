@@ -151,7 +151,7 @@ class nsGeolocationRequest final : public ContentPermissionRequestBase,
 
 static UniquePtr<PositionOptions> CreatePositionOptionsCopy(
     const PositionOptions& aOptions) {
-  auto geoOptions = std::make_unique<PositionOptions>();
+  UniquePtr<PositionOptions> geoOptions = MakeUnique<PositionOptions>();
 
   geoOptions->mEnableHighAccuracy = aOptions.mEnableHighAccuracy;
   geoOptions->mMaximumAge = aOptions.mMaximumAge;
@@ -470,8 +470,9 @@ nsGeolocationRequest::Allow(JS::Handle<JS::Value> aChoices) {
     }
   }
 
-  // The override service only supplies a single cached position.
-  if (!canUseCache && gs->IsOverride()) {
+  // Enforce using cache in case the geolocation override server is set,
+  // since this server can return only cached values.
+  if (!canUseCache && gs != GeolocationService::sService.get()) {
     canUseCache = true;
   }
 
@@ -1207,15 +1208,6 @@ Geolocation::GetLocationOSPermission() {
 }
 
 void Geolocation::RequestIfPermitted(nsGeolocationRequest* request) {
-  // The override service never reaches the platform, so the system
-  // geolocation permission does not apply to it.
-  RefPtr<GeolocationService> gs =
-      GeolocationService::GetGeolocationService(mBrowsingContext);
-  if (gs && gs->IsOverride()) {
-    RegisterRequestWithPrompt(request);
-    return;
-  }
-
   auto getPermission = [request = RefPtr{request}](auto aPermission) {
     switch (aPermission) {
       case geolocation::SystemGeolocationPermissionBehavior::

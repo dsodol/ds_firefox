@@ -109,18 +109,16 @@ int ComparePort(const Port* a, const Port* b) {
 struct NetworkFilter {
   using Predicate = std::function<bool(const Network*)>;
   NetworkFilter(Predicate pred, absl::string_view description)
-      : predRemain([pred = std::move(pred)](const Network* network) {
-          return !pred(network);
-        }),
+      : predRemain([pred](const Network* network) { return !pred(network); }),
         description(description) {}
   Predicate predRemain;
   const std::string description;
 };
 
 void FilterNetworks(std::vector<const Network*>* networks,
-                    const NetworkFilter& filter) {
-  auto start_to_remove = std::partition(networks->begin(), networks->end(),
-                                        std::ref(filter.predRemain));
+                    NetworkFilter filter) {
+  auto start_to_remove =
+      std::partition(networks->begin(), networks->end(), filter.predRemain);
   if (start_to_remove == networks->end()) {
     return;
   }
@@ -479,7 +477,7 @@ void BasicPortAllocatorSession::GetCandidateStatsFromReadyPorts(
     CandidateStatsList* candidate_stats_list) const {
   auto ports = ReadyPorts();
   for (auto* port : ports) {
-    const auto& candidates = port->Candidates();
+    auto candidates = port->Candidates();
     for (const auto& candidate : candidates) {
       std::optional<StunStats> stun_stats;
       port->GetStunStats(&stun_stats);
@@ -1322,14 +1320,18 @@ void AllocationSequence::DisableEquivalentPhases(const Network* network,
   // already have a port of the corresponding type. Look for a port that
   // matches this AllocationSequence's network, is the right protocol, and
   // hasn't encountered an error.
+  // TODO(deadbeef): This doesn't take into account that there may be another
+  // AllocationSequence that's ABOUT to allocate a UDP port, but hasn't yet.
+  // This can happen if, say, there's a network change event right before an
+  // application-triggered ICE restart. Hopefully this problem will just go
+  // away if we get rid of the gathering "phases" though, which is planned.
+  //
   //
   // PORTALLOCATOR_DISABLE_UDP is used to disable a Port from gathering the host
   // candidate (and srflx candidate if Port::SharedSocket()), and we do not want
   // to disable the gathering of these candidates just becaue of an existing
   // Port over PROTO_UDP, namely a TurnPort over UDP.
-  if ((state_ == kRunning && phase_ == PHASE_UDP &&
-       !IsFlagSet(PORTALLOCATOR_DISABLE_UDP)) ||
-      absl::c_any_of(session_->ports_,
+  if (absl::c_any_of(session_->ports_,
                      [this](const BasicPortAllocatorSession::PortData& p) {
                        return !p.pruned() && p.port()->Network() == network_ &&
                               p.port()->GetProtocol() == PROTO_UDP &&
@@ -1338,10 +1340,9 @@ void AllocationSequence::DisableEquivalentPhases(const Network* network,
                      })) {
     *flags |= PORTALLOCATOR_DISABLE_UDP;
   }
-  // TCP is the final phase, so a running sequence with TCP enabled also
-  // covers this work even before its port exists.
-  if ((state_ == kRunning && !IsFlagSet(PORTALLOCATOR_DISABLE_TCP)) ||
-      absl::c_any_of(session_->ports_,
+  // Similarly we need to check both the protocol used by an existing Port and
+  // its type.
+  if (absl::c_any_of(session_->ports_,
                      [this](const BasicPortAllocatorSession::PortData& p) {
                        return !p.pruned() && p.port()->Network() == network_ &&
                               p.port()->GetProtocol() == PROTO_TCP &&

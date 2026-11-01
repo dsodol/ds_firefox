@@ -15,11 +15,13 @@
 
 namespace mozilla::dom::quota {
 
-Result<Ok, nsresult> ReadDirectoryMetadataHeader(
-    nsIBinaryInputStream& aStream, FullOriginMetadata& aFullOriginMetadata) {
+Result<OriginStateMetadata, nsresult> ReadDirectoryMetadataHeader(
+    nsIBinaryInputStream& aStream) {
   AssertIsOnIOThread();
 
-  QM_TRY_UNWRAP(aFullOriginMetadata.mLastAccessTime,
+  OriginStateMetadata originStateMetadata;
+
+  QM_TRY_UNWRAP(originStateMetadata.mLastAccessTime,
                 MOZ_TO_RESULT_INVOKE_MEMBER(aStream, Read64));
 
   QM_TRY_INSPECT(const bool& persistedByte,
@@ -33,10 +35,10 @@ Result<Ok, nsresult> ReadDirectoryMetadataHeader(
   // use during the previous session (mAccessed) and that the cached
   // metadata is out of sync with the directory (mDirty).
   if (rawFlags == 0) {
-    aFullOriginMetadata.mAccessed = true;
-    aFullOriginMetadata.mDirty = true;
+    originStateMetadata.mAccessed = true;
+    originStateMetadata.mDirty = true;
   } else {
-    aFullOriginMetadata.FromMetadataFlags(rawFlags);
+    originStateMetadata.FromMetadataFlags(rawFlags);
   }
 
   // persistedByte is the authoritative source for mPersisted: it is always
@@ -44,30 +46,31 @@ Result<Ok, nsresult> ReadDirectoryMetadataHeader(
   // rawFlags was only introduced in schema-4. Schema-3 .metadata-v2 files have
   // rawFlags != 0 (Initialized is always set) but no Persisted bit, so relying
   // solely on FromMetadataFlags would silently lose the persisted state.
-  aFullOriginMetadata.mPersisted = persistedByte;
+  originStateMetadata.mPersisted = persistedByte;
 
-  QM_TRY_UNWRAP(aFullOriginMetadata.mLastMaintenanceDate,
+  QM_TRY_UNWRAP(originStateMetadata.mLastMaintenanceDate,
                 MOZ_TO_RESULT_INVOKE_MEMBER(aStream, Read32));
 
-  return Ok{};
+  return originStateMetadata;
 }
 
 nsresult WriteDirectoryMetadataHeader(
     nsIBinaryOutputStream& aStream,
-    const FullOriginMetadata& aFullOriginMetadata) {
+    const OriginStateMetadata& aOriginStateMetadata) {
   AssertIsOnIOThread();
 
-  QM_TRY(MOZ_TO_RESULT(aStream.Write64(aFullOriginMetadata.mLastAccessTime)));
+  QM_TRY(MOZ_TO_RESULT(aStream.Write64(aOriginStateMetadata.mLastAccessTime)));
 
-  QM_TRY(MOZ_TO_RESULT(aStream.WriteBoolean(aFullOriginMetadata.mPersisted)));
+  QM_TRY(MOZ_TO_RESULT(aStream.WriteBoolean(aOriginStateMetadata.mPersisted)));
 
   // Always set DirectoryMetadataFlags::Initialized when writing new metadata,
   // to mark the flags field as valid. This distinguishes real flags from older
   // files where the field was reserved and always written as zero.
-  QM_TRY(MOZ_TO_RESULT(aStream.Write32(aFullOriginMetadata.ToMetadataFlags())));
-
   QM_TRY(
-      MOZ_TO_RESULT(aStream.Write32(aFullOriginMetadata.mLastMaintenanceDate)));
+      MOZ_TO_RESULT(aStream.Write32(aOriginStateMetadata.ToMetadataFlags())));
+
+  QM_TRY(MOZ_TO_RESULT(
+      aStream.Write32(aOriginStateMetadata.mLastMaintenanceDate)));
 
   return NS_OK;
 }

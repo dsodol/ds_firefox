@@ -66,9 +66,7 @@
       height: var(--col-width);
     }
 
-    @media (forced-colors) {
-      border-color: var(--button-border-color-ghost-hover);
-    }
+    border-color: var(--button-border-color-ghost-hover);
   }
 
   .icon-pin-small,
@@ -94,6 +92,8 @@
 
   .tile {
     align-self: end;
+    box-shadow: var(--card-box-shadow);
+    border: var(--border-width) solid var(--button-border-color-ghost);
     // Bug 2044205 grew the radius scale so "large" is now 16px. The tile was
     // designed against the old 12px "large", so use "medium" (12px) to keep it.
     border-radius: var(--border-radius-medium);
@@ -108,9 +108,7 @@
   }
 
   &:active .tile {
-    @media (forced-colors) {
-      border-color: var(--button-border-color-ghost-active);
-    }
+    border-color: var(--button-border-color-ghost-active);
   }
 
   .top-site-inner > a:focus .tile {

@@ -76,7 +76,7 @@ class VideoConduitTest : public Test {
             ImageUsageType::Webrtc, ImageContainer::SYNCHRONOUS)),
         mVideoFrameConverter(
             MakeRefPtr<DirectVideoFrameConverter>(aOptions.mLockScaling)),
-        mVideoSink(std::make_unique<MockVideoSink>()),
+        mVideoSink(MakeUnique<MockVideoSink>()),
         mVideoConduit(MakeRefPtr<WebrtcVideoConduit>(
             mCallWrapper, GetCurrentSerialEventTarget(), std::move(aOptions),
             "", mTrackingId)),

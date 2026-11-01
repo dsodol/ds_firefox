@@ -10,7 +10,6 @@ pub mod schema;
 pub mod store;
 
 use crate::error::*;
-use db_crypto::EncryptorDecryptor;
 
 use error_support::error;
 use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
@@ -25,22 +24,21 @@ use std::{
 
 pub struct AutofillDb {
     pub writer: Connection,
-    pub encdec: Arc<dyn EncryptorDecryptor>,
     interrupt_handle: Arc<SqlInterruptHandle>,
 }
 
 impl AutofillDb {
-    pub fn new(db_path: impl AsRef<Path>, encdec: Arc<dyn EncryptorDecryptor>) -> Result<Self> {
+    pub fn new(db_path: impl AsRef<Path>) -> Result<Self> {
         let db_path = normalize_database_path(db_path)?;
-        Self::new_named(db_path, encdec)
+        Self::new_named(db_path)
     }
 
-    pub fn new_memory(db_path: &str, encdec: Arc<dyn EncryptorDecryptor>) -> Result<Self> {
+    pub fn new_memory(db_path: &str) -> Result<Self> {
         let name = PathBuf::from(format!("file:{}?mode=memory&cache=shared", db_path));
-        Self::new_named(name, encdec)
+        Self::new_named(name)
     }
 
-    fn new_named(db_path: PathBuf, encdec: Arc<dyn EncryptorDecryptor>) -> Result<Self> {
+    fn new_named(db_path: PathBuf) -> Result<Self> {
         // We always create the read-write connection for an initial open so
         // we can create the schema and/or do version upgrades.
         let flags = OpenFlags::SQLITE_OPEN_NO_MUTEX
@@ -57,7 +55,6 @@ impl AutofillDb {
         Ok(Self {
             interrupt_handle: Arc::new(SqlInterruptHandle::new(&conn)),
             writer: conn,
-            encdec,
         })
     }
 
@@ -179,24 +176,10 @@ pub mod test {
     // A helper for our tests to get their own memory Api.
     static ATOMIC_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
-    pub fn random_key_encryptor() -> Result<db_crypto::ManagedEncryptorDecryptor> {
-        nss_as::ensure_initialized();
-        crate::static_key_encryptor(&db_crypto::create_key()?)
-    }
-
-    pub fn test_encdec() -> Arc<dyn EncryptorDecryptor> {
-        nss_as::ensure_initialized();
-        Arc::new(random_key_encryptor().expect("should get a key"))
-    }
-
     pub fn new_mem_db() -> AutofillDb {
-        new_mem_db_with_encdec(test_encdec())
-    }
-
-    pub fn new_mem_db_with_encdec(encdec: Arc<dyn EncryptorDecryptor>) -> AutofillDb {
         error_support::init_for_tests();
         let counter = ATOMIC_COUNTER.fetch_add(1, Ordering::Relaxed);
-        AutofillDb::new_memory(&format!("test_autofill-api-{}", counter), encdec)
+        AutofillDb::new_memory(&format!("test_autofill-api-{}", counter))
             .expect("should get an API")
     }
 }

@@ -41,6 +41,8 @@ function resetFixture() {
       el.autoOverflow = false;
       el.shouldGroupChips = false;
       el.visibleChipCount = null;
+      el.chipType = "context-chip";
+      el.chipSize = "default";
       el.removable = false;
       el.websites = [];
       await el.updateComplete;

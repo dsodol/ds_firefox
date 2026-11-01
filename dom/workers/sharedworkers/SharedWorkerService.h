@@ -57,8 +57,8 @@ class SharedWorkerService final {
   void RemoveWorkerManagerOnMainThread(SharedWorkerManager* aManager);
 
  private:
-  SharedWorkerService();
-  ~SharedWorkerService();
+  SharedWorkerService() = default;
+  ~SharedWorkerService() = default;
 
   void ErrorPropagationOnMainThread(nsIEventTarget* aBackgroundEventTarget,
                                     SharedWorkerParent* aActor,

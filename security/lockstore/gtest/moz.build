@@ -5,7 +5,6 @@
 UNIFIED_SOURCES += [
     "TestLockstoreDatastore.cpp",
     "TestLockstoreKeystore.cpp",
-    "TestProfileKek.cpp",
 ]
 
 FINAL_LIBRARY = "xul-gtest"

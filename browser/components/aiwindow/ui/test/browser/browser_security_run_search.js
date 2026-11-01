@@ -181,7 +181,7 @@ async function setupRunSearchTest({
   }
 
   async function cleanup() {
-    await mockEngineManager.rejectAllRequests();
+    mockEngineManager.rejectAllRequests();
     mockEngineManager.cleanupMocks();
     await server.cleanup();
     await BrowserTestUtils.closeWindow(win);

@@ -12,9 +12,6 @@
 // be recorded.
 
 add_setup(async function () {
-  await SpecialPowers.pushPrefEnv({
-    set: [["browser.urlbar.unifiedSearchButton.always", false]],
-  });
   await initSearchModeTest();
   registerCleanupFunction(async () => {
     await PlacesUtils.bookmarks.eraseEverything();

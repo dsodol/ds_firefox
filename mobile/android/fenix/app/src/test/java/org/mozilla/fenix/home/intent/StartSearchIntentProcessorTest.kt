@@ -65,11 +65,13 @@ class StartSearchIntentProcessorTest {
     }
 
     private fun createProcessor(
-        browsingModeManager: BrowsingModeManager = FakeBrowsingModeManager(BrowsingMode.Normal)
+        userHasBeenOnboarded: Boolean,
+        browsingModeManager: BrowsingModeManager = FakeBrowsingModeManager(BrowsingMode.Normal),
     ) =
         StartSearchIntentProcessor(
             fenixBrowserUseCases = fenixBrowserUseCases,
             browsingModeManager = browsingModeManager,
+            userHasBeenOnboarded = { userHasBeenOnboarded },
         )
 
     private fun searchWidgetIntent() =
@@ -78,10 +80,21 @@ class StartSearchIntentProcessorTest {
         }
 
     @Test
+    fun `do not process when user has not been onboarded`() {
+        assertEquals(0, browserStore.state.tabs.size)
+
+        createProcessor(userHasBeenOnboarded = false).process(searchWidgetIntent(), navController, out, settings)
+
+        verify { navController wasNot Called }
+        verify { out wasNot Called }
+        assertEquals(0, browserStore.state.tabs.size)
+    }
+
+    @Test
     fun `do not process blank intents`() {
         assertEquals(0, browserStore.state.tabs.size)
 
-        val result = createProcessor().process(Intent(), navController, out, settings)
+        val result = createProcessor(userHasBeenOnboarded = true).process(Intent(), navController, out, settings)
 
         assertFalse(result)
         verify { navController wasNot Called }
@@ -97,7 +110,7 @@ class StartSearchIntentProcessorTest {
             Intent().apply {
                 removeExtra(HomeActivity.OPEN_TO_SEARCH)
             }
-        createProcessor().process(intent, navController, out, settings)
+        createProcessor(userHasBeenOnboarded = true).process(intent, navController, out, settings)
 
         verify { navController wasNot Called }
         verify { out wasNot Called }
@@ -111,7 +124,7 @@ class StartSearchIntentProcessorTest {
         assertEquals(0, browserStore.state.tabs.size)
         assertFalse(browsingModeManager.hasModeUpdated)
 
-        createProcessor(browsingModeManager = browsingModeManager)
+        createProcessor(userHasBeenOnboarded = true, browsingModeManager = browsingModeManager)
             .process(searchWidgetIntent(), navController, out, settings)
 
         assertNotNull(SearchWidget.newTabButton.testGetValue())
@@ -141,7 +154,7 @@ class StartSearchIntentProcessorTest {
         assertEquals(0, browserStore.state.tabs.size)
         assertFalse(browsingModeManager.hasModeUpdated)
 
-        createProcessor(browsingModeManager = browsingModeManager)
+        createProcessor(userHasBeenOnboarded = true, browsingModeManager = browsingModeManager)
             .process(searchWidgetIntent(), navController, out, settings)
 
         assertTrue(browsingModeManager.hasModeUpdated)
@@ -169,7 +182,8 @@ class StartSearchIntentProcessorTest {
 
         val intent = searchWidgetIntent().apply { putExtra(HomeActivity.PRIVATE_BROWSING_MODE, true) }
 
-        createProcessor(browsingModeManager = browsingModeManager).process(intent, navController, out, settings)
+        createProcessor(userHasBeenOnboarded = true, browsingModeManager = browsingModeManager)
+            .process(intent, navController, out, settings)
 
         assertTrue(browsingModeManager.hasModeUpdated)
         assertEquals(BrowsingMode.Private, browsingModeManager.mode)
@@ -196,7 +210,7 @@ class StartSearchIntentProcessorTest {
                     StartSearchIntentProcessor.PRIVATE_BROWSING_PINNED_SHORTCUT,
                 )
             }
-        createProcessor().process(intent, navController, out, settings)
+        createProcessor(userHasBeenOnboarded = true).process(intent, navController, out, settings)
 
         verify { navController wasNot Called }
         verify { out wasNot Called }
@@ -212,7 +226,7 @@ class StartSearchIntentProcessorTest {
                     StartSearchIntentProcessor.PRIVATE_BROWSING_PINNED_SHORTCUT,
                 )
             }
-        createProcessor().process(intent, navController, out, settings)
+        createProcessor(userHasBeenOnboarded = true).process(intent, navController, out, settings)
 
         verify {
             navController.navigate(

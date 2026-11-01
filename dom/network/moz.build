@@ -9,7 +9,6 @@ DIRS += ["interfaces"]
 
 MOCHITEST_CHROME_MANIFESTS += ["tests/chrome.toml"]
 MOCHITEST_MANIFESTS += ["tests/mochitest.toml"]
-XPCSHELL_TESTS_MANIFESTS += ["tests/unit/xpcshell.toml"]
 
 EXPORTS.mozilla.dom += [
     "TCPServerSocket.h",
@@ -52,8 +51,3 @@ IPDL_SOURCES += [
 include("/ipc/chromium/chromium-config.mozbuild")
 
 FINAL_LIBRARY = "xul"
-
-SOURCE_HEADERS += [
-    "ConnectionMainThread.h",
-    "ConnectionWorker.h",
-]

@@ -220,7 +220,6 @@ already_AddRefed<DMABufSurface> SHMBufSurfaceRGBA::UploadToDMABufSurface(
             GetImageData());
   surface->SetColorPrimaries(mColorPrimaries);
   surface->SetTransferFunction(mTransferFunction);
-  surface->SetColorRange(mColorRange);
   surface->DisableRecycle();
   return surface.forget();
 }

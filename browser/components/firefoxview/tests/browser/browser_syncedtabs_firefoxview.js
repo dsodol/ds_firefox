@@ -68,8 +68,16 @@ add_task(async function test_unconfigured_initial_state() {
 });
 
 add_task(async function test_loading_state() {
-  const loadingHeaderL10nId = "firefoxview-syncedtabs-loading-header-2";
-  const loadingImageUrl = "chrome://browser/skin/sidebar/kit-tabs-devices.svg";
+  const isNovaEnabled = Services.prefs.getBoolPref(
+    "browser.nova.enabled",
+    false
+  );
+  const loadingHeaderL10nId = isNovaEnabled
+    ? "firefoxview-syncedtabs-loading-header-2"
+    : "firefoxview-syncedtabs-loading-header";
+  const loadingImageUrl = isNovaEnabled
+    ? "chrome://browser/skin/sidebar/kit-tabs-devices.svg"
+    : "chrome://browser/content/firefoxview/synced-tabs-empty.svg";
 
   const { SyncedTabsErrorHandler } = ChromeUtils.importESModule(
     "resource:///modules/firefox-view-synced-tabs-error-handler.sys.mjs"
@@ -179,10 +187,24 @@ add_task(async function test_signed_in() {
       "Navigated to mock support link"
     );
 
-    // TODO: Test telemetry for adding a device via the QR-code based flow,
-    // once implemented.
+    await openFirefoxViewTab(window);
+    // Test telemetry for adding a device.
+    Services.fog.testResetFOG();
+    // TODO: Exercise the QR-code based flow on Nova, once implemented.
     // FIXME: Bug 2058059 - [Nova] On the tabs from other devices panel there is no QR code displayed when signed in to sync with no devices connected
-
+    if (!Services.prefs.getBoolPref("browser.nova.enabled", false)) {
+      EventUtils.synthesizeMouseAtCenter(
+        emptyState.querySelector(`moz-button[data-action="add-device"]`)
+          .buttonEl,
+        {},
+        browser.contentWindow
+      );
+      Assert.equal(
+        1,
+        Glean.firefoxviewNext.fxaMobileSync.testGetValue().length,
+        "Expected one fxa_continue event."
+      );
+    }
     // clean up extra tabs
     while (gBrowser.tabs.length > 1) {
       await BrowserTestUtils.removeTab(gBrowser.tabs.at(-1));

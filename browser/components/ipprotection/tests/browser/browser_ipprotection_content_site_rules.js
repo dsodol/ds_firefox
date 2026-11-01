@@ -16,8 +16,8 @@ const INCLUSION_DESCRIPTION_L10N_ID = "site-rules-description-inclusion";
 
 const VPN_ON_ICON =
   "chrome://browser/content/ipprotection/assets/states/ipprotection-on.svg";
-const VPN_EXCLUDED_ICON =
-  "chrome://browser/content/ipprotection/assets/states/ipprotection-excluded.svg";
+const VPN_OFF_ICON =
+  "chrome://browser/content/ipprotection/assets/states/ipprotection-off.svg";
 
 const SETTINGS_PANE = "privacy-vpnsiterules";
 
@@ -122,24 +122,6 @@ async function checkSiteRuleStatus(content, descriptionL10nId, iconSrc) {
   await TestUtils.waitForCondition(
     () => headingEl.textContent.trim() && descriptionEl.textContent.trim(),
     "Waiting for the site rule status card to be localized"
-  );
-
-  let manageButtonEl = content.siteRulesEl.buttonEl;
-  await TestUtils.waitForCondition(
-    () => manageButtonEl.ariaDescribedByElements?.length,
-    "Waiting for the site rules link to be described by the status card"
-  );
-  let [describedByHeadingEl, describedByDescriptionEl] =
-    manageButtonEl.ariaDescribedByElements;
-  Assert.equal(
-    describedByHeadingEl,
-    headingEl,
-    "Site rules link should be described by the status heading"
-  );
-  Assert.equal(
-    describedByDescriptionEl,
-    descriptionEl,
-    "Site rules link should be described by the status description"
   );
 }
 
@@ -383,7 +365,7 @@ add_task(async function test_site_rules_manage_rules_content() {
   );
   Assert.equal(
     siteRulesEl.getAttribute("iconsrc"),
-    "chrome://browser/content/ipprotection/assets/vpn-website-rules-icon.svg",
+    "chrome://browser/skin/permissions.svg",
     "Site rules control should show the permissions icon"
   );
   Assert.equal(
@@ -437,7 +419,6 @@ add_task(async function test_site_rules_link_opens_settings() {
 
   Assert.ok(content.siteRulesEl, "Site rules link should be present");
 
-  Services.fog.testResetFOG();
   let panelHiddenPromise = waitForPanelEvent(document, "popuphidden");
   const openPreferencesStub = sinon.stub(window, "openPreferences");
 
@@ -461,14 +442,6 @@ add_task(async function test_site_rules_link_opens_settings() {
     "Clicking the site rules link should not have navigated the current tab"
   );
 
-  let events = Glean.ipprotection.rulesPageOpened.testGetValue();
-  Assert.equal(events.length, 1, "Should have recorded one rules page event");
-  Assert.equal(
-    events[0].extra.entrypoint,
-    "panel",
-    "Rules page event should record the panel entrypoint"
-  );
-
   openPreferencesStub.restore();
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();
@@ -487,7 +460,6 @@ add_task(async function test_site_rule_status_exclusion() {
 
   let content = await openPanelWithSiteData({
     isProtectionEnabled: true,
-    isActive: true,
     siteData: {
       isExclusion: true,
       isInclusion: false,
@@ -498,7 +470,7 @@ add_task(async function test_site_rule_status_exclusion() {
   await checkSiteRuleStatus(
     content,
     EXCLUSION_DESCRIPTION_L10N_ID,
-    VPN_EXCLUDED_ICON
+    VPN_OFF_ICON
   );
 
   await closePanel();
@@ -518,7 +490,6 @@ add_task(async function test_site_rule_status_inclusion() {
 
   let content = await openPanelWithSiteData({
     isProtectionEnabled: false,
-    isActive: true,
     siteData: {
       isExclusion: false,
       isInclusion: true,
@@ -555,7 +526,6 @@ add_task(async function test_site_rule_status_structure() {
 
   let content = await openPanelWithSiteData({
     isProtectionEnabled: true,
-    isActive: true,
     siteData: {
       isExclusion: true,
       isInclusion: false,
@@ -609,7 +579,6 @@ add_task(async function test_site_rule_status_hidden_when_rule_is_a_noop() {
 
   let content = await openPanelWithSiteData({
     isProtectionEnabled: true,
-    isActive: true,
     siteData: {
       isExclusion: false,
       isInclusion: true,
@@ -624,7 +593,6 @@ add_task(async function test_site_rule_status_hidden_when_rule_is_a_noop() {
 
   await setPanelState({
     isProtectionEnabled: false,
-    isActive: true,
     siteData: {
       isExclusion: true,
       isInclusion: false,
@@ -656,7 +624,6 @@ add_task(async function test_site_rule_status_requires_user_rule() {
 
   let content = await openPanelWithSiteData({
     isProtectionEnabled: true,
-    isActive: true,
     siteData: {
       isExclusion: true,
       isInclusion: false,
@@ -690,7 +657,6 @@ add_task(async function test_site_rule_status_feature_pref_disabled() {
 
   let content = await openPanelWithSiteData({
     isProtectionEnabled: true,
-    isActive: true,
     siteData: {
       isExclusion: true,
       isInclusion: false,
@@ -724,7 +690,6 @@ add_task(async function test_site_rule_status_hidden_on_error() {
 
   let content = await openPanelWithSiteData({
     isProtectionEnabled: true,
-    isActive: true,
     error: "generic",
     siteData: {
       isExclusion: true,
@@ -736,35 +701,6 @@ add_task(async function test_site_rule_status_hidden_on_error() {
   Assert.ok(
     !getSiteRuleStatus(content),
     "Site rule status card should not be present in an error state"
-  );
-
-  await closePanel();
-  await SpecialPowers.popPrefEnv();
-});
-
-/**
- * Tests that we don't show the status card when the proxy is not active.
- */
-add_task(async function test_site_rule_status_hidden_when_proxy_inactive() {
-  await pushInclusionsPref(true);
-
-  setupService({
-    isReady: true,
-  });
-
-  let content = await openPanelWithSiteData({
-    isProtectionEnabled: true,
-    isActive: false,
-    siteData: {
-      isExclusion: true,
-      isInclusion: false,
-      hasSiteRule: true,
-    },
-  });
-
-  Assert.ok(
-    !getSiteRuleStatus(content),
-    "Site rule status card should not be present when the proxy is not active"
   );
 
   await closePanel();
@@ -790,7 +726,6 @@ add_task(async function test_site_rule_status_follows_protection_state() {
 
   let content = await openPanelWithSiteData({
     isProtectionEnabled: false,
-    isActive: true,
     siteData,
   });
 
@@ -807,7 +742,6 @@ add_task(async function test_site_rule_status_follows_protection_state() {
 
   await setPanelState({
     isProtectionEnabled: true,
-    isActive: true,
     siteData,
   });
   await Promise.all([content.updateComplete, statusShownPromise]);
@@ -815,7 +749,7 @@ add_task(async function test_site_rule_status_follows_protection_state() {
   await checkSiteRuleStatus(
     content,
     EXCLUSION_DESCRIPTION_L10N_ID,
-    VPN_EXCLUDED_ICON
+    VPN_OFF_ICON
   );
 
   let statusHiddenPromise = BrowserTestUtils.waitForMutationCondition(
@@ -826,7 +760,6 @@ add_task(async function test_site_rule_status_follows_protection_state() {
 
   await setPanelState({
     isProtectionEnabled: false,
-    isActive: true,
     siteData,
   });
   await Promise.all([content.updateComplete, statusHiddenPromise]);
@@ -834,10 +767,6 @@ add_task(async function test_site_rule_status_follows_protection_state() {
   Assert.ok(
     !getSiteRuleStatus(content),
     "Site rule status card should be removed once the rule no longer changes anything"
-  );
-  await TestUtils.waitForCondition(
-    () => !content.siteRulesEl.buttonEl.ariaDescribedByElements,
-    "Site rules link should no longer be described once the status card is removed"
   );
 
   await closePanel();
@@ -857,7 +786,6 @@ add_task(async function test_site_rule_status_precedes_settings_link() {
 
   let content = await openPanelWithSiteData({
     isProtectionEnabled: true,
-    isActive: true,
     siteData: {
       isExclusion: true,
       isInclusion: false,
@@ -898,7 +826,6 @@ add_task(async function test_has_site_inclusion_defaults_to_false() {
 
   let content = await openPanelWithSiteData({
     isProtectionEnabled: true,
-    isActive: true,
     siteData: {
       isExclusion: false,
       hasSiteRule: true,
@@ -921,7 +848,7 @@ add_task(async function test_has_site_inclusion_defaults_to_false() {
 /**
  * Tests that the panel resolves a site's rule through the SiteRuleManager
  * instead of taking it from injected state, for an inclusion the user holds on
- * the loaded site.
+ * the loaded site while the VPN is off.
  */
 add_task(async function test_site_rule_status_inclusion_from_rule() {
   await pushInclusionsPref(true);
@@ -930,21 +857,20 @@ add_task(async function test_site_rule_status_inclusion_from_rule() {
     isReady: true,
   });
 
-  // The tab goes first: an inclusion brings the proxy up, and the included
-  // site would then load through it.
-  let tab = await BrowserTestUtils.openNewForegroundTab(
-    gBrowser,
-    MOCK_SITE_NAME
-  );
-
   const principal =
     Services.scriptSecurityManager.createContentPrincipalFromOrigin(
       MOCK_SITE_NAME
     );
   IPPPermissionRules.setRule(principal, IPPPrincipalRules.INCLUDED);
 
-  await waitForProxyState(IPPProxyStates.ACTIVE);
-  let content = await openPanel();
+  let tab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    MOCK_SITE_NAME
+  );
+
+  let content = await openPanel({
+    isProtectionEnabled: false,
+  });
 
   Assert.ok(
     content.state.siteData?.hasSiteRule,
@@ -955,11 +881,15 @@ add_task(async function test_site_rule_status_inclusion_from_rule() {
     "The panel should resolve the rule as an inclusion"
   );
 
+  await checkSiteRuleStatus(
+    content,
+    INCLUSION_DESCRIPTION_L10N_ID,
+    VPN_ON_ICON
+  );
+
   await closePanel();
   BrowserTestUtils.removeTab(tab);
-  // The rule goes before the proxy, or stopping it just brings it back.
   IPPPermissionRules.setRule(principal, IPPPrincipalRules.DEFAULT);
-  await waitForProxyState(IPPProxyStates.READY);
   await SpecialPowers.popPrefEnv();
 });
 

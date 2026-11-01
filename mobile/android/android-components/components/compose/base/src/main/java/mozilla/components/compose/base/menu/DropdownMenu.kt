@@ -50,7 +50,7 @@ import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import mozilla.components.compose.base.Dropdown
+import mozilla.components.compose.base.Dropdown2
 import mozilla.components.compose.base.button.FilledButton
 import mozilla.components.compose.base.menu.MenuItem.FixedItem.Level
 import mozilla.components.compose.base.modifier.thenConditional
@@ -75,7 +75,6 @@ private val MenuMaxWidth = 280.dp
  * @param scrollState [ScrollState] used by the menu's content for vertical scrolling.
  * @param onDismissRequest Invoked when the user requests to dismiss the menu, such as by tapping outside the menu's
  *   bounds.
- *     @param focusCheckedItemFirst Whether screen readers start on the checked item instead of the first item.
  */
 @Composable
 fun DropdownMenu(
@@ -86,7 +85,6 @@ fun DropdownMenu(
     offset: DpOffset = DpOffset(0.dp, 0.dp),
     scrollState: ScrollState = rememberScrollState(),
     onDismissRequest: () -> Unit,
-    focusCheckedItemFirst: Boolean = true,
 ) {
     MaterialDropdownMenu(
         expanded = expanded,
@@ -105,7 +103,6 @@ fun DropdownMenu(
 
         DropdownMenuContent(
             menuItems = menuItems,
-            focusCheckedItemFirst = focusCheckedItemFirst,
             onDismissRequest = onDismissRequest,
         )
         Spacer(modifier = Modifier.height(height = AcornTheme.layout.space.static100))
@@ -131,7 +128,7 @@ fun DropdownMenu(
  * A dropdown menu that displays a list of [MenuItem]s. The menu can be expanded or collapsed and is displayed as a
  * popup anchored to the menu button that triggers it.
  *
- * Only to be used with [Dropdown].
+ * Only to be used with [Dropdown2].
  *
  * @param menuItems the list of [MenuItem]s to display in the menu.
  * @param expanded whether or not the menu is expanded.
@@ -214,7 +211,6 @@ private fun HeaderMenuItemContent(text: Text) {
 private fun DropdownMenuContent(
     menuItems: List<MenuItem>,
     onDismissRequest: () -> Unit,
-    focusCheckedItemFirst: Boolean = true,
 ) {
     menuItems.forEach {
         when (it) {
@@ -265,9 +261,7 @@ private fun DropdownMenuContent(
                                         it.enabled
                                     }
                                     .testTag(it.testTag)
-                                    .thenConditional(Modifier.semantics { traversalIndex = -1f }) {
-                                        focusCheckedItemFirst && it.isChecked
-                                    },
+                                    .thenConditional(Modifier.semantics { traversalIndex = -1f }) { it.isChecked },
                             level = it.level,
                             content = { CheckableMenuItemContent(item = it) },
                         )

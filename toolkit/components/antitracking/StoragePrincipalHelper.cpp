@@ -11,7 +11,6 @@
 #include "mozilla/extensions/WebExtensionPolicy.h"
 #include "mozilla/net/CookieJarSettings.h"
 #include "mozilla/ScopeExit.h"
-#include "mozilla/StaticPrefs_privacy.h"
 #include "mozilla/StorageAccess.h"
 #include "nsContentUtils.h"
 #include "nsICookieJarSettings.h"
@@ -543,16 +542,6 @@ void StoragePrincipalHelper::UpdateOriginAttributesForNetworkState(
   aAttributes.SetPartitionKey(aFirstPartyURI, false);
 }
 
-// static
-bool StoragePrincipalHelper::GetOriginAttributesForHttpConnection(
-    nsIChannel* aChannel, bool aHasProxy, OriginAttributes& aAttributes) {
-  if (aHasProxy &&
-      !StaticPrefs::privacy_partition_network_state_connection_with_proxy()) {
-    return GetOriginAttributes(aChannel, aAttributes, eRegularPrincipal);
-  }
-  return GetOriginAttributesForNetworkState(aChannel, aAttributes);
-}
-
 enum SupportedScheme { HTTP, HTTPS };
 
 static bool GetOriginAttributesWithScheme(nsIChannel* aChannel,
@@ -721,30 +710,6 @@ nsString StoragePrincipalHelper::PartitionKeyForExpandedPrincipal(
   }
 
   return attrs.mPartitionKey;
-}
-
-// static
-already_AddRefed<nsICookieJarSettings>
-StoragePrincipalHelper::MaybeCreateCookieJarSettingsForContentScript(
-    nsIPrincipal* aTriggeringPrincipal, nsIPrincipal* aLoadingPrincipal,
-    nsContentPolicyType aContentPolicyType) {
-  if (nsContentUtils::IsNonSubresourceInternalPolicyType(aContentPolicyType) ||
-      !aTriggeringPrincipal ||
-      !StaticPrefs::privacy_antitracking_isolateContentScriptResources() ||
-      !nsContentUtils::IsExpandedPrincipal(aTriggeringPrincipal)) {
-    return nullptr;
-  }
-
-  bool shouldResistFingerprinting =
-      nsContentUtils::ShouldResistFingerprinting_dangerous(
-          aLoadingPrincipal,
-          "CookieJarSettings can't exist yet, we're creating it",
-          RFPTarget::IsAlwaysEnabledForPrecompute);
-  return net::CookieJarSettings::Create(
-      nsICookieService::BEHAVIOR_REJECT,
-      PartitionKeyForExpandedPrincipal(aTriggeringPrincipal),
-      OriginAttributes::IsFirstPartyEnabled(), false,
-      shouldResistFingerprinting);
 }
 
 }  // namespace mozilla

@@ -15,7 +15,6 @@ import androidx.preference.PreferenceFragmentCompat
 import kotlin.system.exitProcess
 import kotlinx.coroutines.launch
 import mozilla.components.concept.sync.FxAEntryPoint
-import mozilla.components.service.fxa.FxaService
 import mozilla.components.service.fxa.manager.SCOPE_PROFILE
 import mozilla.components.service.fxa.manager.SCOPE_SESSION
 import mozilla.components.service.fxa.manager.SCOPE_SYNC
@@ -140,7 +139,6 @@ class SyncDebugFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFragment
                     val url =
                         accountManager.beginAuthentication(
                             pairingUrl = null,
-                            service = FxaService.Sync.identifier,
                             entrypoint = fxaEntryPoint,
                             authScopes = scopes,
                         )
@@ -183,11 +181,10 @@ class SyncDebugFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFragment
                         override val entryName = "sync-debug-pairing"
                     }
                 requireComponents.services.accountsAuthFeature.beginPairingAuthentication(
-                    context = requireContext(),
-                    pairingUrl = pairingUrl,
-                    entrypoint = fxaEntryPoint,
-                    service = FxaService.Sync.identifier,
-                    scopes = setOf(SCOPE_SYNC, SCOPE_PROFILE, SCOPE_SESSION),
+                    requireContext(),
+                    pairingUrl,
+                    fxaEntryPoint,
+                    setOf(SCOPE_SYNC, SCOPE_PROFILE, SCOPE_SESSION),
                 )
                 true
             }

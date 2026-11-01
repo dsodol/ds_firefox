@@ -15,11 +15,7 @@ namespace mozilla {
 // Defined in GeckoBindings.cpp.
 void InitializeServo();
 void ShutdownServo();
-#ifdef DEBUG
-void AssertIsMainThreadOrServoFFILocked();
-#else
-inline void AssertIsMainThreadOrServoFFILocked() {}
-#endif
+void AssertIsMainThreadOrServoFontMetricsLocked();
 
 class ServoStyleSet;
 extern ServoStyleSet* sInServoTraversal;

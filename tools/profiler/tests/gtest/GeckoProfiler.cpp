@@ -181,8 +181,8 @@ TEST(GeckoProfiler, ThreadRegistrationInfo)
 
       tsThread = trInfoThread.RegisterTime();
       threadThreadId = trInfoThread.ThreadId();
-      trInfoThreadPtr = std::make_unique<profiler::ThreadRegistrationInfo>(
-          std::move(trInfoThread));
+      trInfoThreadPtr =
+          MakeUnique<profiler::ThreadRegistrationInfo>(std::move(trInfoThread));
     });
     testThread.join();
 
@@ -2515,10 +2515,10 @@ TEST(GeckoProfiler, Markers)
   // Create three strings: two that are the maximum allowed length, and one that
   // is one char longer.
   static const size_t kMax = ProfileBuffer::kMaxFrameKeyLength;
-  auto okstr1 = std::make_unique<char[]>(kMax);
-  auto okstr2 = std::make_unique<char[]>(kMax);
-  auto longstr = std::make_unique<char[]>(kMax + 1);
-  auto longstrCut = std::make_unique<char[]>(kMax + 1);
+  UniquePtr<char[]> okstr1 = MakeUnique<char[]>(kMax);
+  UniquePtr<char[]> okstr2 = MakeUnique<char[]>(kMax);
+  UniquePtr<char[]> longstr = MakeUnique<char[]>(kMax + 1);
+  UniquePtr<char[]> longstrCut = MakeUnique<char[]>(kMax + 1);
   for (size_t i = 0; i < kMax; i++) {
     okstr1[i] = 'a';
     okstr2[i] = 'b';
@@ -5905,8 +5905,7 @@ class GeckoProfilerMarkerBench : public ::testing::Test {
         ProfilerFeature::NoStackSampling | ProfilerFeature::MarkersAllThreads;
     profiler_start(BufferCapacity(), PROFILER_DEFAULT_INTERVAL, features,
                    nullptr, 0, 0);
-    mThreadPool =
-        std::make_unique<MarkerBenchThreadPool>(kMarkerInsertionThreads);
+    mThreadPool = MakeUnique<MarkerBenchThreadPool>(kMarkerInsertionThreads);
     PrepareBuffer();
   }
 

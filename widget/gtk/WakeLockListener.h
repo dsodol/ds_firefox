@@ -20,8 +20,7 @@ class WakeLockListener final : public nsIDOMMozWakeLockListener {
   NS_DECL_ISUPPORTS;
 
   nsresult Callback(const nsAString& topic, const nsAString& state) override;
-  void SetState(const nsAString& topic, bool aBackground, bool aInhibit,
-                bool aCreateNewTask = true);
+  void SetState(const nsAString& topic, bool aBackground, bool aInhibit);
 
   WakeLockListener();
 

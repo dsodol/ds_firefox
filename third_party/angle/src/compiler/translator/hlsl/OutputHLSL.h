@@ -10,7 +10,6 @@
 #include <list>
 #include <map>
 #include <stack>
-#include <string>
 
 #include "angle_gl.h"
 #include "compiler/translator/Compiler.h"
@@ -41,7 +40,6 @@ struct TReferencedBlock : angle::NonCopyable
 // Maps from uniqueId to a variable.
 using ReferencedVariables = std::map<int, const TVariable *>;
 using ReferencedInterfaceBlocks = std::map<int, const TReferencedBlock *>;
-using ExtractedSamplerNameMap   = std::map<const TVariable *, std::string>;
 
 class OutputHLSL : public TIntermTraverser
 {
@@ -55,7 +53,6 @@ class OutputHLSL : public TIntermTraverser
                int numRenderTargets,
                int maxDualSourceDrawBuffers,
                const std::vector<ShaderVariable> &uniforms,
-               const ExtractedSamplerNameMap &extractedSamplerNames,
                const ShCompileOptions &compileOptions,
                TSymbolTable *symbolTable,
                PerformanceDiagnostics *perfDiagnostics,
@@ -283,6 +280,8 @@ class OutputHLSL : public TIntermTraverser
 
   private:
     TString generateStructMapping(const std::vector<MappedStruct> &std140Structs) const;
+    TString samplerNamePrefixFromStruct(TIntermTyped *node);
+    bool ancestorEvaluatesToSamplerInStruct();
     // We need to do struct mapping when pass the struct to a function or copy the struct via
     // assignment.
     bool needStructMapping(TIntermTyped *node);

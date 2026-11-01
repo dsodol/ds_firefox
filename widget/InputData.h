@@ -294,6 +294,7 @@ class MouseInput : public InputData {
       MOUSE_WIDGET_ENTER,
       MOUSE_WIDGET_EXIT,
       MOUSE_HITTEST,
+      MOUSE_EXPLORE_BY_TOUCH,
       MOUSE_CONTEXTMENU
   ));
 
@@ -302,10 +303,6 @@ class MouseInput : public InputData {
       PRIMARY_BUTTON,
       MIDDLE_BUTTON,
       SECONDARY_BUTTON,
-      // Typically, "back" button
-      X1_BUTTON,
-      // Typically, "forward" button
-      X2_BUTTON,
       NONE
   ));
   // clang-format on

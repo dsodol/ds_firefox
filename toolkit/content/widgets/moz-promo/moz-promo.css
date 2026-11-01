@@ -116,8 +116,7 @@
 /* A padded image is inset rather than bleeding to the edge, make room for
  * the close button instead of letting it sit on the illustration. */
 :host([dismissable][imagedisplay="padded"][imagealignment="end"]) {
-  .image-container,
-  ::slotted([slot="image"]) {
+  .image-container {
     margin-inline-end: calc(var(--space-small) + var(--button-size-icon) - var(--promo-padding));
   }
 }

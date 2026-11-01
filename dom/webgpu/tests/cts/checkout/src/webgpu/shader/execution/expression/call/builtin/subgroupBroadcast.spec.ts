@@ -108,7 +108,7 @@ g.test('data_types')
   .fn(async t => {
     const wgSize = [4, 1, 1];
     const type = kDataTypes[t.params.type];
-    t.skipIfDeviceDoesNotHaveFeature('subgroups');
+    t.skipIfDeviceDoesNotHaveFeature('subgroups' as GPUFeatureName);
     if (type.requiresF16()) {
       t.skipIfDeviceDoesNotHaveFeature('shader-f16');
     }
@@ -174,7 +174,7 @@ g.test('workgroup_uniform_load')
       .combine('first', [false, true] as const)
   )
   .fn(t => {
-    t.skipIfDeviceDoesNotHaveFeature('subgroups');
+    t.skipIfDeviceDoesNotHaveFeature('subgroups' as GPUFeatureName);
     // Compatibility mode has lower workgroup limits.
     const wgThreads = t.params.wgSize[0] * t.params.wgSize[1] * t.params.wgSize[2];
     const {
@@ -368,7 +368,7 @@ g.test('compute,all_active')
       .combine('id', [0, 1, 2, 3, 7, 13, 25, 46] as const)
   )
   .fn(async t => {
-    t.skipIfDeviceDoesNotHaveFeature('subgroups');
+    t.skipIfDeviceDoesNotHaveFeature('subgroups' as GPUFeatureName);
     const wgThreads = t.params.wgSize[0] * t.params.wgSize[1] * t.params.wgSize[2];
 
     const broadcast =
@@ -459,7 +459,7 @@ g.test('compute,split')
       .combine('wgSize', kWGSizes)
   )
   .fn(async t => {
-    t.skipIfDeviceDoesNotHaveFeature('subgroups');
+    t.skipIfDeviceDoesNotHaveFeature('subgroups' as GPUFeatureName);
     const testcase = kPredicateCases[t.params.predicate];
     const wgThreads = t.params.wgSize[0] * t.params.wgSize[1] * t.params.wgSize[2];
 
@@ -540,7 +540,7 @@ g.test('broadcastFirst,split')
     u.combine('predicate', keysOf(kPredicateCases)).beginSubcases().combine('wgSize', kWGSizes)
   )
   .fn(async t => {
-    t.skipIfDeviceDoesNotHaveFeature('subgroups');
+    t.skipIfDeviceDoesNotHaveFeature('subgroups' as GPUFeatureName);
     const testcase = kPredicateCases[t.params.predicate];
     const wgThreads = t.params.wgSize[0] * t.params.wgSize[1] * t.params.wgSize[2];
 
@@ -627,7 +627,7 @@ function checkFragment(
       const res = data[offset];
 
       let bound = inBounds.get(res) ?? true;
-      bound = bound && row < height - 1 && col < width - 1;
+      bound = bound && row < height - 1 && col < height - 1;
       inBounds.set(res, bound);
     }
   }
@@ -668,13 +668,12 @@ function checkFragment(
     const id = Number(key);
     const ok = Boolean(value);
     if (ok) {
-      // Groups whose broadcasting invocation was not found have indeterminate results.
-      const size = sizes.get(id);
-      const numSeen = seen.get(id) ?? 0;
-      if (size !== undefined && size < numSeen) {
+      const size = sizes.get(id) ?? 0;
+      const seen = sizes.get(id) ?? 0;
+      if (size < seen) {
         return new Error(`Unexpected number of invocations for subgroup ${id}
 - expected: ${size}
--      got: ${numSeen}`);
+-      got: ${seen}`);
       }
     }
   }
@@ -692,7 +691,7 @@ g.test('fragment')
       .combineWithParams([{ format: 'rgba32uint' }] as const)
   )
   .fn(async t => {
-    t.skipIfDeviceDoesNotHaveFeature('subgroups');
+    t.skipIfDeviceDoesNotHaveFeature('subgroups' as GPUFeatureName);
     const innerTexels = (t.params.size[0] - 1) * (t.params.size[1] - 1);
     const subgroupMaxSize = t.device.adapterInfo.subgroupMaxSize!;
     t.skipIf(innerTexels < subgroupMaxSize, 'Too few texels to be reliable');

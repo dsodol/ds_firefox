@@ -5,7 +5,6 @@
 #ifndef nsHttpHeaderArray_h_
 #define nsHttpHeaderArray_h_
 
-#include "mozilla/FunctionRef.h"
 #include "nsCharSeparatedTokenizer.h"
 #include "nsHttp.h"
 #include "nsString.h"
@@ -106,14 +105,6 @@ class nsHttpHeaderArray {
 
   [[nodiscard]] nsresult VisitHeaders(nsIHttpHeaderVisitor* visitor,
                                       VisitorFilter filter = eFilterAll);
-
-  using VisitorCallback = FunctionRef<nsresult(const nsACString& aHeader,
-                                               const nsACString& aValue)>;
-
-  // Calls aCallback for every header matching aFilter. Returning a failure
-  // code from aCallback stops the iteration.
-  [[nodiscard]] nsresult VisitHeaders(VisitorFilter aFilter,
-                                      VisitorCallback aCallback);
 
   // parse a header line, return the header atom, the header name, and the
   // header value

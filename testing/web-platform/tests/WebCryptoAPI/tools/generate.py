@@ -97,30 +97,30 @@ ALGORITHMS = (
 )
 
 GROUPS = (
-    ("AES-CTR", ("AES-CTR",), ""),
-    ("AES-CBC", ("AES-CBC",), ""),
-    ("AES-GCM", ("AES-GCM",), ""),
-    ("AES-OCB", ("AES-OCB",), "modern-algos"),
-    ("chacha20_poly1305", ("ChaCha20-Poly1305",), "modern-algos"),
-    ("AES-KW", ("AES-KW",), ""),
-    ("HMAC", ("HMAC",), ""),
-    ("RSASSA-PKCS1-v1_5", ("RSASSA-PKCS1-v1_5",), ""),
-    ("RSA-PSS", ("RSA-PSS",), ""),
-    ("RSA-OAEP", ("RSA-OAEP",), ""),
-    ("ECDSA", ("ECDSA",), ""),
-    ("ECDH", ("ECDH",), ""),
-    ("Ed25519", ("Ed25519",), ""),
-    ("Ed448", ("Ed448",), "secure-curves"),
-    ("ML-DSA", ("ML-DSA-44", "ML-DSA-65", "ML-DSA-87"), "modern-algos"),
-    ("ML-KEM", ("ML-KEM-512", "ML-KEM-768", "ML-KEM-1024"), "modern-algos"),
+    ("AES-CTR", ("AES-CTR",), False),
+    ("AES-CBC", ("AES-CBC",), False),
+    ("AES-GCM", ("AES-GCM",), False),
+    ("AES-OCB", ("AES-OCB",), True),
+    ("chacha20_poly1305", ("ChaCha20-Poly1305",), True),
+    ("AES-KW", ("AES-KW",), False),
+    ("HMAC", ("HMAC",), False),
+    ("RSASSA-PKCS1-v1_5", ("RSASSA-PKCS1-v1_5",), False),
+    ("RSA-PSS", ("RSA-PSS",), False),
+    ("RSA-OAEP", ("RSA-OAEP",), False),
+    ("ECDSA", ("ECDSA",), False),
+    ("ECDH", ("ECDH",), False),
+    ("Ed25519", ("Ed25519",), False),
+    ("Ed448", ("Ed448",), True),
+    ("ML-DSA", ("ML-DSA-44", "ML-DSA-65", "ML-DSA-87"), True),
+    ("ML-KEM", ("ML-KEM-512", "ML-KEM-768", "ML-KEM-1024"), True),
     (
         "Hybrid-KEM",
         ("MLKEM768-P256", "MLKEM768-X25519", "MLKEM1024-P384"),
-        "modern-algos",
+        True,
     ),
-    ("X25519", ("X25519",), ""),
-    ("X448", ("X448",), "secure-curves"),
-    ("kmac", ("KMAC128", "KMAC256"), "modern-algos"),
+    ("X25519", ("X25519",), False),
+    ("X448", ("X448",), True),
+    ("kmac", ("KMAC128", "KMAC256"), True),
 )
 
 
@@ -181,7 +181,7 @@ def success_variants(file_id):
     return []
 
 
-def generate_wrapper(kind, file_id, algorithms, spec_directory):
+def generate_wrapper(kind, file_id, algorithms):
     title = (
         "WebCryptoAPI: generateKey() Successful Calls"
         if kind == "successes"
@@ -195,15 +195,13 @@ def generate_wrapper(kind, file_id, algorithms, spec_directory):
         lines.extend(
             f"// META: variant={variant}" for variant in success_variants(file_id)
         )
-    helpers_prefix = "../../" if spec_directory else "../"
-    generate_key_prefix = "../../generateKey/" if spec_directory else ""
-    lines.append(f"// META: script={helpers_prefix}util/helpers.js")
+    lines.append("// META: script=../util/helpers.js")
     if kind == "successes":
         lines.append("// META: script=/common/subset-tests.js")
     lines.extend(
         [
-            f"// META: script={generate_key_prefix}algorithm_registry.js",
-            f"// META: script={generate_key_prefix}{kind}.js",
+            "// META: script=algorithm_registry.js",
+            f"// META: script={kind}.js",
             f"run_test({js_array(algorithms)});",
             "",
         ]
@@ -217,21 +215,18 @@ def expected_outputs():
         GENERATE_KEY_ROOT
         / "failures_bad_algorithm.https.any.js": BAD_ALGORITHM_WRAPPER,
     }
-    for file_id, algorithms, spec_directory in GROUPS:
-        root = WEBCRYPTO_ROOT / spec_directory / "generateKey"
+    for file_id, algorithms, tentative in GROUPS:
+        marker = ".tentative" if tentative else ""
         for kind in ("successes", "failures"):
-            path = root / f"{kind}_{file_id}.https.any.js"
-            outputs[path] = generate_wrapper(kind, file_id, algorithms, spec_directory)
+            path = GENERATE_KEY_ROOT / f"{kind}_{file_id}{marker}.https.any.js"
+            outputs[path] = generate_wrapper(kind, file_id, algorithms)
     return outputs
 
 
 def wrapper_paths():
-    paths = set()
-    for spec_directory in {group[2] for group in GROUPS}:
-        root = WEBCRYPTO_ROOT / spec_directory / "generateKey"
-        paths.update(root.glob("successes_*.https.any.js"))
-        paths.update(root.glob("failures_*.https.any.js"))
-    return paths
+    return set(GENERATE_KEY_ROOT.glob("successes_*.https.any.js")) | set(
+        GENERATE_KEY_ROOT.glob("failures_*.https.any.js")
+    )
 
 
 def show_diff(path, expected):
@@ -265,7 +260,6 @@ def check(outputs):
 def write(outputs):
     for path, expected in outputs.items():
         if not path.exists() or path.read_text(encoding="utf-8") != expected:
-            path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(expected, encoding="utf-8")
 
     unexpected = wrapper_paths() - set(outputs)

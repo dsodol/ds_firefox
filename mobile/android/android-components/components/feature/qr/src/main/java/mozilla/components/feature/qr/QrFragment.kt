@@ -127,7 +127,7 @@ class QrFragment : Fragment() {
     @StringRes internal var scanMessage: Int? = null
     internal var cameraId: String? = null
     private var isLowLightBoostSupported: Boolean = false
-    @VisibleForTesting internal var captureSession: CameraCaptureSession? = null
+    private var captureSession: CameraCaptureSession? = null
     internal var cameraDevice: CameraDevice? = null
     internal var previewSize: Size? = null
 
@@ -174,6 +174,8 @@ class QrFragment : Fragment() {
     @VisibleForTesting internal var backgroundHandler: Handler? = null
 
     @VisibleForTesting internal var backgroundExecutor: ExecutorService? = null
+    private var previewRequestBuilder: CaptureRequest.Builder? = null
+    private var previewRequest: CaptureRequest? = null
 
     /** A [Semaphore] to prevent the app from exiting before closing the camera. */
     private val cameraOpenCloseLock = Semaphore(1)
@@ -492,7 +494,6 @@ class QrFragment : Fragment() {
             imageReader = null
 
             surface?.release()
-            surface = null
 
             // captureSession should be closed as a last step in case background executor terminated
             captureSession?.close()
@@ -546,84 +547,62 @@ class QrFragment : Fragment() {
         // We configure the size of default buffer to be the size of camera preview we want.
         texture?.setDefaultBufferSize(size.width, size.height)
 
-        val previewSurface = Surface(texture).also { surface = it }
+        surface = Surface(texture)
 
         // If image reader's surface is null, stop here.
         val imageSurface = imageReader?.surface ?: return
 
+        if (surface == null) {
+            handleResult("")
+            return
+        }
+
         handleCaptureException("Failed to create camera preview session") {
             cameraDevice?.let {
-                val previewRequestBuilder =
+                previewRequestBuilder =
                     it.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
                         addTarget(imageSurface)
-                        addTarget(previewSurface)
+                        addTarget(surface!!)
                     }
 
-                previewRequestBuilder.set(
-                    CaptureRequest.CONTROL_AF_MODE,
-                    CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE,
-                )
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM && isLowLightBoostSupported) {
-                    previewRequestBuilder.set(
-                        CaptureRequest.CONTROL_AE_MODE,
-                        CameraMetadata.CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY,
-                    )
-                }
-
-                val previewRequest = previewRequestBuilder.build()
                 val captureCallback = object : CameraCaptureSession.CaptureCallback() {}
                 val stateCallback =
                     object : CameraCaptureSession.StateCallback() {
                         override fun onConfigured(cameraCaptureSession: CameraCaptureSession) {
-                            onSessionConfigured(cameraCaptureSession, previewRequest, captureCallback)
+                            if (null == cameraDevice) return
+
+                            previewRequestBuilder?.set(
+                                CaptureRequest.CONTROL_AF_MODE,
+                                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE,
+                            )
+
+                            if (
+                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM &&
+                                    isLowLightBoostSupported
+                            ) {
+                                previewRequestBuilder?.set(
+                                    CaptureRequest.CONTROL_AE_MODE,
+                                    CameraMetadata.CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY,
+                                )
+                            }
+
+                            previewRequest = previewRequestBuilder?.build()
+                            captureSession = cameraCaptureSession
+
+                            handleCaptureException("Failed to request capture") {
+                                cameraCaptureSession.setRepeatingRequest(
+                                    previewRequest as CaptureRequest,
+                                    captureCallback,
+                                    backgroundHandler,
+                                )
+                            }
                         }
 
                         override fun onConfigureFailed(cameraCaptureSession: CameraCaptureSession) {
                             logger.error("Failed to configure CameraCaptureSession")
                         }
                     }
-                createCaptureSessionCompat(it, imageSurface, previewSurface, stateCallback)
-            }
-        }
-    }
-
-    @VisibleForTesting
-    internal fun onSessionConfigured(
-        session: CameraCaptureSession,
-        previewRequest: CaptureRequest,
-        captureCallback: CameraCaptureSession.CaptureCallback,
-    ) {
-        // Serialize with closeCamera() so a session is never stored for a closed camera. The wait is
-        // bounded because before API 28 this runs on backgroundThread, which also has to deliver
-        // the onOpened that releases a lock held by a concurrent openCamera().
-        val acquired =
-            try {
-                cameraOpenCloseLock.tryAcquire(CAMERA_CLOSE_LOCK_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-            } catch (e: InterruptedException) {
-                Thread.currentThread().interrupt()
-                false
-            }
-        if (!acquired) {
-            session.close()
-            return
-        }
-        try {
-            if (cameraDevice == null || session.device != cameraDevice) {
-                session.close()
-                return
-            }
-            captureSession = session
-        } finally {
-            cameraOpenCloseLock.release()
-        }
-
-        // closeCamera() can still release the surfaces before this request is submitted.
-        handleCaptureException("Failed to request capture") {
-            try {
-                session.setRepeatingRequest(previewRequest, captureCallback, backgroundHandler)
-            } catch (e: IllegalArgumentException) {
-                logger.error("Failed to request capture", e)
+                createCaptureSessionCompat(it, imageSurface, surface!!, stateCallback)
             }
         }
     }

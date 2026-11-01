@@ -156,7 +156,7 @@ class SharedSurfacesChild {
     bool IsShared() const { return mShared; }
 
     void MarkShared(const wr::ExternalImageId& aId) {
-      MOZ_RELEASE_ASSERT(!mShared);
+      MOZ_ASSERT(!mShared);
       mId = aId;
       mShared = true;
     }

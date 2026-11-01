@@ -6615,8 +6615,9 @@ loser:
 void
 tls(char *reqfn)
 {
-    char buf[512]; /* holds one line from the input REQUEST file, and
-                    * the hex key_block written to the RESPONSE file.
+    char buf[256]; /* holds one line from the input REQUEST file.
+                    * needs to be large enough to hold the longest
+                    * line "XSeed = <128 hex digits>\n".
                     */
     unsigned char *pms = NULL;
     int pms_len;
@@ -6775,10 +6776,6 @@ tls(char *reqfn)
             }
             if (strncmp(buf, "[key", 4) == 0) {
                 if (sscanf(buf, "[key block length = %d]", &key_block_len) != 1) {
-                    goto loser;
-                }
-                /* key_block is printed as hex into buf. */
-                if (key_block_len <= 0 || key_block_len / 4 >= sizeof(buf)) {
                     goto loser;
                 }
                 key_block_params.ulKeySizeInBits = 8;

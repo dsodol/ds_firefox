@@ -13,7 +13,9 @@ add_task(
     const exampleOrgOrigin = new URL(SPANISH_PAGE_URL_DOT_ORG).origin;
 
     const { cleanup, translationsSettingsTestUtils } =
-      await setupAboutPreferences(LANGUAGE_PAIRS, {});
+      await setupAboutPreferences(LANGUAGE_PAIRS, {
+        prefs: [["browser.settings-redesign.enabled", true]],
+      });
 
     const document = gBrowser.selectedBrowser.contentDocument;
 

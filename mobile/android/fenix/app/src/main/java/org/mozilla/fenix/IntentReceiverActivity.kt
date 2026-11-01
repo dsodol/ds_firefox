@@ -10,7 +10,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.StrictMode
-import android.view.ContextThemeWrapper
 import androidx.annotation.VisibleForTesting
 import mozilla.components.feature.intent.ext.sanitize
 import mozilla.components.feature.intent.processing.IntentProcessor
@@ -22,7 +21,6 @@ import mozilla.components.support.utils.INTENT_TYPE_PDF
 import mozilla.components.support.utils.ext.packageManagerCompatHelper
 import mozilla.components.support.utils.toSafeIntent
 import org.mozilla.fenix.GleanMetrics.Events
-import org.mozilla.fenix.GleanMetrics.SyncAuth
 import org.mozilla.fenix.HomeActivity.Companion.PRIVATE_BROWSING_MODE
 import org.mozilla.fenix.components.IntentProcessorType
 import org.mozilla.fenix.components.getType
@@ -30,7 +28,6 @@ import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.isIntentInternal
 import org.mozilla.fenix.perf.MarkersActivityLifecycleCallbacks
 import org.mozilla.fenix.perf.StartupTimeline
-import org.mozilla.fenix.settings.SupportUtils
 import org.mozilla.fenix.shortcut.NewTabShortcutIntentProcessor
 import org.mozilla.fenix.shortcut.UninstallShortcutIntentProcessor
 
@@ -75,17 +72,6 @@ class IntentReceiverActivity : Activity() {
     }
 
     fun processIntent(intent: Intent) {
-        val data = intent.toSafeIntent().data
-        if (intent.action == Intent.ACTION_VIEW && data != null && isFxaPairingLink(data)) {
-            SyncAuth.pairingLinkOpened.record(
-                SyncAuth.PairingLinkOpenedExtra(
-                    campaignAttributed = components.settings.isUserPairingCampaignAttributed
-                )
-            )
-            launchAuthCustomTab(data)
-            return
-        }
-
         // Call process for side effects, short on the first that returns true
 
         var private = components.settings.openLinksInAPrivateTab
@@ -106,7 +92,7 @@ class IntentReceiverActivity : Activity() {
             val referrerIsFenix = this.isIntentInternal()
             Events.openedExtPdf.record(Events.OpenedExtPdfExtra(referrerIsFenix))
             if (!referrerIsFenix) {
-                data?.let(::persistUriReadPermission)
+                intent.toSafeIntent().data?.let(::persistUriReadPermission)
             }
         }
 
@@ -144,20 +130,6 @@ class IntentReceiverActivity : Activity() {
             startActivity(intent)
         }
         finish() // must finish() after starting the other activity
-    }
-
-    /** Opens a scanned Firefox Accounts pairing link in [org.mozilla.fenix.settings.account.AuthCustomTabActivity]. */
-    @VisibleForTesting
-    internal fun launchAuthCustomTab(pairingUrl: Uri) {
-        // Neither the receiver's transparent theme nor the application context defines colorSurface, which the custom
-        // tab intent reads, so resolve it against the app theme explicitly.
-        val themedContext = ContextThemeWrapper(this, R.style.NormalTheme)
-        val intent = SupportUtils.createAuthCustomTabIntent(themedContext, pairingUrl.toString())
-        // StrictMode violation on certain devices such as Samsung
-        components.strictMode.allowViolation(StrictMode::allowThreadDiskReads) {
-            startActivity(intent)
-        }
-        finish()
     }
 
     private fun getIntentProcessors(private: Boolean): List<IntentProcessor> {
@@ -218,13 +190,3 @@ private fun Intent.stripUnwantedFlags() {
     // do not want to propagate this flag from the intent receiver activity to the browser.
     flags = flags and Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS.inv()
 }
-
-private val FXA_PAIRING_HOSTS = setOf("accounts.firefox.com", "accounts.stage.mozaws.net")
-private const val FXA_PAIRING_PATH_PREFIX = "/pair"
-
-/** Whether [uri] is a Firefox Accounts pairing link on the production or stage server. */
-@VisibleForTesting
-internal fun isFxaPairingLink(uri: Uri): Boolean =
-    uri.scheme == "https" &&
-        uri.host?.lowercase() in FXA_PAIRING_HOSTS &&
-        uri.path.orEmpty().startsWith(FXA_PAIRING_PATH_PREFIX)

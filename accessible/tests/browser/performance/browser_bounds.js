@@ -319,15 +319,15 @@ const perfMetadata = {
 addAccessibleTask(
   `<div id="container" role="group" style="display:none;"></div>`,
   async function testBounds(browser, accDoc) {
-    info(`Adding ${LARGE_NODE_COUNT} children to framed container`);
+    info("Adding 10000 children to framed container");
     const containerShown = waitForEvent(EVENT_SHOW, "container");
     // We add the nodes to the container while it is hidden to
-    // ensure we produce a single show event.
+    // ensure we produce a single show event rather than 10000.
     // This makes the perf comparison more straightforward, i.e.
     // the perf cost of this test isn't drowned out by the show event cost.
-    await invokeContentTask(browser, [LARGE_NODE_COUNT], count => {
+    await invokeContentTask(browser, [], () => {
       const container = content.document.getElementById("container");
-      for (let c = 0; c < count; ++c) {
+      for (let c = 0; c < 10000; ++c) {
         const child = content.document.createElement("div");
         child.textContent = c;
         container.append(child);

@@ -79,7 +79,7 @@ object SettingsSelectors : SelectorContainer {
 
     val SETTINGS_TITLE =
         navigationToolbarTitle(
-            title = getStringResource(R.string.settings_title),
+            title = getStringResource(R.string.settings),
             description = "Settings screen title",
         )
 

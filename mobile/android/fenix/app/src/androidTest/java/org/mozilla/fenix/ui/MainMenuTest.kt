@@ -132,7 +132,6 @@ class MainMenuTest {
 
         navigationToolbar(composeTestRule) {}
             .enterURLAndEnterToBrowser(pdfPage.url) {
-                clickPageObject(composeTestRule, itemContainingText("Stay in"))
                 waitForPageToLoad()
                 verifyPageContent(pdfPage.content)
             }
@@ -605,7 +604,6 @@ class MainMenuTest {
 
         navigationToolbar(composeTestRule) {}
             .enterURLAndEnterToBrowser(youtubeURL) {
-                clickPageObject(composeTestRule, itemContainingText("Stay in"))
                 waitForPageToLoad(waitingTime)
             }
             .openThreeDotMenu {
@@ -1637,7 +1635,6 @@ class MainMenuTest {
         bug = 2063252,
         since = "2026-08",
     )
-    @SmokeTest
     @Test
     fun verifyTheMainMenuShareButtonFromCustomTabTest() {
         val customMenuItem = "TestMenuItem"
@@ -1671,14 +1668,13 @@ class MainMenuTest {
         )
 
         browserScreen(composeTestRule) {
-            clickPageObject(composeTestRule, itemContainingText("Stay in"))
             verifyPageContent(customTabPDF.content)
         }
 
         customTabScreen(composeTestRule) {}
             .openMainMenu {
                 verifySwitchToDesktopSiteButton()
-                verifyDesktopSiteButtonIsDisabled()
+                verifyDesktopSiteButtonState(isEnabled = false)
             }
     }
 

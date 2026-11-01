@@ -103,6 +103,7 @@ class PeerConnectionRtpBaseTest : public ::testing::Test {
         pc_factory_(CreatePeerConnectionFactory(
             Thread::Current(),
             Thread::Current(),
+            Thread::Current(),
             FakeAudioCaptureModule::Create(),
             CreateBuiltinAudioEncoderFactory(),
             CreateBuiltinAudioDecoderFactory(),

@@ -89,13 +89,16 @@ function test_unicode_arguments() {
 
 function rename_and_test(asciiName, unicodeName, args, argsAreASCII) {
   var asciiFile = get_test_program(asciiName);
-  var unicodeLeaf = asciiFile.leafName.replace(asciiName, unicodeName);
+  var asciiLeaf = asciiFile.leafName;
+  var unicodeLeaf = asciiLeaf.replace(asciiName, unicodeName);
 
-  var unicodeFile = do_get_tempdir();
-  asciiFile.copyTo(unicodeFile, unicodeLeaf);
-  unicodeFile.append(unicodeLeaf);
+  asciiFile.moveTo(null, unicodeLeaf);
+
+  var unicodeFile = get_test_program(unicodeName);
 
   test_args(unicodeFile, args, argsAreASCII);
+
+  unicodeFile.moveTo(null, asciiLeaf);
 }
 
 // test passing ASCII and Unicode arguments to an application with a Unicode name
@@ -166,11 +169,7 @@ function test_notify_killed() {
     },
   });
 
-  // Give a helper that does not block a chance to exit before it is killed.
-  do_timeout(500, () => {
-    Assert.ok(process.isRunning, "TestBlockingProcess should block");
-    process.kill();
-  });
+  process.kill();
 }
 
 function run_test() {

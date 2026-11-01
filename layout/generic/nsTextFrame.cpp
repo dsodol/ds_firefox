@@ -1094,7 +1094,7 @@ static void CreateObserversForAnimatedGlyphs(gfxTextRun* aTextRun) {
   observers->SetCapacity(observers->Length() +
                          fontsWithAnimatedGlyphs.Length());
   for (auto font : fontsWithAnimatedGlyphs) {
-    observers->AppendElement(std::make_unique<GlyphObserver>(font, aTextRun));
+    observers->AppendElement(MakeUnique<GlyphObserver>(font, aTextRun));
   }
 }
 
@@ -2641,11 +2641,11 @@ already_AddRefed<gfxTextRun> BuildTextRunsScanner::BuildTextRunForFrames(
     }
     char16_t maskChar =
         needsToMaskPassword ? 0 : textStyle->TextSecurityMaskChar();
-    transformingFactory = std::make_unique<nsCaseTransformTextRunFactory>(
+    transformingFactory = MakeUnique<nsCaseTransformTextRunFactory>(
         std::move(transformingFactory), false, useCapitalEsZett, maskChar);
   }
   if (anyMathMLStyling) {
-    transformingFactory = std::make_unique<MathMLTextRunFactory>(
+    transformingFactory = MakeUnique<MathMLTextRunFactory>(
         std::move(transformingFactory), mathFlags, sstyScriptLevel,
         fontInflation);
   }
@@ -2957,7 +2957,7 @@ void BuildTextRunsScanner::SetupBreakSinksForTextRun(gfxTextRun* aTextRun,
                              mappedFlow->mStartFrame->GetContentOffset());
 
     UniquePtr<BreakSink>* breakSink = mBreakSinks.AppendElement(
-        std::make_unique<BreakSink>(aTextRun, mDrawTarget, offset));
+        MakeUnique<BreakSink>(aTextRun, mDrawTarget, offset));
 
     uint32_t length = iterNext.GetSkippedOffset() - offset;
     uint32_t flags = 0;
@@ -4487,33 +4487,6 @@ void nsTextFrame::PropertyProvider::GetHyphenationBreaks(
   }
 }
 
-bool nsTextFrame::PropertyProvider::GetSourceText(Range aRange,
-                                                  nsAString& aText) const {
-  MOZ_ASSERT(IsInBounds(mStart, mLength, aRange), "Range out of bounds");
-  MOZ_ASSERT(aText.IsEmpty());
-
-  const bool isTransformed =
-      !!(mTextRun->GetFlags2() & nsTextFrameUtils::Flags::IsTransformed);
-  const nsTransformedTextRun* transformedTextRun =
-      isTransformed ? static_cast<const nsTransformedTextRun*>(mTextRun.get())
-                    : nullptr;
-  gfxSkipCharsIterator skipIter(mStart);
-
-  // text-transform must not affect a plain text copy, so we always map back to
-  // the DOM text, even for a transformed textrun. The DOM text is never masked,
-  // so we must explicitly return false for masked password characters.
-  aText.SetCapacity(aRange.Length());
-  for (uint32_t i = aRange.start; i < aRange.end; ++i) {
-    if (transformedTextRun && transformedTextRun->mStyles[i]->mMaskPassword) {
-      aText.Truncate();
-      return false;
-    }
-    aText.Append(mCharacterDataBuffer.CharAt(
-        AssertedCast<uint32_t>(skipIter.ConvertSkippedToOriginal(i))));
-  }
-  return true;
-}
-
 void nsTextFrame::PropertyProvider::InitializeForDisplay(bool aTrimAfter) {
   nsTextFrame::TrimmedOffsets trimmed = mFrame->GetTrimmedOffsets(
       mCharacterDataBuffer,
@@ -4952,14 +4925,15 @@ static void VerifyNotDirty(nsFrameState state) {
 #endif
 
 nsIFrame* NS_NewTextFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
-  return new nsTextFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell) nsTextFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsTextFrame)
 
 nsIFrame* NS_NewContinuingTextFrame(PresShell* aPresShell,
                                     ComputedStyle* aStyle) {
-  return new nsContinuingTextFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      nsContinuingTextFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsContinuingTextFrame)

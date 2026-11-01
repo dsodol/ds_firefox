@@ -6,7 +6,6 @@
 
 const {
   UPDATE_DOMAIN,
-  UPDATE_PREFETCH_STATUS,
 } = require("resource://devtools/client/application/src/constants.js");
 
 function updateDomain(url) {
@@ -16,14 +15,6 @@ function updateDomain(url) {
   };
 }
 
-function updatePrefetchStatus(activatedFromNavigationalPrefetch) {
-  return {
-    type: UPDATE_PREFETCH_STATUS,
-    activatedFromNavigationalPrefetch,
-  };
-}
-
 module.exports = {
   updateDomain,
-  updatePrefetchStatus,
 };

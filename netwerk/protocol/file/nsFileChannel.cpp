@@ -342,7 +342,7 @@ static nsresult MakeWindowsDriveListingStream(nsIInputStream** aResult,
       break;
     }
     len = result;
-    buf = std::make_unique<WCHAR[]>(len);
+    buf = MakeUnique<WCHAR[]>(len);
   }
 
   nsCString listing;

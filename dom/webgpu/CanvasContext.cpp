@@ -4,8 +4,6 @@
 
 #include "CanvasContext.h"
 
-#include <memory>
-
 #include "LayerUserData.h"
 #include "Utility.h"
 #include "gfxUtils.h"
@@ -124,7 +122,7 @@ void CanvasContext::Configure(const dom::GPUCanvasConfiguration& aConfig,
     return;
   }
 
-  mConfiguration = std::make_unique<dom::GPUCanvasConfiguration>(aConfig);
+  mConfiguration.reset(new dom::GPUCanvasConfiguration(aConfig));
   mRemoteTextureOwnerId = Some(layers::RemoteTextureOwnerId::GetNext());
   mUseSharedTextureInSwapChain =
       aConfig.mDevice->mSupportSharedTextureInSwapChain;

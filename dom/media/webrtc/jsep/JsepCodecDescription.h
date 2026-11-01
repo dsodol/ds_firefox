@@ -100,7 +100,7 @@ class JsepCodecPreferences {
 
 #define JSEP_CODEC_CLONE(T)                                \
   UniquePtr<JsepCodecDescription> Clone() const override { \
-    return std::make_unique<T>(*this);                     \
+    return MakeUnique<T>(*this);                           \
   }
 
 // A single entry in our list of known codecs.
@@ -116,7 +116,7 @@ class JsepCodecDescription {
         mEnabled(true),
         mStronglyPreferred(false),
         mDirection(sdp::kSend) {}
-  virtual ~JsepCodecDescription() = default;
+  virtual ~JsepCodecDescription() {}
 
   virtual SdpMediaSection::MediaType Type() const = 0;
 
@@ -348,36 +348,32 @@ class JsepAudioCodecDescription final : public JsepCodecDescription {
     // 9KHz tone.  This should be adaptive when we're at the low-end of video
     // bandwidth (say <100Kbps), and if we're audio-only, down to 8 or
     // 12Kbps.
-    auto codec =
-        std::make_unique<JsepAudioCodecDescription>("109", "opus", 48000, 2);
+    auto codec = MakeUnique<JsepAudioCodecDescription>("109", "opus", 48000, 2);
     codec->mFECEnabled = aPrefs.UseAudioFec();
     return ConfigureCommonAudioCodec(std::move(codec), aPrefs);
   }
 
   static UniquePtr<JsepAudioCodecDescription> CreateDefaultG722(
       const JsepCodecPreferences& aPrefs) {
-    auto codec =
-        std::make_unique<JsepAudioCodecDescription>("9", "G722", 8000, 1);
+    auto codec = MakeUnique<JsepAudioCodecDescription>("9", "G722", 8000, 1);
     return ConfigureCommonAudioCodec(std::move(codec), aPrefs);
   }
 
   static UniquePtr<JsepAudioCodecDescription> CreateDefaultPCMU(
       const JsepCodecPreferences& aPrefs) {
-    auto codec =
-        std::make_unique<JsepAudioCodecDescription>("0", "PCMU", 8000, 1);
+    auto codec = MakeUnique<JsepAudioCodecDescription>("0", "PCMU", 8000, 1);
     return ConfigureCommonAudioCodec(std::move(codec), aPrefs);
   }
 
   static UniquePtr<JsepAudioCodecDescription> CreateDefaultPCMA(
       const JsepCodecPreferences& aPrefs) {
-    auto codec =
-        std::make_unique<JsepAudioCodecDescription>("8", "PCMA", 8000, 1);
+    auto codec = MakeUnique<JsepAudioCodecDescription>("8", "PCMA", 8000, 1);
     return ConfigureCommonAudioCodec(std::move(codec), aPrefs);
   }
 
   static UniquePtr<JsepAudioCodecDescription> CreateDefaultTelephoneEvent() {
-    return std::make_unique<JsepAudioCodecDescription>("101", "telephone-event",
-                                                       8000, 1);
+    return MakeUnique<JsepAudioCodecDescription>("101", "telephone-event", 8000,
+                                                 1);
   }
 
   SdpFmtpAttributeList::OpusParameters GetOpusParameters(
@@ -425,7 +421,7 @@ class JsepAudioCodecDescription final : public JsepCodecDescription {
 
     if (mName == "opus") {
       UniquePtr<SdpFmtpAttributeList::Parameters> opusParams =
-          std::make_unique<SdpFmtpAttributeList::OpusParameters>(
+          MakeUnique<SdpFmtpAttributeList::OpusParameters>(
               GetOpusParameters(mDefaultPt, msection));
 
       ApplyConfigToFmtp(opusParams);
@@ -546,8 +542,7 @@ class JsepAudioCodecDescription final : public JsepCodecDescription {
     } else if (mName == "telephone-event") {
       if (!aFmtp) {
         // We only use the default right now
-        aFmtp =
-            std::make_unique<SdpFmtpAttributeList::TelephoneEventParameters>();
+        aFmtp = MakeUnique<SdpFmtpAttributeList::TelephoneEventParameters>();
       }
     }
   };
@@ -608,8 +603,7 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
     // capabilities via profile/level-idx/tier so the remote sender knows
     // what it may send us. See:
     // https://aomediacodec.github.io/av1-rtp-spec/#sdp-parameters
-    auto codec =
-        std::make_unique<JsepVideoCodecDescription>("99", "AV1", 90000);
+    auto codec = MakeUnique<JsepVideoCodecDescription>("99", "AV1", 90000);
     codec->mEnabled = aPrefs.AV1Enabled();
     codec->mStronglyPreferred = aPrefs.AV1Preferred();
     codec->mAv1Config.mProfile = Some(uint8_t(0));
@@ -623,8 +617,7 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
 
   static UniquePtr<JsepVideoCodecDescription> CreateDefaultVP8(
       const JsepCodecPreferences& aPrefs) {
-    auto codec =
-        std::make_unique<JsepVideoCodecDescription>("120", "VP8", 90000);
+    auto codec = MakeUnique<JsepVideoCodecDescription>("120", "VP8", 90000);
     // Defaults for mandatory params
     codec->mConstraints.maxFs = aPrefs.VP8MaxFs();
     codec->mConstraints.maxFps = Some(aPrefs.VP8MaxFr());
@@ -636,8 +629,7 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
 
   static UniquePtr<JsepVideoCodecDescription> CreateDefaultVP9(
       const JsepCodecPreferences& aPrefs) {
-    auto codec =
-        std::make_unique<JsepVideoCodecDescription>("121", "VP9", 90000);
+    auto codec = MakeUnique<JsepVideoCodecDescription>("121", "VP9", 90000);
     codec->mEnabled = aPrefs.VP9Enabled();
     // Defaults for mandatory params
     codec->mConstraints.maxFs = aPrefs.VP8MaxFs();
@@ -669,8 +661,7 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
 
   static UniquePtr<JsepVideoCodecDescription> CreateDefaultH264_0(
       const JsepCodecPreferences& aPrefs) {
-    auto codec =
-        std::make_unique<JsepVideoCodecDescription>("97", "H264", 90000);
+    auto codec = MakeUnique<JsepVideoCodecDescription>("97", "H264", 90000);
     codec->mEnabled = aPrefs.H264Enabled();
     codec->mPacketizationMode = 0;
     // Defaults for mandatory params
@@ -686,8 +677,7 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
 
   static UniquePtr<JsepVideoCodecDescription> CreateDefaultH264_1(
       const JsepCodecPreferences& aPrefs) {
-    auto codec =
-        std::make_unique<JsepVideoCodecDescription>("126", "H264", 90000);
+    auto codec = MakeUnique<JsepVideoCodecDescription>("126", "H264", 90000);
     codec->mEnabled = aPrefs.H264Enabled();
     codec->mPacketizationMode = 1;
     // Defaults for mandatory params
@@ -700,8 +690,7 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
 
   static UniquePtr<JsepVideoCodecDescription> CreateDefaultH264Baseline_0(
       const JsepCodecPreferences& aPrefs) {
-    auto codec =
-        std::make_unique<JsepVideoCodecDescription>("103", "H264", 90000);
+    auto codec = MakeUnique<JsepVideoCodecDescription>("103", "H264", 90000);
     codec->mEnabled = aPrefs.H264Enabled() && !aPrefs.H264BaselineDisabled();
     codec->mPacketizationMode = 0;
     // Defaults for mandatory params
@@ -717,8 +706,7 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
 
   static UniquePtr<JsepVideoCodecDescription> CreateDefaultH264Baseline_1(
       const JsepCodecPreferences& aPrefs) {
-    auto codec =
-        std::make_unique<JsepVideoCodecDescription>("105", "H264", 90000);
+    auto codec = MakeUnique<JsepVideoCodecDescription>("105", "H264", 90000);
     codec->mEnabled = aPrefs.H264Enabled() && !aPrefs.H264BaselineDisabled();
     codec->mPacketizationMode = 1;
     // Defaults for mandatory params
@@ -731,7 +719,7 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
 
   static UniquePtr<JsepVideoCodecDescription> CreateDefaultUlpFec(
       const JsepCodecPreferences& aPrefs) {
-    auto codec = std::make_unique<JsepVideoCodecDescription>(
+    auto codec = MakeUnique<JsepVideoCodecDescription>(
         "123",     // payload type
         "ulpfec",  // codec name
         90000      // clock rate (match other video codecs)
@@ -742,7 +730,7 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
 
   static UniquePtr<JsepVideoCodecDescription> CreateDefaultRed(
       const JsepCodecPreferences& aPrefs) {
-    auto codec = std::make_unique<JsepVideoCodecDescription>(
+    auto codec = MakeUnique<JsepVideoCodecDescription>(
         "122",  // payload type
         "red",  // codec name
         90000   // clock rate (match other video codecs)
@@ -893,7 +881,7 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
 
     if (mName == "H264") {
       UniquePtr<SdpFmtpAttributeList::Parameters> h264Params =
-          std::make_unique<SdpFmtpAttributeList::H264Parameters>(
+          MakeUnique<SdpFmtpAttributeList::H264Parameters>(
               GetH264Parameters(mDefaultPt, msection));
 
       ApplyConfigToFmtp(h264Params);
@@ -903,14 +891,14 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
       if (mDirection == sdp::kRecv) {
         // VP8 and VP9 share the same SDP parameters thus far
         UniquePtr<SdpFmtpAttributeList::Parameters> vp8Params =
-            std::make_unique<SdpFmtpAttributeList::VP8Parameters>(
+            MakeUnique<SdpFmtpAttributeList::VP8Parameters>(
                 GetVP8Parameters(mDefaultPt, msection));
         ApplyConfigToFmtp(vp8Params);
         msection.SetFmtp(SdpFmtpAttributeList::Fmtp(mDefaultPt, *vp8Params));
       }
     } else if (mName == "AV1") {
       UniquePtr<SdpFmtpAttributeList::Parameters> av1Params =
-          std::make_unique<SdpFmtpAttributeList::Av1Parameters>(
+          MakeUnique<SdpFmtpAttributeList::Av1Parameters>(
               GetAv1Parameters(mDefaultPt, msection));
       ApplyConfigToFmtp(av1Params);
       msection.SetFmtp(SdpFmtpAttributeList::Fmtp(mDefaultPt, *av1Params));
@@ -1130,26 +1118,20 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
         }
         // The negotiated level implies a macroblocks-per-frame/-second cap
         // (Annex A Table A-1) even when the remote didn't explicitly signal
-        // max-fs/max-mbps (the common case). Per RFC 6184 section 8.1, an
-        // explicit max-fs/max-mbps replaces the level's value, in either
-        // direction, so the level only fills in what wasn't signaled. Explicit
-        // values are bounded by the highest level we can represent, so a
-        // hostile or bogus value can't overflow later size calculations.
+        // max-fs/max-mbps (the common case). Combine with any explicit
+        // signal by taking the tighter of the two, so we never ask the
+        // encoder for more than the level permits.
         if (Maybe<H264MacroblockLimits> levelLimits =
                 H264MacroblockLimitsForLevel(SaneH264LevelToH264Level(
                     GetSaneH264Level(mProfileLevelId)))) {
-          Maybe<H264MacroblockLimits> hardLimits =
-              H264MacroblockLimitsForLevel(H264_LEVEL::H264_LEVEL_5_2);
-          MOZ_ASSERT(hardLimits);
-          mConstraints.maxFs =
-              mConstraints.maxFs ? std::min(mConstraints.maxFs,
-                                            hardLimits->mMaxMacroblocksPerFrame)
-                                 : levelLimits->mMaxMacroblocksPerFrame;
-          mConstraints.maxMbps =
-              mConstraints.maxMbps
-                  ? std::min(mConstraints.maxMbps,
-                             hardLimits->mMaxMacroblocksPerSecond)
-                  : levelLimits->mMaxMacroblocksPerSecond;
+          if (!mConstraints.maxFs ||
+              mConstraints.maxFs > levelLimits->mMaxMacroblocksPerFrame) {
+            mConstraints.maxFs = levelLimits->mMaxMacroblocksPerFrame;
+          }
+          if (!mConstraints.maxMbps ||
+              mConstraints.maxMbps > levelLimits->mMaxMacroblocksPerSecond) {
+            mConstraints.maxMbps = levelLimits->mMaxMacroblocksPerSecond;
+          }
         }
       } else {
         // TODO(bug 1143709): max-recv-level support
@@ -1504,7 +1486,7 @@ class JsepApplicationCodecDescription final : public JsepCodecDescription {
   JSEP_CODEC_CLONE(JsepApplicationCodecDescription)
 
   static UniquePtr<JsepApplicationCodecDescription> CreateDefault() {
-    return std::make_unique<JsepApplicationCodecDescription>(
+    return MakeUnique<JsepApplicationCodecDescription>(
         "webrtc-datachannel", WEBRTC_DATACHANNEL_STREAMS_DEFAULT,
         WEBRTC_DATACHANNEL_PORT_DEFAULT,
         WEBRTC_DATACHANNEL_MAX_MESSAGE_SIZE_LOCAL);

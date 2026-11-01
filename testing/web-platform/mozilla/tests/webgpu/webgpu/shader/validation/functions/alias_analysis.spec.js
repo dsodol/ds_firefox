@@ -32,24 +32,10 @@ const kUses = {
 
 
 
-/**
- * @returns true if aliased pointer arguments with a write access are a shader-creation error.
- * This is the case unless the 'unrestricted_aliasing' language feature is supported.
- */
-function aliasingRestricted(t) {
-  return !t.hasLanguageFeature('unrestricted_aliasing');
-}
-
-function shouldPass(t, aliased, ...uses) {
+function shouldPass(aliased, ...uses) {
   // Expect fail if the pointers are aliased and at least one of the accesses is a write.
   // If either of the accesses is a "no access" then expect pass.
-  // If the 'unrestricted_aliasing' language feature is supported then always expect pass.
-  return (
-    !aliasingRestricted(t) ||
-    !aliased ||
-    !uses.some((u) => kUses[u].is_write) ||
-    uses.includes('no_access'));
-
+  return !aliased || !uses.some((u) => kUses[u].is_write) || uses.includes('no_access');
 }
 
 
@@ -145,7 +131,7 @@ fn caller() {
   callee(&x, ${t.params.aliased ? `&x` : `&y`});
 }
 `;
-  t.expectCompileResult(shouldPass(t, t.params.aliased, t.params.a_use, t.params.b_use), code);
+  t.expectCompileResult(shouldPass(t.params.aliased, t.params.a_use, t.params.b_use), code);
 });
 
 g.test('two_pointers_to_array_elements').
@@ -179,7 +165,7 @@ fn caller() {
   callee(&x[${t.params.index}], ${t.params.aliased ? `&x[0]` : `&y[0]`});
 }
 `;
-  t.expectCompileResult(shouldPass(t, t.params.aliased, t.params.a_use, t.params.b_use), code);
+  t.expectCompileResult(shouldPass(t.params.aliased, t.params.a_use, t.params.b_use), code);
 });
 
 g.test('two_pointers_to_array_elements_indirect').
@@ -221,7 +207,7 @@ fn caller() {
   index(&x, ${t.params.aliased ? `&x` : `&y`});
 }
 `;
-  t.expectCompileResult(shouldPass(t, t.params.aliased, t.params.a_use, t.params.b_use), code);
+  t.expectCompileResult(shouldPass(t.params.aliased, t.params.a_use, t.params.b_use), code);
 });
 
 g.test('two_pointers_to_struct_members').
@@ -260,7 +246,7 @@ fn caller() {
   callee(&x.${t.params.member}, ${t.params.aliased ? `&x.a` : `&y.a`});
 }
 `;
-  t.expectCompileResult(shouldPass(t, t.params.aliased, t.params.a_use, t.params.b_use), code);
+  t.expectCompileResult(shouldPass(t.params.aliased, t.params.a_use, t.params.b_use), code);
 });
 
 g.test('two_pointers_to_struct_members_indirect').
@@ -307,7 +293,7 @@ fn caller() {
   access(&x, ${t.params.aliased ? `&x` : `&y`});
 }
 `;
-  t.expectCompileResult(shouldPass(t, t.params.aliased, t.params.a_use, t.params.b_use), code);
+  t.expectCompileResult(shouldPass(t.params.aliased, t.params.a_use, t.params.b_use), code);
 });
 
 g.test('one_pointer_one_module_scope').
@@ -339,7 +325,7 @@ fn caller() {
   callee(${t.params.aliased ? `&x` : `&y`});
 }
 `;
-  t.expectCompileResult(shouldPass(t, t.params.aliased, t.params.a_use, t.params.b_use), code);
+  t.expectCompileResult(shouldPass(t.params.aliased, t.params.a_use, t.params.b_use), code);
 });
 
 g.test('subcalls').
@@ -385,7 +371,7 @@ fn caller() {
   callee(&x, ${t.params.aliased ? `&x` : `&y`});
 }
 `;
-  t.expectCompileResult(shouldPass(t, t.params.aliased, t.params.a_use, t.params.b_use), code);
+  t.expectCompileResult(shouldPass(t.params.aliased, t.params.a_use, t.params.b_use), code);
 });
 
 g.test('member_accessors').
@@ -420,7 +406,7 @@ fn caller() {
   callee(&x, ${t.params.aliased ? `&x` : `&y`});
 }
 `;
-  t.expectCompileResult(shouldPass(t, t.params.aliased, t.params.a_use, t.params.b_use), code);
+  t.expectCompileResult(shouldPass(t.params.aliased, t.params.a_use, t.params.b_use), code);
 });
 
 g.test('swizzles').
@@ -456,7 +442,7 @@ fn caller() {
   callee(&x, ${t.params.aliased ? `&x` : `&y`});
 }
 `;
-  t.expectCompileResult(shouldPass(t, t.params.aliased, t.params.a_use, 'let_init'), code);
+  t.expectCompileResult(shouldPass(t.params.aliased, t.params.a_use, 'let_init'), code);
 });
 
 g.test('same_pointer_read_and_write').
@@ -586,9 +572,7 @@ fn caller() {
 }
 `;
   const shouldFail =
-  aliasingRestricted(t) &&
-  t.params.aliased && (
-  isWrite(t.params.builtin_a) || isWrite(t.params.builtin_b));
+  t.params.aliased && (isWrite(t.params.builtin_a) || isWrite(t.params.builtin_b));
   t.expectCompileResult(!shouldFail, code);
 });
 
@@ -622,9 +606,7 @@ fn caller() {
 }
 `;
   const shouldFail =
-  aliasingRestricted(t) &&
-  t.params.aliased && (
-  isWrite(t.params.builtin_a) || isWrite(t.params.builtin_b));
+  t.params.aliased && (isWrite(t.params.builtin_a) || isWrite(t.params.builtin_b));
   t.expectCompileResult(!shouldFail, code);
 });
 
@@ -663,9 +645,7 @@ fn caller() {
 }
 `;
   const shouldFail =
-  aliasingRestricted(t) &&
-  t.params.aliased && (
-  isWrite(t.params.builtin_a) || isWrite(t.params.builtin_b));
+  t.params.aliased && (isWrite(t.params.builtin_a) || isWrite(t.params.builtin_b));
   t.expectCompileResult(!shouldFail, code);
 });
 
@@ -698,9 +678,7 @@ fn caller() {
 }
 `;
   const shouldFail =
-  aliasingRestricted(t) &&
-  t.params.aliased && (
-  isWrite(t.params.builtin_a) || isWrite(t.params.builtin_b));
+  t.params.aliased && (isWrite(t.params.builtin_a) || isWrite(t.params.builtin_b));
   t.expectCompileResult(!shouldFail, code);
 });
 
@@ -740,40 +718,6 @@ fn caller() {
   callee(&x, &${t.params.aliased ? 'x' : 'y'});
 }
 `;
-  const shouldFail = aliasingRestricted(t) && t.params.aliased && t.params.use === 'store';
+  const shouldFail = t.params.aliased && t.params.use === 'store';
   t.expectCompileResult(!shouldFail, code);
-});
-
-g.test('requires_unrestricted_aliasing').
-desc(
-  `Test that aliased pointer arguments with write accesses are valid with a
-'requires unrestricted_aliasing' directive, iff the language feature is supported.`
-).
-params((u) => u.combine('address_space', kWritableAddressSpaces).combine('aliased', [true, false])).
-fn((t) => {
-  if (requiresUnrestrictedPointerParameters(t.params.address_space)) {
-    t.skipIfLanguageFeatureNotSupported('unrestricted_pointer_parameters');
-  }
-
-  const code = `
-requires unrestricted_aliasing;
-
-${maybeDeclareModuleScopeVar('x', t.params.address_space, 'i32')}
-${maybeDeclareModuleScopeVar('y', t.params.address_space, 'i32')}
-
-fn callee(pa : ${ptr(t.params.address_space, 'i32')},
-          pb : ${ptr(t.params.address_space, 'i32')}) -> i32 {
-  *pa = 1;
-  *pb = 2;
-  return *pa;
-}
-
-fn caller() {
-  ${maybeDeclareFunctionScopeVar('x', t.params.address_space, 'i32')}
-  ${maybeDeclareFunctionScopeVar('y', t.params.address_space, 'i32')}
-  callee(&x, ${t.params.aliased ? `&x` : `&y`});
-}
-`;
-  // The 'requires' directive is an error if the feature is not supported, regardless of aliasing.
-  t.expectCompileResult(t.hasLanguageFeature('unrestricted_aliasing'), code);
 });

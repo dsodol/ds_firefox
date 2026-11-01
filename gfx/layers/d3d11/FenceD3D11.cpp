@@ -9,7 +9,6 @@
 #include <d3d11_4.h>
 #include <dxgi1_6.h>
 
-#include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/gfx/Logging.h"
 
 namespace mozilla {
@@ -73,12 +72,6 @@ RefPtr<FenceD3D11> FenceD3D11::CreateFromHandle(
 
 /* static */
 bool FenceD3D11::IsSupported(ID3D11Device* aDevice) {
-  return StaticPrefs::gfx_direct3d11_fences_enabled_AtStartup() &&
-         IsSupportedByDevice(aDevice);
-}
-
-/* static */
-bool FenceD3D11::IsSupportedByDevice(ID3D11Device* aDevice) {
   MOZ_ASSERT(aDevice);
 
   if (!aDevice) {
@@ -92,8 +85,8 @@ bool FenceD3D11::IsSupportedByDevice(ID3D11Device* aDevice) {
 
   // Check for IDXGIAdapter4:
   RefPtr<IDXGIDevice> dxgiDevice;
-  hr = aDevice->QueryInterface((IDXGIDevice**)getter_AddRefs(dxgiDevice));
-  if (FAILED(hr) || !dxgiDevice) {
+  aDevice->QueryInterface((IDXGIDevice**)getter_AddRefs(dxgiDevice));
+  if (FAILED(hr)) {
     return false;
   }
 
@@ -104,9 +97,8 @@ bool FenceD3D11::IsSupportedByDevice(ID3D11Device* aDevice) {
   }
 
   RefPtr<IDXGIAdapter4> dxgiAdapter4;
-  hr = dxgiAdapter->QueryInterface(
-      (IDXGIAdapter4**)getter_AddRefs(dxgiAdapter4));
-  if (FAILED(hr) || !dxgiAdapter4) {
+  dxgiAdapter->QueryInterface((IDXGIAdapter4**)getter_AddRefs(dxgiAdapter4));
+  if (FAILED(hr)) {
     gfxCriticalNoteOnce << "Failed to get IDXGIAdapter4: " << gfx::hexa(hr);
     return false;
   }

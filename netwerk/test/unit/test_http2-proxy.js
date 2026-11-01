@@ -39,7 +39,7 @@ registerCleanupFunction(() => {
 });
 
 const pps = Cc["@mozilla.org/network/protocol-proxy-service;1"].getService();
-const { ADB, NodeServer } = ChromeUtils.importESModule(
+const { NodeServer } = ChromeUtils.importESModule(
   "resource://testing-common/NodeServer.sys.mjs"
 );
 
@@ -161,6 +161,26 @@ function get_response(channel, flags = CL_ALLOW_UNKNOWN_CL, delay = 0) {
 let initial_session_count = 0;
 
 class http2ProxyCode {
+  static listen(server, envport) {
+    if (!server) {
+      return Promise.resolve(0);
+    }
+
+    let portSelection = 0;
+    if (envport !== undefined) {
+      try {
+        portSelection = parseInt(envport, 10);
+      } catch (e) {
+        portSelection = -1;
+      }
+    }
+    return new Promise(resolve => {
+      server.listen(portSelection, "0.0.0.0", 2000, () => {
+        resolve(server.address().port);
+      });
+    });
+  }
+
   static startNewProxy() {
     const fs = require("fs");
     const options = {
@@ -170,7 +190,7 @@ class http2ProxyCode {
     const http2 = require("http2");
     global.proxy = http2.createSecureServer(options);
     this.setupProxy();
-    return ADB.listenAndForwardPort(proxy, 0).then(port => {
+    return http2ProxyCode.listen(proxy).then(port => {
       return { port, success: true };
     });
   }
@@ -323,7 +343,7 @@ async function proxy_session_to_origin_server_counter() {
   return parseInt(data) - initial_session_count;
 }
 let processId;
-add_setup(async function setup() {
+add_task(async function setup() {
   // Set to allow the cert presented by our H2 server
   do_get_profile();
 
@@ -338,7 +358,6 @@ add_setup(async function setup() {
   Assert.notEqual(server_port, null);
   processId = await NodeServer.fork();
   await NodeServer.execute(processId, `serverPort = ${server_port}`);
-  await NodeServer.execute(processId, ADB);
   await NodeServer.execute(processId, http2ProxyCode);
   let newProxy = await NodeServer.execute(
     processId,

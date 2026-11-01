@@ -25,7 +25,7 @@ class BaseNodeHTTPServerCode {
   }
 }
 
-export class ADB {
+class ADB {
   static async stopForwarding(port) {
     return this.forwardPort(port, true);
   }
@@ -72,41 +72,14 @@ export class ADB {
     return true;
   }
 
-  // Binds both loopback addresses; a wildcard can share its port on macOS and Windows.
-  static async listenOnLoopback(server, port) {
-    const net = require("net");
-    const { once } = require("events");
-    server.listen(port, "127.0.0.1"); // Not awaitable; once() rejects on `error`.
-    await once(server, "listening");
-    const ipv6 = net.createServer(socket => server.emit("connection", socket));
-    ipv6.listen(server.address().port, "::1");
-    try {
-      await once(ipv6, "listening");
-    } catch (e) {
-      if (e.code === "EADDRNOTAVAIL" || e.code === "EAFNOSUPPORT") {
-        return; // No IPv6 loopback.
-      }
-      await new Promise(resolve => server.close(resolve));
-      throw e;
-    }
-    server.once("close", () => ipv6.close());
-  }
-
   static async listenAndForwardPort(server, port) {
+    const { once } = require("events");
     let retryCount = 0;
     const maxRetries = 10;
 
     while (retryCount < maxRetries) {
-      try {
-        await ADB.listenOnLoopback(server, port);
-      } catch (e) {
-        if (port || e.code !== "EADDRINUSE") {
-          throw e;
-        }
-        retryCount++;
-        console.log(`Port is taken on ::1 (${e}), retrying`);
-        continue;
-      }
+      server.listen(port); // Not awaitable; once() rejects on `error`.
+      await once(server, "listening");
       let serverPort = server.address().port;
       let res = await ADB.forwardPort(serverPort);
 
@@ -357,21 +330,6 @@ class NodeNoResponseUdpCode {
   }
 }
 
-/// Runs start(), then claim() on the port start() got; if claim() fails,
-/// runs stop() and retries, so both end up on one port free for each.
-export async function startOnSharedPort(start, claim, stop, maxRetries = 20) {
-  for (let retry = 0; retry < maxRetries; retry++) {
-    await start();
-    try {
-      return await claim();
-    } catch (e) {
-      console.log(`Port is taken (${e}), retrying`);
-      await stop();
-    }
-  }
-  throw new Error("No port was free for both servers");
-}
-
 export class BaseNodeServer {
   protocol() {
     return this._protocol;
@@ -540,15 +498,18 @@ export class BaseNodeServer {
 
   /// Starts the server on a port free for TCP and UDP alike, holding the UDP
   /// side bound but never answering, so that nothing else can claim it.
-  async startWithNoResponseUdpPort(start = () => this.start()) {
-    return startOnSharedPort(
-      start,
-      async () => {
+  async startWithNoResponseUdpPort(maxRetries = 10) {
+    for (let retry = 0; retry < maxRetries; retry++) {
+      await this.start();
+      try {
         await this.execute(NodeNoResponseUdpCode);
-        return this.execute(`NodeNoResponseUdpCode.bind(${this.port()})`);
-      },
-      () => this.stop()
-    );
+        return await this.execute(`NodeNoResponseUdpCode.bind(${this.port()})`);
+      } catch (e) {
+        console.log(`UDP port ${this.port()} is taken (${e}), retrying`);
+        await this.stop();
+      }
+    }
+    throw new Error("No port was free for both TCP and UDP");
   }
 
   /// Stops the server

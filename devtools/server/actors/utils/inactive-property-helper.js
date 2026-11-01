@@ -253,8 +253,6 @@ class InactivePropertyHelper {
             "inline-flex",
             "grid",
             "inline-grid",
-            "grid-lanes",
-            "inline-grid-lanes",
             "block",
             "inline-block",
             // Uncomment table-cell when Bug 1883357 is fixed.
@@ -1098,16 +1096,10 @@ class InactivePropertyHelper {
 
   /**
    * Check if the current node is a grid container i.e. a node that has a style
-   * of `display:grid`, `display:inline-grid`, `display:grid-lanes`, or
-   * `display:inline-grid-lanes`.
+   * of `display:grid` or `display:inline-grid`.
    */
   get gridContainer() {
-    return this.checkComputedStyle("display", [
-      "grid",
-      "inline-grid",
-      "grid-lanes",
-      "inline-grid-lanes",
-    ]);
+    return this.checkComputedStyle("display", ["grid", "inline-grid"]);
   }
 
   /**

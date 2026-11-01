@@ -26,33 +26,10 @@ static inline nscoord ComputeBEndOffset(WritingMode aWM,
 
 enum class BoxType { Margin, Border, Padding, Content };
 
-StyleAlignmentBaseline Baseline::DefaultAlignmentBaselineForWritingMode(
-    WritingMode aWM) {
-  return aWM.IsCentralBaseline() ? StyleAlignmentBaseline::Central
-                                 : StyleAlignmentBaseline::Alphabetic;
-}
-
-static StyleAlignmentBaseline AlignmentBaselineForFrame(const nsIFrame* aFrame,
-                                                        WritingMode aWM) {
-  // Atomic inlines (inline boxes that are either replaced or which establish
-  // new non-inline formatting contexts) can synthesize a baseline according to
-  // its `alignment-baseline` property. Otherwise, synthesize the baseline
-  // using the default dominant baseline defined by the writing mode.
-  if (!aFrame->IsAtomicInline()) {
-    return Baseline::DefaultAlignmentBaselineForWritingMode(aWM);
-  }
-  StyleAlignmentBaseline baseline = aFrame->AlignmentBaseline();
-  if (baseline == StyleAlignmentBaseline::Baseline) {
-    return Baseline::DefaultAlignmentBaselineForWritingMode(aWM);
-  }
-  return baseline;
-}
-
 template <BoxType aType>
 static nscoord SynthesizeBOffsetFromInnerBox(const nsIFrame* aFrame,
                                              WritingMode aWM,
-                                             BaselineSharingGroup aGroup,
-                                             StyleAlignmentBaseline aBaseline) {
+                                             BaselineSharingGroup aGroup) {
   WritingMode wm = aFrame->GetWritingMode();
   MOZ_ASSERT_IF(aType != BoxType::Border, !aWM.IsOrthogonalTo(wm));
 
@@ -84,8 +61,19 @@ static nscoord SynthesizeBOffsetFromInnerBox(const nsIFrame* aFrame,
     group = GetOppositeBaselineSharingGroup(aGroup);
   }
 
+  // Atomic inlines (inline boxes that are either replaced or which establish
+  // new non-inline formatting contexts) can synthesize a baseline according to
+  // its `alignment-baseline` property. Otherwise, synthesize the baseline
+  // using the default dominant baseline defined by the writing mode.
+  StyleAlignmentBaseline baseline = aFrame->AlignmentBaseline();
+  if (!aFrame->IsAtomicInline() ||
+      baseline == StyleAlignmentBaseline::Baseline) {
+    baseline = aWM.IsCentralBaseline() ? StyleAlignmentBaseline::Central
+                                       : StyleAlignmentBaseline::Alphabetic;
+  }
+
   // See: https://drafts.csswg.org/css-inline-3/#baseline-synthesis-box
-  switch (aBaseline) {
+  switch (baseline) {
     case StyleAlignmentBaseline::Baseline:
       MOZ_ASSERT_UNREACHABLE("Baseline is already handled");
       [[fallthrough]];
@@ -114,36 +102,25 @@ static nscoord SynthesizeBOffsetFromInnerBox(const nsIFrame* aFrame,
 nscoord Baseline::SynthesizeBOffsetFromContentBox(const nsIFrame* aFrame,
                                                   WritingMode aWM,
                                                   BaselineSharingGroup aGroup) {
-  return SynthesizeBOffsetFromInnerBox<BoxType::Content>(
-      aFrame, aWM, aGroup, AlignmentBaselineForFrame(aFrame, aWM));
+  return SynthesizeBOffsetFromInnerBox<BoxType::Content>(aFrame, aWM, aGroup);
 }
 
 nscoord Baseline::SynthesizeBOffsetFromPaddingBox(const nsIFrame* aFrame,
                                                   WritingMode aWM,
                                                   BaselineSharingGroup aGroup) {
-  return SynthesizeBOffsetFromInnerBox<BoxType::Padding>(
-      aFrame, aWM, aGroup, AlignmentBaselineForFrame(aFrame, aWM));
+  return SynthesizeBOffsetFromInnerBox<BoxType::Padding>(aFrame, aWM, aGroup);
 }
 
 nscoord Baseline::SynthesizeBOffsetFromBorderBox(const nsIFrame* aFrame,
                                                  WritingMode aWM,
                                                  BaselineSharingGroup aGroup) {
-  return SynthesizeBOffsetFromInnerBox<BoxType::Border>(
-      aFrame, aWM, aGroup, AlignmentBaselineForFrame(aFrame, aWM));
+  return SynthesizeBOffsetFromInnerBox<BoxType::Border>(aFrame, aWM, aGroup);
 }
 
 nscoord Baseline::SynthesizeBOffsetFromMarginBox(const nsIFrame* aFrame,
                                                  WritingMode aWM,
                                                  BaselineSharingGroup aGroup) {
-  return SynthesizeBOffsetFromInnerBox<BoxType::Margin>(
-      aFrame, aWM, aGroup, AlignmentBaselineForFrame(aFrame, aWM));
-}
-
-nscoord Baseline::SynthesizeBOffsetFromMarginBox(
-    const nsIFrame* aFrame, WritingMode aWM, BaselineSharingGroup aGroup,
-    StyleAlignmentBaseline aBaseline) {
-  return SynthesizeBOffsetFromInnerBox<BoxType::Margin>(aFrame, aWM, aGroup,
-                                                        aBaseline);
+  return SynthesizeBOffsetFromInnerBox<BoxType::Margin>(aFrame, aWM, aGroup);
 }
 
 }  // namespace mozilla

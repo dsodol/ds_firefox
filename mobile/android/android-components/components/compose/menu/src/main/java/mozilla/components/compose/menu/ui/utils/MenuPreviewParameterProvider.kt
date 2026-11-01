@@ -6,7 +6,6 @@ package mozilla.components.compose.menu.ui.utils
 
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import mozilla.components.compose.base.text.Text
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.MenuItemsGroup
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.store.MenuEvent
@@ -48,27 +47,27 @@ internal class MenuPreviewParameterProvider : PreviewParameterProvider<List<Menu
 private val navigationItems =
     listOf(
         StandardMenuItem(
-            title = MenuItemTitle(Text.String("Back")),
+            title = Text.String("Back"),
             contentDescription = Text.String("Back"),
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_back_24),
             state = MenuItemState.DISABLED,
             onClickEvent = object : MenuEvent {},
         ),
         StandardMenuItem(
-            title = MenuItemTitle(Text.String("Forward")),
+            title = Text.String("Forward"),
             contentDescription = Text.String("Forward"),
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_forward_24),
             state = MenuItemState.DISABLED,
             onClickEvent = object : MenuEvent {},
         ),
         StandardMenuItem(
-            title = MenuItemTitle(Text.String("Share")),
+            title = Text.String("Share"),
             contentDescription = Text.String("Share"),
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_share_android_24),
             onClickEvent = object : MenuEvent {},
         ),
         StandardMenuItem(
-            title = MenuItemTitle(Text.String("Refresh")),
+            title = Text.String("Refresh"),
             contentDescription = Text.String("Refresh"),
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_arrow_clockwise_24),
             onClickEvent = object : MenuEvent {},
@@ -78,25 +77,25 @@ private val navigationItems =
 private val libraryItems =
     listOf(
         StandardMenuItem(
-            title = MenuItemTitle(Text.String("History")),
+            title = Text.String("History"),
             contentDescription = Text.String("History"),
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_history_24),
             onClickEvent = object : MenuEvent {},
         ),
         StandardMenuItem(
-            title = MenuItemTitle(Text.String("Save")),
+            title = Text.String("Save"),
             contentDescription = Text.String("Save"),
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_save_24),
             onClickEvent = object : MenuEvent {},
         ),
         StandardMenuItem(
-            title = MenuItemTitle(Text.String("Downloads")),
+            title = Text.String("Downloads"),
             contentDescription = Text.String("Downloads"),
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_download_24),
             onClickEvent = object : MenuEvent {},
         ),
         StandardMenuItem(
-            title = MenuItemTitle(Text.String("Passwords")),
+            title = Text.String("Passwords"),
             contentDescription = Text.String("Passwords"),
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_lock_24),
             onClickEvent = object : MenuEvent {},

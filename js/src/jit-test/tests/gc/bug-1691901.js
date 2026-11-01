@@ -1,4 +1,4 @@
 gczeal(0);
-enableTrackAllocations();
+enableShellAllocationMetadataBuilder();
 setMarkStackLimit(1);
 Function('gc()'.replace(/x/))();

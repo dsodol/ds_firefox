@@ -1630,9 +1630,8 @@ struct CallbackTrieNode {
       return *mChildren[idx].mNode;
     }
     return *mChildren
-                .InsertElementAt(idx,
-                                 Child{nsCString(aSegment),
-                                       std::make_unique<CallbackTrieNode>()})
+                .InsertElementAt(idx, Child{nsCString(aSegment),
+                                            MakeUnique<CallbackTrieNode>()})
                 ->mNode;
   }
 
@@ -3489,11 +3488,11 @@ nsPrefBranch::AddObserverImpl(const nsACString& aDomain, nsIObserver* aObserver,
     }
 
     // Construct a PrefCallback with a weak reference to the observer.
-    pCallback = std::make_unique<PrefCallback>(prefName, weakRefFactory, this);
+    pCallback = MakeUnique<PrefCallback>(prefName, weakRefFactory, this);
 
   } else {
     // Construct a PrefCallback with a strong reference to the observer.
-    pCallback = std::make_unique<PrefCallback>(prefName, aObserver, this);
+    pCallback = MakeUnique<PrefCallback>(prefName, aObserver, this);
   }
 
   // Since weak and strong PrefCallbacks hash differently, WithEntryHandle
@@ -5218,8 +5217,7 @@ Preferences::BackupPrefFile(nsIFile* aFile, nsIPrefOverrideMap* aJSOverrideMap,
                                          promise));
 
   using WritePrefFilePromise = PreferencesImpl::WritePrefFilePromise;
-  auto mozPromiseHolder =
-      std::make_unique<MozPromiseHolder<WritePrefFilePromise>>();
+  auto mozPromiseHolder = MakeUnique<MozPromiseHolder<WritePrefFilePromise>>();
   RefPtr<WritePrefFilePromise> writePrefPromise =
       mozPromiseHolder->Ensure(__func__);
 
@@ -5622,7 +5620,8 @@ nsresult PreferencesImpl::WritePrefFile(
   AUTO_PROFILER_LABEL("PreferencesImpl::WritePrefFile", OTHER);
 
   if (Preferences::sPreferences->AllowOffMainThreadSave()) {
-    auto prefs = std::make_unique<PrefSaveData>(SavePrefs(aPrefOverrideMap));
+    UniquePtr<PrefSaveData> prefs =
+        MakeUnique<PrefSaveData>(SavePrefs(aPrefOverrideMap));
 
     nsresult rv = NS_OK;
     bool writingToCurrent = false;
@@ -7033,7 +7032,7 @@ static void ShutdownAlwaysPrefs() {
 
 [[maybe_unused]] static void SaveOncePrefToSharedMap(
     SharedPrefMapBuilder& aBuilder, const nsACString& aName, bool aValue) {
-  auto oncePref = std::make_unique<Pref>(aName);
+  auto oncePref = MakeUnique<Pref>(aName);
   oncePref->SetType(PrefType::Bool);
   oncePref->SetIsSkippedByIteration(true);
   bool valueChanged = false;
@@ -7046,7 +7045,7 @@ static void ShutdownAlwaysPrefs() {
 
 [[maybe_unused]] static void SaveOncePrefToSharedMap(
     SharedPrefMapBuilder& aBuilder, const nsACString& aName, int32_t aValue) {
-  auto oncePref = std::make_unique<Pref>(aName);
+  auto oncePref = MakeUnique<Pref>(aName);
   oncePref->SetType(PrefType::Int);
   oncePref->SetIsSkippedByIteration(true);
   bool valueChanged = false;
@@ -7064,7 +7063,7 @@ static void ShutdownAlwaysPrefs() {
 
 [[maybe_unused]] static void SaveOncePrefToSharedMap(
     SharedPrefMapBuilder& aBuilder, const nsACString& aName, float aValue) {
-  auto oncePref = std::make_unique<Pref>(aName);
+  auto oncePref = MakeUnique<Pref>(aName);
   oncePref->SetType(PrefType::String);
   oncePref->SetIsSkippedByIteration(true);
   nsAutoCString value;

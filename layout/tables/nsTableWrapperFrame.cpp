@@ -765,7 +765,8 @@ nsIContent* nsTableWrapperFrame::GetCellAt(uint32_t aRowIdx,
 
 nsTableWrapperFrame* NS_NewTableWrapperFrame(PresShell* aPresShell,
                                              ComputedStyle* aStyle) {
-  return new nsTableWrapperFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      nsTableWrapperFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsTableWrapperFrame)

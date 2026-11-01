@@ -35,7 +35,7 @@ class MediaChannelStatistics {
 
   void Reset() {
     mLastStartTime = TimeStamp();
-    mAccumulatedTime = TimeDuration();
+    mAccumulatedTime = TimeDuration(0);
     mAccumulatedBytes = 0;
     mIsStarted = false;
   }

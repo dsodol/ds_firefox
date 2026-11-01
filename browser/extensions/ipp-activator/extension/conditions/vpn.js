@@ -5,7 +5,7 @@
 /* global browser, ConditionBase */
 
 /**
- * A VPN condition: matches whether IPP is proxying the page loaded in the tab.
+ * A VPN condition
  */
 class ConditionVPN extends ConditionBase {
   #ippActive = false;
@@ -14,15 +14,20 @@ class ConditionVPN extends ConditionBase {
   async init() {
     await super.init();
 
-    this.#ippActive = await this.#query();
+    this.#ippActive = await browser.ippActivator.isIPPActive();
 
-    this.#listener = () => this.#update();
-    browser.ippActivator.onIPPProxyChanged.addListener(this.#listener);
+    this.#listener = next => {
+      if (next !== this.#ippActive) {
+        this.#ippActive = next;
+        this._notifyChange();
+      }
+    };
+    browser.ippActivator.onIPPActivated.addListener(this.#listener);
   }
 
   uninit() {
     if (this.#listener) {
-      browser.ippActivator.onIPPProxyChanged.removeListener(this.#listener);
+      browser.ippActivator.onIPPActivated.removeListener(this.#listener);
       this.#listener = null;
     }
     super.uninit();
@@ -30,18 +35,6 @@ class ConditionVPN extends ConditionBase {
 
   check() {
     return this.#ippActive === this.desc.active;
-  }
-
-  async #update() {
-    const next = await this.#query();
-    if (next !== this.#ippActive) {
-      this.#ippActive = next;
-      this._notifyChange();
-    }
-  }
-
-  #query() {
-    return browser.ippActivator.isIPPActiveForTab(this.factory.context.tabId);
   }
 }
 

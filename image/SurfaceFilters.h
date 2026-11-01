@@ -15,7 +15,6 @@
 
 #include <algorithm>
 
-#include "Decoder.h"
 #include "DownscalingFilter.h"
 #include "SurfaceCache.h"
 #include "SurfacePipe.h"

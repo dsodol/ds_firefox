@@ -20,14 +20,13 @@ const REPORTING_FRAME_URL = `${ORIGIN}${BASE}/reporting-empty-frame.html` +
   '?pipe=header(cross-origin-embedder-policy,require-corp)' +
   `|header(cross-origin-embedder-policy-report-only,require-corp)`;
 
-async function observeReports(global, expected_count, action_promise) {
+async function observeReports(global, expected_count) {
   const reports = [];
-  let observer;
   const receivedEveryReports = new Promise(resolve => {
     if (expected_count == 0)
       resolve();
 
-    observer = new global.ReportingObserver((rs) => {
+    const observer = new global.ReportingObserver((rs) => {
       for (const r of rs) {
         reports.push(r.toJSON());
       }
@@ -38,15 +37,9 @@ async function observeReports(global, expected_count, action_promise) {
 
   });
 
-  if (action_promise) {
-    await action_promise;
-  }
   await receivedEveryReports;
-  if (expected_count == 0) {
-    // Wait 200ms more to catch additional unexpected reports.
-    await new Promise(r => step_timeout(r, 200));
-  }
-  observer.disconnect();
+  // Wait 500ms more to catch additionnal unexpected reports.
+  await new Promise(r => step_timeout(r, 500));
   return reports;
 }
 
@@ -64,18 +57,17 @@ async function fetchInFrame(t, frameUrl, url, expected_count) {
   t.add_cleanup(() => frame.remove());
 
   const init = { mode: 'no-cors', cache: 'no-store' };
-  const fetch_promise = frame.contentWindow.fetch(url, init).catch(() => {});
+  let future_reports = observeReports(frame.contentWindow, expected_count);
+  await frame.contentWindow.fetch(url, init).catch(() => {});
 
-  return await observeReports(
-    frame.contentWindow, expected_count, fetch_promise);
+  return await future_reports;
 }
 
-async function fetchInWorker(workerOrPort, url, expected_count) {
+async function fetchInWorker(workerOrPort, url) {
   const script =
     `fetch('${url}', {mode: 'no-cors', cache: 'no-store'}).catch(() => {});`;
   const mc = new MessageChannel();
-  workerOrPort.postMessage(
-    {script, port: mc.port2, expected_count}, [mc.port2]);
+  workerOrPort.postMessage({script, port: mc.port2}, [mc.port2]);
   return (await new Promise(r => mc.port1.onmessage = r)).data;
 }
 
@@ -113,7 +105,7 @@ const ENVIRONMENTS = [{
     const worker = new Worker(WORKER_URL);
     worker.addEventListener('error', test.unreached_func('Worker.onerror'));
     test.add_cleanup(() => worker.terminate());
-    return await fetchInWorker(worker, url, expected_count);
+    return await fetchInWorker(worker, url);
   },
 }, {
   tag: 'shared worker',
@@ -121,7 +113,7 @@ const ENVIRONMENTS = [{
   run: async (test, url, expected_count) => {
     const worker = new SharedWorker(WORKER_URL);
     worker.addEventListener('error', test.unreached_func('Worker.onerror'));
-    return await fetchInWorker(worker.port, url, expected_count);
+    return await fetchInWorker(worker.port, url);
   },
 }, {
   tag: 'service worker',
@@ -135,7 +127,7 @@ const ENVIRONMENTS = [{
     test.add_cleanup(() => reg.unregister());
     const worker = reg.installing || reg.waiting || reg.active;
     worker.addEventListener('error', test.unreached_func('Worker.onerror'));
-    return await fetchInWorker(worker, url, expected_count);
+    return await fetchInWorker(worker, url);
   },
 }, {
   tag: 'between service worker and page',

@@ -214,11 +214,7 @@ using angle::IsWindows10OrLater;
 using angle::IsWindows8OrLater;
 using angle::IsWindowsVistaOrLater;
 
-// True when a Wayland compositor drives the session. Only meaningful from X11
-// code paths, where it means the connection goes through XWayland; backends
-// that know their window system should compare against angle::NativeWindowSystem
-// instead.
-bool IsXWayland();
+bool IsWayland();
 
 using OSVersion = angle::VersionTriple;
 
@@ -229,8 +225,6 @@ OSVersion GetiOSVersion();
 OSVersion GetLinuxOSVersion();
 
 int GetAndroidSDKVersion();
-
-bool IsSamsungXclipse();
 
 }  // namespace rx
 #endif  // LIBANGLE_RENDERER_DRIVER_UTILS_H_

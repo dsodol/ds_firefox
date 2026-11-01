@@ -1151,7 +1151,7 @@ mozilla::ipc::IPCResult BackgroundFactoryRequestChild::RecvBlocked(
 
 BackgroundDatabaseChild::BackgroundDatabaseChild(
     const DatabaseSpec& aSpec, BackgroundFactoryRequestChild* aOpenRequestActor)
-    : mSpec(std::make_unique<DatabaseSpec>(aSpec)),
+    : mSpec(MakeUnique<DatabaseSpec>(aSpec)),
       mOpenRequestActor(aOpenRequestActor),
       mDatabase(nullptr),
       mPendingInvalidate(false) {
@@ -2275,7 +2275,7 @@ nsresult BackgroundRequestChild::PreprocessHelper::Init(
 
   mStream = std::move(stream);
 
-  mCloneData = std::make_unique<JSStructuredCloneData>(
+  mCloneData = MakeUnique<JSStructuredCloneData>(
       JS::StructuredCloneScope::DifferentProcessForIndexedDB);
 
   return NS_OK;

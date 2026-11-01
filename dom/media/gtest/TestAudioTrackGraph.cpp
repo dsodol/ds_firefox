@@ -498,7 +498,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, NonNativeInputTrackStartAndStop) {
         RefPtr<DeviceQueryPromise> p = h.Ensure(__func__);
         DispatchFunction([&] {
           track->GraphImpl()->AppendMessage(
-              std::make_unique<DeviceQueryMessage>(track.get(), std::move(h)));
+              MakeUnique<DeviceQueryMessage>(track.get(), std::move(h)));
         });
         Result<DeviceInfo, nsresult> r = WaitFor(p);
         ASSERT_TRUE(r.isOk());
@@ -509,7 +509,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, NonNativeInputTrackStartAndStop) {
       }
 
       DispatchFunction([&] {
-        track->GraphImpl()->AppendMessage(std::make_unique<StartNonNativeInput>(
+        track->GraphImpl()->AppendMessage(MakeUnique<StartNonNativeInput>(
             track.get(), MakeRefPtr<AudioInputSource>(
                              MakeRefPtr<AudioInputSourceListener>(track.get()),
                              sourceId, deviceId, channels, true /* voice */,
@@ -529,7 +529,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, NonNativeInputTrackStartAndStop) {
         RefPtr<DeviceQueryPromise> p = h.Ensure(__func__);
         DispatchFunction([&] {
           track->GraphImpl()->AppendMessage(
-              std::make_unique<DeviceQueryMessage>(track.get(), std::move(h)));
+              MakeUnique<DeviceQueryMessage>(track.get(), std::move(h)));
         });
         Result<DeviceInfo, nsresult> r = WaitFor(p);
         ASSERT_TRUE(r.isOk());
@@ -543,7 +543,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, NonNativeInputTrackStartAndStop) {
 
       DispatchFunction([&] {
         track->GraphImpl()->AppendMessage(
-            std::make_unique<StopNonNativeInput>(track.get()));
+            MakeUnique<StopNonNativeInput>(track.get()));
       });
       RefPtr<SmartMockCubebStream> destroyedStream =
           WaitFor(cubeb->StreamDestroyEvent());
@@ -555,7 +555,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, NonNativeInputTrackStartAndStop) {
         RefPtr<DeviceQueryPromise> p = h.Ensure(__func__);
         DispatchFunction([&] {
           track->GraphImpl()->AppendMessage(
-              std::make_unique<DeviceQueryMessage>(track.get(), std::move(h)));
+              MakeUnique<DeviceQueryMessage>(track.get(), std::move(h)));
         });
         Result<DeviceInfo, nsresult> r = WaitFor(p);
         ASSERT_TRUE(r.isOk());
@@ -569,7 +569,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, NonNativeInputTrackStartAndStop) {
     // Make sure the NonNativeInputTrack can restart and stop its audio.
     {
       DispatchFunction([&] {
-        track->GraphImpl()->AppendMessage(std::make_unique<StartNonNativeInput>(
+        track->GraphImpl()->AppendMessage(MakeUnique<StartNonNativeInput>(
             track.get(), MakeRefPtr<AudioInputSource>(
                              MakeRefPtr<AudioInputSourceListener>(track.get()),
                              sourceId, deviceId, channels, true,
@@ -587,7 +587,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, NonNativeInputTrackStartAndStop) {
 
       DispatchFunction([&] {
         track->GraphImpl()->AppendMessage(
-            std::make_unique<StopNonNativeInput>(track.get()));
+            MakeUnique<StopNonNativeInput>(track.get()));
       });
       RefPtr<SmartMockCubebStream> destroyedStream =
           WaitFor(cubeb->StreamDestroyEvent());
@@ -634,7 +634,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, NonNativeInputTrackErrorCallback) {
 
     // Launch and start the non-native audio stream.
     DispatchFunction([&] {
-      track->GraphImpl()->AppendMessage(std::make_unique<StartNonNativeInput>(
+      track->GraphImpl()->AppendMessage(MakeUnique<StartNonNativeInput>(
           track.get(), MakeRefPtr<AudioInputSource>(
                            MakeRefPtr<AudioInputSourceListener>(track.get()),
                            sourceId, deviceId, channels, true,
@@ -663,7 +663,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, NonNativeInputTrackErrorCallback) {
   // Make sure it's ok to call audio stop again.
   DispatchFunction([&] {
     track->GraphImpl()->AppendMessage(
-        std::make_unique<StopNonNativeInput>(track.get()));
+        MakeUnique<StopNonNativeInput>(track.get()));
   });
 
   // Clean up.
@@ -1269,7 +1269,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, ErrorCallback) {
     QueueExpectIsPassThrough(processingTrack, listener);
     processingTrack->SetInputProcessing(listener);
     processingTrack->GraphImpl()->AppendMessage(
-        std::make_unique<StartInputProcessing>(processingTrack, listener));
+        MakeUnique<StartInputProcessing>(processingTrack, listener));
     processingTrack->ConnectDeviceInput(deviceId, listener,
                                         PRINCIPAL_HANDLE_NONE);
     EXPECT_EQ(processingTrack->DeviceId().value(), deviceId);
@@ -1300,7 +1300,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, ErrorCallback) {
   // Clean up.
   DispatchFunction([&] {
     processingTrack->GraphImpl()->AppendMessage(
-        std::make_unique<StopInputProcessing>(processingTrack, listener));
+        MakeUnique<StopInputProcessing>(processingTrack, listener));
     processingTrack->DisconnectDeviceInput();
     processingTrack->Destroy();
   });
@@ -1338,7 +1338,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, AudioProcessingTrack) {
     QueueExpectIsPassThrough(processingTrack, listener);
     processingTrack->SetInputProcessing(listener);
     processingTrack->GraphImpl()->AppendMessage(
-        std::make_unique<StartInputProcessing>(processingTrack, listener));
+        MakeUnique<StartInputProcessing>(processingTrack, listener));
     // Device id does not matter. Ignore.
     processingTrack->ConnectDeviceInput(deviceId, listener,
                                         PRINCIPAL_HANDLE_NONE);
@@ -1354,8 +1354,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, AudioProcessingTrack) {
   // Otherwise the audio driver might be going very fast while the fallback
   // system clock driver is still in an iteration.
   DispatchFunction([&] {
-    processingTrack->GraphImpl()->AppendMessage(
-        std::make_unique<GoFaster>(cubeb));
+    processingTrack->GraphImpl()->AppendMessage(MakeUnique<GoFaster>(cubeb));
   });
   uint32_t totalFrames = 0;
   WaitUntil(stream->FramesVerifiedEvent(), [&](uint32_t aFrames) {
@@ -1370,7 +1369,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, AudioProcessingTrack) {
     outputTrack->Destroy();
     port->Destroy();
     processingTrack->GraphImpl()->AppendMessage(
-        std::make_unique<StopInputProcessing>(processingTrack, listener));
+        MakeUnique<StopInputProcessing>(processingTrack, listener));
     processingTrack->DisconnectDeviceInput();
     processingTrack->Destroy();
   });
@@ -1433,7 +1432,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, ReConnectDeviceInput) {
     listener = new AudioInputProcessing(channelCount);
     processingTrack->SetInputProcessing(listener);
     processingTrack->GraphImpl()->AppendMessage(
-        std::make_unique<StartInputProcessing>(processingTrack, listener));
+        MakeUnique<StartInputProcessing>(processingTrack, listener));
     processingTrack->ConnectDeviceInput(deviceId, listener,
                                         PRINCIPAL_HANDLE_NONE);
     MediaEnginePrefs settings;
@@ -1542,7 +1541,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, ReConnectDeviceInput) {
     outputTrack->Destroy();
     port->Destroy();
     processingTrack->GraphImpl()->AppendMessage(
-        std::make_unique<StopInputProcessing>(processingTrack, listener));
+        MakeUnique<StopInputProcessing>(processingTrack, listener));
     processingTrack->DisconnectDeviceInput();
     processingTrack->Destroy();
   });
@@ -1618,7 +1617,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, AudioProcessingTrackDisabling) {
     processingTrack->ConnectDeviceInput(deviceId, listener,
                                         PRINCIPAL_HANDLE_NONE);
     processingTrack->GraphImpl()->AppendMessage(
-        std::make_unique<StartInputProcessing>(processingTrack, listener));
+        MakeUnique<StartInputProcessing>(processingTrack, listener));
     fallbackListener = new OnFallbackListener(processingTrack);
     processingTrack->AddListener(fallbackListener);
   });
@@ -1678,7 +1677,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, AudioProcessingTrackDisabling) {
     outputTrack->Destroy();
     port->Destroy();
     processingTrack->GraphImpl()->AppendMessage(
-        std::make_unique<StopInputProcessing>(processingTrack, listener));
+        MakeUnique<StopInputProcessing>(processingTrack, listener));
     processingTrack->RemoveListener(fallbackListener);
     processingTrack->DisconnectDeviceInput();
     processingTrack->Destroy();
@@ -1737,7 +1736,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, SetRequestedInputChannelCount) {
   track1->SetInputProcessing(listener1);
   QueueExpectIsPassThrough(track1, listener1);
   track1->GraphImpl()->AppendMessage(
-      std::make_unique<StartInputProcessing>(track1, listener1));
+      MakeUnique<StartInputProcessing>(track1, listener1));
   track1->ConnectDeviceInput(device1, listener1, PRINCIPAL_HANDLE_NONE);
   EXPECT_EQ(track1->DeviceId().value(), device1);
 
@@ -1758,7 +1757,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, SetRequestedInputChannelCount) {
   track2->SetInputProcessing(listener2);
   QueueExpectIsPassThrough(track2, listener2);
   track2->GraphImpl()->AppendMessage(
-      std::make_unique<StartInputProcessing>(track2, listener2));
+      MakeUnique<StartInputProcessing>(track2, listener2));
   track2->ConnectDeviceInput(device2, listener2, PRINCIPAL_HANDLE_NONE);
   EXPECT_EQ(track2->DeviceId().value(), device2);
 
@@ -1819,7 +1818,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, SetRequestedInputChannelCount) {
   // Close the non-native input stream.
   DispatchFunction([&] {
     track2->GraphImpl()->AppendMessage(
-        std::make_unique<StopInputProcessing>(track2, listener2));
+        MakeUnique<StopInputProcessing>(track2, listener2));
     track2->DisconnectDeviceInput();
     track2->Destroy();
   });
@@ -1829,7 +1828,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, SetRequestedInputChannelCount) {
   // Close the native input stream.
   DispatchFunction([&] {
     track1->GraphImpl()->AppendMessage(
-        std::make_unique<StopInputProcessing>(track1, listener1));
+        MakeUnique<StopInputProcessing>(track1, listener1));
     track1->DisconnectDeviceInput();
     track1->Destroy();
   });
@@ -1928,7 +1927,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph,
     aTrack->SetInputProcessing(aListener);
     QueueExpectIsPassThrough(aTrack, aListener);
     aTrack->GraphImpl()->AppendMessage(
-        std::make_unique<StartInputProcessing>(aTrack, aListener));
+        MakeUnique<StartInputProcessing>(aTrack, aListener));
 
     DispatchFunction([&] {
       aTrack->ConnectDeviceInput(aDevice, aListener, PRINCIPAL_HANDLE_NONE);
@@ -1962,7 +1961,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph,
     track1->SetInputProcessing(listener1);
     QueueExpectIsPassThrough(track1, listener1);
     track1->GraphImpl()->AppendMessage(
-        std::make_unique<StartInputProcessing>(track1, listener1));
+        MakeUnique<StartInputProcessing>(track1, listener1));
     track1->ConnectDeviceInput(nativeDevice, listener1, PRINCIPAL_HANDLE_NONE);
     EXPECT_EQ(track1->DeviceId().value(), nativeDevice);
 
@@ -2005,7 +2004,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph,
     track3->SetInputProcessing(listener3);
     QueueExpectIsPassThrough(track3, listener3);
     track3->GraphImpl()->AppendMessage(
-        std::make_unique<StartInputProcessing>(track3, listener3));
+        MakeUnique<StartInputProcessing>(track3, listener3));
     track3->ConnectDeviceInput(nonNativeDevice, listener3,
                                PRINCIPAL_HANDLE_NONE);
     EXPECT_EQ(track3->DeviceId().value(), nonNativeDevice);
@@ -2045,13 +2044,13 @@ TEST_WithTailDispatch(TestAudioTrackGraph,
     // stream creation.
     DispatchFunction([&] {
       track4->GraphImpl()->AppendMessage(
-          std::make_unique<StopInputProcessing>(track4, listener4));
+          MakeUnique<StopInputProcessing>(track4, listener4));
       track4->DisconnectDeviceInput();
       track4->Destroy();
     });
     DispatchFunction([&] {
       track3->GraphImpl()->AppendMessage(
-          std::make_unique<StopInputProcessing>(track3, listener3));
+          MakeUnique<StopInputProcessing>(track3, listener3));
       track3->DisconnectDeviceInput();
       track3->Destroy();
     });
@@ -2066,13 +2065,13 @@ TEST_WithTailDispatch(TestAudioTrackGraph,
     // then the first one (2-channel) so we won't have driver switching.
     DispatchFunction([&] {
       track2->GraphImpl()->AppendMessage(
-          std::make_unique<StopInputProcessing>(track2, listener2));
+          MakeUnique<StopInputProcessing>(track2, listener2));
       track2->DisconnectDeviceInput();
       track2->Destroy();
     });
     DispatchFunction([&] {
       track1->GraphImpl()->AppendMessage(
-          std::make_unique<StopInputProcessing>(track1, listener1));
+          MakeUnique<StopInputProcessing>(track1, listener1));
       track1->DisconnectDeviceInput();
       track1->Destroy();
     });
@@ -2119,7 +2118,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph,
   RefPtr<MediaInputPort> port;
   DispatchFunction([&] {
     track->GraphImpl()->AppendMessage(
-        std::make_unique<StartInputProcessing>(track, listener));
+        MakeUnique<StartInputProcessing>(track, listener));
     track->ConnectDeviceInput(deviceId, listener, PRINCIPAL_HANDLE_NONE);
   });
 
@@ -2134,7 +2133,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph,
   // Clean up.
   DispatchFunction([&] {
     track->GraphImpl()->AppendMessage(
-        std::make_unique<StopInputProcessing>(track, listener));
+        MakeUnique<StopInputProcessing>(track, listener));
     track->DisconnectDeviceInput();
     track->Destroy();
   });
@@ -2169,9 +2168,8 @@ TEST_WithTailDispatch(TestAudioTrackGraph,
   EXPECT_TRUE(stream->mHasOutput);
 
   // Wait for a second to make sure audio output callback has been fired.
-  DispatchFunction([&] {
-    track->GraphImpl()->AppendMessage(std::make_unique<GoFaster>(cubeb));
-  });
+  DispatchFunction(
+      [&] { track->GraphImpl()->AppendMessage(MakeUnique<GoFaster>(cubeb)); });
   {
     uint32_t totalFrames = 0;
     WaitUntil(stream->FramesProcessedEvent(), [&](uint32_t aFrames) {
@@ -2184,13 +2182,12 @@ TEST_WithTailDispatch(TestAudioTrackGraph,
   // Start the audio processing.
   DispatchFunction([&] {
     track->GraphImpl()->AppendMessage(
-        std::make_unique<StartInputProcessing>(track, listener));
+        MakeUnique<StartInputProcessing>(track, listener));
   });
 
   // Wait for a second to make sure audio output callback has been fired.
-  DispatchFunction([&] {
-    track->GraphImpl()->AppendMessage(std::make_unique<GoFaster>(cubeb));
-  });
+  DispatchFunction(
+      [&] { track->GraphImpl()->AppendMessage(MakeUnique<GoFaster>(cubeb)); });
   {
     uint32_t totalFrames = 0;
     WaitUntil(stream->FramesProcessedEvent(), [&](uint32_t aFrames) {
@@ -2228,7 +2225,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph,
     QueueExpectIsPassThrough(track, listener);
     track->SetInputProcessing(listener);
     track->GraphImpl()->AppendMessage(
-        std::make_unique<StartInputProcessing>(track, listener));
+        MakeUnique<StartInputProcessing>(track, listener));
     track->ConnectDeviceInput(deviceId, listener, PRINCIPAL_HANDLE_NONE);
   });
 
@@ -2237,9 +2234,8 @@ TEST_WithTailDispatch(TestAudioTrackGraph,
   EXPECT_TRUE(stream->mHasOutput);
 
   // Wait for a second to make sure audio output callback has been fired.
-  DispatchFunction([&] {
-    track->GraphImpl()->AppendMessage(std::make_unique<GoFaster>(cubeb));
-  });
+  DispatchFunction(
+      [&] { track->GraphImpl()->AppendMessage(MakeUnique<GoFaster>(cubeb)); });
   {
     uint32_t totalFrames = 0;
     WaitUntil(stream->FramesProcessedEvent(), [&](uint32_t aFrames) {
@@ -2252,13 +2248,12 @@ TEST_WithTailDispatch(TestAudioTrackGraph,
   // Stop the audio processing
   DispatchFunction([&] {
     track->GraphImpl()->AppendMessage(
-        std::make_unique<StopInputProcessing>(track, listener));
+        MakeUnique<StopInputProcessing>(track, listener));
   });
 
   // Wait for a second to make sure audio output callback has been fired.
-  DispatchFunction([&] {
-    track->GraphImpl()->AppendMessage(std::make_unique<GoFaster>(cubeb));
-  });
+  DispatchFunction(
+      [&] { track->GraphImpl()->AppendMessage(MakeUnique<GoFaster>(cubeb)); });
   {
     uint32_t totalFrames = 0;
     WaitUntil(stream->FramesProcessedEvent(), [&](uint32_t aFrames) {
@@ -2337,8 +2332,8 @@ TEST_WithTailDispatch(TestAudioTrackGraph, SwitchNativeAudioProcessingTrack) {
               << std::endl;
     DispatchFunction([&] {
       aCurrentNativeTrack->GraphImpl()->AppendMessage(
-          std::make_unique<StopInputProcessing>(aCurrentNativeTrack,
-                                                aCurrentNativeListener));
+          MakeUnique<StopInputProcessing>(aCurrentNativeTrack,
+                                          aCurrentNativeListener));
       aCurrentNativeTrack->DisconnectDeviceInput();
       aCurrentNativeTrack->Destroy();
     });
@@ -2365,7 +2360,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, SwitchNativeAudioProcessingTrack) {
   track1->SetInputProcessing(listener1);
   QueueExpectIsPassThrough(track1, listener1);
   track1->GraphImpl()->AppendMessage(
-      std::make_unique<StartInputProcessing>(track1, listener1));
+      MakeUnique<StartInputProcessing>(track1, listener1));
   track1->ConnectDeviceInput(device1, listener1, PRINCIPAL_HANDLE_NONE);
   EXPECT_EQ(track1->DeviceId().value(), device1);
 
@@ -2388,7 +2383,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, SwitchNativeAudioProcessingTrack) {
   track2->SetInputProcessing(listener2);
   QueueExpectIsPassThrough(track2, listener2);
   track2->GraphImpl()->AppendMessage(
-      std::make_unique<StartInputProcessing>(track2, listener2));
+      MakeUnique<StartInputProcessing>(track2, listener2));
   track2->ConnectDeviceInput(device2, listener2, PRINCIPAL_HANDLE_NONE);
   EXPECT_EQ(track2->DeviceId().value(), device2);
 
@@ -2407,7 +2402,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, SwitchNativeAudioProcessingTrack) {
   track3->SetInputProcessing(listener3);
   QueueExpectIsPassThrough(track3, listener3);
   track3->GraphImpl()->AppendMessage(
-      std::make_unique<StartInputProcessing>(track3, listener3));
+      MakeUnique<StartInputProcessing>(track3, listener3));
   track3->ConnectDeviceInput(device3, listener3, PRINCIPAL_HANDLE_NONE);
   EXPECT_EQ(track3->DeviceId().value(), device3);
 
@@ -2449,7 +2444,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, SwitchNativeAudioProcessingTrack) {
   std::cerr << "Close device " << device3 << std::endl;
   DispatchFunction([&] {
     track3->GraphImpl()->AppendMessage(
-        std::make_unique<StopInputProcessing>(track3, listener3));
+        MakeUnique<StopInputProcessing>(track3, listener3));
     track3->DisconnectDeviceInput();
     track3->Destroy();
   });
@@ -2496,7 +2491,7 @@ void TestCrossGraphPort(uint32_t aInputRate, uint32_t aOutputRate,
     QueueExpectIsPassThrough(processingTrack, listener);
     processingTrack->SetInputProcessing(listener);
     processingTrack->GraphImpl()->AppendMessage(
-        std::make_unique<StartInputProcessing>(processingTrack, listener));
+        MakeUnique<StartInputProcessing>(processingTrack, listener));
     processingTrack->ConnectDeviceInput(inputDeviceId, listener,
                                         PRINCIPAL_HANDLE_NONE);
     primaryFallbackListener = new OnFallbackListener(processingTrack);
@@ -2603,7 +2598,7 @@ void TestCrossGraphPort(uint32_t aInputRate, uint32_t aOutputRate,
     transmitter->Destroy();
     port->Destroy();
     processingTrack->GraphImpl()->AppendMessage(
-        std::make_unique<StopInputProcessing>(processingTrack, listener));
+        MakeUnique<StopInputProcessing>(processingTrack, listener));
     processingTrack->DisconnectDeviceInput();
     processingTrack->Destroy();
   });
@@ -2721,7 +2716,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, SecondaryOutputDevice) {
     QueueExpectIsPassThrough(processingTrack, listener);
     processingTrack->SetInputProcessing(listener);
     processingTrack->GraphImpl()->AppendMessage(
-        std::make_unique<StartInputProcessing>(processingTrack, listener));
+        MakeUnique<StartInputProcessing>(processingTrack, listener));
     processingTrack->ConnectDeviceInput(nullptr, listener,
                                         PRINCIPAL_HANDLE_NONE);
   });
@@ -2798,7 +2793,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, SecondaryOutputDevice) {
   DispatchFunction([&] {
     // Clean up
     processingTrack->GraphImpl()->AppendMessage(
-        std::make_unique<StopInputProcessing>(processingTrack, listener));
+        MakeUnique<StopInputProcessing>(processingTrack, listener));
     processingTrack->DisconnectDeviceInput();
     processingTrack->Destroy();
   });
@@ -2830,8 +2825,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, ClockDriftExpectation) {
         settings.mAecOn = true;
         QueueApplySettings(processingTrack, inputProcessing, settings);
         processingTrack->GraphImpl()->AppendMessage(
-            std::make_unique<StartInputProcessing>(processingTrack,
-                                                   inputProcessing));
+            MakeUnique<StartInputProcessing>(processingTrack, inputProcessing));
         processingTrack->ConnectDeviceInput(aDeviceID, inputProcessing,
                                             PRINCIPAL_HANDLE_NONE);
         aProcessingTrack->swap(processingTrack);
@@ -2896,8 +2890,7 @@ TEST_WithTailDispatch(TestAudioTrackGraph, ClockDriftExpectation) {
   auto destroyInputProcessing = [&](AudioProcessingTrack* aProcessingTrack,
                                     AudioInputProcessing* aInputProcessing) {
     aProcessingTrack->GraphImpl()->AppendMessage(
-        std::make_unique<StopInputProcessing>(aProcessingTrack,
-                                              aInputProcessing));
+        MakeUnique<StopInputProcessing>(aProcessingTrack, aInputProcessing));
     aProcessingTrack->DisconnectDeviceInput();
     aProcessingTrack->Destroy();
   };
@@ -4525,12 +4518,6 @@ TEST(TestAudioTrackGraph, IOThreadDispatchDuringShutdown)
   // reference, and before the next test might ForceSetCubebContext() to
   // destroy our cubeb.
   (void)WaitFor(destroyPromise).unwrap()[0];
-  // Flush the I/O thread's graph dispatch, then process what it queued on the
-  // main thread.
-  MOZ_ALWAYS_SUCCEEDS(NS_DispatchAndSpinEventLoopUntilComplete(
-      "TestAudioTrackGraph, IOThreadDispatchDuringShutdown"_ns,
-      ipc::IOThread::Get()->GetEventTarget(),
-      NS_NewRunnableFunction(__func__, [] {})));
   ProcessEventQueue();
 }
 

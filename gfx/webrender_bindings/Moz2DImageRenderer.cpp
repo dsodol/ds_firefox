@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include <memory>
 #include <unordered_map>
 
 #include "GeckoProfiler.h"
@@ -219,7 +218,7 @@ void AddBlobFont(WrFontInstanceKey aInstanceKey, WrFontKey aFontKey,
     }
     if (aNumVariations) {
       font.mNumVariations = aNumVariations;
-      font.mVariations = std::make_unique<wr::FontVariation[]>(aNumVariations);
+      font.mVariations.reset(new wr::FontVariation[aNumVariations]);
       PodCopy(font.mVariations.get(),
               reinterpret_cast<const wr::FontVariation*>(aVariations),
               aNumVariations);
@@ -352,7 +351,6 @@ struct Reader {
 };
 
 static bool Moz2DRenderCallback(const Range<const uint8_t> aBlob,
-                                const mozilla::wr::IdNamespace& aIdNamespace,
                                 gfx::SurfaceFormat aFormat,
                                 const mozilla::wr::DeviceIntRect* aVisibleRect,
                                 const mozilla::wr::LayoutIntRect* aRenderRect,
@@ -458,7 +456,7 @@ static bool Moz2DRenderCallback(const Range<const uint8_t> aBlob,
       continue;
     }
 
-    layers::WebRenderTranslator translator(dt, aIdNamespace);
+    layers::WebRenderTranslator translator(dt);
     Reader fontReader(aBlob.begin().get() + end, extra_end - end);
     size_t count = fontReader.ReadSize();
 #ifdef FUZZING
@@ -529,7 +527,6 @@ static void writehex(const void* bytes, size_t len) {
 extern "C" {
 
 bool wr_moz2d_render_cb(const mozilla::wr::ByteSlice blob,
-                        const mozilla::wr::IdNamespace aIdNamespace,
                         mozilla::wr::ImageFormat aFormat,
                         const mozilla::wr::LayoutIntRect* aRenderRect,
                         const mozilla::wr::DeviceIntRect* aVisibleRect,
@@ -571,7 +568,7 @@ bool wr_moz2d_render_cb(const mozilla::wr::ByteSlice blob,
 #endif
 
   return mozilla::wr::Moz2DRenderCallback(
-      mozilla::wr::ByteSliceToRange(blob), aIdNamespace,
+      mozilla::wr::ByteSliceToRange(blob),
       mozilla::wr::ImageFormatToSurfaceFormat(aFormat), aVisibleRect,
       aRenderRect, aTileSize, aTileOffset, aDirtyRect,
       mozilla::wr::MutByteSliceToRange(output));

@@ -203,7 +203,13 @@ VertexStorageType ClassifyAttributeStorage(const gl::Context *context,
 
 VertexDataManager::CurrentValueState::CurrentValueState(BufferFactoryD3D *factory)
     : buffer(new StreamingVertexBufferInterface(factory)), offset(0)
-{}
+{
+    data.Values.FloatValues[0] = std::numeric_limits<float>::quiet_NaN();
+    data.Values.FloatValues[1] = std::numeric_limits<float>::quiet_NaN();
+    data.Values.FloatValues[2] = std::numeric_limits<float>::quiet_NaN();
+    data.Values.FloatValues[3] = std::numeric_limits<float>::quiet_NaN();
+    data.Type                  = gl::VertexAttribType::Float;
+}
 
 VertexDataManager::CurrentValueState::CurrentValueState(CurrentValueState &&other)
 {
@@ -521,14 +527,9 @@ angle::Result VertexDataManager::reserveSpaceForAttrib(const gl::Context *contex
         int64_t maxByte        = GetMaxAttributeByteOffsetForDraw(attrib, binding, maxVertexCount);
 
         ASSERT(bufferD3D->getSize() <= static_cast<size_t>(std::numeric_limits<int64_t>::max()));
-        if (ANGLE_UNLIKELY(maxByte > static_cast<int64_t>(bufferD3D->getSize())))
-        {
-            // TODO: this should be moved to the validation layer http://anglebug.com/552538802
-            context->getMutableErrorSetForValidation()->validationError(
-                angle::EntryPoint::Invalid, GL_INVALID_OPERATION,
-                gl::err::kInsufficientVertexBufferSize);
-            return angle::Result::Stop;
-        }
+        ANGLE_CHECK(GetImplAs<ContextD3D>(context),
+                    maxByte <= static_cast<int64_t>(bufferD3D->getSize()),
+                    gl::err::kInsufficientVertexBufferSize, GL_INVALID_OPERATION);
     }
     return mStreamingBuffer.reserveVertexSpace(context, attrib, binding, totalCount,
                                                clampedInstances, baseInstance);
@@ -610,7 +611,7 @@ angle::Result VertexDataManager::storeCurrentValue(
         ANGLE_TRY(buffer.initialize(context, CONSTANT_VERTEX_BUFFER_SIZE));
     }
 
-    if (!cachedState->data.has_value() || *cachedState->data != currentValue)
+    if (cachedState->data != currentValue)
     {
         ASSERT(translated->attribute && translated->binding);
         const auto &attrib  = *translated->attribute;

@@ -7,9 +7,16 @@
 requestLongerTimeout(2);
 
 const PAGE_PREFS = "about:preferences";
-const PAGE_PRIVACY = PAGE_PREFS + "#passwordsAutofill";
+const srdEnabled = Services.prefs.getBoolPref(
+  "browser.settings-redesign.enabled",
+  false
+);
+const PAGE_PRIVACY =
+  PAGE_PREFS + (srdEnabled ? "#passwordsAutofill" : "#privacy");
 const SELECTORS = {
-  reauthCheckbox: "#requireOSAuthForPasswords",
+  reauthCheckbox: srdEnabled
+    ? "#requireOSAuthForPasswords"
+    : "#osReauthCheckbox",
 };
 
 add_setup(async function () {

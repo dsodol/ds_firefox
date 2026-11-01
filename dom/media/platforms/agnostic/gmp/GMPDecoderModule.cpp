@@ -39,16 +39,21 @@ static already_AddRefed<MediaDataDecoderProxy> CreateDecoderWrapper(
   return decoder.forget();
 }
 
-RefPtr<PlatformDecoderModule::CreateDecoderPromise>
-GMPDecoderModule::AsyncCreateDecoder(const CreateDecoderParams& aParams) {
-  RefPtr<MediaDataDecoder> decoder;
-  if (aParams.IsVideo() && (MP4Decoder::IsH264(aParams.mConfig.mMimeType) ||
-                            AOMDecoder::IsAV1(aParams.mConfig.mMimeType) ||
-                            VPXDecoder::IsVP8(aParams.mConfig.mMimeType) ||
-                            VPXDecoder::IsVP9(aParams.mConfig.mMimeType))) {
-    decoder = CreateDecoderWrapper(GMPVideoDecoderParams(aParams));
+already_AddRefed<MediaDataDecoder> GMPDecoderModule::CreateVideoDecoder(
+    const CreateDecoderParams& aParams) {
+  if (!MP4Decoder::IsH264(aParams.mConfig.mMimeType) &&
+      !AOMDecoder::IsAV1(aParams.mConfig.mMimeType) &&
+      !VPXDecoder::IsVP8(aParams.mConfig.mMimeType) &&
+      !VPXDecoder::IsVP9(aParams.mConfig.mMimeType)) {
+    return nullptr;
   }
-  return CreateDecoderPromiseFrom(decoder.forget(), aParams);
+
+  return CreateDecoderWrapper(GMPVideoDecoderParams(aParams));
+}
+
+already_AddRefed<MediaDataDecoder> GMPDecoderModule::CreateAudioDecoder(
+    const CreateDecoderParams& aParams) {
+  return nullptr;
 }
 
 /* static */

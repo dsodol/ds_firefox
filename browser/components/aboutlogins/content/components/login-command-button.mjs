@@ -96,21 +96,17 @@ export class DeleteButton extends MozLitElement {
   static get properties() {
     return {
       disabled: { type: Boolean, reflect: true },
-      perDeviceSyncEnabled: { type: Boolean },
     };
   }
 
   constructor() {
     super();
     this.disabled = false;
-    this.perDeviceSyncEnabled = false;
   }
   render() {
     return html` ${stylesTemplate()}
     ${LoginCommandButton({
-      buttonText: this.perDeviceSyncEnabled
-        ? "about-logins-login-item-delete-button"
-        : "about-logins-login-item-remove-button",
+      buttonText: "about-logins-login-item-remove-button",
       variant: "ghost-button",
       icon: "chrome://global/skin/icons/delete.svg",
       disabled: this.disabled,

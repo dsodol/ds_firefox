@@ -4,8 +4,7 @@
 
 #include "BodyExtractor.h"
 
-#include <memory>
-
+#include "mozilla/UniquePtr.h"
 #include "mozilla/dom/File.h"
 #include "mozilla/dom/FormData.h"
 #include "mozilla/dom/ShadowRoot.h"
@@ -106,7 +105,7 @@ nsresult BodyExtractor<Document>::GetAsStream(
   } else {
     aContentTypeWithCharset.AssignLiteral("application/xml;charset=UTF-8");
 
-    auto serializer = std::make_unique<nsDOMSerializer>();
+    auto serializer = MakeUnique<nsDOMSerializer>();
 
     // Make sure to use the encoding we'll send
     ErrorResult res;

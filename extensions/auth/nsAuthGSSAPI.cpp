@@ -13,7 +13,6 @@
 //
 //
 
-#include "mozilla/Atomics.h"
 #include "mozilla/IntegerPrintfMacros.h"
 
 #include "nsCOMPtr.h"
@@ -338,25 +337,16 @@ nsAuthGSSAPI::Init(const nsACString& serviceName, uint32_t serviceFlags,
   mServiceName = serviceName;
   mServiceFlags = serviceFlags;
 
-  // Init runs on background threads, so several auths may reach this
-  // concurrently.
-  static mozilla::Atomic<bool> sTelemetrySent{false};
-  if (sTelemetrySent.compareExchange(false, true)) {
+  static bool sTelemetrySent = false;
+  if (!sTelemetrySent) {
     mozilla::glean::security::ntlm_module_used.AccumulateSingleSample(
         serviceFlags & nsIAuthModule::REQ_PROXY_AUTH
             ? NTLM_MODULE_KERBEROS_PROXY
             : NTLM_MODULE_KERBEROS_DIRECT);
+    sTelemetrySent = true;
   }
 
   return NS_OK;
-}
-
-NS_IMETHODIMP
-nsAuthGSSAPI::InitAsync(const nsACString& aServiceName, uint32_t aServiceFlags,
-                        const nsAString& aDomain, const nsAString& aUsername,
-                        const nsAString& aPassword,
-                        nsIAuthModuleInitCallback* aCallback) {
-  return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP

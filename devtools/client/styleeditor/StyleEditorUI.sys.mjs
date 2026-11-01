@@ -737,7 +737,17 @@ export class StyleEditorUI extends EventEmitter {
 
     this.editors.push(editor);
 
-    this.#addEditorToUI(editor);
+    try {
+      await editor.fetchSource();
+    } catch (e) {
+      // if the editor was destroyed while fetching dependencies, we don't want to go further.
+      if (!this.editors.includes(editor)) {
+        return null;
+      }
+      throw e;
+    }
+
+    this.#sourceLoaded(editor);
 
     if (resource.fileName) {
       this.emit("test:editor-updated", editor);
@@ -904,14 +914,13 @@ export class StyleEditorUI extends EventEmitter {
   }
 
   /**
-   * Add new sidebar item and editor to the UI.
-   *  - summary is the entry in the left sidebar
-   *  - details contains the editor + at rules
+   * Called when a StyleSheetEditor's source has been fetched.
+   * Add new sidebar item and editor to the UI
    *
    * @param  {StyleSheetEditor} editor
    *         Editor to create UI for.
    */
-  #addEditorToUI(editor) {
+  #sourceLoaded(editor) {
     // Create the detail and summary nodes from the templates node (declared in index.xhtml)
     const details = this.#tplDetails.cloneNode(true);
     details.id = "";

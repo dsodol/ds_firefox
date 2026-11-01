@@ -4,13 +4,22 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { AuthProvider } from "moz-src:///browser/components/aiwindow/models/AuthProvider.sys.mjs";
 import { createEngine } from "chrome://global/content/ml/EngineProcess.sys.mjs";
+import {
+  OAUTH_CLIENT_ID,
+  SCOPE_PROFILE_UID,
+  SCOPE_SMART_WINDOW,
+} from "resource://gre/modules/FxAccountsCommon.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
+
+const lazy = XPCOMUtils.declareLazy({
+  getFxAccountsSingleton: "resource://gre/modules/FxAccounts.sys.mjs",
+});
 
 const APIKEY_PREF = "browser.smartwindow.apiKey";
 const ENDPOINT_PREF = "browser.smartwindow.endpoint";
 const CUSTOM_ENDPOINT_PREF = "browser.smartwindow.customEndpoint";
+const MODEL_CHOICE_PREF = "browser.smartwindow.firstrun.modelChoice";
 const CUSTOM_MODEL_CHOICE_ID = "0";
 const DEFAULT_ENGINE_ID = "smart-openai";
 
@@ -106,12 +115,21 @@ export class openAIEngine {
   }
 
   /**
-   * Whether this engine instance sends requests to Mozilla's default endpoint.
+   * Whether this profile's requests are pointed somewhere other than Mozilla's
+   * default endpoint: either the custom model choice is selected, or the
+   * endpoint pref itself was overridden.
+   *
+   * Unlike `isCustomEndpoint` this is a profile-wide question, answerable
+   * without building an engine, so callers can withhold a feature that depends
+   * on a service only Mozilla's endpoint provides.
    *
    * @returns {boolean}
    */
-  get isDefaultEndpoint() {
-    return this.#baseURL === DEFAULT_ENDPOINT;
+  static usesCustomEndpoint() {
+    return (
+      Services.prefs.getStringPref(MODEL_CHOICE_PREF, "") ===
+        CUSTOM_MODEL_CHOICE_ID || openAIEngine.endpoint !== DEFAULT_ENDPOINT
+    );
   }
 
   /**
@@ -178,6 +196,24 @@ export class openAIEngine {
       apiKey
     );
     return engine;
+  }
+
+  /**
+   * Retrieves the Firefox account token
+   *
+   * @returns {Promise<string|null>}   The Firefox account token (string) or null
+   */
+  static async getFxAccountToken() {
+    try {
+      const fxAccounts = lazy.getFxAccountsSingleton();
+      return await fxAccounts.getOAuthToken({
+        scope: [SCOPE_SMART_WINDOW, SCOPE_PROFILE_UID],
+        client_id: OAUTH_CLIENT_ID,
+      });
+    } catch (error) {
+      console.warn("Error obtaining FxA token:", error);
+      return null;
+    }
   }
 
   /**
@@ -307,7 +343,7 @@ export class openAIEngine {
       return await this.engineInstance.run(content);
     } catch (ex) {
       // Skip the token retry flow when using a custom endpoint,
-      // as the retry logic only applies to AuthProvider tokens.
+      // as the retry logic only applies to FxAccounts tokens.
       if (!this._is401Error(ex) || this.isCustomEndpoint) {
         throw ex;
       }
@@ -316,12 +352,16 @@ export class openAIEngine {
         "LLM request returned a 401 - revoking our token and retrying"
       );
 
-      await AuthProvider.invalidateToken(content.token);
+      const fxAccounts = lazy.getFxAccountsSingleton();
+      const oldToken = content.fxAccountToken;
+      if (oldToken) {
+        await fxAccounts.removeCachedOAuthToken({ token: oldToken });
+      }
 
       await this._recreateEngine();
 
-      const newToken = await AuthProvider.getToken();
-      const updatedContent = { ...content, token: newToken };
+      const newToken = await openAIEngine.getFxAccountToken();
+      const updatedContent = { ...content, fxAccountToken: newToken };
 
       try {
         return await this.engineInstance.run(updatedContent);
@@ -334,7 +374,9 @@ export class openAIEngine {
           "Retry LLM request still returned a 401 - revoking our token and failing"
         );
 
-        await AuthProvider.invalidateToken(newToken);
+        if (newToken) {
+          await fxAccounts.removeCachedOAuthToken({ token: newToken });
+        }
 
         throw retryEx;
       }
@@ -399,7 +441,7 @@ export class openAIEngine {
       }
     } catch (ex) {
       // Skip the token retry flow when using a custom endpoint,
-      // as the retry logic only applies to AuthProvider tokens.
+      // as the retry logic only applies to FxAccounts tokens.
       if (!this._is401Error(ex) || this.isCustomEndpoint) {
         throw ex;
       }
@@ -408,12 +450,16 @@ export class openAIEngine {
         "LLM streaming request returned a 401 - revoking our token and retrying"
       );
 
-      await AuthProvider.invalidateToken(options.token);
+      const fxAccounts = lazy.getFxAccountsSingleton();
+      const oldToken = options.fxAccountToken;
+      if (oldToken) {
+        await fxAccounts.removeCachedOAuthToken({ token: oldToken });
+      }
 
       await this._recreateEngine();
 
-      const newToken = await AuthProvider.getToken();
-      const updatedOptions = { ...engineOptions, token: newToken };
+      const newToken = await openAIEngine.getFxAccountToken();
+      const updatedOptions = { ...engineOptions, fxAccountToken: newToken };
 
       try {
         const generator = this.engineInstance.runWithGenerator(updatedOptions);
@@ -432,7 +478,9 @@ export class openAIEngine {
           "Retry LLM streaming request still returned a 401 - revoking our token and failing"
         );
 
-        await AuthProvider.invalidateToken(newToken);
+        if (newToken) {
+          await fxAccounts.removeCachedOAuthToken({ token: newToken });
+        }
 
         throw retryEx;
       }

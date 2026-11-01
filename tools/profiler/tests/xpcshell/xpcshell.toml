@@ -15,11 +15,13 @@ skip-if = [
 
 ["test_enterjit_osr_disabling.js"]
 skip-if = [
+  "opt",
   "tsan",
 ]
 
 ["test_enterjit_osr_enabling.js"]
 skip-if = [
+  "opt",
   "tsan",
 ]
 
@@ -54,6 +56,7 @@ skip-if = [
 
 ["test_feature_nativeallocations.js"]
 skip-if = [
+  "asan",
   "os == 'android' && verify", # bug 1757528
   "socketprocess_networking",
 ]

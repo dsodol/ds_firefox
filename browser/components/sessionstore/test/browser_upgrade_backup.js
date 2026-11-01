@@ -59,10 +59,7 @@ add_task(async function test_upgrade_backup() {
     "upgrade backup file has been created"
   );
 
-  let data = await IOUtils.readJSON(
-    Paths.upgradeBackup,
-    sessionStoreReadOptions()
-  );
+  let data = await IOUtils.readJSON(Paths.upgradeBackup, { decompress: true });
   Assert.deepEqual(
     test.contents,
     data,
@@ -77,7 +74,7 @@ add_task(async function test_upgrade_backup() {
     compress: true,
   });
   await SessionFile.write(""); // Next call to write() shouldn't trigger the backup
-  data = await IOUtils.readJSON(Paths.upgradeBackup, sessionStoreReadOptions());
+  data = await IOUtils.readJSON(Paths.upgradeBackup, { decompress: true });
   Assert.deepEqual(test.contents, data, "upgrade backup hasn't changed");
 });
 

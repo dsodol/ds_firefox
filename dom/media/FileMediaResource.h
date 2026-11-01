@@ -13,8 +13,12 @@ namespace mozilla {
 class FileMediaResource : public BaseMediaResource {
  public:
   FileMediaResource(MediaResourceCallback* aCallback, nsIChannel* aChannel,
-                    nsIURI* aURI, int64_t aSize = -1 /* unknown size */);
-  ~FileMediaResource();
+                    nsIURI* aURI, int64_t aSize = -1 /* unknown size */)
+      : BaseMediaResource(aCallback, aChannel, aURI),
+        mSize(aSize),
+        mLock("FileMediaResource.mLock"),
+        mSizeInitialized(aSize != -1) {}
+  ~FileMediaResource() = default;
 
   // Main thread
   nsresult Open(nsIStreamListener** aStreamListener) override;

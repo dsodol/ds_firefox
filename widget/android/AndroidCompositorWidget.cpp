@@ -4,8 +4,6 @@
 
 #include "AndroidCompositorWidget.h"
 
-#include <android/native_window_jni.h>
-
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/widget/PlatformWidgetTypes.h"
 #include "nsWindow.h"

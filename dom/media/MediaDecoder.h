@@ -551,6 +551,8 @@ class MediaDecoder : public DecoderDoctorLifeLogger<MediaDecoder> {
   // usage with the audio offload player.
   virtual media::TimeUnit CurrentPosition() { return mCurrentPosition.Ref(); }
 
+  already_AddRefed<layers::KnowsCompositor> GetCompositor();
+
   // Official duration of the media resource as observed by script.
   // This can be a TimeUnit representing the exact duration found by demuxing,
   // as a TimeUnit. This can also be a duration set explicitly by script, as a
@@ -577,9 +579,8 @@ class MediaDecoder : public DecoderDoctorLifeLogger<MediaDecoder> {
       media::TimeUnit::FromMicroseconds(250000);
 
  private:
-  void OnMetadataLoaded(UniquePtr<MediaInfo> aInfo,
-                        UniquePtr<MetadataTags> aTags,
-                        MediaDecoderEventVisibility aEventVisibility);
+  // Called when the owner's activity changed.
+  void NotifyCompositor();
 
   void OnPlaybackErrorEvent(const MediaResult& aError);
 

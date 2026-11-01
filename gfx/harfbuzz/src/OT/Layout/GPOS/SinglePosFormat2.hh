@@ -7,22 +7,20 @@ namespace OT {
 namespace Layout {
 namespace GPOS_impl {
 
-template <typename Types>
-struct SinglePosFormat2_4 : ValueBase
+struct SinglePosFormat2 : ValueBase
 {
   protected:
   HBUINT16      format;                 /* Format identifier--format = 2 */
-  typename Types::template LOffsetTo<Coverage>
+  Offset16To<Coverage>
                 coverage;               /* Offset to Coverage table--from
                                          * beginning of subtable */
   ValueFormat   valueFormat;            /* Defines the types of data in the
                                          * ValueRecord */
-  typename Types::HBUINT
-                valueCount;             /* Number of ValueRecords */
+  HBUINT16      valueCount;             /* Number of ValueRecords */
   ValueRecord   values;                 /* Array of ValueRecords--positioning
                                          * values applied to glyphs */
   public:
-  DEFINE_SIZE_ARRAY (2 + Types::LOffset::static_size + ValueFormat::static_size + Types::HBUINT::static_size, values);
+  DEFINE_SIZE_ARRAY (8, values);
 
   bool sanitize (hb_sanitize_context_t *c) const
   {
@@ -183,7 +181,7 @@ struct SinglePosFormat2_4 : ValueBase
     const hb_map_t &glyph_map = *c->plan->glyph_map;
 
     unsigned sub_length = valueFormat.get_len ();
-    auto values_array = values.as_array ((unsigned) valueCount * sub_length);
+    auto values_array = values.as_array (valueCount * sub_length);
 
     auto it =
     + hb_zip (this+coverage, hb_range ((unsigned) valueCount))

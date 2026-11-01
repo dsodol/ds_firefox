@@ -481,7 +481,12 @@ void MacroAssembler::branchIfTrueBool(Register reg, Label* label) {
 
 void MacroAssembler::branchIfNotNullOrUndefined(ValueOperand val,
                                                 Label* label) {
-  branchTestNullOrUndefined(Assembler::NotEqual, val, label);
+  Label nullOrUndefined;
+  ScratchTagScope tag(*this, val);
+  splitTagForTest(val, tag);
+  branchTestNull(Assembler::Equal, tag, &nullOrUndefined);
+  branchTestUndefined(Assembler::NotEqual, tag, label);
+  bind(&nullOrUndefined);
 }
 
 void MacroAssembler::branchIfRope(Register str, Label* label) {

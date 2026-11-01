@@ -366,10 +366,6 @@ class OutputParser(LogMixin):
             line = line.rstrip()
             self.parse_single_line(line)
 
-    def finish(self):
-        """Release per-run resources once the command's output has been
-        evaluated; a no-op unless a subclass holds some."""
-
 
 # BaseLogger {{{1
 class BaseLogger:

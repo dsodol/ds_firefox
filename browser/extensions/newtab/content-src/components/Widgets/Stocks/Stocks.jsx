@@ -11,7 +11,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useSelector } from "react-redux";
+import { useSelector, batch } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import { useWidgetTelemetry } from "../useWidgetTelemetry";
 import {
@@ -331,18 +331,20 @@ function Stocks({
 
   const handleChangeSize = useCallback(
     size => {
-      dispatch(
-        ac.OnlyToMain({
-          type: at.SET_PREF,
-          data: { name: STOCKS_ENTRY.sizePref, value: size },
-        })
-      );
-      recordUserAction("change_size", {
-        source: "context_menu",
-        value: size,
-        size,
+      batch(() => {
+        dispatch(
+          ac.OnlyToMain({
+            type: at.SET_PREF,
+            data: { name: STOCKS_ENTRY.sizePref, value: size },
+          })
+        );
+        recordUserAction("change_size", {
+          source: "context_menu",
+          value: size,
+          size,
+        });
+        handleInteraction();
       });
-      handleInteraction();
     },
     [dispatch, recordUserAction, handleInteraction]
   );

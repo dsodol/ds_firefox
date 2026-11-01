@@ -114,7 +114,7 @@ void HTMLDetailsElement::SetupShadowTree() {
       return;
     }
     slot->SetAttr(kNameSpaceID_None, nsGkAtoms::name,
-                  u"internal-main-summary"_ns, kNotify, IsKnownNewAttr::No);
+                  u"internal-main-summary"_ns, kNotify);
     sr->AppendChildTo(slot, kNotify, IgnoreErrors());
 
     RefPtr<NodeInfo> summaryNodeInfo = nim->GetNodeInfo(

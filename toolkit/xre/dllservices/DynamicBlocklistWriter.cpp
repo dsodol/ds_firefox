@@ -53,7 +53,7 @@ DynamicBlocklistWriter::DynamicBlocklistWriter(
     return;
   }
 
-  mStringBuffer = std::make_unique<uint8_t[]>(mStringBufferSize);
+  mStringBuffer = MakeUnique<uint8_t[]>(mStringBufferSize);
   (void)mArray.resize(entriesToWrite + 1);  // aBlockEntries + sentinel
 
   size_t currentStringOffset = 0;

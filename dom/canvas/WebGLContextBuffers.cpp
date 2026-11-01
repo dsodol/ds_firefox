@@ -131,6 +131,8 @@ void WebGLContext::BindBuffer(GLenum target, WebGLBuffer* buffer) {
   if (IsContextLost()) return;
   funcScope.mBindFailureGuard = true;
 
+  if (buffer && !ValidateObject("buffer", *buffer)) return;
+
   const auto& slot = ValidateBufferSlot(target);
   if (!slot) return;
 
@@ -174,6 +176,7 @@ void WebGLContext::BindBufferRange(GLenum target, GLuint index,
                                    WebGLBuffer* buffer, uint64_t offset,
                                    uint64_t size) {
   FuncScope funcScope(*this, "bindBufferBase/Range");
+  if (buffer && !ValidateObject("buffer", *buffer)) return;
   funcScope.mBindFailureGuard = true;
 
   RefPtr<WebGLBuffer>* genericBinding;

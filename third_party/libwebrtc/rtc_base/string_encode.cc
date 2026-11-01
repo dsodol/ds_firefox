@@ -10,7 +10,6 @@
 
 #include "rtc_base/string_encode.h"
 
-#include <cstdint>
 #include <cstdio>
 #include <span>
 #include <string>
@@ -26,16 +25,16 @@ namespace webrtc {
 /////////////////////////////////////////////////////////////////////////////
 
 namespace {
-constexpr absl::string_view kHEX = "0123456789abcdef";
+const char HEX[] = "0123456789abcdef";
 
 // Convert an unsigned value from 0 to 15 to the hex character equivalent...
-char HexEncode(uint8_t val) {
+char hex_encode(unsigned char val) {
   RTC_DCHECK_LT(val, 16);
-  return (val < 16) ? kHEX[val] : '!';
+  return (val < 16) ? HEX[val] : '!';
 }
 
 // ...and vice-versa.
-bool HexDecode(char ch, uint8_t* val) {
+bool hex_decode(char ch, unsigned char* val) {
   if ((ch >= '0') && (ch <= '9')) {
     *val = ch - '0';
   } else if ((ch >= 'A') && (ch <= 'F')) {
@@ -48,23 +47,27 @@ bool HexDecode(char ch, uint8_t* val) {
   return true;
 }
 
-size_t HexEncodeOutputLength(size_t srclen, char delimiter) {
+size_t hex_encode_output_length(size_t srclen, char delimiter) {
   return delimiter && srclen > 0 ? (srclen * 3 - 1) : (srclen * 2);
 }
 
-// HexEncode shows the hex representation of binary data in ascii, with
+// hex_encode shows the hex representation of binary data in ascii, with
 // `delimiter` between bytes, or none if `delimiter` == 0.
-void HexEncodeWithDelimiter(std::string& buffer,
-                            std::span<const uint8_t> source,
-                            char delimiter) {
+void hex_encode_with_delimiter(char* buffer,
+                               absl::string_view source,
+                               char delimiter) {
+  RTC_DCHECK(buffer);
+
   // Init and check bounds.
+  const unsigned char* bsource =
+      reinterpret_cast<const unsigned char*>(source.data());
   size_t srcpos = 0, bufpos = 0;
 
-  size_t srclen = source.size();
+  size_t srclen = source.length();
   while (srcpos < srclen) {
-    uint8_t ch = source[srcpos++];
-    buffer[bufpos] = HexEncode((ch >> 4) & 0xF);
-    buffer[bufpos + 1] = HexEncode((ch) & 0xF);
+    unsigned char ch = bsource[srcpos++];
+    buffer[bufpos] = hex_encode((ch >> 4) & 0xF);
+    buffer[bufpos + 1] = hex_encode((ch) & 0xF);
     bufpos += 2;
 
     // Don't write a delimiter after the last byte.
@@ -77,62 +80,59 @@ void HexEncodeWithDelimiter(std::string& buffer,
 
 }  // namespace
 
-std::string HexEncode(std::span<const uint8_t> source) {
-  return HexEncodeWithDelimiter(source, 0);
+std::string hex_encode(absl::string_view str) {
+  return hex_encode_with_delimiter(str, 0);
 }
 
-std::string HexEncodeWithDelimiter(std::span<const uint8_t> source,
-                                   char delimiter) {
-  std::string s(HexEncodeOutputLength(source.size(), delimiter), 0);
-  HexEncodeWithDelimiter(s, source, delimiter);
+std::string hex_encode_with_delimiter(absl::string_view source,
+                                      char delimiter) {
+  std::string s(hex_encode_output_length(source.length(), delimiter), 0);
+  hex_encode_with_delimiter(&s[0], source, delimiter);
   return s;
 }
 
-std::span<uint8_t> HexDecodeWithDelimiter(std::span<uint8_t> buffer,
-                                          absl::string_view source,
-                                          char delimiter) {
-  if (buffer.empty()) {
-    return {};
-  }
+size_t hex_decode_with_delimiter(std::span<char> cbuffer,
+                                 absl::string_view source,
+                                 char delimiter) {
+  if (cbuffer.empty())
+    return 0;
 
   // Init and bounds check.
+  unsigned char* bbuffer = reinterpret_cast<unsigned char*>(cbuffer.data());
   size_t srcpos = 0, bufpos = 0;
   size_t srclen = source.length();
 
   size_t needed = (delimiter) ? (srclen + 1) / 3 : srclen / 2;
-  if (buffer.size() < needed)
-    return {};
+  if (cbuffer.size() < needed)
+    return 0;
 
   while (srcpos < srclen) {
     if ((srclen - srcpos) < 2) {
       // This means we have an odd number of bytes.
-      return {};
+      return 0;
     }
 
-    uint8_t h1, h2;
-    if (!HexDecode(source[srcpos], &h1) ||
-        !HexDecode(source[srcpos + 1], &h2)) {
-      return {};
-    }
+    unsigned char h1, h2;
+    if (!hex_decode(source[srcpos], &h1) ||
+        !hex_decode(source[srcpos + 1], &h2))
+      return 0;
 
-    buffer[bufpos++] = (h1 << 4) | h2;
+    bbuffer[bufpos++] = (h1 << 4) | h2;
     srcpos += 2;
 
     // Remove the delimiter if needed.
     if (delimiter && (srclen - srcpos) > 1) {
-      if (source[srcpos] != delimiter) {
-        return {};
-      }
+      if (source[srcpos] != delimiter)
+        return 0;
       ++srcpos;
     }
   }
 
-  return buffer.first(bufpos);
+  return bufpos;
 }
 
-std::span<uint8_t> HexDecode(std::span<uint8_t> buffer,
-                             absl::string_view source) {
-  return HexDecodeWithDelimiter(buffer, source, 0);
+size_t hex_decode(std::span<char> buffer, absl::string_view source) {
+  return hex_decode_with_delimiter(buffer, source, 0);
 }
 
 size_t tokenize(absl::string_view source,

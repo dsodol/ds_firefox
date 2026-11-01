@@ -14,7 +14,7 @@ import mozilla.components.lib.state.Store
  * @param middleware The list of [Middleware] to apply to dispatched [TabGroupsStripAction]s.
  */
 class TabGroupsStripStore(
-    initialState: TabGroupsStripState = TabGroupsStripState.TabGroupStripHidden,
+    initialState: TabGroupsStripState = TabGroupsStripState(),
     middleware: List<Middleware<TabGroupsStripState, TabGroupsStripAction>> = emptyList(),
 ) :
     Store<TabGroupsStripState, TabGroupsStripAction>(

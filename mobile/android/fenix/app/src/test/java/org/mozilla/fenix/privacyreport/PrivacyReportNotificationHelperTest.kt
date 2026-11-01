@@ -125,15 +125,12 @@ class PrivacyReportNotificationHelperTest {
     fun `GIVEN the channel exists WHEN privacyReportNotificationAvailability is called THEN it is available`() {
         ensurePrivacyReportNotificationChannelExists(testContext)
 
-        assertEquals(AVAILABLE, privacyReportNotificationAvailability(NotificationManagerCompat.from(testContext)))
+        assertEquals(AVAILABLE, privacyReportNotificationAvailability(testContext))
     }
 
     @Test
     fun `GIVEN the channel was never created WHEN privacyReportNotificationAvailability is called THEN the channel is missing`() {
-        assertEquals(
-            CHANNEL_MISSING,
-            privacyReportNotificationAvailability(NotificationManagerCompat.from(testContext)),
-        )
+        assertEquals(CHANNEL_MISSING, privacyReportNotificationAvailability(testContext))
     }
 
     @Test
@@ -141,9 +138,6 @@ class PrivacyReportNotificationHelperTest {
         val notificationManager = testContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         shadowOf(notificationManager).setNotificationsEnabled(false)
 
-        assertEquals(
-            APP_NOTIFICATIONS_DISABLED,
-            privacyReportNotificationAvailability(NotificationManagerCompat.from(testContext)),
-        )
+        assertEquals(APP_NOTIFICATIONS_DISABLED, privacyReportNotificationAvailability(testContext))
     }
 }

@@ -201,7 +201,7 @@ class FailDelayManager {
     }
 
     mEntries.AppendElement(
-        std::make_unique<FailDelay>(address, path, port, originSuffix));
+        MakeUnique<FailDelay>(address, path, port, originSuffix));
   }
 
   // Element returned may not be valid after next main thread event: don't keep
@@ -341,8 +341,8 @@ class nsWSAdmissionManager {
     bool existingFail = fail != nullptr;
 
     // Always add ourselves to queue, even if we'll connect immediately
-    auto newdata = std::make_unique<nsOpenConn>(ws->mAddress, ws->mOriginSuffix,
-                                                existingFail, ws);
+    auto newdata = MakeUnique<nsOpenConn>(ws->mAddress, ws->mOriginSuffix,
+                                          existingFail, ws);
 
     // If a connection has not previously failed then prioritize it over
     // connections that have
@@ -2755,7 +2755,7 @@ nsresult WebSocketChannel::HandleExtensions() {
   }
 
   MutexAutoLock lock(mCompressorMutex);
-  mPMCECompressor = std::make_unique<PMCECompression>(
+  mPMCECompressor = MakeUnique<PMCECompression>(
       clientNoContextTakeover, clientMaxWindowBits, serverMaxWindowBits);
   if (mPMCECompressor->Active()) {
     LOG(
@@ -3887,7 +3887,7 @@ nsresult WebSocketChannel::OnTransportAvailableInternal() {
       }
 
       MutexAutoLock lock(mCompressorMutex);
-      mPMCECompressor = std::make_unique<PMCECompression>(
+      mPMCECompressor = MakeUnique<PMCECompression>(
           serverNoContextTakeover, serverMaxWindowBits, clientMaxWindowBits);
       if (mPMCECompressor->Active()) {
         LOG(

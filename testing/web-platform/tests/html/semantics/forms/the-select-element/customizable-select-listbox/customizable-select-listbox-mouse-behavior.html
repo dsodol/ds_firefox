@@ -113,18 +113,16 @@ function touch(element) {
       'Option two should be selected after second click.');
 
     await activate(optionTwo);
-    assert_equals(select.selectedOptions.length, 1,
-      'There should still be one selected option after third click.');
-    assert_equals(select.selectedOptions[0], optionTwo,
-      'Option two should still be selected after third click.');
+    assert_equals(select.selectedOptions.length, 0,
+      'There should be no selected options after third click.');
 
     await activate(disabledOption);
-    assert_equals(select.selectedOptions[0], optionTwo,
+    assert_equals(select.selectedOptions.length, 0,
       'Disabled option should not be checkable.');
 
     select.setAttribute('disabled', '');
-    await activate(optionOne);
-    assert_equals(select.selectedOptions[0], optionTwo,
+    await activate(optionTwo);
+    assert_equals(select.selectedOptions.length, 0,
       'Disabled select should not have checkable options.');
   }, `${inputType}: input behavior for base appearance <select size=4>`);
 });

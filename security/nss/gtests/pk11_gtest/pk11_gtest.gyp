@@ -12,7 +12,6 @@
       'type': 'executable',
       'sources': [
         '<(DEPTH)/gtests/common/json_reader.cc',
-        '<(DEPTH)/gtests/common/pk11_import.cc',
         'pk11_aes_cmac_unittest.cc',
         'pk11_aes_gcm_unittest.cc',
         'pk11_aeskeywrap_unittest.cc',

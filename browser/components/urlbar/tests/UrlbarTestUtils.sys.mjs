@@ -36,7 +36,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlbarChildController:
     "chrome://browser/content/urlbar/UrlbarChildController.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
-  UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
   UrlbarSearchUtils:
     "moz-src:///browser/components/urlbar/UrlbarSearchUtils.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -114,33 +113,6 @@ export class UrlbarInputBaseTestUtils {
       this.EventUtils = null;
       this.SimpleTest = null;
     });
-  }
-
-  /**
-   * Registers a TestProvider that returns one URL result for empty searches,
-   * so the view opens on an empty string.
-   *
-   * @param {UrlbarSapName} [sap]
-   *   The SAP to register the provider for.
-   */
-  registerZeroPrefixProvider(sap = "urlbar") {
-    let provider = new this.TestProvider({
-      priority: Infinity,
-      results: [
-        new lazy.UrlbarResult({
-          type: UrlbarShared.RESULT_TYPE.URL,
-          source: UrlbarShared.RESULT_SOURCE.OTHER_LOCAL,
-          payload: { url: "https://example.com/" },
-        }),
-      ],
-    });
-    provider.isActive = async context =>
-      !context.searchString && !context.searchMode;
-    let providersManager = lazy.ProvidersManager.getInstanceForSap(sap);
-    providersManager.registerProvider(provider);
-    this.registerCleanupFunction(() =>
-      providersManager.unregisterProvider(provider)
-    );
   }
 
   /**
@@ -1280,18 +1252,12 @@ export class UrlbarInputBaseTestUtils {
       expectedSearchMode.isPreview = false;
     }
 
-    let inParentProcess =
-      Services.appinfo.processType == Services.appinfo.PROCESS_TYPE_DEFAULT;
+    // The search service is parent-only, so a content-process caller
+    // supplies this itself.
     if (
       expectedSearchMode.engineName &&
       !expectedSearchMode.hasOwnProperty("isGeneralPurposeEngine")
     ) {
-      if (!inParentProcess) {
-        // The search service is parent-only.
-        throw new Error(
-          "isGeneralPurposeEngine must be supplied in content processes."
-        );
-      }
       let engine = lazy.SearchService.getEngineByName(
         expectedSearchMode.engineName
       );
@@ -1397,28 +1363,16 @@ export class UrlbarInputBaseTestUtils {
       !expectedSearchMode.isPreview &&
       this.isPopupOpen(window)
     ) {
-      let historyInSearchMode = lazy.UrlbarPrefs.get(
-        "unifiedSearchButton.historyInSearchMode"
-      );
       let resultCount = this.getResultCount(window);
       for (let i = 0; i < resultCount; i++) {
         let result = await this.getDetailsOfResultAt(window, i);
         if (result.source == UrlbarShared.RESULT_SOURCE.SEARCH) {
-          // With historyInSearchMode, results offering to switch to another
-          // engine's search mode, like search shortcuts, can show too.
-          if (
-            !historyInSearchMode ||
-            !result.result.payload.providesSearchMode
-          ) {
-            this.Assert.equal(
-              expectedSearchMode.engineName,
-              result.searchParams.engine,
-              "Search mode result matches engine name."
-            );
-          }
-        } else if (!historyInSearchMode && inParentProcess) {
-          // The search service is only available in the main process.
-          // Skip the check in child processes.
+          this.Assert.equal(
+            expectedSearchMode.engineName,
+            result.searchParams.engine,
+            "Search mode result matches engine name."
+          );
+        } else {
           let engine = lazy.SearchService.getEngineByName(
             expectedSearchMode.engineName
           );
@@ -1679,7 +1633,7 @@ export class UrlbarInputBaseTestUtils {
           getSearchSource() {
             return "dummy-search-source";
           },
-          browserWindow: {
+          window: {
             location: {
               href: AppConstants.BROWSER_CHROME_URL,
             },
@@ -1703,12 +1657,10 @@ export class UrlbarInputBaseTestUtils {
     // Stub the actor so the child controller builds a direct-path parent
     // controller (the child owns construction; the actor only resolves the
     // chrome window). It is exposed as `controller.parentController`.
-    parentOptions.input.browserWindow.windowGlobalChild = {
-      parentActor: {
-        getActor: () => ({
-          browsingContext: { topChromeWindow: browserWindow },
-        }),
-      },
+    parentOptions.input.window.windowGlobalChild = {
+      getActor: () => ({
+        browsingContext: { topChromeWindow: browserWindow },
+      }),
     };
     // A provided `manager` stands in for the per-sap `ProvidersManager` the
     // child-built parent controller resolves at construction. Swap it in for the
@@ -2217,6 +2169,10 @@ export class UrlbarInputBaseTestUtils {
    * @returns {boolean}
    */
   isSeparatorVisible(separatorElement) {
+    if (!Services.prefs.getBoolPref("browser.nova.enabled", false)) {
+      return this.#isVisible(separatorElement);
+    }
+
     let before = separatorElement.documentGlobal.getComputedStyle(
       separatorElement,
       "::before"
@@ -2234,7 +2190,7 @@ export class UrlbarInputBaseTestUtils {
   }
 
   /**
-   * Stubs `UrlbarShared.zonedDateTimeISO()`. Helpful for tests that use
+   * Stubs `UrlbarShared._zonedDateTimeISO()`. Helpful for tests that use
    * `UrlbarShared.formatDate()`.
    *
    * Browser tests should call this again with a falsey value during cleanup to
@@ -2257,7 +2213,7 @@ export class UrlbarInputBaseTestUtils {
     if (!this.#zonedDateTimeISOStub) {
       this.#zonedDateTimeISOStub = lazy.sinon.stub(
         UrlbarShared,
-        "zonedDateTimeISO"
+        "_zonedDateTimeISO"
       );
     }
 
@@ -2266,29 +2222,6 @@ export class UrlbarInputBaseTestUtils {
     this.#zonedDateTimeISOStub.returns(zonedNow);
 
     return zonedNow;
-  }
-
-  /**
-   * Stubs `UrlbarShared.locale()`. Helpful for tests that check formatted dates
-   * and times, which otherwise depend on the OS regional settings.
-   *
-   * Browser tests should call this again with a falsey value during cleanup to
-   * remove the stub.
-   *
-   * @param {?string} locale
-   *   The locale to use, e.g. "en-US". A falsey value removes the stub.
-   */
-  stubLocale(locale) {
-    if (!locale) {
-      this.#localeStub?.restore();
-      this.#localeStub = null;
-      return;
-    }
-
-    if (!this.#localeStub) {
-      this.#localeStub = lazy.sinon.stub(UrlbarShared, "locale");
-    }
-    this.#localeStub.returns(locale);
   }
 
   /**
@@ -2392,7 +2325,6 @@ export class UrlbarInputBaseTestUtils {
   }
 
   #firstDayOfWeekStub;
-  #localeStub;
   #urlbar;
   #zonedDateTimeISOStub;
 }

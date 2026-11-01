@@ -50,7 +50,9 @@ function promise_check_exist(path, shouldExist) {
 function promise_check_contents(path, expect) {
   return (async function () {
     info("Checking whether " + path + " has the right contents");
-    let actual = await IOUtils.readJSON(path, sessionStoreReadOptions());
+    let actual = await IOUtils.readJSON(path, {
+      decompress: true,
+    });
     Assert.deepEqual(
       actual,
       expect,
@@ -98,10 +100,9 @@ add_task(async function test_first_write_backup() {
 // - $Path.recoveryBackup contains the previous data
 add_task(async function test_second_write_no_backup() {
   let new_content = generateFileContents("test_2");
-  let previous_backup_content = await IOUtils.readJSON(
-    Paths.recovery,
-    sessionStoreReadOptions()
-  );
+  let previous_backup_content = await IOUtils.readJSON(Paths.recovery, {
+    decompress: true,
+  });
 
   await IOUtils.remove(Paths.cleanBackup);
 

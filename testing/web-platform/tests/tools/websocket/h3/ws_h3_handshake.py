@@ -8,7 +8,6 @@ https://datatracker.ietf.org/doc/html/rfc9220
 """
 
 from pywebsocket3 import common
-from pywebsocket3 import dispatch
 from pywebsocket3.handshake.base import get_mandatory_header
 from pywebsocket3.handshake.base import HandshakeException
 from pywebsocket3.handshake.base import HandshakerBase
@@ -23,12 +22,8 @@ def check_connect_method(request):
 class WsH3Handshaker(HandshakerBase):
     """Bootstrapping handshake processor for WebSocket over HTTP/3."""
 
-    def __init__(self, request: object,
-                 dispatcher: dispatch.Dispatcher) -> None:
-        super().__init__(request, dispatcher)  # type: ignore
-
-    def do_handshake(self) -> None:
-        super().do_handshake()  # type: ignore
+    def __init__(self, request, dispatcher):
+        super().__init__(request, dispatcher)
 
     def _transform_header(self, header):
         return header.lower()
@@ -63,3 +58,6 @@ class WsH3Handshaker(HandshakerBase):
             self._request.headers_out[
                 'sec-websocket-extensions'] = common.format_extensions(
                     self._request.ws_extensions)
+
+        for name, value in self._request.extra_headers:
+            self._request.headers_out[name] = value

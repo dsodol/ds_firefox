@@ -1978,7 +1978,13 @@ bool DebuggerObject::getBoundArguments(JSContext* cx,
 
 /* static */
 SavedFrame* Debugger::getObjectAllocationSite(JSObject& obj) {
-  return GetAllocationMetadata(&obj);
+  JSObject* metadata = GetAllocationMetadata(&obj);
+  if (!metadata) {
+    return nullptr;
+  }
+
+  MOZ_ASSERT(!metadata->is<WrapperObject>());
+  return metadata->is<SavedFrame>() ? &metadata->as<SavedFrame>() : nullptr;
 }
 
 /* static */

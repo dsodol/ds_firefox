@@ -72,12 +72,12 @@ class JsepSessionImpl : public JsepSession, public JsepSessionCopyableStuff {
       : JsepSession(name),
         mUuidGen(std::move(uuidgen)),
         mSdpHelper(&mLastError),
-        mParser(std::make_unique<HybridSdpParser>()) {}
+        mParser(MakeUnique<HybridSdpParser>()) {}
 
   JsepSessionImpl(const JsepSessionImpl& aOrig);
 
   UniquePtr<JsepSession> Clone() const override {
-    return std::make_unique<JsepSessionImpl>(*this);
+    return MakeUnique<JsepSessionImpl>(*this);
   }
 
   // Implement JsepSession methods.

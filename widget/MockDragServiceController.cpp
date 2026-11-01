@@ -149,10 +149,10 @@ MockDragServiceController::SendEvent(
   EventMessage eventType = MockEventTypeToEventMessage(aEventType);
   UniquePtr<WidgetInputEvent> widgetEvent;
   if (IsMouseEvent(aEventType)) {
-    widgetEvent = std::make_unique<WidgetMouseEvent>(
-        true, eventType, widget, WidgetMouseEvent::Reason::eReal);
+    widgetEvent = MakeUnique<WidgetMouseEvent>(true, eventType, widget,
+                                               WidgetMouseEvent::Reason::eReal);
   } else {
-    widgetEvent = std::make_unique<WidgetDragEvent>(true, eventType, widget);
+    widgetEvent = MakeUnique<WidgetDragEvent>(true, eventType, widget);
   }
 
   widgetEvent->mWidget = widget;

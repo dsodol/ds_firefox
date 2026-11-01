@@ -9,9 +9,9 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import mozilla.components.ExperimentalAndroidComponentsApi
 import mozilla.components.concept.engine.Engine
-import mozilla.components.concept.engine.ipprotection.ServiceState
 import mozilla.components.feature.ipprotection.store.IPProtectionAction
 import mozilla.components.feature.ipprotection.store.IPProtectionStore
+import mozilla.components.feature.ipprotection.store.InternalAction
 import mozilla.components.feature.ipprotection.store.state.AccountStatus
 import mozilla.components.feature.ipprotection.store.state.EligibilityStatus
 import mozilla.components.feature.ipprotection.store.state.PendingActivationRequest
@@ -40,7 +40,7 @@ class IPProtectionFeatureTest {
                 )
             val handler = startFeature(store)
 
-            store.dispatch(IPProtectionAction.AccountAction.AccountReadyForEnrollment)
+            store.dispatch(InternalAction.AccountReadyForEnrollment)
             testScheduler.advanceUntilIdle()
 
             // Enrollment is only usable for an account the service already knows is signed in.
@@ -49,26 +49,6 @@ class IPProtectionFeatureTest {
                 handler.calls.filter {
                     it is FakeIPProtectionHandler.Call.NotifyAccountStatus || it is FakeIPProtectionHandler.Call.Enroll
                 },
-            )
-        }
-
-    @Test
-    fun `GIVEN the account manager reports Authenticated before WarmingUp WHEN the service starts unauthenticated THEN it is told the user is signed in`() =
-        runTest(testDispatcher) {
-            val (store, _) = buildStore(buildIPProtectionState(accountStatus = AccountStatus.Uninitialized))
-            val handler = startFeature(store)
-
-            store.dispatch(IPProtectionAction.AccountAction.AccountManagerStateChanged(AccountStatus.Authenticated))
-            store.dispatch(IPProtectionAction.AccountAction.AccountManagerStateChanged(AccountStatus.WarmingUp))
-            testScheduler.advanceUntilIdle()
-            store.dispatch(IPProtectionAction.EligibilityAction.EligibilityChanged(EligibilityStatus.Eligible))
-            testScheduler.advanceUntilIdle()
-            store.dispatch(IPProtectionAction.ServiceAction.ServiceStateChanged(ServiceState.Unauthenticated))
-            testScheduler.advanceUntilIdle()
-
-            assertEquals(
-                listOf(FakeIPProtectionHandler.Call.NotifyAccountStatus(true)),
-                handler.calls.filterIsInstance<FakeIPProtectionHandler.Call.NotifyAccountStatus>(),
             )
         }
 
@@ -85,8 +65,8 @@ class IPProtectionFeatureTest {
 
             startFeature(store, failing = true)
 
-            middleware.assertFirstAction(IPProtectionAction.LocationAction.LocationSwitchFailed::class)
-            middleware.assertNotDispatched(IPProtectionAction.ActivationAction.ToggleFailed::class)
+            middleware.assertFirstAction(IPProtectionAction.LocationSwitchFailed::class)
+            middleware.assertNotDispatched(IPProtectionAction.ToggleFailed::class)
         }
 
     @Test
@@ -100,8 +80,8 @@ class IPProtectionFeatureTest {
 
             startFeature(store, failing = true)
 
-            middleware.assertFirstAction(IPProtectionAction.ActivationAction.ToggleFailed::class)
-            middleware.assertNotDispatched(IPProtectionAction.LocationAction.LocationSwitchFailed::class)
+            middleware.assertFirstAction(IPProtectionAction.ToggleFailed::class)
+            middleware.assertNotDispatched(IPProtectionAction.LocationSwitchFailed::class)
         }
 
     @Test
@@ -115,8 +95,8 @@ class IPProtectionFeatureTest {
 
             startFeature(store, failing = true)
 
-            middleware.assertFirstAction(IPProtectionAction.ActivationAction.ToggleFailed::class)
-            middleware.assertNotDispatched(IPProtectionAction.LocationAction.LocationSwitchFailed::class)
+            middleware.assertFirstAction(IPProtectionAction.ToggleFailed::class)
+            middleware.assertNotDispatched(IPProtectionAction.LocationSwitchFailed::class)
         }
 
     @Test

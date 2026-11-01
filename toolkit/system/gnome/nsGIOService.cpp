@@ -93,7 +93,7 @@ G_DEFINE_TYPE(MozAppLaunchContext, moz_app_launch_context,
 #endif
 
 static char* moz_app_launch_context_get_startup_notify_id(
-    GAppLaunchContext* context, GAppInfo* /*info*/, GList* /*files*/) {
+    GAppLaunchContext* context, GAppInfo* info, GList* files) {
   MozAppLaunchContext* self = MOZ_APP_LAUNCH_CONTEXT(context);
 
   // https://docs.gtk.org/gio/method.AppLaunchContext.get_startup_notify_id.html
@@ -164,31 +164,30 @@ nsFlatpakHandlerApp::GetName(nsAString& aName) {
 }
 
 NS_IMETHODIMP
-nsFlatpakHandlerApp::SetName(const nsAString& /*aName*/) {
+nsFlatpakHandlerApp::SetName(const nsAString& aName) {
   // We don't implement SetName because flatpak system handler name is fixed
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsFlatpakHandlerApp::GetDetailedDescription(
-    nsAString& /*aDetailedDescription*/) {
+nsFlatpakHandlerApp::GetDetailedDescription(nsAString& aDetailedDescription) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
 nsFlatpakHandlerApp::SetDetailedDescription(
-    const nsAString& /*aDetailedDescription*/) {
+    const nsAString& aDetailedDescription) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsFlatpakHandlerApp::Equals(nsIHandlerApp* /*aHandlerApp*/, bool* /*_retval*/) {
+nsFlatpakHandlerApp::Equals(nsIHandlerApp* aHandlerApp, bool* _retval) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
 nsFlatpakHandlerApp::LaunchWithURI(
-    nsIURI* aUri, mozilla::dom::BrowsingContext* /*aBrowsingContext*/) {
+    nsIURI* aUri, mozilla::dom::BrowsingContext* aBrowsingContext) {
   nsCString spec;
   aUri->GetSpec(spec);
   GUniquePtr<GError> error;
@@ -259,20 +258,19 @@ nsGIOHandlerApp::GetName(nsAString& aName) {
 }
 
 NS_IMETHODIMP
-nsGIOHandlerApp::SetName(const nsAString& /*aName*/) {
+nsGIOHandlerApp::SetName(const nsAString& aName) {
   // We don't implement SetName because we're using mGIOMimeApp instance for
   // obtaining application name
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsGIOHandlerApp::GetDetailedDescription(nsAString& /*aDetailedDescription*/) {
+nsGIOHandlerApp::GetDetailedDescription(nsAString& aDetailedDescription) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsGIOHandlerApp::SetDetailedDescription(
-    const nsAString& /*aDetailedDescription*/) {
+nsGIOHandlerApp::SetDetailedDescription(const nsAString& aDetailedDescription) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -310,7 +308,7 @@ nsGIOHandlerApp::LaunchFile(const nsACString& aFileName) {
 
 NS_IMETHODIMP
 nsGIOHandlerApp::LaunchWithURI(
-    nsIURI* /*aUri*/, mozilla::dom::BrowsingContext* /*aBrowsingContext*/) {
+    nsIURI* aUri, mozilla::dom::BrowsingContext* aBrowsingContext) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -350,7 +348,7 @@ nsGIOMimeApp::GetName(nsAString& aName) {
 }
 
 NS_IMETHODIMP
-nsGIOMimeApp::SetName(const nsAString& /*aName*/) {
+nsGIOMimeApp::SetName(const nsAString& aName) {
   // We don't implement SetName because we're using mGIOMimeApp instance for
   // obtaining application name
   return NS_OK;
@@ -371,13 +369,12 @@ nsGIOMimeApp::GetExpectsURIs(int32_t* aExpects) {
 }
 
 NS_IMETHODIMP
-nsGIOMimeApp::GetDetailedDescription(nsAString& /*aDetailedDescription*/) {
+nsGIOMimeApp::GetDetailedDescription(nsAString& aDetailedDescription) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsGIOMimeApp::SetDetailedDescription(
-    const nsAString& /*aDetailedDescription*/) {
+nsGIOMimeApp::SetDetailedDescription(const nsAString& aDetailedDescription) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -522,8 +519,8 @@ static NS_IMETHODIMP LaunchWithURIImpl(RefPtr<GAppInfo> aInfo, nsIURI* aUri,
 }
 
 NS_IMETHODIMP
-nsGIOMimeApp::LaunchWithURI(
-    nsIURI* aUri, mozilla::dom::BrowsingContext* /*aBrowsingContext*/) {
+nsGIOMimeApp::LaunchWithURI(nsIURI* aUri,
+                            mozilla::dom::BrowsingContext* aBrowsingContext) {
   auto promise = mozilla::widget::RequestWaylandFocusPromise();
   if (!promise) {
     return LaunchWithURIImpl(mApp, aUri);
@@ -535,7 +532,7 @@ nsGIOMimeApp::LaunchWithURI(
         LaunchWithURIImpl(app, uri, token.get());
       },
       /* reject */
-      [app = RefPtr{mApp}, uri = RefPtr{aUri}](bool /*state*/) {
+      [app = RefPtr{mApp}, uri = RefPtr{aUri}](bool state) {
         LaunchWithURIImpl(app, uri);
       });
   return NS_OK;
@@ -955,7 +952,7 @@ nsresult nsGIOService::ShowURI(nsIURI* aURI) {
         ShowURIImpl(uri, token.get());
       },
       /* reject */
-      [uri = RefPtr{aURI}](bool /*state*/) {
+      [uri = RefPtr{aURI}](bool state) {
         LOG("nsGIOService::ShowURI() without XDG focus token");
         ShowURIImpl(uri);
       });
@@ -1000,7 +997,7 @@ static nsresult LaunchPath(const nsACString& aPath) {
         LaunchPathImpl(path, token.get());
       },
       /* reject */
-      [path = nsCString{aPath}](bool /*state*/) {
+      [path = nsCString{aPath}](bool state) {
         LOG("LaunchPath() without XDG focus token");
         LaunchPathImpl(path);
       });

@@ -1,6 +1,5 @@
 <!DOCTYPE html>
-<title>The maximum value of scrollLeft shouldn't be affected by scrollbar even
-       if it's wider than scroller</title>
+<title>The maximum value of scrollLeft shouldn't be affected by scrollbar even if it's wider than scroller</title>
 <meta charset="utf-8">
 <link rel="help" href="https://drafts.csswg.org/cssom-view/#dom-element-scrollleft">
 
@@ -12,7 +11,6 @@
 <script>
     test(function() {
         scroller.scrollLeft = 1000;
-        assert_equals(scroller.scrollLeft,
-                      scroller.scrollWidth - scroller.clientWidth);
+        assert_equals(scroller.scrollLeft, 100);
     }, "Test the maxmium value of scrollLeft");
 </script>

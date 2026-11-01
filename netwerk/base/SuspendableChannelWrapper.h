@@ -38,10 +38,11 @@ class SuspendableChannelWrapper final : public BaseSuspendableChannelWrapper {
   NS_IMETHOD AsyncOpen(nsIStreamListener* aListener) override;
   NS_IMETHOD Open(nsIInputStream** _retval) override;
 
-  explicit SuspendableChannelWrapper(nsIChannel* aInnerChannel);
+  explicit SuspendableChannelWrapper(nsIChannel* aInnerChannel)
+      : BaseSuspendableChannelWrapper(aInnerChannel) {}
 
  private:
-  ~SuspendableChannelWrapper() override;
+  ~SuspendableChannelWrapper() override = default;
 
   nsCOMPtr<nsIStreamListener> mListener;
   uint32_t mSuspendCount = 0;

@@ -647,18 +647,14 @@ class VsyncRefreshDriverTimer : public RefreshDriverTimer {
     TaskController* taskController = TaskController::Get();
     IdleTaskManager* idleTaskManager = taskController->GetIdleTaskManager();
     VsyncTaskManager* vsyncTaskManager = VsyncTaskManager::Get();
-    LowestTaskManager* lowestTaskManager =
-        taskController->GetLowestTaskManager();
 
-    // Note, pendingTaskCount includes also all the pending idle, vsync and
-    // lowest priority tasks.
+    // Note, pendingTaskCount includes also all the pending idle and vsync
+    // tasks.
     uint64_t pendingTaskCount =
         taskController->PendingMainthreadTaskCountIncludingSuspended();
     uint64_t pendingIdleTaskCount = idleTaskManager->PendingTaskCount();
     uint64_t pendingVsyncTaskCount = vsyncTaskManager->PendingTaskCount();
-    uint64_t pendingLowestTaskCount = lowestTaskManager->PendingTaskCount();
-    if (!(pendingTaskCount > (pendingIdleTaskCount + pendingVsyncTaskCount +
-                              pendingLowestTaskCount))) {
+    if (!(pendingTaskCount > (pendingIdleTaskCount + pendingVsyncTaskCount))) {
       return false;
     }
     if (aCheckOnlyNewPendingTasks) {
@@ -672,10 +668,6 @@ class VsyncRefreshDriverTimer : public RefreshDriverTimer {
     // but only if the main thread wasn't totally empty at some point.
     // In the parent process RunOutOfMTTasksCount() is less meaningful
     // because some of the tasks run through AppShell.
-    //
-    // A queued lowest priority task freezes RunOutOfMTTasksCount(), but the
-    // count check above has already returned false unless work other than
-    // idle, vsync and lowest is pending, which is when we want to delay.
     return mLastIdleTaskCount == idleTaskCount &&
            (taskController->RunOutOfMTTasksCount() ==
                 mLastRunOutOfMTTasksCount ||
@@ -1466,7 +1458,7 @@ nsRefreshDriver::nsRefreshDriver(nsPresContext* aPresContext)
   ++sRefreshDriverCount;
 
   if (aPresContext->IsRoot()) {
-    mHangAnnotator = std::make_unique<PaintPendingHangAnnotator>(*this);
+    mHangAnnotator = MakeUnique<PaintPendingHangAnnotator>(*this);
   }
 }
 
@@ -2490,7 +2482,7 @@ void nsRefreshDriver::Tick(VsyncId aId, TimeStamp aNowTime,
                         //
                         // [1]:
                         // https://drafts.csswg.org/web-animations-1/#update-animations-and-send-events
-                        nsAutoMicroTaskForDocument mt(&aDoc);
+                        nsAutoMicroTask mt;
                         UpdateAndReduceAnimations(aDoc);
                       }
                       if (RefPtr pc = aDoc.GetPresContext()) {

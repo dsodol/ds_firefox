@@ -21,7 +21,6 @@
 #include "mozilla/layers/BufferTexture.h"
 #include "mozilla/layers/CompositableTransactionParent.h"
 #include "mozilla/layers/Compositor.h"
-#include "mozilla/layers/LayerTreeLog.h"
 #include "mozilla/layers/LayersMessages.h"  // for EditReply
 #include "mozilla/layers/PImageBridgeParent.h"
 #include "mozilla/layers/RemoteTextureMap.h"
@@ -55,7 +54,7 @@ static StaticRefPtr<ImageBridgeParent> sImageBridgeParentSingleton;
 
 /* static */
 void ImageBridgeParent::Setup() {
-  MOZ_RELEASE_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(NS_IsMainThread());
   if (!sImageBridgesLock) {
     sImageBridgesLock = new Monitor("ImageBridges");
     mozilla::ClearOnShutdown(&sImageBridgesLock);
@@ -71,7 +70,7 @@ ImageBridgeParent::ImageBridgeParent(nsISerialEventTarget* aThread,
       mNamespace(aNamespace),
       mClosed(false),
       mCompositorThreadHolder(CompositorThreadHolder::GetSingleton()) {
-  MOZ_RELEASE_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(NS_IsMainThread());
   SetOtherEndpointProcInfo(aChildProcessInfo);
   mRemoteTextureTxnScheduler = RemoteTextureTxnScheduler::Create(this);
 }
@@ -97,7 +96,7 @@ ImageBridgeParent* ImageBridgeParent::CreateSameProcess(uint32_t aNamespace) {
 /* static */
 bool ImageBridgeParent::CreateForGPUProcess(
     Endpoint<PImageBridgeParent>&& aEndpoint, uint32_t aNamespace) {
-  MOZ_RELEASE_ASSERT(XRE_GetProcessType() == GeckoProcessType_GPU);
+  MOZ_ASSERT(XRE_GetProcessType() == GeckoProcessType_GPU);
 
   nsCOMPtr<nsISerialEventTarget> compositorThread = CompositorThread();
   if (!compositorThread) {
@@ -144,8 +143,6 @@ void ImageBridgeParent::Shutdown() {
 }
 
 void ImageBridgeParent::ActorDestroy(ActorDestroyReason aWhy) {
-  LAYERTREE_LOG("Image bridge namespace {} destroyed, reason {}", mNamespace,
-                fmt::enums::format_as(aWhy));
   // Can't alloc/dealloc shmems from now on.
   mClosed = true;
 
@@ -184,7 +181,6 @@ class MOZ_STACK_CLASS AutoImageBridgeParentAsyncMessageSender final {
 
   ~AutoImageBridgeParentAsyncMessageSender() {
     mImageBridge->SendPendingAsyncMessages();
-    mImageBridge->ClearAboutToSendAsyncMessages();
     if (mToDestroy) {
       mImageBridge->DestroyActors(*mToDestroy);
     }
@@ -274,8 +270,6 @@ void ImageBridgeParent::Bind(Endpoint<PImageBridgeParent>&& aEndpoint) {
     MonitorAutoLock lock(*sImageBridgesLock);
     sImageBridges[OtherPid()] = this;
   }
-  LAYERTREE_LOG("Image bridge bound, namespace {}, content {}, pid {}",
-                mNamespace, mContentId, OtherPid());
 }
 
 mozilla::ipc::IPCResult ImageBridgeParent::RecvWillClose() {
@@ -354,7 +348,7 @@ ImageBridgeParent::AllocPMediaSystemResourceManagerParent() {
 
 bool ImageBridgeParent::DeallocPMediaSystemResourceManagerParent(
     PMediaSystemResourceManagerParent* aActor) {
-  MOZ_RELEASE_ASSERT(aActor);
+  MOZ_ASSERT(aActor);
   delete static_cast<mozilla::media::MediaSystemResourceManagerParent*>(aActor);
   return true;
 }
@@ -388,7 +382,7 @@ bool ImageBridgeParent::NotifyImageComposites(
     AutoTArray<ImageCompositeNotification, 1> notifications;
     notifications.AppendElement(aNotifications[i].mNotification);
     uint32_t end = i + 1;
-    MOZ_RELEASE_ASSERT(aNotifications[i].mNotification.compositable());
+    MOZ_ASSERT(aNotifications[i].mNotification.compositable());
     ProcessId pid = aNotifications[i].mImageBridgeProcessId;
     while (end < aNotifications.Length() &&
            aNotifications[end].mImageBridgeProcessId == pid) {
@@ -413,7 +407,7 @@ void ImageBridgeParent::DeferredDestroy() { mCompositorThreadHolder = nullptr; }
 
 already_AddRefed<ImageBridgeParent> ImageBridgeParent::GetInstance(
     ProcessId aId) {
-  MOZ_RELEASE_ASSERT(CompositorThreadHolder::IsInCompositorThread());
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   MonitorAutoLock lock(*sImageBridgesLock);
   ImageBridgeMap::const_iterator i = sImageBridges.find(aId);
   if (i == sImageBridges.end()) {

@@ -20,17 +20,13 @@ add_task(async function test_getlangpacks() {
 
   const EXPECTED = [
     {
-      id: "langpack-kl@firefox.mozilla.org",
       target_locale: "kl",
       url: "http://example.com/langpack1.xpi",
-      version: "1.0",
       hash: "sha256:0123456789abcdef",
     },
     {
-      id: "langpack-fo@firefox.mozilla.org",
       target_locale: "fo",
       url: "http://example.com/langpack2.xpi",
-      version: "2.0",
       hash: "sha256:fedcba9876543210",
     },
   ];
@@ -39,8 +35,6 @@ add_task(async function test_getlangpacks() {
     results: [
       // A simple entry
       {
-        id: 12345,
-        guid: EXPECTED[0].id,
         target_locale: EXPECTED[0].target_locale,
         current_compatible_version: {
           files: [
@@ -50,14 +44,11 @@ add_task(async function test_getlangpacks() {
               hash: EXPECTED[0].hash,
             },
           ],
-          version: EXPECTED[0].version,
         },
       },
 
       // An entry with multiple supported platforms
       {
-        id: 67890,
-        guid: EXPECTED[1].id,
         target_locale: EXPECTED[1].target_locale,
         current_compatible_version: {
           files: [
@@ -72,7 +63,6 @@ add_task(async function test_getlangpacks() {
               hash: EXPECTED[1].hash,
             },
           ],
-          version: EXPECTED[1].version,
         },
       },
 

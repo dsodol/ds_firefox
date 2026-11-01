@@ -241,20 +241,6 @@ add_task(async function suggest() {
   });
 });
 
-add_task(async function temporal() {
-  await doTemporalTest({
-    trigger: () => doEnter(),
-    assert: () =>
-      assertEngagementTelemetry([
-        {
-          groups: "temporal",
-          results: "rust_temporal",
-          n_results: 1,
-        },
-      ]),
-  });
-});
-
 add_task(async function about_page() {
   await doAboutPageTest({
     trigger: () => doEnter(),

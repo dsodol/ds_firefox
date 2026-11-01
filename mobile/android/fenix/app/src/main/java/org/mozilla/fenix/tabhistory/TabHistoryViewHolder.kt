@@ -8,7 +8,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.R as materialR
 import mozilla.components.browser.icons.BrowserIcons
 import mozilla.components.support.ktx.android.content.getColorFromAttr
-import mozilla.components.support.ktx.util.URLStringUtils
 import mozilla.components.ui.widgets.WidgetSiteItemView
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.loadIntoView
@@ -28,7 +27,7 @@ class TabHistoryViewHolder(
     fun bind(item: TabHistoryItem) {
         this.item = item
 
-        view.setText(label = item.title, caption = URLStringUtils.toLosslessDisplayUrl(item.url))
+        view.setText(label = item.title, caption = item.url)
         icons.loadIntoView(view.iconView, item.url)
 
         if (item.isSelected) {

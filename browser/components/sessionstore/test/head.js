@@ -193,27 +193,12 @@ function forceSaveState() {
   return SessionSaver.run();
 }
 
-function sessionStoreReadOptions() {
-  let opts = { decompress: true };
-  if (
-    Services.prefs.getBoolPref(
-      "browser.sessionstore.encryption.available",
-      false
-    ) &&
-    Services.prefs.getBoolPref("browser.sessionstore.encryption.enabled", false)
-  ) {
-    opts.decrypt = "sessionstore";
-  }
-  return opts;
-}
-
 function promiseRecoveryFileContents() {
   let promise = forceSaveState();
   return promise.then(function () {
-    return IOUtils.readUTF8(
-      SessionFile.Paths.recovery,
-      sessionStoreReadOptions()
-    );
+    return IOUtils.readUTF8(SessionFile.Paths.recovery, {
+      decompress: true,
+    });
   });
 }
 
@@ -221,10 +206,9 @@ var promiseForEachSessionRestoreFile = async function (cb) {
   for (let key of SessionFile.Paths.loadOrder) {
     let data = "";
     try {
-      data = await IOUtils.readUTF8(
-        SessionFile.Paths[key],
-        sessionStoreReadOptions()
-      );
+      data = await IOUtils.readUTF8(SessionFile.Paths[key], {
+        decompress: true,
+      });
     } catch (ex) {
       // Ignore missing files
       if (!(DOMException.isInstance(ex) && ex.name == "NotFoundError")) {

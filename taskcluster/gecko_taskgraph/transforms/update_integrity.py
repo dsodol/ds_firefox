@@ -86,9 +86,6 @@ def resolve_keys(config, jobs):
                 },
             )
 
-        if job["last-watershed"] is None:
-            continue
-
         yield job
 
 

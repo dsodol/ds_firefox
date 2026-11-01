@@ -10,12 +10,9 @@
 #include <shobjidl.h>
 // clang-format on
 
-#include "MainThreadUtils.h"
-#include "mozilla/UniquePtr.h"
-#include "mozilla/mscom/ApartmentRegion.h"
+#include "mozilla/LazyIdleThread.h"
 #include "nsIJumpListBuilder.h"
 #include "nsIObserver.h"
-#include "nsIThread.h"
 #include "nsProxyRelease.h"
 
 namespace mozilla {
@@ -63,18 +60,13 @@ class JumpListBuilder : public nsIJumpListBuilder, public nsIObserver {
   NS_DECL_NSIOBSERVER
 
   explicit JumpListBuilder(const nsAString& aAppUserModelId,
-                           bool aPrivateBrowsing = false,
                            RefPtr<JumpListBackend> aTestingBackend = nullptr);
 
  private:
-  void ShutdownIOThread() MOZ_REQUIRES(sMainThreadCapability);
-  void AssertIsOnIOThread() const;
-
-  // These all run on mIOThread.
-  void DoEnterApartment();
-  void DoTeardown();
+  // These all run on the lazy helper thread.
   void DoSetupBackend();
   void DoSetupTestingBackend(RefPtr<JumpListBackend> aTestingBackend);
+  void DoShutdownBackend();
   void DoSetAppIDIfAvailable(nsString aAppUserModelID);
   void DoIsAvailable(const nsMainThreadPtrHandle<dom::Promise>& aPromiseHolder);
   void DoCheckForRemovals(
@@ -100,16 +92,11 @@ class JumpListBuilder : public nsIJumpListBuilder, public nsIObserver {
   // read from it.
   nsString mAppUserModelId;
 
-  // This is only accessed by mIOThread.
+  // This is only accessed by the lazy helper thread.
   RefPtr<JumpListBackend> mJumpListBackend;
 
-  // The STA that mIOThread lives in.  Only accessed by mIOThread.
-  // Hosts the apartment-threaded shell objects we use (CLSID_DestinationList
-  // and CLSID_ApplicationDestinations).
-  UniquePtr<mscom::STARegion> mApartment;
-  nsCOMPtr<nsISerialEventTarget> mIOThreadForAssertions;
-
-  nsCOMPtr<nsIThread> mIOThread MOZ_GUARDED_BY(sMainThreadCapability);
+  // This is only accessed by the main thread.
+  RefPtr<LazyIdleThread> mIOThread;
 };
 
 }  // namespace widget

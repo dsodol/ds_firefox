@@ -14,128 +14,124 @@ Services.prefs.setBoolPref(
   true
 );
 
-do_get_profile();
-let gCertDB = Cc["@mozilla.org/security/x509certdb;1"].getService(
-  Ci.nsIX509CertDB
-);
-
 var gExpectOCSPRequest;
 
-async function run_ocsp_test(
+function add_ocsp_test(
   aHost,
   aExpectedResult,
   aStaplingEnabled,
   aExpectOCSPRequest = false
 ) {
-  gExpectOCSPRequest = aExpectOCSPRequest;
-  clearOCSPCache();
-  clearSessionCache();
-  Services.prefs.setBoolPref(
-    "security.ssl.enable_ocsp_stapling",
-    aStaplingEnabled
-  );
-  await asyncConnectTo(aHost, aExpectedResult);
+  add_connection_test(aHost, aExpectedResult, function () {
+    gExpectOCSPRequest = aExpectOCSPRequest;
+    clearOCSPCache();
+    clearSessionCache();
+    Services.prefs.setBoolPref(
+      "security.ssl.enable_ocsp_stapling",
+      aStaplingEnabled
+    );
+  });
 }
 
-async function run_ocsp_tests() {
+function add_tests() {
   // In the absence of OCSP stapling, these should actually all work.
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-good.example.com",
     PRErrorCodeSuccess,
     false,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-revoked.example.com",
     PRErrorCodeSuccess,
     false,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-good-other-ca.example.com",
     PRErrorCodeSuccess,
     false,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-malformed.example.com",
     PRErrorCodeSuccess,
     false,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-srverr.example.com",
     PRErrorCodeSuccess,
     false,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-trylater.example.com",
     PRErrorCodeSuccess,
     false,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-needssig.example.com",
     PRErrorCodeSuccess,
     false,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-unauthorized.example.com",
     PRErrorCodeSuccess,
     false,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-unknown.example.com",
     PRErrorCodeSuccess,
     false,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-good-other.example.com",
     PRErrorCodeSuccess,
     false,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-none.example.com",
     PRErrorCodeSuccess,
     false,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-expired.example.com",
     PRErrorCodeSuccess,
     false,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-expired-fresh-ca.example.com",
     PRErrorCodeSuccess,
     false,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-skip-responseBytes.example.com",
     PRErrorCodeSuccess,
     false,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-critical-extension.example.com",
     PRErrorCodeSuccess,
     false,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-noncritical-extension.example.com",
     PRErrorCodeSuccess,
     false,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-empty-extensions.example.com",
     PRErrorCodeSuccess,
     false,
@@ -145,13 +141,9 @@ async function run_ocsp_tests() {
   // Now test OCSP stapling
   // The following error codes are defined in security/nss/lib/util/SECerrs.h
 
-  await run_ocsp_test(
-    "ocsp-stapling-good.example.com",
-    PRErrorCodeSuccess,
-    true
-  );
+  add_ocsp_test("ocsp-stapling-good.example.com", PRErrorCodeSuccess, true);
 
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-revoked.example.com",
     SEC_ERROR_REVOKED_CERTIFICATE,
     true
@@ -159,12 +151,19 @@ async function run_ocsp_tests() {
 
   // This stapled response is from a CA that is untrusted and did not issue
   // the server's certificate.
-  let otherTestCA = addCertFromFile(
-    gCertDB,
-    "ocsp_certs/other-test-ca.pem",
-    ",,"
+  let certDB = Cc["@mozilla.org/security/x509certdb;1"].getService(
+    Ci.nsIX509CertDB
   );
-  await run_ocsp_test(
+  let otherTestCA = constructCertFromFile("ocsp_certs/other-test-ca.pem");
+  add_test(function () {
+    certDB.setCertTrust(
+      otherTestCA,
+      Ci.nsIX509Cert.CA_CERT,
+      Ci.nsIX509CertDB.UNTRUSTED
+    );
+    run_next_test();
+  });
+  add_ocsp_test(
     "ocsp-stapling-good-other-ca.example.com",
     SEC_ERROR_OCSP_INVALID_SIGNING_CERT,
     true,
@@ -173,10 +172,17 @@ async function run_ocsp_tests() {
 
   // The stapled response is from a CA that is trusted but did not issue the
   // server's certificate.
-  setCertTrust(otherTestCA, "CTu,,");
+  add_test(function () {
+    certDB.setCertTrust(
+      otherTestCA,
+      Ci.nsIX509Cert.CA_CERT,
+      Ci.nsIX509CertDB.TRUSTED_SSL
+    );
+    run_next_test();
+  });
   // TODO(bug 979055): When using ByName instead of ByKey, the error here is
   // SEC_ERROR_OCSP_UNAUTHORIZED_RESPONSE. We should be testing both cases.
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-good-other-ca.example.com",
     SEC_ERROR_OCSP_INVALID_SIGNING_CERT,
     true,
@@ -186,33 +192,33 @@ async function run_ocsp_tests() {
   // TODO: Test the case where the signing cert can't be found at all, which
   // will result in SEC_ERROR_BAD_DATABASE in the NSS classic case.
 
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-malformed.example.com",
     SEC_ERROR_OCSP_MALFORMED_REQUEST,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-srverr.example.com",
     SEC_ERROR_OCSP_SERVER_ERROR,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-trylater.example.com",
     SEC_ERROR_OCSP_TRY_SERVER_LATER,
     true,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-needssig.example.com",
     SEC_ERROR_OCSP_REQUEST_NEEDS_SIG,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-unauthorized.example.com",
     SEC_ERROR_OCSP_UNAUTHORIZED_REQUEST,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-unknown.example.com",
     SEC_ERROR_OCSP_UNKNOWN_CERT,
     true
@@ -220,7 +226,7 @@ async function run_ocsp_tests() {
   // If the server staples an OCSP response that doesn't contain a status for
   // the server certificate, we defer returning the error and attempt to fetch
   // a more suitable response. If that fails, the deferred error is returned.
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-good-other.example.com",
     MOZILLA_PKIX_ERROR_OCSP_RESPONSE_FOR_CERT_MISSING,
     true,
@@ -229,82 +235,82 @@ async function run_ocsp_tests() {
   // If the server doesn't staple an OCSP response, we continue as normal
   // (this means that even though stapling is enabled, we expect an OCSP
   // request).
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-none.example.com",
     PRErrorCodeSuccess,
     true,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-empty.example.com",
     SEC_ERROR_OCSP_MALFORMED_RESPONSE,
     true
   );
 
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-skip-responseBytes.example.com",
     SEC_ERROR_OCSP_MALFORMED_RESPONSE,
     true
   );
 
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-critical-extension.example.com",
     SEC_ERROR_UNKNOWN_CRITICAL_EXTENSION,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-noncritical-extension.example.com",
     PRErrorCodeSuccess,
     true
   );
   // TODO(bug 997994): Disallow empty Extensions in responses
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-empty-extensions.example.com",
     PRErrorCodeSuccess,
     true
   );
 
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-delegated-included.example.com",
     PRErrorCodeSuccess,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-delegated-included-last.example.com",
     PRErrorCodeSuccess,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-delegated-missing.example.com",
     SEC_ERROR_OCSP_INVALID_SIGNING_CERT,
     true,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-delegated-missing-multiple.example.com",
     SEC_ERROR_OCSP_INVALID_SIGNING_CERT,
     true,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-delegated-no-extKeyUsage.example.com",
     SEC_ERROR_OCSP_INVALID_SIGNING_CERT,
     true,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-delegated-from-intermediate.example.com",
     SEC_ERROR_OCSP_INVALID_SIGNING_CERT,
     true,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-delegated-keyUsage-crlSigning.example.com",
     SEC_ERROR_OCSP_INVALID_SIGNING_CERT,
     true,
     true
   );
-  await run_ocsp_test(
+  add_ocsp_test(
     "ocsp-stapling-delegated-wrong-extKeyUsage.example.com",
     SEC_ERROR_OCSP_INVALID_SIGNING_CERT,
     true,
@@ -317,14 +323,14 @@ async function run_ocsp_tests() {
 
   // Check that OCSP responder certificates with key sizes below 1024 bits are
   // rejected, even when the main certificate chain keys are at least 1024 bits.
-  await run_ocsp_test(
+  add_ocsp_test(
     "keysize-ocsp-delegated.example.com",
     SEC_ERROR_OCSP_INVALID_SIGNING_CERT,
     true,
     true
   );
 
-  await run_ocsp_test(
+  add_ocsp_test(
     "revoked-ca-cert-used-as-end-entity.example.com",
     SEC_ERROR_REVOKED_CERTIFICATE,
     true
@@ -358,9 +364,11 @@ function check_ocsp_stapling_telemetry() {
     21,
     "Actual and expected connections with bad responses should match"
   );
+  run_next_test();
 }
 
-add_task(async function run_test() {
+function run_test() {
+  do_get_profile();
   Services.fog.initializeFOG();
   Services.fog.testResetFOG();
 
@@ -380,11 +388,13 @@ add_task(async function run_test() {
   });
   fakeOCSPResponder.start(8888);
 
-  await asyncStartTLSTestServer("OCSPStaplingServer", "ocsp_certs", true);
-  await run_ocsp_tests();
+  add_tls_server_setup("OCSPStaplingServer", "ocsp_certs");
 
-  await new Promise(resolve => {
-    fakeOCSPResponder.stop(resolve);
+  add_tests();
+
+  add_test(function () {
+    fakeOCSPResponder.stop(check_ocsp_stapling_telemetry);
   });
-  check_ocsp_stapling_telemetry();
-});
+
+  run_next_test();
+}

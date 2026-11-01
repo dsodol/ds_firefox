@@ -20,7 +20,6 @@
 #include "mozilla/UniquePtr.h"
 #include "mozilla/gfx/Point.h"  // for IntSize
 #include "mozilla/gfx/Types.h"  // for SurfaceFormat
-#include "mozilla/ipc/SharedMemoryMapping.h"
 #include "mozilla/ipc/Shmem.h"
 #include "mozilla/layers/CompositorTypes.h"  // for TextureFlags, etc
 #include "mozilla/layers/LayersSurfaces.h"   // for SurfaceDescriptor
@@ -42,8 +41,7 @@ class SharedSurface;
 
 namespace webgpu {
 class SharedTexture;
-struct FrontBufferSnapshot;
-}  // namespace webgpu
+}
 
 namespace layers {
 
@@ -85,14 +83,14 @@ class SharedResourceWrapper {
 
   static UniquePtr<SharedResourceWrapper> SharedSurface(
       const std::shared_ptr<gl::SharedSurface>& aSharedSurface) {
-    return std::make_unique<SharedResourceWrapper>(Tag::SharedSurface,
-                                                   aSharedSurface);
+    return MakeUnique<SharedResourceWrapper>(Tag::SharedSurface,
+                                             aSharedSurface);
   }
 
   static UniquePtr<SharedResourceWrapper> SharedTexture(
       const std::shared_ptr<webgpu::SharedTexture>& aSharedTexture) {
-    return std::make_unique<SharedResourceWrapper>(Tag::SharedTexture,
-                                                   aSharedTexture);
+    return MakeUnique<SharedResourceWrapper>(Tag::SharedTexture,
+                                             aSharedTexture);
   }
 
   SharedResourceWrapper(
@@ -241,8 +239,10 @@ class RemoteTextureOwnerClient final {
                    const SurfaceDescriptor& aDesc);
   void PushDummyTexture(const RemoteTextureId aTextureId,
                         const RemoteTextureOwnerId aOwnerId);
-  webgpu::FrontBufferSnapshot GetLatestBufferSnapshot(
-      const RemoteTextureOwnerId aOwnerId);
+  void GetLatestBufferSnapshot(const RemoteTextureOwnerId aOwnerId,
+                               const mozilla::ipc::Shmem& aDestShmem,
+                               const gfx::IntSize& aDestSize,
+                               size_t aDestStride);
   UniquePtr<TextureData> GetRecycledTextureData(
       const gfx::IntSize& aSize, gfx::SurfaceFormat aFormat,
       TextureType aTextureType,
@@ -298,8 +298,11 @@ class RemoteTextureMap {
                      const RemoteTextureOwnerId aOwnerId,
                      const base::ProcessId aForPid);
 
-  webgpu::FrontBufferSnapshot GetLatestBufferSnapshot(
-      const RemoteTextureOwnerId aOwnerId, const base::ProcessId aForPid);
+  void GetLatestBufferSnapshot(const RemoteTextureOwnerId aOwnerId,
+                               const base::ProcessId aForPid,
+                               const mozilla::ipc::Shmem& aDestShmem,
+                               const gfx::IntSize& aDestSize,
+                               size_t aDestStride);
 
   void RegisterTextureOwner(
       const RemoteTextureOwnerId aOwnerId, const base::ProcessId aForPid,

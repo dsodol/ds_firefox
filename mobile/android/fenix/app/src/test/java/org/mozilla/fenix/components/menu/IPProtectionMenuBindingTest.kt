@@ -6,110 +6,138 @@
 
 package org.mozilla.fenix.components.menu
 
-import kotlin.test.assertNull
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import mozilla.components.ExperimentalAndroidComponentsApi
-import mozilla.components.concept.engine.ipprotection.ProxyState
+import mozilla.components.concept.engine.ipprotection.IPProtectionHandler.StateInfo
 import mozilla.components.concept.engine.ipprotection.ServiceState
 import mozilla.components.feature.ipprotection.store.IPProtectionAction
 import mozilla.components.feature.ipprotection.store.IPProtectionStore
 import mozilla.components.feature.ipprotection.store.state.Authorized
-import mozilla.components.feature.ipprotection.store.state.DataVolume
-import mozilla.components.feature.ipprotection.store.state.EligibilityStatus
+import mozilla.components.feature.ipprotection.store.state.BYTES_PER_GB
 import mozilla.components.feature.ipprotection.store.state.IPProtectionState
-import mozilla.components.feature.ipprotection.store.state.IPProtectionStatus
-import mozilla.components.feature.ipprotection.store.state.ProxyStatus
-import mozilla.components.feature.ipprotection.store.state.UsageQuota
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.mozilla.fenix.components.menu.store.IPProtectionMenuState
+import org.mozilla.fenix.components.menu.store.IPProtectionMenuStatus
 
 class IPProtectionMenuBindingTest {
     private val testDispatcher = StandardTestDispatcher()
 
     @Test
-    fun `GIVEN IP protection has not reported its state WHEN binding starts THEN dispatch Uninitialized status`() =
-        runTest {
-            var result: IPProtectionMenuState? = null
-            val ipProtectionStore = IPProtectionStore()
+    fun `GIVEN proxy is uninitialized WHEN binding starts THEN dispatch Disabled status`() = runTest {
+        var result: IPProtectionMenuState? = null
+        val ipProtectionStore = IPProtectionStore()
 
-            startBinding(ipProtectionStore) { result = it }
+        startBinding(ipProtectionStore) { result = it }
 
-            assertEquals(IPProtectionStatus.Uninitialized, result?.status)
-        }
+        assertEquals(IPProtectionMenuStatus.Disabled, result?.status)
+    }
+
+    @Test
+    fun `GIVEN proxy is active WHEN binding starts THEN dispatch Enabled status`() = runTest {
+        var result: IPProtectionMenuState? = null
+        val ipProtectionStore = IPProtectionStore(initialState = IPProtectionState(proxyStatus = Authorized.Active))
+
+        startBinding(ipProtectionStore) { result = it }
+
+        assertEquals(IPProtectionMenuStatus.Enabled, result?.status)
+    }
 
     @Test
     fun `WHEN proxy status changes THEN dispatch updated menu state`() = runTest {
         var result: IPProtectionMenuState? = null
-        val ipProtectionStore = IPProtectionStore(initialState = readyState(Authorized.Idle))
+        val ipProtectionStore = IPProtectionStore()
 
         startBinding(ipProtectionStore) { result = it }
 
-        assertEquals(IPProtectionStatus.Disabled, result?.status)
+        assertEquals(IPProtectionMenuStatus.Disabled, result?.status)
 
-        ipProtectionStore.dispatch(IPProtectionAction.ProxyAction.ProxyStateChanged(ProxyState.ACTIVE))
+        ipProtectionStore.dispatch(
+            IPProtectionAction.EngineStateChanged(
+                StateInfo(
+                    serviceState = ServiceState.Ready,
+                    proxyState = StateInfo.PROXY_STATE_ACTIVE,
+                )
+            )
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals(IPProtectionStatus.Enabled, result?.status)
+        assertEquals(IPProtectionMenuStatus.Enabled, result?.status)
     }
 
     @Test
-    fun `GIVEN usage quota is metered with a max value WHEN binding starts THEN dispatch correct quota limit`() =
-        runTest {
+    fun `WHEN proxy status maps to menu status THEN all statuses are mapped correctly`() = runTest {
+        val cases =
+            listOf(
+                StateInfo(serviceState = ServiceState.Uninitialized) to IPProtectionMenuStatus.Disabled,
+                StateInfo(
+                    serviceState = ServiceState.Ready,
+                    proxyState = StateInfo.PROXY_STATE_READY,
+                ) to IPProtectionMenuStatus.Disabled,
+                StateInfo(
+                    serviceState = ServiceState.Ready,
+                    proxyState = StateInfo.PROXY_STATE_ACTIVATING,
+                ) to IPProtectionMenuStatus.Activating,
+                StateInfo(
+                    serviceState = ServiceState.Ready,
+                    proxyState = StateInfo.PROXY_STATE_ACTIVE,
+                ) to IPProtectionMenuStatus.Enabled,
+                StateInfo(
+                    serviceState = ServiceState.Ready,
+                    proxyState = StateInfo.PROXY_STATE_PAUSED,
+                ) to IPProtectionMenuStatus.DataLimitReached,
+                StateInfo(
+                    serviceState = ServiceState.Ready,
+                    proxyState = StateInfo.PROXY_STATE_ERROR,
+                ) to IPProtectionMenuStatus.ConnectionError,
+                StateInfo(serviceState = ServiceState.Unauthenticated) to IPProtectionMenuStatus.AuthRequired,
+            )
+
+        for ((stateInfo, expectedStatus) in cases) {
             var result: IPProtectionMenuState? = null
-            val ipProtectionStore =
-                IPProtectionStore(
-                    initialState =
-                        readyState(
-                            proxyStatus = Authorized.Idle,
-                            quota =
-                                UsageQuota.Metered(
-                                    max = DataVolume.roundedGigabytes(6),
-                                    remaining = DataVolume.Zero,
-                                ),
-                        )
-                )
+            val ipProtectionStore = IPProtectionStore()
+
+            ipProtectionStore.dispatch(IPProtectionAction.EngineStateChanged(stateInfo))
+            testDispatcher.scheduler.advanceUntilIdle()
+
             startBinding(ipProtectionStore) { result = it }
 
-            assertEquals(DataVolume.roundedGigabytes(6), result?.dataLimit)
+            assertEquals(
+                "StateInfo $stateInfo should map to $expectedStatus",
+                expectedStatus,
+                result?.status,
+            )
         }
+    }
 
     @Test
-    fun `GIVEN usage quota is unmetered WHEN binding starts THEN dispatch null quota limit`() = runTest {
+    fun `GIVEN dataMaxBytes is set WHEN binding starts THEN dispatch correct dataLimitGb`() = runTest {
         var result: IPProtectionMenuState? = null
         val ipProtectionStore =
             IPProtectionStore(
                 initialState =
-                    readyState(
+                    IPProtectionState(
                         proxyStatus = Authorized.Active,
-                        quota = UsageQuota.Unmetered(),
+                        maxDataBytes = (5 * BYTES_PER_GB).toLong(),
                     )
             )
 
         startBinding(ipProtectionStore) { result = it }
 
-        assertNull(result?.dataLimit)
+        assertEquals(5, result?.dataLimitGb)
     }
 
     @Test
-    fun `GIVEN usage quota is unavailable WHEN binding starts THEN dispatch null quota limit`() = runTest {
+    fun `GIVEN dataMaxBytes is unavailable WHEN binding starts THEN dispatch dataLimitGb as -1`() = runTest {
         var result: IPProtectionMenuState? = null
         val ipProtectionStore =
-            IPProtectionStore(initialState = IPProtectionState(proxyStatus = Authorized.Active, usageQuota = null))
+            IPProtectionStore(initialState = IPProtectionState(proxyStatus = Authorized.Active, maxDataBytes = -1L))
 
         startBinding(ipProtectionStore) { result = it }
 
-        assertNull(result?.dataLimit)
+        assertEquals(-1, result?.dataLimitGb)
     }
-
-    private fun readyState(proxyStatus: ProxyStatus, quota: UsageQuota? = null) =
-        IPProtectionState(
-            eligibilityStatus = EligibilityStatus.Eligible,
-            serviceStatus = ServiceState.Ready,
-            proxyStatus = proxyStatus,
-            usageQuota = quota,
-        )
 
     private fun startBinding(
         ipProtectionStore: IPProtectionStore,

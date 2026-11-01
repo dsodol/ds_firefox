@@ -7,10 +7,9 @@ const { PlacesQuery } = ChromeUtils.importESModule(
   "resource://gre/modules/PlacesQuery.sys.mjs"
 );
 
+const HISTORY_FILE_PATH = "Library/Safari/History.db";
 const HISTORY_STRANGE_ENTRIES_FILE_PATH =
   "Library/Safari/HistoryStrangeEntries.db";
-
-let gHistoryFilePath;
 
 // By default, our migrators will cut off migrating any history older than
 // 180 days. In order to make sure this test continues to run correctly
@@ -25,26 +24,37 @@ const MS_SINCE_SNAPSHOT_TIME =
   new Date() - new Date("Nov 10, 2022 00:00:00 UTC");
 
 async function setupHistoryFile() {
-  await IOUtils.copy(
-    do_get_file(HISTORY_STRANGE_ENTRIES_FILE_PATH).path,
-    gHistoryFilePath
-  );
+  removeHistoryFile();
+  let file = do_get_file(HISTORY_STRANGE_ENTRIES_FILE_PATH);
+  file.copyTo(file.parent, "History.db");
   await updateVisitTimes();
 }
 
+function removeHistoryFile() {
+  let file = do_get_file(HISTORY_FILE_PATH, true);
+  try {
+    file.remove(false);
+  } catch (ex) {
+    // It is ok if this doesn't exist.
+    if (ex.result != Cr.NS_ERROR_FILE_NOT_FOUND) {
+      throw ex;
+    }
+  }
+}
+
 add_setup(async function setup() {
-  let libDir = await copyFixtureDir("Library/");
-  registerFakePath("ULibDir", libDir);
-  gHistoryFilePath = PathUtils.join(libDir.path, "Safari", "History.db");
+  registerFakePath("ULibDir", do_get_file("Library/"));
   await setupHistoryFile();
   registerCleanupFunction(async () => {
     await PlacesUtils.history.clear();
+    removeHistoryFile();
   });
 });
 
 async function updateVisitTimes() {
   let cocoaSnapshotDelta = MS_SINCE_SNAPSHOT_TIME / 1000;
-  let dbConn = await Sqlite.openConnection({ path: gHistoryFilePath });
+  let historyFile = do_get_file(HISTORY_FILE_PATH);
+  let dbConn = await Sqlite.openConnection({ path: historyFile.path });
 
   await dbConn.execute(
     "UPDATE history_visits SET visit_time = visit_time + :cocoaSnapshotDelta;",
@@ -70,7 +80,8 @@ add_task(async function testHistoryImportStrangeEntries() {
   const EXPECTED_MIGRATED_SITES = 10;
   const EXPECTED_MIGRATED_VISTS = 23;
 
-  let dbConn = await Sqlite.openConnection({ path: gHistoryFilePath });
+  let historyFile = do_get_file(HISTORY_FILE_PATH);
+  let dbConn = await Sqlite.openConnection({ path: historyFile.path });
   let [rowCountResult] = await dbConn.execute(
     "SELECT COUNT(*) FROM history_visits"
   );

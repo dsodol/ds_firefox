@@ -102,5 +102,5 @@ UniquePtr<RLBoxSandboxPoolData> RLBoxSandboxPool::PopOrCreate(
     NS_ENSURE_TRUE(sbxData, nullptr);
   }
 
-  return std::make_unique<RLBoxSandboxPoolData>(std::move(sbxData), this);
+  return MakeUnique<RLBoxSandboxPoolData>(std::move(sbxData), this);
 }

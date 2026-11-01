@@ -12,8 +12,8 @@ namespace mozilla::dom {
 CSSImageValue::CSSImageValue(nsCOMPtr<nsISupports> aParent,
                              const StyleImageValue& aImageValue)
     : CSSStyleValue(std::move(aParent), StyleValueType::ImageValue),
-      mImageValue(
-          WrapMovingNotNull(std::make_unique<StyleImageValue>(aImageValue))) {}
+      mImageValue(WrapMovingNotNull(MakeUnique<StyleImageValue>(aImageValue))) {
+}
 
 // static
 RefPtr<CSSImageValue> CSSImageValue::Create(

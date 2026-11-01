@@ -9,6 +9,11 @@ head = "head.js"
 
 ["browser_CleanupManager.js"]
 
+["browser_ClientEnvironment.js"]
+skip-if = [
+  "verify-standalone",
+]
+
 ["browser_EventEmitter.js"]
 
 ["browser_Heartbeat.js"]
@@ -23,5 +28,10 @@ head = "head.js"
 
 ["browser_RecipeRunner.js"]
 tags = "remote-settings"
+
+["browser_about_preferences.js"]
+
+["browser_about_studies.js"]
+https_first_disabled = true
 
 ["browser_actions_ShowHeartbeatAction.js"]

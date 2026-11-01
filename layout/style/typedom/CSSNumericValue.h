@@ -7,7 +7,6 @@
 
 #include "js/TypeDecls.h"
 #include "mozilla/NotNull.h"
-#include "mozilla/Span.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/dom/CSSMathSumBindingFwd.h"
 #include "mozilla/dom/CSSMathValueBindingFwd.h"
@@ -15,15 +14,12 @@
 #include "mozilla/dom/CSSStyleValue.h"
 #include "mozilla/dom/CSSUnitValueBindingFwd.h"
 #include "nsStringFwd.h"
-#include "nsTArrayForwardDeclare.h"
 
 template <class T>
 struct already_AddRefed;
 template <class T>
 class nsCOMPtr;
 class nsISupports;
-template <class T>
-class RefPtr;
 
 namespace mozilla {
 
@@ -72,27 +68,21 @@ class CSSNumericValue : public CSSStyleValue {
 
   // start of CSSNumbericValue Web IDL declarations
 
-  // https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-add
   already_AddRefed<CSSNumericValue> Add(
       const Sequence<OwningCSSNumberish>& aValues, ErrorResult& aRv);
 
-  // https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-sub
   already_AddRefed<CSSNumericValue> Sub(
       const Sequence<OwningCSSNumberish>& aValues, ErrorResult& aRv);
 
-  // https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-mul
   already_AddRefed<CSSNumericValue> Mul(
       const Sequence<OwningCSSNumberish>& aValues, ErrorResult& aRv);
 
-  // https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-div
   already_AddRefed<CSSNumericValue> Div(
       const Sequence<OwningCSSNumberish>& aValues, ErrorResult& aRv);
 
-  // https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-min
   already_AddRefed<CSSNumericValue> Min(
       const Sequence<OwningCSSNumberish>& aValues, ErrorResult& aRv);
 
-  // https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-max
   already_AddRefed<CSSNumericValue> Max(
       const Sequence<OwningCSSNumberish>& aValues, ErrorResult& aRv);
 
@@ -175,22 +165,6 @@ class CSSNumericValue : public CSSStyleValue {
                              const SerializationContext& aContext,
                              nsACString& aDest) const;
 
-  // Step 2-5 of:
-  // https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-add
-  already_AddRefed<CSSNumericValue> Add(
-      nsTArray<RefPtr<CSSNumericValue>> aValues, ErrorResult& aRv);
-
-  // https://drafts.css-houdini.org/css-typed-om-1/#cssmath-negate-a-cssnumericvalue
-  already_AddRefed<CSSNumericValue> Negate();
-
-  // Step 2-6 of:
-  // https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-mul
-  already_AddRefed<CSSNumericValue> Mul(
-      nsTArray<RefPtr<CSSNumericValue>> aValues, ErrorResult& aRv);
-
-  // https://drafts.css-houdini.org/css-typed-om-1/#cssmath-invert-a-cssnumericvalue
-  already_AddRefed<CSSNumericValue> Invert(ErrorResult& aRv);
-
   StyleNumericValue ToStyleNumericValue() const;
 
   // Step 1-3 of:
@@ -205,12 +179,6 @@ class CSSNumericValue : public CSSStyleValue {
   // https://drafts.css-houdini.org/css-typed-om-1/#equal-numeric-value
   static bool EqualNumericValues(const CSSNumericValue& aValue1,
                                  const CSSNumericValue& aValue2);
-
-  static UniquePtr<StyleNumericType> AddTypes(
-      Span<const RefPtr<CSSNumericValue>> aValues, ErrorResult& aRv);
-
-  static UniquePtr<StyleNumericType> MultiplyTypes(
-      Span<const RefPtr<CSSNumericValue>> aValues, ErrorResult& aRv);
 
  protected:
   virtual ~CSSNumericValue() = default;

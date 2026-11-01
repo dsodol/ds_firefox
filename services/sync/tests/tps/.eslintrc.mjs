@@ -23,6 +23,8 @@ export default [
         STATE_DISABLED: false,
         STATE_ENABLED: false,
         Sync: false,
+        SYNC_WIPE_CLIENT: false,
+        SYNC_WIPE_REMOTE: false,
         Tabs: false,
         Windows: false,
         WipeServer: false,

@@ -21,6 +21,8 @@ task-defaults:
             - jj
         toolchain:
             - linux64-clang-toolchain
+            - linux64-rust-cross
+            - sysroot-x86_64-linux-gnu
 
 linux64-jj:
     treeherder:
@@ -28,21 +30,6 @@ linux64-jj:
     run:
         arguments:
             - x86_64-unknown-linux-gnu
-    fetches:
-        toolchain:
-            - linux64-rust-toolchain
-            - sysroot-x86_64-linux-gnu
-
-linux64-aarch64-jj:
-    treeherder:
-        symbol: TLA64(jj)
-    run:
-        arguments:
-            - aarch64-unknown-linux-gnu
-    fetches:
-        toolchain:
-            - linux64-rust-toolchain
-            - sysroot-aarch64-linux-gnu
 
 macosx64-jj:
     treeherder:
@@ -52,7 +39,6 @@ macosx64-jj:
             - x86_64-apple-darwin
     fetches:
         toolchain:
-            - linux64-rust-macos-toolchain
             - macosx64-sdk-toolchain
 
 macosx64-aarch64-jj:
@@ -63,7 +49,6 @@ macosx64-aarch64-jj:
             - aarch64-apple-darwin
     fetches:
         toolchain:
-            - linux64-rust-macos-toolchain
             - macosx64-sdk-toolchain
 
 win64-jj:
@@ -74,7 +59,6 @@ win64-jj:
             - x86_64-pc-windows-msvc
     fetches:
         toolchain:
-            - linux64-rust-windows-toolchain
             - vs-toolchain
 
 win64-aarch64-jj:
@@ -85,5 +69,4 @@ win64-aarch64-jj:
             - aarch64-pc-windows-msvc
     fetches:
         toolchain:
-            - linux64-rust-windows-toolchain
             - vs-toolchain

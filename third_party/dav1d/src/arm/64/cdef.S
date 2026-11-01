@@ -132,10 +132,9 @@
 
 .macro load_n_incr dst, src, incr, w
 .if \w == 4
-        ldr             s(\dst), [\src]
-        add             \src, \src, \incr
+        ld1             {\dst\().s}[0], [\src], \incr
 .else
-        ld1             {\dst\().8b},  [\src], \incr
+        ld1             {\dst\().8b},   [\src], \incr
 .endif
 .endm
 
@@ -174,8 +173,8 @@ function cdef_padding\w\()_8bpc_neon, export=1
         b.eq            1f
         // CDEF_HAVE_LEFT+CDEF_HAVE_RIGHT
 0:
-        ldr             h0,  [x3], #2
-        ldr             h2,  [x1, #\w]
+        ld1             {v0.h}[0], [x3], #2
+        ldr             h2,      [x1, #\w]
         load_n_incr     v1,  x1,  x2,  \w
         subs            w6,  w6,  #1
         uxtl            v0.8h,  v0.8b
@@ -189,7 +188,7 @@ function cdef_padding\w\()_8bpc_neon, export=1
         b               3f
 1:
         // CDEF_HAVE_LEFT+!CDEF_HAVE_RIGHT
-        ldr             h0,  [x3], #2
+        ld1             {v0.h}[0], [x3], #2
         load_n_incr     v1,  x1,  x2,  \w
         subs            w6,  w6,  #1
         uxtl            v0.8h,  v0.8b
@@ -205,7 +204,7 @@ function cdef_padding\w\()_8bpc_neon, export=1
         b.eq            1f
         // !CDEF_HAVE_LEFT+CDEF_HAVE_RIGHT
 0:
-        ldr             h1,  [x1, #\w]
+        ldr             h1,      [x1, #\w]
         load_n_incr     v0,  x1,  x2,  \w
         subs            w6,  w6,  #1
         uxtl            v0.8h,  v0.8b
@@ -276,8 +275,8 @@ function cdef_padding\w\()_edged_8bpc_neon, export=1
 .endif
 
 0:
-        ldr             h0,  [x3], #2
-        ldr             h2,  [x1, #\w]
+        ld1             {v0.h}[0], [x3], #2
+        ldr             h2,      [x1, #\w]
         load_n_incr     v1,  x1,  x2,  \w
         subs            w6,  w6,  #1
         str             h0,      [x0]
@@ -315,21 +314,33 @@ filter 4, 8
 
 find_dir 8
 
-.macro load_px_8 d1, d2, w, t1, t2
-        add             x6,  x2,  x9                // x + off
-        sub             x9,  x2,  x9                // x - off
+.macro load_px_8 d1, d2, w
 .if \w == 8
-        ldr             d(\d1), [x6]                // p0
-        ldr             d(\t1), [x6, #16]           // p0
-        ldr             d(\d2), [x9]                // p1
-        ldr             d(\t2), [x9, #16]           // p1
-        uzp1            \d1\().2d,  \d1\().2d,  \t1\().2d
-        uzp1            \d2\().2d,  \d2\().2d,  \t2\().2d
+        add             x6,  x2,  w9, sxtb          // x + off
+        sub             x9,  x2,  w9, sxtb          // x - off
+        ld1             {\d1\().d}[0], [x6]         // p0
+        add             x6,  x6,  #16               // += stride
+        ld1             {\d2\().d}[0], [x9]         // p1
+        add             x9,  x9,  #16               // += stride
+        ld1             {\d1\().d}[1], [x6]         // p0
+        ld1             {\d2\().d}[1], [x9]         // p0
 .else
-        ldp             q(\d1), q(\t1), [x6]        // p0
-        ldp             q(\d2), q(\t2), [x9]        // p1
-        uzp1            \d1\().4s,  \d1\().4s,  \t1\().4s
-        uzp1            \d2\().4s,  \d2\().4s,  \t2\().4s
+        add             x6,  x2,  w9, sxtb          // x + off
+        sub             x9,  x2,  w9, sxtb          // x - off
+        ld1             {\d1\().s}[0], [x6]         // p0
+        add             x6,  x6,  #8                // += stride
+        ld1             {\d2\().s}[0], [x9]         // p1
+        add             x9,  x9,  #8                // += stride
+        ld1             {\d1\().s}[1], [x6]         // p0
+        add             x6,  x6,  #8                // += stride
+        ld1             {\d2\().s}[1], [x9]         // p1
+        add             x9,  x9,  #8                // += stride
+        ld1             {\d1\().s}[2], [x6]         // p0
+        add             x6,  x6,  #8                // += stride
+        ld1             {\d2\().s}[2], [x9]         // p1
+        add             x9,  x9,  #8                // += stride
+        ld1             {\d1\().s}[3], [x6]         // p0
+        ld1             {\d2\().s}[3], [x9]         // p1
 .endif
 .endm
 .macro handle_pixel_8 s1, s2, thresh_vec, shift, tap, min
@@ -367,7 +378,7 @@ function cdef_filter\w\suffix\()_edged_8bpc_neon
 .if \pri
         movrel          x8,  pri_taps
         and             w9,  w3,  #1
-        add             x8,  x8,  x9, lsl #1
+        add             x8,  x8,  w9, uxtw #1
 .endif
         movrel          x9,  directions\w
         add             x5,  x9,  w5, uxtw #1
@@ -394,12 +405,17 @@ function cdef_filter\w\suffix\()_edged_8bpc_neon
 
 1:
 .if \w == 8
-        ldr             d0,  [x2]                   // px
-        ldr             d1,  [x2, #16]              // px
-        uzp1            v0.2d,   v0.2d,   v1.2d
+        add             x12, x2,  #16
+        ld1             {v0.d}[0], [x2]             // px
+        ld1             {v0.d}[1], [x12]            // px
 .else
-        ldp             q0,  q1,  [x2]              // px
-        uzp1            v0.4s,   v0.4s,   v1.4s
+        add             x12, x2,  #1*8
+        add             x13, x2,  #2*8
+        add             x14, x2,  #3*8
+        ld1             {v0.s}[0], [x2]             // px
+        ld1             {v0.s}[1], [x12]            // px
+        ld1             {v0.s}[2], [x13]            // px
+        ld1             {v0.s}[3], [x14]            // px
 .endif
 
         // We need 9-bits or two 8-bit accululators to fit the sum.
@@ -419,14 +435,15 @@ function cdef_filter\w\suffix\()_edged_8bpc_neon
 
 2:
 .if \pri
-        ldrsb           x9,  [x5]                   // off1
+        ldrb            w9,  [x5]                   // off1
 
-        load_px_8       v5,  v6, \w, v16, v17
+        load_px_8       v5,  v6, \w
 .endif
 
 .if \sec
-        ldrsb           x9,  [x5, #4]!              // off2
-        load_px_8       v28, v29, \w, v16, v17
+        add             x5,  x5,  #4                // +2*2
+        ldrb            w9,  [x5]                   // off2
+        load_px_8       v28, v29, \w
 .endif
 
 .if \pri
@@ -436,8 +453,9 @@ function cdef_filter\w\suffix\()_edged_8bpc_neon
 .endif
 
 .if \sec
-        ldrsb           x9,  [x5, #8]!              // off3
-        load_px_8       v5,  v6,  \w, v16, v17
+        add             x5,  x5,  #8                // +2*4
+        ldrb            w9,  [x5]                   // off3
+        load_px_8       v5,  v6,  \w
 
         handle_pixel_8  v28, v29, v27.16b, v26.16b, w11, \min
 
@@ -468,13 +486,12 @@ function cdef_filter\w\suffix\()_edged_8bpc_neon
         umax            v0.16b,  v0.16b,  v3.16b    // iclip(px + .., min, max)
 .endif
 .if \w == 8
-        st1             {v0.8b},  [x0], x1
+        st1             {v0.d}[0], [x0], x1
         add             x2,  x2,  #2*16             // tmp += 2*tmp_stride
         subs            w7,  w7,  #2                // h -= 2
         st1             {v0.d}[1], [x0], x1
 .else
-        str             s0,  [x0]
-        add             x0,  x0,  x1
+        st1             {v0.s}[0], [x0], x1
         add             x2,  x2,  #4*8              // tmp += 4*tmp_stride
         st1             {v0.s}[1], [x0], x1
         subs            w7,  w7,  #4                // h -= 4

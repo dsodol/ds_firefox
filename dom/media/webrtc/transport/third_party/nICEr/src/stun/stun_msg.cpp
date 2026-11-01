@@ -299,6 +299,7 @@ NR_STUN_MESSAGE_ADD_ATTRIBUTE(
     }
 )
 
+#ifdef USE_ICE
 int
 nr_stun_message_add_ice_controlled_attribute(nr_stun_message *msg, UINT8 ice_controlled)
 NR_STUN_MESSAGE_ADD_ATTRIBUTE(
@@ -326,7 +327,9 @@ NR_STUN_MESSAGE_ADD_ATTRIBUTE(
     NR_STUN_ATTR_USE_CANDIDATE,
     {}
 )
+#endif /* USE_ICE */
 
+#ifdef USE_TURN
 int
 nr_stun_message_add_data_attribute(nr_stun_message *msg, UCHAR *data, int length)
 
@@ -348,4 +351,5 @@ NR_STUN_MESSAGE_ADD_ATTRIBUTE(
     { attr->u.lifetime_secs = lifetime_secs; }
 )
 
+#endif /* USE_TURN */
 

@@ -73,7 +73,6 @@
 #include "nsFrameLoaderOwner.h"
 #include "nsFrameManager.h"
 #include "nsIAppWindow.h"
-#include "nsIArray.h"
 #include "nsIBaseWindow.h"
 #include "nsIBrowser.h"
 #include "nsIBrowserController.h"
@@ -781,7 +780,7 @@ void BrowserParent::Destroy() {
   }
 }
 
-mozilla::ipc::IPCResult BrowserParent::RecvReadyToReplaceRetainedPaint() {
+mozilla::ipc::IPCResult BrowserParent::RecvDidUnsuppressPainting() {
   if (!mFrameElement) {
     return IPC_OK();
   }
@@ -791,24 +790,6 @@ mozilla::ipc::IPCResult BrowserParent::RecvReadyToReplaceRetainedPaint() {
     subdocFrame->ClearRetainedPaintData();
   }
   return IPC_OK();
-}
-
-mozilla::ipc::IPCResult
-BrowserParent::RecvReadyToReplaceRetainedPaintNormalPriority() {
-  // Only an initial about:blank document sends this. The frame retains the
-  // paint of the previous document only while a BFCache swap waits for a
-  // document that has been loaded or restored, so the initial document must not
-  // replace it. If that document never comes, for example because the load
-  // fails after the swap, the previous document stays visible until this
-  // BrowserParent is destroyed.
-  if (mFrameElement) {
-    nsSubDocumentFrame* subdocFrame =
-        do_QueryFrame(mFrameElement->GetPrimaryFrame());
-    if (subdocFrame && subdocFrame->HasRetainedPaintData()) {
-      return IPC_OK();
-    }
-  }
-  return RecvReadyToReplaceRetainedPaint();
 }
 
 mozilla::ipc::IPCResult BrowserParent::RecvEnsureLayersConnected(
@@ -1353,15 +1334,27 @@ IPCResult BrowserParent::RecvNewWindowGlobal(
     return IPC_FAIL(this, "Cannot create without valid documentURI");
   }
 
+  nsCOMPtr<nsIURI> docURI = aInit.documentURI();
+
   // Ensure we never load a document with a content principal in
   // the wrong type of webIsolated process
   // NOTE: Keep the AllowSystem condition in sync with the similar check in
   // DocumentLoadListener::TriggerRedirectToRealChannel.
   EnumSet<ValidatePrincipalOptions> validationOptions = {};
-  if (StaticPrefs::
-          dom_ipc_validatePrincipal_testing_allowContentSystemDocuments() &&
-      xpc::IsInAutomation()) {
-    validationOptions += ValidatePrincipalOptions::AllowSystemIfLoaded;
+  if (xpc::IsInAutomation()) {
+    // Automation-Only: chrome://reftest/** + blank subframes
+    bool isChromeReftest = false;
+    if (docURI->SchemeIs("chrome")) {
+      nsAutoCString host;
+      docURI->GetHost(host);
+      isChromeReftest = host.EqualsLiteral("reftest");
+    }
+
+    if (isChromeReftest ||
+        (NS_IsAboutBlank(docURI) && parentWgp && parentWgp->Manager() == this &&
+         parentWgp->DocumentPrincipal()->IsSystemPrincipal())) {
+      validationOptions += ValidatePrincipalOptions::AllowSystemIfLoaded;
+    }
   }
   if (!Manager()->ValidatePrincipal(aInit.principal(), validationOptions)) {
     return ContentParent::PrincipalValidationIpcFail(aInit.principal(), this,
@@ -4169,10 +4162,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvVisitURI(
   }
   nsCOMPtr<IHistory> history = components::History::Service();
   if (history) {
-    // The container isn't sent by the content process, so it can't be forged.
-    (void)history->VisitURI(
-        widget, aURI, aLastVisitedURI, aFlags, aBrowserId,
-        mBrowsingContext->OriginAttributesRef().mUserContextId);
+    (void)history->VisitURI(widget, aURI, aLastVisitedURI, aFlags, aBrowserId);
   }
   return IPC_OK();
 }

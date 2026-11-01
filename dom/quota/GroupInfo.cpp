@@ -53,7 +53,6 @@ void GroupInfo::LockedAddOriginInfo(NotNull<RefPtr<OriginInfo>>&& aOriginInfo) {
 
     quotaManager->mTemporaryStorageUsage -= oldUsage;
     QM_ASSERT_NOT_NEGATIVE(quotaManager->mTemporaryStorageUsage);
-    quotaManager->LockedMaybeRecordTemporaryStorageUsageUnderflow(__func__);
 
     mOriginInfos[foundIndex] = std::move(aOriginInfo);
   } else {
@@ -83,7 +82,6 @@ void GroupInfo::LockedAdjustUsageForRemovedOriginInfo(
 
   quotaManager->mTemporaryStorageUsage -= usage;
   QM_ASSERT_NOT_NEGATIVE(quotaManager->mTemporaryStorageUsage);
-  quotaManager->LockedMaybeRecordTemporaryStorageUsageUnderflow(__func__);
 }
 
 void GroupInfo::LockedRemoveOriginInfo(const nsACString& aOrigin) {

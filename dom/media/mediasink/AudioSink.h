@@ -91,10 +91,6 @@ class AudioSink : private AudioStream::DataSource {
     return mAudioStream && mAudioStream->IsPlaybackCompleted();
   }
 
-  bool IsCubebStarted() const {
-    return mAudioStream && mAudioStream->IsCubebStarted();
-  }
-
   void SetVolume(double aVolume);
   void SetStreamName(const nsAString& aStreamName);
   void SetPlaybackRate(double aPlaybackRate);

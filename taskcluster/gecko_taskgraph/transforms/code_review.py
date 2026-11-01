@@ -13,12 +13,11 @@ transforms = TransformSequence()
 @transforms.add
 def add_dependencies(config, jobs):
     for job in jobs:
-        upstream_attribute = job.pop("upstream-attribute")
         job.setdefault("soft-dependencies", [])
         job["soft-dependencies"] += [
             dep_task.label
             for dep_task in config.kind_dependencies_tasks.values()
-            if dep_task.attributes.get(upstream_attribute) is True
+            if dep_task.attributes.get("code-review") is True
         ]
         yield job
 

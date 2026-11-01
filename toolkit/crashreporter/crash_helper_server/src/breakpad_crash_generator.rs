@@ -29,12 +29,12 @@ use std::{
 };
 
 #[cfg(target_os = "windows")]
-type BreakpadInitType = std::os::windows::io::RawHandle;
+type BreakpadInitType = *const u16;
 #[cfg(target_os = "windows")]
 type NativeProcessId = windows_sys::Win32::Foundation::HANDLE;
 
 #[cfg(target_os = "macos")]
-type BreakpadInitType = *const std::ffi::c_char;
+type BreakpadInitType = *const crate::c_char;
 #[cfg(target_os = "macos")]
 type NativeProcessId = u32;
 
@@ -168,7 +168,7 @@ impl BreakpadCrashGenerator {
 
         // Retake ownership of the raw data & strings so we don't leak them.
         cfg_if! {
-            if #[cfg(target_os = "macos")] {
+            if #[cfg(any(target_os = "macos", target_os = "windows"))] {
                 // SAFETY: We've allocated this object within this same block.
                 let _breakpad_data = unsafe { BreakpadData::new(breakpad_raw_data) };
             }

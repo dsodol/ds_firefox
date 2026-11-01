@@ -37,7 +37,8 @@ using namespace mozilla::dom;
 
 nsTextControlFrame* NS_NewTextControlFrame(PresShell* aPresShell,
                                            ComputedStyle* aStyle) {
-  return new nsTextControlFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      nsTextControlFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsTextControlFrame)

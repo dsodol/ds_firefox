@@ -45,8 +45,7 @@ pub fn ensure_block_returns(block: &mut crate::Block) {
             | S::ControlBarrier(_)
             | S::MemoryBarrier(_)
             | S::CooperativeStore { .. }
-            | S::RayPipelineFunction(_)
-            | S::DebugPrintf { .. }),
+            | S::RayPipelineFunction(_)),
         )
         | None => block.push(S::Return { value: None }, Default::default()),
     }

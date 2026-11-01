@@ -23,7 +23,7 @@ function foo(n) {
     fresh.q599 = index & 1;
     fresh.probe(fresh, index, box);
   }
-  fresh.enableTrackAllocations();
+  fresh.enableShellAllocationMetadataBuilder();
   fresh.probe(fresh, 12345, box);
   assertEq(fresh.q600, 12345);
 }

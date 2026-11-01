@@ -131,9 +131,6 @@ class ErrorPropagationRunnable final : public Runnable {
 }  // namespace
 
 /* static */
-SharedWorkerService::SharedWorkerService() = default;
-SharedWorkerService::~SharedWorkerService() = default;
-
 already_AddRefed<SharedWorkerService> SharedWorkerService::GetOrCreate() {
   AssertIsOnBackgroundThread();
 

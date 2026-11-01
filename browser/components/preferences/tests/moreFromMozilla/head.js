@@ -22,22 +22,31 @@ async function getPromoCards() {
   let win = gBrowser.contentWindow;
   let doc = win.document;
 
-  let gridControl = await settingControlRenders(
-    "moreFromMozillaProductGrid",
-    win
-  );
-  let promoControl = await settingControlRenders("firefoxMobilePromo", win);
+  if (Services.prefs.getBoolPref("browser.settings-redesign.enabled", false)) {
+    let gridControl = await settingControlRenders(
+      "moreFromMozillaProductGrid",
+      win
+    );
+    let promoControl = await settingControlRenders("firefoxMobilePromo", win);
+
+    return {
+      grid: gridControl?.querySelector(".products-grid"),
+      mobilePromo: promoControl?.querySelector("moz-promo"),
+      vpnPromoCard: doc.getElementById("mozilla-vpn"),
+      monitorPromoCard: doc.getElementById("mozilla-monitor"),
+      relayPromoCard: doc.getElementById("firefox-relay"),
+      thunderbirdCard: doc.getElementById("thunderbird"),
+      newProductsCard: doc.getElementById("mozilla-new-products"),
+      mdnCard: doc.getElementById("mdn"),
+      soloCard: doc.getElementById("solo-ai"),
+    };
+  }
 
   return {
-    grid: gridControl?.querySelector(".products-grid"),
-    mobilePromo: promoControl?.querySelector("moz-promo"),
     vpnPromoCard: doc.getElementById("mozilla-vpn"),
     monitorPromoCard: doc.getElementById("mozilla-monitor"),
     relayPromoCard: doc.getElementById("firefox-relay"),
-    thunderbirdCard: doc.getElementById("thunderbird"),
-    newProductsCard: doc.getElementById("mozilla-new-products"),
-    mdnCard: doc.getElementById("mdn"),
-    soloCard: doc.getElementById("solo-ai"),
+    mobilePromo: doc.getElementById("firefox-mobile"),
   };
 }
 

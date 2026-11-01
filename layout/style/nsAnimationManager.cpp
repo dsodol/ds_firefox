@@ -155,10 +155,7 @@ static void RemoveCorrespondingAnimation(
     if (foundIt != l.cend()) {
       l.RemoveElementAt(foundIt);
     }
-    // Drop the list if there's no other animation referencing this name.
-    if (l.IsEmpty()) {
-      result.Remove();
-    }
+    result.Remove();
   }
 #ifdef DEBUG
   // One animation refers to one timeline, so if there is a duplication,

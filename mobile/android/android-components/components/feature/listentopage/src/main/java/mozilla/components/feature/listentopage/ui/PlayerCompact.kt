@@ -4,9 +4,7 @@
 
 package mozilla.components.feature.listentopage.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,22 +13,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.PreviewLightDark
-import androidx.compose.ui.tooling.preview.PreviewParameter
 import mozilla.components.compose.base.button.IconButton
 import mozilla.components.compose.base.theme.AcornTheme
-import mozilla.components.feature.listentopage.ArticleProgress
 import mozilla.components.feature.listentopage.ListenAction
 import mozilla.components.feature.listentopage.R
 import mozilla.components.ui.icons.R as iconsR
@@ -39,8 +31,7 @@ import mozilla.components.ui.icons.R as iconsR
 @Composable
 internal fun PlayerCompact(
     article: ArticleDetails,
-    articleProgressState: State<ArticleProgress>,
-    playbackUiState: PlaybackUiState,
+    playing: Boolean,
     onAction: (ListenAction) -> Unit,
     onExpandClicked: () -> Unit,
     modifier: Modifier = Modifier,
@@ -56,8 +47,7 @@ internal fun PlayerCompact(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(
-                onClick = { onAction(ListenAction.Session.StopRequested()) },
-                colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.surface),
+                onClick = { onAction(ListenAction.Session.StopRequested) },
                 contentDescription = stringResource(R.string.mozac_feature_listentopage_close),
             ) {
                 Icon(
@@ -71,25 +61,20 @@ internal fun PlayerCompact(
                 modifier =
                     Modifier.weight(1f)
                         .heightIn(min = AcornTheme.layout.size.static600)
-                        .clickable(
-                            onClickLabel = stringResource(R.string.mozac_feature_listentopage_expand_player),
-                            role = Role.Button,
-                            onClick = onExpandClicked,
-                        ),
-                shouldScrollTitle =
-                    playbackUiState is PlaybackUiState.Playing || playbackUiState is PlaybackUiState.Buffering,
-                playbackUiState = playbackUiState,
+                        .clickable(role = Role.Button, onClick = onExpandClicked),
             )
 
-            RewindButton(
-                enabled = playbackUiState !is PlaybackUiState.Error,
-                articleProgressState = articleProgressState,
-                onAction = onAction,
-            )
-            PlayPauseButton(
-                playbackUiState = playbackUiState,
-                onButtonClicked = { onAction(ListenAction.Controls.PlayPauseClicked) },
-            )
+            IconButton(
+                onClick = { onAction(ListenAction.Controls.RewindClicked) },
+                contentDescription = stringResource(R.string.mozac_feature_listentopage_back_10_sec),
+            ) {
+                Icon(
+                    painter = painterResource(iconsR.drawable.mozac_ic_playback_rewind_24),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            PlayPauseButton(playing, { onAction(ListenAction.Controls.PlayPauseClicked) })
         }
         // Reserves the space the progress bar occupies, since the bar itself is drawn as
         // an overlay on top of the card's border.
@@ -99,33 +84,23 @@ internal fun PlayerCompact(
 
 /** The compact player's progress bar, to be aligned to the bottom of the card. */
 @Composable
-internal fun AudioProgressBarCompact(
-    progress: () -> Float,
-    modifier: Modifier = Modifier,
-    isEnabled: Boolean = true,
-) {
+internal fun AudioProgressBarCompact(progress: () -> Float, modifier: Modifier = Modifier) {
     AudioProgressBar(
         progress = progress,
         modifier = modifier.padding(horizontal = AcornTheme.layout.space.static400),
         type = AudioProgressBarType.Mini,
-        onSeek = {}, // Compact bar does not support seeking
-        isEnabled = isEnabled,
     )
 }
 
 @PreviewLightDark
 @Composable
-private fun PlayerCompactPreview(@PreviewParameter(PlaybackUIStatePreviewProvider::class) state: PlaybackUiState) {
+private fun PlayerCompactPreview() {
     AcornTheme {
-        Box(modifier = Modifier.background(color = MaterialTheme.colorScheme.surface)) {
-            PlayerCompact(
-                article = ArticleDetails(title = "Match Preview: Wrexham AFC vs Sunderland AFC", site = "source"),
-                articleProgressState =
-                    remember { mutableStateOf(ArticleProgress(positionMs = 84_000, durationMs = 360_000)) },
-                playbackUiState = state,
-                onAction = {},
-                onExpandClicked = {},
-            )
-        }
+        PlayerCompact(
+            article = ArticleDetails(title = "Match Preview: Wrexham AFC vs Sunderland AFC", site = "source"),
+            playing = true,
+            onAction = {},
+            onExpandClicked = {},
+        )
     }
 }

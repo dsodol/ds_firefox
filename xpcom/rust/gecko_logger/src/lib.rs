@@ -10,7 +10,6 @@ extern crate lazy_static;
 use log::{Level, LevelFilter};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
-use std::fmt::Write as _;
 use std::os::raw::c_char;
 use std::os::raw::c_int;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -59,54 +58,34 @@ fn get_level_for_module<'a>(
     return (key, false, LevelFilter::Off);
 }
 
-/// Returns whether `target` is enabled at `level` according to the MOZ_LOG
-/// module levels. This is the Rust-visible equivalent of `MOZ_LOG_TEST`, for
-/// callers (such as the tracing layer) that need to gate work without going
-/// through a `log::Record`.
-pub fn moz_log_test(target: &str, level: Level) -> bool {
-    if !LOGGING_ACTIVE.load(Ordering::Relaxed) {
-        return false;
-    }
-    let map = LOG_MODULE_MAP.read().unwrap();
-    let (_, _, filter) = get_level_for_module(&map, target);
-    filter >= level
-}
-
 /// This function takes a record to maybe log to Gecko.
 /// It returns true if the record was handled by Gecko's logging, and false
 /// otherwise.
 pub fn log_to_gecko(record: &log::Record) -> bool {
-    let Some(key) = record.module_path() else {
-        return false;
-    };
-    moz_log(key, record.level(), |out| {
-        let _ = out.write_fmt(*record.args());
-    })
-}
-
-/// The Rust-visible equivalent of `MOZ_LOG`, for callers (such as the tracing
-/// layer) without a `log::Record`. `message` appends the message to the given
-/// buffer, and is only called if MOZ_LOG enables `key` at `level`.
-pub fn moz_log(key: &str, level: Level, message: impl FnOnce(&mut String)) -> bool {
     if !LOGGING_ACTIVE.load(Ordering::Relaxed) {
         return false;
     }
 
-    let (mod_name, is_pattern_match, level_filter) = {
-        let map = LOG_MODULE_MAP.read().unwrap();
-        get_level_for_module(&map, key)
+    let key = match record.module_path() {
+        Some(key) => key,
+        None => return false,
     };
 
-    if level_filter == LevelFilter::Off {
+    let (mod_name, is_pattern_match, level) = {
+        let map = LOG_MODULE_MAP.read().unwrap();
+        get_level_for_module(&map, &key)
+    };
+
+    if level == LevelFilter::Off {
         return false;
     }
 
-    if level_filter < level {
+    if level < record.metadata().level() {
         return false;
     }
 
     // Map the log::Level to mozilla::LogLevel.
-    let moz_log_level = match level {
+    let moz_log_level = match record.metadata().level() {
         Level::Error => 1, // Error
         Level::Warn => 2,  // Warning
         Level::Info => 3,  // Info
@@ -115,15 +94,17 @@ pub fn moz_log(key: &str, level: Level, message: impl FnOnce(&mut String)) -> bo
     };
 
     // If it was a pattern match, we need to append ::* to the matched string.
-    let mut msg = String::new();
-    let tag = if is_pattern_match {
-        let _ = write!(msg, "[{}] ", key);
-        CString::new(format!("{}::*", mod_name)).unwrap()
+    let (tag, msg) = if is_pattern_match {
+        (
+            CString::new(format!("{}::*", mod_name)).unwrap(),
+            CString::new(format!("[{}] {}", key, record.args())).unwrap(),
+        )
     } else {
-        CString::new(key).unwrap()
+        (
+            CString::new(key).unwrap(),
+            CString::new(format!("{}", record.args())).unwrap(),
+        )
     };
-    message(&mut msg);
-    let msg = CString::new(msg).unwrap();
 
     unsafe {
         ExternMozLog(tag.as_ptr(), moz_log_level, msg.as_ptr());
@@ -157,22 +138,16 @@ pub unsafe extern "C" fn set_rust_log_level(module: *const c_char, level: u8) {
     }
 
     LOGGING_ACTIVE.store(true, Ordering::Relaxed);
-    {
-        let mut map = LOG_MODULE_MAP.write().unwrap();
-        map.insert(mod_name, (rust_level, is_pattern_match));
+    let mut map = LOG_MODULE_MAP.write().unwrap();
+    map.insert(mod_name, (rust_level, is_pattern_match));
 
-        // Figure out the max level of all the modules.
-        let max = map
-            .values()
-            .map(|(lvl, _)| lvl)
-            .max()
-            .unwrap_or(&LevelFilter::Off);
-        log::set_max_level(*max);
-    }
-
-    // rust-tracing caches the per-callsite `moz_log_test` result. Invalidate the
-    // cache.
-    tracing::callsite::rebuild_interest_cache();
+    // Figure out the max level of all the modules.
+    let max = map
+        .values()
+        .map(|(lvl, _)| lvl)
+        .max()
+        .unwrap_or(&LevelFilter::Off);
+    log::set_max_level(*max);
 }
 
 pub struct GeckoLogger {

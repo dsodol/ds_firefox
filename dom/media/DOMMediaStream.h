@@ -12,7 +12,6 @@
 #include "mozilla/WeakPtr.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsIPrincipal.h"
-#include "nsTObserverArray.h"
 #include "nsWrapperCache.h"
 
 namespace mozilla {
@@ -235,7 +234,7 @@ class DOMMediaStream : public DOMEventTargetHelper,
   nsTArray<nsCOMPtr<nsISupports>> mConsumersToKeepAlive;
 
   // The track listeners subscribe to changes in this stream's track set.
-  nsTObserverArray<RefPtr<TrackListener>> mTrackListeners;
+  nsTArray<RefPtr<TrackListener>> mTrackListeners;
 
   // True if this stream has live tracks.
   bool mActive = false;

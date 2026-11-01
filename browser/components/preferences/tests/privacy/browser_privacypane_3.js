@@ -1,5 +1,3 @@
-requestLongerTimeout(4);
-
 let rootDir = getRootDirectory(gTestPath);
 let jar = getJar(rootDir);
 if (jar) {

@@ -115,24 +115,19 @@ struct FFmpegVulkanVideoDecoder {
   nsTArray<PFN_vkVoidFunction> mDeviceFunctions;
   void InitDrmModifiers(VkPhysicalDevice aPhysDev, VkFormat aFormatForModifiers,
                         const nsTArray<uint64_t>* aCompositorMods = nullptr,
-                        VkImageUsageFlags aImageUsages = 0,
-                        AVCodecID aCodecID = AV_CODEC_ID_NONE);
+                        VkImageUsageFlags aImageUsages = 0);
   bool SelectVulkanDecoderPhysicalDevice(
       const StaticMutexAutoLock& aProofOfLock, const nsCString& aRendererNode);
-  bool CheckDecodeCapabilities(AVCodecID aCodecID,
-                               AVBufferRef* aVulkanDeviceContext,
-                               const MediaByteBuffer* aExtraData,
-                               gfx::ColorDepth aColorDepth);
-  bool VulkanCanDecodeFormat(AVCodecID aCodecID,
-                             unsigned aAvcodecVersion) const;
+  bool VulkanCanDecodeFormat(AVCodecID aCodecID, unsigned aAvcodecVersion,
+                             AVBufferRef* aVulkanDeviceContext,
+                             const MediaByteBuffer* aExtraData,
+                             gfx::ColorDepth aColorDepth) const;
   uint32_t mNegotiatedCompositorDecoderVendorID = 0;
   uint32_t mNegotiatedCompositorDecoderDeviceID = 0;
-  uint32_t mVulkanDriverVersion = 0;
   char mNegotiatedVulkanDeviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE] = {
       '\0',
   };
   bool mDecoderMatchesCompositor = false;
-  bool mDriverDistinctDpb = false;
   // Set when ImageFormatProperties2 left only LINEAR and we forced NVIDIA BL.
   bool mForcedNvidiaBlockLinear = false;
   ~FFmpegVulkanVideoDecoder();

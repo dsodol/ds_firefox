@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.StateFlow
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.menu.data.MenuItem
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.store.MenuEvent
 import mozilla.components.compose.menu.ui.MenuItemIconRes
@@ -35,20 +34,18 @@ class PrintMenuItemProvider(
     private val target: MenuTarget,
     private val printContent: SessionUseCases.PrintContentUseCase,
 ) : MenuItemProvider {
-    override val itemsFlow: StateFlow<List<MenuItem>> =
-        if (target == MenuTarget.CustomizeMenu) {
-            MutableStateFlow(listOf(DEFAULT_MENU_ITEM))
-        } else {
-            MutableStateFlow(
-                listOfNotNull(
-                    if (isAndroidAutomotiveAvailable) {
-                        null
-                    } else {
-                        DEFAULT_MENU_ITEM.copy(onClickEvent = MenuAction.PrintRequested)
-                    }
+    override val itemFlow: StateFlow<MenuItem?> =
+        MutableStateFlow(
+            if (isAndroidAutomotiveAvailable) {
+                null
+            } else {
+                StandardMenuItem(
+                    title = Text.Resource(R.string.browser_menu_print_2),
+                    icon = MenuItemIconRes(iconsR.drawable.mozac_ic_print_24),
+                    onClickEvent = MenuAction.PrintRequested,
                 )
-            )
-        }
+            }
+        )
 
     override fun handles(event: MenuEvent) = event == MenuAction.PrintRequested
 
@@ -57,13 +54,5 @@ class PrintMenuItemProvider(
 
         menu.dismiss()
         printContent(tabId = tabId)
-    }
-
-    companion object {
-        private val DEFAULT_MENU_ITEM =
-            StandardMenuItem(
-                title = MenuItemTitle(Text.Resource(R.string.browser_menu_print_2)),
-                icon = MenuItemIconRes(iconsR.drawable.mozac_ic_print_24),
-            )
     }
 }

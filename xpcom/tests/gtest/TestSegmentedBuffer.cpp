@@ -10,7 +10,7 @@ using namespace mozilla;
 
 TEST(SegmentedBuffer, AppendAndPop)
 {
-  auto buf = std::make_unique<nsSegmentedBuffer>();
+  auto buf = MakeUnique<nsSegmentedBuffer>();
   buf->Init(4);
   char* seg;
   mozilla::UniqueFreePtr<char> poppedSeg;

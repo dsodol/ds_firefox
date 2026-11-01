@@ -19,7 +19,9 @@ class QuotaRequestBase : public NormalOriginOperationBase,
 
  protected:
   QuotaRequestBase(MovingNotNull<RefPtr<QuotaManager>> aQuotaManager,
-                   const char* aName);
+                   const char* aName)
+      : NormalOriginOperationBase(std::move(aQuotaManager), aName),
+        mActorDestroyed(false) {}
 
   virtual ~QuotaRequestBase();
 

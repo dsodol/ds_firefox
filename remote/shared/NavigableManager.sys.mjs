@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { EventEmitter } from "resource://gre/modules/EventEmitter.sys.mjs";
-
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -33,7 +31,6 @@ class NavigableManagerClass {
   #tracking;
 
   constructor() {
-    EventEmitter.decorate(this);
     this.#tracking = false;
 
     // Maps browser's `permanentKey` to an uuid: WeakMap.<Object, string>
@@ -277,8 +274,6 @@ class NavigableManagerClass {
     // Add a fallback to the navigable weak map so that an id can
     // also be retrieved when the related browser was closed.
     this.#navigableIds.set(browsingContext, id);
-
-    this.emit("navigableId-created", { browsingContext, navigableId: id });
   }
 
   /** Event handlers */

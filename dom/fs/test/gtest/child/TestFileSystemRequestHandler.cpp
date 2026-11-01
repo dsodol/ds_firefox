@@ -84,7 +84,7 @@ class TestFileSystemRequestHandler : public ::testing::Test {
   }
 
   UniquePtr<FileSystemRequestHandler> GetFileSystemRequestHandler() {
-    return std::make_unique<FileSystemRequestHandler>();
+    return MakeUnique<FileSystemRequestHandler>();
   }
 
   void ShutdownFileSystemManager() {

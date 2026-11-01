@@ -22,11 +22,6 @@ NS_INTERFACE_MAP_BEGIN(SuspendableChannelWrapper)
   NS_INTERFACE_MAP_ENTRY(nsISuspendableChannelWrapper)
 NS_INTERFACE_MAP_END_AGGREGATED(mInnerChannel)
 
-SuspendableChannelWrapper::SuspendableChannelWrapper(nsIChannel* aInnerChannel)
-    : BaseSuspendableChannelWrapper(aInnerChannel) {}
-
-SuspendableChannelWrapper::~SuspendableChannelWrapper() = default;
-
 NS_IMETHODIMP
 SuspendableChannelWrapper::Suspend() {
   if (mInnerOpened) {

@@ -24,8 +24,6 @@ class Summariser {
   // rule permanently.
   virtual void Rule(uintptr_t aAddress, int aNewReg, LExprHow how,
                     int16_t oldReg, int64_t offset);
-  // Undefine the current value recovery rule for |aReg| at |aAddress|.
-  virtual void UndefineRule(uintptr_t aAddress, int aReg);
 
   virtual uint32_t AddPfxInstr(PfxInstr pfxi);
 

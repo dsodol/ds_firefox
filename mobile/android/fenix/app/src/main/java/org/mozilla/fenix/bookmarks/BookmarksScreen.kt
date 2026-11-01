@@ -102,7 +102,6 @@ import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.base.textfield.TextField
 import mozilla.components.compose.base.utils.BackInvokedHandler
 import mozilla.components.compose.browser.toolbar.concept.BrowserToolbarTestTags.ADDRESSBAR_SEARCH_BOX
-import mozilla.components.support.ktx.util.URLStringUtils
 import mozilla.components.ui.icons.R as iconsR
 import org.mozilla.fenix.R
 import org.mozilla.fenix.bookmarks.BookmarksTestTag.BOOKMARK_PLACEHOLDER
@@ -361,7 +360,7 @@ private fun BookmarksSearchListContent(
             FaviconListItem(
                 label = item.title,
                 url = item.previewImageUrl,
-                description = URLStringUtils.toLosslessDisplayUrl(item.url),
+                description = item.url,
                 onClick = { onBookmarkClicked(item) },
                 modifier = Modifier.width(FirefoxTheme.layout.size.containerMaxWidth).testTag(BOOKMARK_SEARCH_ITEM),
             )
@@ -495,7 +494,7 @@ private fun BookmarksListContent(
                     label = item.title,
                     url = item.previewImageUrl,
                     isSelected = isSelected,
-                    description = URLStringUtils.toLosslessDisplayUrl(item.url),
+                    description = item.url,
                     onClick = { dispatcher.invoke(BookmarkClicked(item)) },
                     onLongClick = { dispatcher.invoke(BookmarkLongClicked(item)) },
                     modifier =
@@ -1349,7 +1348,6 @@ private fun EditBookmarkScreen(store: BookmarksStore) {
 
     val bookmark = state?.bookmark ?: return
     val folder = state?.folder ?: return
-    val urlText = state?.urlText ?: return
 
     Scaffold(
         topBar = {
@@ -1366,7 +1364,6 @@ private fun EditBookmarkScreen(store: BookmarksStore) {
             Column(modifier = Modifier.width(FirefoxTheme.layout.size.containerMaxWidth)) {
                 BookmarkEditor(
                     bookmarkItem = bookmark,
-                    urlText = urlText,
                     onTitleChanged = { store.dispatch(EditBookmarkAction.TitleChanged(it)) },
                     onURLChanged = { store.dispatch(EditBookmarkAction.URLChanged(it)) },
                 )
@@ -1383,7 +1380,6 @@ private fun EditBookmarkScreen(store: BookmarksStore) {
 @Composable
 private fun BookmarkEditor(
     bookmarkItem: BookmarkItem.Bookmark,
-    urlText: String,
     onTitleChanged: (String) -> Unit,
     onURLChanged: (String) -> Unit,
 ) {
@@ -1416,7 +1412,7 @@ private fun BookmarkEditor(
             Spacer(modifier = Modifier.height(16.dp))
 
             ClearableTextField(
-                value = urlText,
+                value = bookmarkItem.url,
                 onValueChange = onURLChanged,
                 placeholder = stringResource(R.string.bookmark_url_label),
                 modifier =

@@ -10,7 +10,6 @@ import time
 
 import mozunit
 from buildconfig import topobjdir, topsrcdir
-from support import firefox_binary
 
 here = os.path.dirname(__file__)
 
@@ -87,7 +86,7 @@ def test_help():
     assert p.returncode == 0
 
 
-def test_run_record_no_files(tmp_path):
+def test_run_record_no_files():
     output_handler = OutputHandler()
     p = subprocess.Popen(
         [
@@ -96,7 +95,7 @@ def test_run_record_no_files(tmp_path):
             "mozproxy",
             "--local",
             "--mode=record",
-            "--binary=" + firefox_binary(str(tmp_path)),
+            "--binary=firefox",
             "--topsrcdir=" + topsrcdir,
             "--objdir=" + topobjdir,
         ],
@@ -124,7 +123,7 @@ def test_run_record_no_files(tmp_path):
     assert output_handler.port is None
 
 
-def test_run_record_multiple_files(tmp_path):
+def test_run_record_multiple_files():
     output_handler = OutputHandler()
     p = subprocess.Popen(
         [
@@ -133,7 +132,7 @@ def test_run_record_multiple_files(tmp_path):
             "mozproxy",
             "--local",
             "--mode=record",
-            "--binary=" + firefox_binary(str(tmp_path)),
+            "--binary=firefox",
             "--topsrcdir=" + topsrcdir,
             "--objdir=" + topobjdir,
             os.path.join(here, "files", "new_record.zip"),
@@ -162,7 +161,7 @@ def test_run_record_multiple_files(tmp_path):
     assert output_handler.port is None
 
 
-def test_run_record(tmp_path):
+def test_run_record():
     output_handler = OutputHandler()
     p = subprocess.Popen(
         [
@@ -171,7 +170,7 @@ def test_run_record(tmp_path):
             "mozproxy",
             "--local",
             "--mode=record",
-            "--binary=" + firefox_binary(str(tmp_path)),
+            "--binary=firefox",
             "--topsrcdir=" + topsrcdir,
             "--objdir=" + topobjdir,
             os.path.join(here, "files", "record.zip"),
@@ -204,7 +203,7 @@ def test_run_record(tmp_path):
             os.remove(record_file)
 
 
-def test_run_playback(tmp_path):
+def test_run_playback():
     output_handler = OutputHandler()
     p = subprocess.Popen(
         [
@@ -212,7 +211,7 @@ def test_run_playback(tmp_path):
             "-m",
             "mozproxy",
             "--local",
-            "--binary=" + firefox_binary(str(tmp_path)),
+            "--binary=firefox",
             "--topsrcdir=" + topsrcdir,
             "--objdir=" + topobjdir,
             os.path.join(here, "files", "mitm5-linux-firefox-amazon.zip"),

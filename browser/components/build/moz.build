@@ -18,7 +18,3 @@ LOCAL_INCLUDES += [
     "../sessionstore",
     "../shell",
 ]
-
-SOURCE_HEADERS += [
-    "nsBrowserCompsCID.h",
-]

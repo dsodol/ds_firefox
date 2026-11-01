@@ -56,10 +56,6 @@ class HgRepository(Repository):
     def head_rev(self):
         return self._run("log", "-r", ".", "-T", "{node}")
 
-    @property
-    def is_shallow(self):
-        return False
-
     def is_cinnabar_repo(self) -> bool:
         return False
 
@@ -103,18 +99,9 @@ class HgRepository(Repository):
         if not self._client.server or runargs.get("env"):
             return super()._run(*args, **runargs)
 
-        import hglib.error
-
         # hglib requires bytes on python 3
         args = [a.encode("utf-8") if not isinstance(a, bytes) else a for a in args]
-        return_codes = runargs.get("return_codes") or []
-
-        def error_handler(ret, out, err):
-            if ret not in return_codes:
-                raise hglib.error.CommandError(args, ret, out, err)
-            return out
-
-        return self._client.rawcommand(args, eh=error_handler).decode("utf-8")
+        return self._client.rawcommand(args).decode("utf-8")
 
     def get_commit_time(self):
         newest_public_revision_time = self._run(
@@ -249,14 +236,6 @@ class HgRepository(Repository):
             p.replace("\\", "/") for p in self._run("files", "-0").split("\0") if p
         )
         return FileListFinder(files)
-
-    def _get_tracked_files(self, patterns):
-        includes = [
-            arg for pattern in patterns for arg in ("-I", f"rootglob:{pattern}")
-        ]
-        files = self._run("files", "-0", *includes, return_codes=[1]).split("\0")
-        deleted = self._run("status", "-0", "-d", "-n", *includes).split("\0")
-        return sorted(p.replace("\\", "/") for p in set(files) - set(deleted) if p)
 
     def get_ignored_files_finder(self):
         # Can return backslashes on Windows. Normalize to forward slashes.
@@ -533,12 +512,7 @@ class HgRepository(Repository):
 
         return vct_dir
 
-    def configure(
-        self,
-        state_dir: Path,
-        update_only: bool = False,
-        no_system_changes: bool = False,
-    ):
+    def configure(self, state_dir: Path, update_only: bool = False):
         """Run the Mercurial configuration wizard."""
         vct_dir = self._update_vct(state_dir)
 

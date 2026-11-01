@@ -257,7 +257,7 @@ add_task(async function setup() {
   } else {
     throw new Error("Not implemented");
   }
-  const dirSvcFile = await copyFixtureDir(dirSvcPath);
+  const dirSvcFile = do_get_file(dirSvcPath);
   registerFakePath(pathId, dirSvcFile);
 
   info(PathUtils.join(dirSvcFile.path, ...profilePathSegments));

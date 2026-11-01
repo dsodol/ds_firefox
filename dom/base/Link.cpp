@@ -492,8 +492,7 @@ void Link::SetHrefAttribute(nsIURI* aURI) {
   nsAutoCString href;
   (void)aURI->GetSpec(href);
   (void)mElement->SetAttr(kNameSpaceID_None, nsGkAtoms::href,
-                          NS_ConvertUTF8toUTF16(href), true,
-                          IsKnownNewAttr::No);
+                          NS_ConvertUTF8toUTF16(href), true);
 }
 
 size_t Link::SizeOfExcludingThis(mozilla::SizeOfState& aState) const {

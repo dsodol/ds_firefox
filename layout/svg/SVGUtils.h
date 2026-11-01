@@ -12,7 +12,6 @@
 
 #include "DrawMode.h"
 #include "ImgDrawResult.h"
-#include "Units.h"
 #include "gfx2DGlue.h"
 #include "gfxMatrix.h"
 #include "gfxPoint.h"

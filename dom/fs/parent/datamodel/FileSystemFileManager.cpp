@@ -276,7 +276,7 @@ FileSystemFileManager::CreateFileSystemFileManager(
   QM_TRY_UNWRAP(nsCOMPtr<nsIFile> topDirectory,
                 GetFileSystemDirectory(aOriginMetadata));
 
-  return std::make_unique<FileSystemFileManager>(
+  return MakeUnique<FileSystemFileManager>(
       FileSystemFileManager(std::move(topDirectory)));
 }
 

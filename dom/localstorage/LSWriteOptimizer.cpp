@@ -48,7 +48,7 @@ void LSWriteOptimizerBase::DeleteItem(const nsAString& aKey, int64_t aDelta) {
       entry.Remove();
     } else {
       entry.InsertOrUpdate(
-          std::make_unique<DeleteItemInfo>(NextSerialNumber(), aKey));
+          MakeUnique<DeleteItemInfo>(NextSerialNumber(), aKey));
     }
   });
 
@@ -61,7 +61,7 @@ void LSWriteOptimizerBase::Truncate(int64_t aDelta) {
   mWriteInfos.Clear();
 
   if (!mTruncateInfo) {
-    mTruncateInfo = std::make_unique<TruncateInfo>(NextSerialNumber());
+    mTruncateInfo = MakeUnique<TruncateInfo>(NextSerialNumber());
   }
 
   mTotalDelta += aDelta;

@@ -1130,10 +1130,7 @@ class XPCShellTestThread(Thread):
                     root += "_retry"
                 filename = f"profile_{root}{ext}.json"
                 i = 2
-                while any(
-                    os.path.exists(os.path.join(upload_dir, checked_filename))
-                    for checked_filename in (filename, filename + ".gz")
-                ):
+                while os.path.exists(os.path.join(upload_dir, filename)):
                     filename = f"profile_{root}-{i}{ext}.json"
                     i += 1
                 self.timeout_profile_name = filename

@@ -40,7 +40,7 @@ static_assert(
     TCP_TYPE_SO);
 
 NrIceCandidateAttribute::NrIceCandidateAttribute()
-    : mBits(std::make_unique<nr_ice_candidate_parsedbits>()) {
+    : mBits(MakeUnique<nr_ice_candidate_parsedbits>()) {
   *mBits = {};
 }
 

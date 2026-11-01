@@ -10,7 +10,8 @@ bool RLBoxConvertWOFF2ToTTF(const char* aData, unsigned long aLength,
                             unsigned long aDecompressedSize,
                             unsigned long* aResultSize, void** aResultOwningStr,
                             char** aResultData) {
-  auto buf = std::make_unique<std::string>(aDecompressedSize, 0);
+  std::unique_ptr<std::string> buf =
+      std::make_unique<std::string>(aDecompressedSize, 0);
   woff2::WOFF2StringOut out(buf.get());
   out.SetMaxSize(std::max(size_t(aDecompressedSize), woff2::kDefaultMaxSize));
   if (!woff2::ConvertWOFF2ToTTF(reinterpret_cast<const uint8_t*>(aData),

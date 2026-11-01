@@ -6,12 +6,10 @@ package mozilla.components.feature.ipprotection.store
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import mozilla.components.ExperimentalAndroidComponentsApi
 import mozilla.components.feature.ipprotection.store.state.Country
 import mozilla.components.feature.ipprotection.store.state.IPProtectionState
-import mozilla.components.feature.ipprotection.store.state.Location
 import mozilla.components.feature.ipprotection.store.state.Recommended
 import mozilla.components.lib.state.Middleware
 import mozilla.components.lib.state.Store
@@ -29,8 +27,6 @@ class IPProtectionLocationMiddleware(
     private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO),
 ) : Middleware<IPProtectionState, IPProtectionAction> {
 
-    private var lastStorageJob: Job? = null
-
     override fun invoke(
         store: Store<IPProtectionState, IPProtectionAction>,
         next: (IPProtectionAction) -> Unit,
@@ -38,94 +34,65 @@ class IPProtectionLocationMiddleware(
     ) {
         next(action)
 
-        val selectedLocation = store.state.locationState.selectedLocation
-
         when (action) {
-            is IPProtectionAction.LocationAction.CountryListChanged ->
-                launchInOrder {
-                    handleCountryListChanged(action, store, selectedLocation)
-                }
+            is IPProtectionAction.CountryListChanged -> handleCountryListChanged(action, store)
+            is IPProtectionAction.LocationChanged -> handleLocationChanged(action)
 
-            is IPProtectionAction.LocationAction.LocationChanged,
-            is IPProtectionAction.LocationAction.LocationReset ->
-                launchInOrder { persistLocationCode(selectedLocation.countryCode) }
-
-            is IPProtectionAction.EligibilityAction.EligibilityChanged,
-            is IPProtectionAction.ServiceAction.ServiceStateChanged,
-            is IPProtectionAction.ProxyAction.ProxyStateChanged,
-            is IPProtectionAction.UsageAction.UsageChanged,
-            is IPProtectionAction.AccountAction.AccountStateChanged,
-            is IPProtectionAction.AccountAction.CheckAccount,
-            is IPProtectionAction.AccountAction.AccountManagerStateChanged,
-            is IPProtectionAction.AccountAction.AccountReadyForEnrollment,
-            is IPProtectionAction.AccountAction.FinishingEnrollment,
-            is IPProtectionAction.AccountAction.FinishingAuthFlow,
-            is IPProtectionAction.AccountAction.AwaitingAuth,
-            is IPProtectionAction.ActivationAction.Toggle,
-            is IPProtectionAction.ActivationAction.ProxyActivationShown,
-            is IPProtectionAction.ActivationAction.ToggleFailed,
-            is IPProtectionAction.ActivationAction.ActivationRequestCompleted,
-            is IPProtectionAction.LocationAction.PersistedLocationUnavailable,
-            is IPProtectionAction.LocationAction.LocationSwitchFailed,
-            is IPProtectionAction.LocationAction.LocationUpdateFailed,
-            is IPProtectionAction.LocationAction.CheckLocations -> {
+            is IPProtectionAction.AccountStateChanged,
+            is IPProtectionAction.ActivationRequestCompleted,
+            is IPProtectionAction.CheckAccount,
+            is IPProtectionAction.CheckLocations,
+            is IPProtectionAction.EligibilityChanged,
+            is IPProtectionAction.EngineStateChanged,
+            is IPProtectionAction.LocationReset,
+            is IPProtectionAction.PersistedLocationUnavailable,
+            is IPProtectionAction.LocationSwitchFailed,
+            is IPProtectionAction.LocationUpdateFailed,
+            is IPProtectionAction.ProxyActivationShown,
+            is IPProtectionAction.Toggle,
+            is IPProtectionAction.ToggleFailed,
+            is InternalAction.AccountManagerStateChanged,
+            is InternalAction.AccountReadyForEnrollment,
+            is InternalAction.AwaitingAuth,
+            is InternalAction.EligibilityChanged,
+            is InternalAction.FinishingAuthFlow,
+            is InternalAction.FinishingEnrollment,
+            is InternalAction.UpdateServiceState -> {
                 // no-op
             }
         }
     }
 
-    private suspend fun persistLocationCode(code: String?) {
-        repository.setSelectedLocationCode(code)
+    private fun handleLocationChanged(action: IPProtectionAction.LocationChanged) = coroutineScope.launch {
+        repository.setSelectedLocationCode(action.location.countryCode)
     }
 
-    private suspend fun handleCountryListChanged(
-        action: IPProtectionAction.LocationAction.CountryListChanged,
+    private fun handleCountryListChanged(
+        action: IPProtectionAction.CountryListChanged,
         store: Store<IPProtectionState, IPProtectionAction>,
-        selectionAtDispatch: Location,
-    ) {
+    ) = coroutineScope.launch {
         val cachedLocationCode = repository.getSelectedLocationCode()
-        val currentSelection = store.state.locationState.selectedLocation
-
-        // A selection made after this list arrived is newer than the stored one and must be kept.
-        val locationCode =
-            if (currentSelection == selectionAtDispatch) {
-                cachedLocationCode
-            } else {
-                currentSelection.countryCode
-            }
-
-        val listed = action.countries.find { it.code == locationCode }
+        val listed = action.countries.find { it.code == cachedLocationCode }
         val selectedLocation =
             listed?.takeIf { it.available }?.let { Country(countryCode = it.code, available = it.available) }
 
         if (selectedLocation != null) {
             // if we have found the cached selection in the update list, we should check if that's
             // the selected location, and - if it is not - update it.
-            if (selectedLocation != currentSelection) {
-                store.dispatch(
-                    IPProtectionAction.LocationAction.LocationChanged(location = selectedLocation, userAction = false)
-                )
+            if (selectedLocation != store.state.locationState.selectedLocation) {
+                store.dispatch(IPProtectionAction.LocationChanged(location = selectedLocation, userAction = false))
             }
         } else {
             // if we couldn't find the cached selection, we should clear the cached value and
             // update the selected location to the default.
             val status = if (listed == null) CachedLocationStatus.Missing else CachedLocationStatus.Unavailable
-            if (currentSelection != Recommended) {
-                store.dispatch(IPProtectionAction.LocationAction.LocationReset(locationCode, status))
-            } else if (locationCode != null) {
-                store.dispatch(IPProtectionAction.LocationAction.PersistedLocationUnavailable(locationCode, status))
+            if (store.state.locationState.selectedLocation != Recommended) {
+                store.dispatch(IPProtectionAction.LocationReset(cachedLocationCode, status))
+            } else if (cachedLocationCode != null) {
+                store.dispatch(IPProtectionAction.PersistedLocationUnavailable(cachedLocationCode, status))
             }
 
             repository.setSelectedLocationCode(null)
-        }
-    }
-
-    private fun launchInOrder(block: suspend () -> Unit) {
-        // Chained so that storage operations run in dispatch order.
-        val previousJob = lastStorageJob
-        lastStorageJob = coroutineScope.launch {
-            previousJob?.join()
-            block()
         }
     }
 }

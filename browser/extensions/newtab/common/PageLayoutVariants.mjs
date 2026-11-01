@@ -5,7 +5,6 @@
 import {
   hasContentAreaWidgets,
   isWidgetEnabled,
-  isWidgetInSidebar,
   isWidgetsContainerVisible,
   WIDGET_REGISTRY,
 } from "./WidgetsRegistry.mjs";
@@ -29,10 +28,6 @@ export const PAGE_LAYOUT_VARIANTS = {
   SPACES_BUTTONS_BOTTOM: "spaces-buttons-bottom",
   SPACES_THEMATIC_V1: "spaces-thematic-v1",
   SPACES_FLOATING_ARROWS: "spaces-floating-arrows",
-  SPACES_PREVIEW_KIT: "spaces-preview-kit",
-  SPACES_PREVIEW_ILLUSTRATED: "spaces-preview-illustrated",
-  SPACES_PREVIEW_CARDS: "spaces-preview-cards",
-  SPACES_PEEK: "spaces-peek",
   // @experiment(remove) { bug 2066527 }
   AUTO_MINIMIZE_WIDGETS: "auto-minimize-widgets",
   // @experiment(remove) { bug 2069496 }
@@ -169,25 +164,6 @@ const SPACES_CLASSES = {
     "spaces",
     "spaces-floating-arrows",
   ],
-  // The buttons-bottom control, whose tabs preview their space with an image,
-  // or with its first card in spaces-preview-cards.
-  [PAGE_LAYOUT_VARIANTS.SPACES_PREVIEW_KIT]: [
-    "spaces",
-    "spaces-buttons-bottom",
-  ],
-  [PAGE_LAYOUT_VARIANTS.SPACES_PREVIEW_ILLUSTRATED]: [
-    "spaces",
-    "spaces-buttons-bottom",
-  ],
-  [PAGE_LAYOUT_VARIANTS.SPACES_PREVIEW_CARDS]: [
-    "spaces",
-    "spaces-buttons-bottom",
-  ],
-  [PAGE_LAYOUT_VARIANTS.SPACES_PEEK]: [
-    "spaces",
-    "spaces-buttons-bottom",
-    "spaces-peek",
-  ],
 };
 
 export const SPACES_PAGE_LAYOUTS = Object.keys(SPACES_CLASSES);
@@ -202,35 +178,6 @@ export const SPACE_IDS = {
 
 export const PREF_SPACES_CONFIG = "pageLayouts.spacesConfig";
 export const PREF_SPACES_ORDER = "pageLayouts.spacesOrder";
-const PREVIEW_ASSETS_PATH = "chrome://newtab/content/data/content/assets/";
-
-// Each preview variant's image set, as a filename prefix. Each image is 2x and
-// centred on its illustration, so anything that breaks out of it, like Kit,
-// overhangs evenly into the preview's padding.
-const SPACES_PREVIEW_IMAGE_SETS = {
-  [PAGE_LAYOUT_VARIANTS.SPACES_PREVIEW_KIT]: "spaces-preview-kit-",
-  [PAGE_LAYOUT_VARIANTS.SPACES_PREVIEW_ILLUSTRATED]: "spaces-preview-",
-};
-
-/**
- * The preview images for the assigned preview variant, by space id, or empty
- * outside those variants.
- *
- * @param {object} prefs - current pref values from the Redux store
- * @returns {object} space id to chrome:// URL
- */
-export function resolveFeatureSpacePreviewImages(prefs) {
-  const prefix = SPACES_PREVIEW_IMAGE_SETS[resolvePageLayoutVariant(prefs)];
-  if (!prefix) {
-    return {};
-  }
-  return Object.fromEntries(
-    Object.values(SPACE_IDS).map(id => [
-      id,
-      `${PREVIEW_ASSETS_PATH}${prefix}${id}.png`,
-    ])
-  );
-}
 
 /**
  * The V1 spaces' order: trainhopConfig as an array of ids, else the pref as
@@ -319,8 +266,7 @@ function rejectSpacesConfig(raw) {
  * spaces, or nothing left after dropping kills the layout.
  *
  * @param {object} raw - a spaces config from trainhopConfig or the pref
- * @returns {object|null} { order, default, widgetCatchAll, arrows, preview,
- *   spaces } or null
+ * @returns {object|null} { order, default, spaces } or null
  */
 export function normalizeSpacesConfig(raw) {
   const order = asStringArray(raw?.order);
@@ -330,35 +276,19 @@ export function normalizeSpacesConfig(raw) {
   }
 
   const spaces = {};
-  const slotted = new Set();
   const kept = order.filter(id => {
     const space = rawSpaces[id];
     // A tab with no label is unusable: nothing tells the user what is behind it.
     if (!space || typeof space.label !== "string" || !space.label) {
       return false;
     }
-    // A widget is shown once, so the first space to name it keeps it.
-    const firstSlotWidget =
-      WIDGET_REGISTRY.some(w => w.id === space.firstSlotWidget) &&
-      !slotted.has(space.firstSlotWidget)
-        ? space.firstSlotWidget
-        : null;
-    if (firstSlotWidget) {
-      slotted.add(firstSlotWidget);
-    }
     const icon = resolveThematicSpaceIcon(space.icon);
     spaces[id] = {
       label: space.label,
       icon,
       iconFamily: resolveThematicIconFamily(icon),
-      // Chrome-only for the same reason as the icon.
-      previewImage: resolveThematicSpaceIcon(space.previewImage),
       sections: asStringArray(space.sections),
       widgets: asStringArray(space.widgets),
-      // Shows Recent activity.
-      activity: space.activity === true,
-      // Shown in the first card of the space's first section.
-      firstSlotWidget,
     };
     return true;
   });
@@ -367,19 +297,11 @@ export function normalizeSpacesConfig(raw) {
     return rejectSpacesConfig(raw);
   }
 
-  // The named default has to have survived; otherwise the leftmost space takes
-  // both roles, including the sections catch-all.
-  const defaultId = kept.includes(raw.default) ? raw.default : kept[0];
   return {
     order: kept,
-    default: defaultId,
-    // Takes the widgets no space names. The default space unless one is named.
-    widgetCatchAll: kept.includes(raw.widgetCatchAll)
-      ? raw.widgetCatchAll
-      : defaultId,
-    // Edge arrows alongside the tablist.
-    arrows: raw.arrows === true,
-    preview: raw.preview === true,
+    // The named default has to have survived; otherwise the leftmost space
+    // takes both roles, including the catch-all.
+    default: kept.includes(raw.default) ? raw.default : kept[0],
     spaces,
   };
 }
@@ -409,6 +331,16 @@ export const SPACE_CONFIG = {
 };
 
 /**
+ * Band classes for the assigned variant, empty outside the experiment.
+ *
+ * @param {object} prefs - current pref values from the Redux store
+ * @returns {string[]}
+ */
+export function spacesBandClasses(prefs) {
+  return SPACES_CLASSES[resolvePageLayoutVariant(prefs)] ?? [];
+}
+
+/**
  * Whether a spaces variant is assigned, populated or not.
  *
  * @param {object} prefs - current pref values from the Redux store
@@ -433,8 +365,7 @@ export function isSpacesThematicAssigned(prefs) {
 }
 
 /**
- * Whether the floating arrows variant is assigned, populated or not. That
- * variant's arrows replace the tablist.
+ * Whether the floating arrows variant is assigned, populated or not.
  *
  * @param {object} prefs - current pref values from the Redux store
  * @returns {boolean}
@@ -444,16 +375,6 @@ export function isSpacesArrowsAssigned(prefs) {
     resolvePageLayoutVariant(prefs) ===
     PAGE_LAYOUT_VARIANTS.SPACES_FLOATING_ARROWS
   );
-}
-
-/**
- * Whether the peek variant is assigned, populated or not.
- *
- * @param {object} prefs - current pref values from the Redux store
- * @returns {boolean}
- */
-export function isSpacesPeekAssigned(prefs) {
-  return resolvePageLayoutVariant(prefs) === PAGE_LAYOUT_VARIANTS.SPACES_PEEK;
 }
 
 /**
@@ -480,34 +401,23 @@ export function isSpaceOverridden(id, prefs) {
 }
 
 /**
- * Whether the page has stories, ignoring which variant is assigned.
- *
- * @param {object} prefs - current pref values from the Redux store
- * @returns {boolean}
- */
-function hasStories(prefs) {
-  return Boolean(
-    // The override, like Base.jsx does for V1: the experiment turns stories back
-    // on for a profile that had them off, unless it has since opted out.
-    // isSpaceOverridden is false outside a spaces variant, so the side-by-side
-    // layouts read the plain pref. feeds.system.topstories stays raw -- region
-    // and locale are not a user choice.
-    (prefs?.["feeds.section.topstories"] ||
-      isSpaceOverridden(SPACE_IDS.STORIES, prefs)) &&
-    prefs?.["feeds.system.topstories"]
-  );
-}
-
-/**
  * Whether the page has both halves of the side-by-side pair, ignoring which
- * variant is assigned.
+ * variant is assigned. The thematic spaces variant puts the pair inside each
+ * space rather than on the band, so it needs this without the variant test.
  *
  * @param {object} prefs - current pref values from the Redux store
  * @returns {boolean}
  */
 function hasSideBySidePair(prefs) {
   return Boolean(
-    hasStories(prefs) &&
+    // The overrides, like Base.jsx does for V1: the experiment turns stories and
+    // the widgets container back on for a profile that had them off, unless it
+    // has since opted out. isSpaceOverridden is false outside a spaces variant,
+    // so the side-by-side layouts read the plain prefs. feeds.system.topstories
+    // stays raw -- region and locale are not a user choice.
+    (prefs?.["feeds.section.topstories"] ||
+      isSpaceOverridden(SPACE_IDS.STORIES, prefs)) &&
+    prefs?.["feeds.system.topstories"] &&
     isWidgetsContainerVisible(prefs) &&
     hasContentAreaWidgets(
       prefs,
@@ -605,65 +515,6 @@ export function resolveThematicSpacesConfig(prefs) {
   return value;
 }
 
-const SPACES_PREVIEW_PAGE_LAYOUTS = [
-  PAGE_LAYOUT_VARIANTS.SPACES_PREVIEW_KIT,
-  PAGE_LAYOUT_VARIANTS.SPACES_PREVIEW_ILLUSTRATED,
-  PAGE_LAYOUT_VARIANTS.SPACES_PREVIEW_CARDS,
-];
-
-/**
- * Whether the tabs preview the space they lead to: always in the preview
- * variants, and in thematic spaces when their config's `preview` flag is set.
- *
- * @param {object} prefs - current pref values from the Redux store
- * @returns {boolean}
- */
-export function isSpacesPreviewEnabled(prefs) {
-  if (isSpacesThematicAssigned(prefs)) {
-    return Boolean(resolveThematicSpacesConfig(prefs)?.preview);
-  }
-  return SPACES_PREVIEW_PAGE_LAYOUTS.includes(resolvePageLayoutVariant(prefs));
-}
-
-/**
- * Whether spaces navigate with edge arrows: always for the floating arrows
- * variant, and for the thematic one when its config asks for them.
- *
- * @param {object} prefs - current pref values from the Redux store
- * @returns {boolean}
- */
-export function hasSpacesArrows(prefs) {
-  return (
-    isSpacesArrowsAssigned(prefs) ||
-    (isSpacesThematicAssigned(prefs) &&
-      !!resolveThematicSpacesConfig(prefs)?.arrows)
-  );
-}
-
-/**
- * Band classes for the assigned variant, empty outside the experiment.
- *
- * @param {object} prefs - current pref values from the Redux store
- * @returns {string[]}
- */
-export function spacesBandClasses(prefs) {
-  const classes = SPACES_CLASSES[resolvePageLayoutVariant(prefs)] ?? [];
-  return hasSpacesArrows(prefs) ? [...classes, "spaces-arrows"] : classes;
-}
-
-/**
- * The space Recent activity renders in: the first one the config marks for it,
- * otherwise the default space, where it rendered before spaces could be marked.
- *
- * @param {object} config - from resolveThematicSpacesConfig
- * @returns {string|undefined}
- */
-export function resolveThematicActivitySpace(config) {
-  return (
-    config?.order.find(id => config.spaces[id].activity) ?? config?.default
-  );
-}
-
 /**
  * Which of the delivered sectionKeys belong to a space, in delivery order. The
  * default space is the catch-all, so it also takes every key no other space
@@ -708,136 +559,14 @@ export function resolveFeedSectionKeys(discoveryStream) {
   return sections?.map(section => section.sectionKey).filter(Boolean) ?? [];
 }
 
-// @experiment(remove-conditional) { bug 2078816 }
-// Keep for spaces-thematic-v1, which falls back to it.
-export const PREF_WIDGET_FIRST_WIDGET =
-  "pageLayouts.widgetFirstContentSlot.widget";
-
-/**
- * Whether a widget can take a first story card: stories are on and the widget
- * is enabled, counting the space overrides, which are false outside a spaces
- * variant.
- *
- * @param {object|undefined} widget - a WIDGET_REGISTRY entry, if one matched
- * @param {object} prefs - current pref values from the Redux store
- * @returns {boolean}
- */
-function canShowFirstSlotWidget(widget, prefs) {
-  return Boolean(
-    widget &&
-    prefs["nova.enabled"] &&
-    hasStories(prefs) &&
-    isWidgetEnabled(
-      widget,
-      prefs,
-      prefs["widgets.enabled"] || isSpaceOverridden(SPACE_IDS.WIDGETS, prefs)
-    )
-  );
-}
-
-// @experiment(remove-conditional) { bug 2078816 }
-// Keep for spaces-thematic-v1, and drop the widget-first-content-slot check.
-/**
- * The id of the widget the global setting puts in the first card of the top
- * stories section, or null when there is none. The widget must already be
- * enabled. Under the thematic spaces variant a space can name its own instead;
- * see resolveFirstSlotWidgets.
- *
- * @param {object} prefs - current pref values from the Redux store
- * @returns {string|null} a widget registry id
- */
-export const selectFirstSlotWidget = prefs => {
-  const variant = resolvePageLayoutVariant(prefs);
-  if (
-    variant !== PAGE_LAYOUT_VARIANTS.WIDGET_FIRST_CONTENT_SLOT &&
-    variant !== PAGE_LAYOUT_VARIANTS.SPACES_THEMATIC_V1
-  ) {
-    return null;
-  }
-  const id =
-    prefs.trainhopConfig?.pageLayouts?.widgetFirstContentSlot?.widget ??
-    prefs[PREF_WIDGET_FIRST_WIDGET];
-  return canShowFirstSlotWidget(
-    WIDGET_REGISTRY.find(w => w.id === id),
-    prefs
-  )
-    ? id
-    : null;
-};
-
-/**
- * The widgets shown in a first story card, in config order. Under the thematic
- * spaces variant each space can name its own `firstSlotWidget`. When none does,
- * the global setting applies, to the feed's top section.
- *
- * @param {object} prefs - current pref values from the Redux store
- * @returns {Array<{spaceId: string|null, widgetId: string}>} spaceId is null
- *   for the global setting
- */
-export function resolveFirstSlotWidgets(prefs) {
-  const config = isSpacesThematicAssigned(prefs)
-    ? resolveThematicSpacesConfig(prefs)
-    : null;
-  const named =
-    config?.order.filter(id => config.spaces[id].firstSlotWidget) ?? [];
-  if (named.length) {
-    return named
-      .map(id => ({ spaceId: id, widgetId: config.spaces[id].firstSlotWidget }))
-      .filter(({ widgetId }) =>
-        canShowFirstSlotWidget(
-          WIDGET_REGISTRY.find(w => w.id === widgetId),
-          prefs
-        )
-      );
-  }
-  const widgetId = selectFirstSlotWidget(prefs);
-  return widgetId ? [{ spaceId: null, widgetId }] : [];
-}
-
-/**
- * The ids of the widgets shown in a first story card, which no widgets column
- * shows as well.
- *
- * @param {object} prefs - current pref values from the Redux store
- * @returns {Set<string>}
- */
-export function selectFirstSlotWidgetIds(prefs) {
-  return new Set(resolveFirstSlotWidgets(prefs).map(slot => slot.widgetId));
-}
-
-/**
- * Which section each first-slot widget leads, by sectionKey: the first of its
- * space's sections, or the top section for the global setting. A widget whose
- * space has no section in the feed is not shown.
- *
- * @param {object} prefs - current pref values from the Redux store
- * @param {string[]} sectionKeys - sectionKeys in display order
- * @returns {object} sectionKey to widget id
- */
-export function resolveFirstSlotWidgetsBySection(prefs, sectionKeys) {
-  const config = resolveThematicSpacesConfig(prefs);
-  const bySection = {};
-  for (const { spaceId, widgetId } of resolveFirstSlotWidgets(prefs)) {
-    const sectionKey = spaceId
-      ? resolveThematicSpaceSections(config, spaceId, sectionKeys)[0]
-      : sectionKeys[0];
-    // Two spaces can list the same section; the first one keeps it.
-    if (sectionKey && !(sectionKey in bySection)) {
-      bySection[sectionKey] = widgetId;
-    }
-  }
-  return bySection;
-}
-
 /**
  * The widgets a space should show, in registry order, filtered to the ones
- * actually enabled. The config's widgetCatchAll space also takes every widget no
- * space names, so one is never invisible everywhere. Empty means the space shows
- * its feed alone, which is all of them while the widgets container is hidden.
+ * actually enabled. The default space is the catch-all here too, so a widget no
+ * space names is never invisible everywhere. Empty means the space shows its
+ * feed alone.
  *
- * Some widgets are in no space's column: Weather at its small size, which
- * renders in the page's inline-end sidebar as it does in the side-by-side
- * layouts, and those in the first card of a story section.
+ * Weather is never named: at its small size it renders in the page's inline-end
+ * sidebar, outside every space, as it does in the side-by-side layouts.
  *
  * @param {object} config - from resolveThematicSpacesConfig
  * @param {string} spaceId - a config space id
@@ -846,37 +575,25 @@ export function resolveFirstSlotWidgetsBySection(prefs, sectionKeys) {
  */
 export function resolveThematicSpaceWidgets(config, spaceId, prefs) {
   const assigned = new Set(config?.spaces?.[spaceId]?.widgets ?? []);
-  const isCatchAll = spaceId === (config?.widgetCatchAll ?? config?.default);
+  const isCatchAll = spaceId === config?.default;
   const claimed = new Set(
     Object.values(config?.spaces ?? {}).flatMap(space => space.widgets)
   );
   const widgetsEnabled =
     prefs?.["widgets.enabled"] || isSpaceOverridden(SPACE_IDS.WIDGETS, prefs);
-  if (!isWidgetsContainerVisible(prefs)) {
-    return [];
-  }
-  const firstSlotWidgets = selectFirstSlotWidgetIds(prefs);
 
   return WIDGET_REGISTRY.filter(
     w =>
       (assigned.has(w.id) || (isCatchAll && !claimed.has(w.id))) &&
-      !firstSlotWidgets.has(w.id) &&
-      !isWidgetInSidebar(w, prefs) &&
       isWidgetEnabled(w, prefs, widgetsEnabled)
   ).map(w => w.id);
 }
 
 /**
- * The thematic spaces that have something to show, in the config's order: a
- * section in the feed, an enabled widget, or Recent activity. A space with none
- * is dropped
- * rather than rendered empty -- the next refresh can bring it back. Widgets
- * being off only empties the spaces that relied on them; stories being off
- * turns the layout off, as the page is built around them.
- *
- * Nothing renders before the feed arrives either. The default space takes every
- * section no other space claims, so until then it would be dropped and the page
- * would open on whichever space happened to have widgets.
+ * The thematic spaces that have something to show, in the config's order.
+ * Without the side-by-side pair there is nothing to put in a space at all, and
+ * a space with none of its sections in the feed is dropped rather than rendered
+ * empty -- the next refresh can bring it back.
  *
  * @param {object} prefs - current pref values from the Redux store
  * @param {string[]|null} sectionKeys - sectionKeys the feed delivered, or null
@@ -885,19 +602,13 @@ export function resolveThematicSpaceWidgets(config, spaceId, prefs) {
  */
 function resolvePopulatedThematicSpaces(prefs, sectionKeys) {
   const config = resolveThematicSpacesConfig(prefs);
-  if (!config || !hasStories(prefs) || sectionKeys?.length === 0) {
+  if (!config || !hasSideBySidePair(prefs)) {
     return [];
   }
-  if (!sectionKeys) {
-    return config.order;
-  }
-  const activityId = resolveThematicActivitySpace(config);
-  const activityEnabled = isSpaceEnabled(SPACE_IDS.ACTIVITY, prefs);
   return config.order.filter(
     id =>
-      resolveThematicSpaceSections(config, id, sectionKeys).length ||
-      resolveThematicSpaceWidgets(config, id, prefs).length ||
-      (id === activityId && activityEnabled)
+      !sectionKeys ||
+      resolveThematicSpaceSections(config, id, sectionKeys).length
   );
 }
 
@@ -967,9 +678,8 @@ export function resolvePopulatedSpaces(prefs = {}, sectionKeys = null) {
  *
  * @param {object} prefs - current pref values from the Redux store
  * @param {object} discoveryStream - state.DiscoveryStream
- * @returns {object|null} { order, defaultId, activityId, preview, spaces }
- *   where each space carries its label, icon, iconFamily, previewImage,
- *   sectionKeys and widgetIds
+ * @returns {object|null} { order, defaultId, spaces } where each space carries
+ *   its label, icon, iconFamily, sectionKeys and widgetIds
  */
 export function resolveThematicSpaces(prefs, discoveryStream) {
   if (!isSpacesThematicAssigned(prefs)) {
@@ -984,8 +694,6 @@ export function resolveThematicSpaces(prefs, discoveryStream) {
   return {
     order,
     defaultId: resolveThematicDefaultSpace(config, order),
-    activityId: resolveThematicActivitySpace(config),
-    preview: config.preview,
     spaces: Object.fromEntries(
       order.map(id => [
         id,
@@ -1079,4 +787,36 @@ export const selectWidgetsRowAd = (prefs, spocs) => {
   );
   const blocked = spocs?.blocked ?? [];
   return first && !blocked.includes(first.url) ? first : null;
+};
+
+// @experiment(remove) { bug 2078816 }
+export const PREF_WIDGET_FIRST_WIDGET =
+  "pageLayouts.widgetFirstContentSlot.widget";
+
+// @experiment(remove) { bug 2078816 }
+/**
+ * The id of the widget shown in the first card of the top stories section, or
+ * null when there is none. The widget must already be enabled.
+ *
+ * @param {object} prefs - current pref values from the Redux store
+ * @returns {string|null} a widget registry id
+ */
+export const selectFirstSlotWidget = prefs => {
+  if (
+    resolvePageLayoutVariant(prefs) !==
+    PAGE_LAYOUT_VARIANTS.WIDGET_FIRST_CONTENT_SLOT
+  ) {
+    return null;
+  }
+  const id =
+    prefs.trainhopConfig?.pageLayouts?.widgetFirstContentSlot?.widget ??
+    prefs[PREF_WIDGET_FIRST_WIDGET];
+  const widget = WIDGET_REGISTRY.find(w => w.id === id);
+  return widget &&
+    prefs["nova.enabled"] &&
+    prefs["feeds.section.topstories"] &&
+    prefs["feeds.system.topstories"] &&
+    isWidgetEnabled(widget, prefs, prefs["widgets.enabled"])
+    ? id
+    : null;
 };

@@ -25,8 +25,7 @@ class APZCTransformNotificationTester : public APZCTreeManagerTester {
     CreateScrollData(treeShape, layerVisibleRect);
     SetScrollableFrameMetrics(root, START_SCROLL_ID, CSSRect(0, 0, 500, 500));
 
-    mRegistration =
-        std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+    mRegistration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
 
     UpdateHitTestingTree();
 
@@ -41,8 +40,7 @@ class APZCTransformNotificationTester : public APZCTreeManagerTester {
     CreateScrollData(treeShape, layerVisibleRect);
     SetScrollableFrameMetrics(root, START_SCROLL_ID, CSSRect(0, 0, 100, 100));
 
-    mRegistration =
-        std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+    mRegistration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
 
     UpdateHitTestingTree();
 

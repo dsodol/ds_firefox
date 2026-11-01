@@ -5,28 +5,39 @@
 
 use std::hash::Hash;
 
-use sql_support::open_database;
 use viaduct::{Client, ClientSettings, Request, Response};
 
 use super::error::{HTTPError, TransportError};
 use crate::{
     http_cache::{HttpCache, RequestHash},
-    telemetry, CachePolicy,
+    telemetry::Telemetry,
+    CachePolicy,
 };
 
 const OHTTP_CHANNEL_ID: &str = "ads-client";
 
-pub struct MARSTransport {
+pub struct MARSTransport<T: Telemetry> {
     http_cache: Option<HttpCache>,
+    telemetry: T,
 }
 
-impl MARSTransport {
-    pub fn new(http_cache: Option<HttpCache>) -> Self {
-        Self { http_cache }
+impl<T: Telemetry> MARSTransport<T> {
+    pub fn new(http_cache: Option<HttpCache>, telemetry: T) -> Self {
+        Self {
+            http_cache,
+            telemetry,
+        }
     }
 
-    pub fn clear_cache(&self) -> Result<(), open_database::Error> {
-        if let Some(cache) = self.http_cache.as_ref() {
+    pub fn shutdown_db(&mut self) -> Result<(), rusqlite::Error> {
+        if let Some(cache) = self.http_cache.take() {
+            cache.shutdown_db()?;
+        }
+        Ok(())
+    }
+
+    pub fn clear_cache(&self) -> Result<(), rusqlite::Error> {
+        if let Some(cache) = &self.http_cache {
             cache.clear()?;
         }
         Ok(())
@@ -43,8 +54,8 @@ impl MARSTransport {
     pub fn invalidate_cache_by_hash(
         &self,
         request_hash: &RequestHash,
-    ) -> Result<(), open_database::Error> {
-        if let Some(cache) = self.http_cache.as_ref() {
+    ) -> Result<(), rusqlite::Error> {
+        if let Some(cache) = &self.http_cache {
             cache.invalidate_by_hash(request_hash)?;
         }
         Ok(())
@@ -57,10 +68,10 @@ impl MARSTransport {
         ohttp: bool,
     ) -> Result<Response, TransportError> {
         let client = Self::client_for(ohttp)?;
-        if let Some(cache) = self.http_cache.as_ref() {
+        if let Some(cache) = &self.http_cache {
             let (response, outcomes) = cache.send_with_policy(&client, request, policy)?;
             for outcome in &outcomes {
-                telemetry::record_http_cache_outcome(outcome);
+                self.telemetry.record(outcome);
             }
             HTTPError::check(&response)?;
             Ok(response)
@@ -68,12 +79,6 @@ impl MARSTransport {
             let response = client.send_sync(request.into())?;
             HTTPError::check(&response)?;
             Ok(response)
-        }
-    }
-
-    pub fn shutdown_db(&self) {
-        if let Some(cache) = self.http_cache.as_ref() {
-            cache.shutdown_db();
         }
     }
 

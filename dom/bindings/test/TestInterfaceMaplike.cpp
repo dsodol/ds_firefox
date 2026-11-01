@@ -47,26 +47,27 @@ nsPIDOMWindowInner* TestInterfaceMaplike::GetParentObject() const {
 }
 
 void TestInterfaceMaplike::SetInternal(const nsAString& aKey, int32_t aValue) {
-  Maplike().Set(aKey, aValue);
+  ErrorResult rv;
+  TestInterfaceMaplike_Binding::MaplikeHelpers::Set(this, aKey, aValue, rv);
 }
 
-void TestInterfaceMaplike::ClearInternal() { Maplike().Clear(); }
+void TestInterfaceMaplike::ClearInternal() {
+  ErrorResult rv;
+  TestInterfaceMaplike_Binding::MaplikeHelpers::Clear(this, rv);
+}
 
 bool TestInterfaceMaplike::DeleteInternal(const nsAString& aKey) {
-  return Maplike().Delete(aKey);
+  ErrorResult rv;
+  return TestInterfaceMaplike_Binding::MaplikeHelpers::Delete(this, aKey, rv);
 }
 
 bool TestInterfaceMaplike::HasInternal(const nsAString& aKey) {
-  return Maplike().Has(aKey);
+  ErrorResult rv;
+  return TestInterfaceMaplike_Binding::MaplikeHelpers::Has(this, aKey, rv);
 }
 
 int32_t TestInterfaceMaplike::GetInternal(const nsAString& aKey,
                                           ErrorResult& aRv) {
-  const auto* value = Maplike().Get(aKey);
-  if (!value) {
-    aRv.Throw(NS_ERROR_NOT_AVAILABLE);
-    return 0;
-  }
-  return *value;
+  return TestInterfaceMaplike_Binding::MaplikeHelpers::Get(this, aKey, aRv);
 }
 }  // namespace mozilla::dom

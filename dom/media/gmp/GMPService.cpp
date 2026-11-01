@@ -525,7 +525,7 @@ void GeckoMediaPluginService::ConnectCrashHelper(uint32_t aPluginId,
   MutexAutoLock lock(mMutex);
   mPluginCrashHelpers.WithEntryHandle(aPluginId, [&](auto&& entry) {
     if (!entry) {
-      entry.Insert(std::make_unique<nsTArray<RefPtr<GMPCrashHelper>>>());
+      entry.Insert(MakeUnique<nsTArray<RefPtr<GMPCrashHelper>>>());
     } else if (entry.Data()->Contains(aHelper)) {
       return;
     }

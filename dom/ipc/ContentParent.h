@@ -73,9 +73,6 @@ class CrashReporterInitArgs;
 
 namespace mozilla {
 class PClipboardWriteRequestParent;
-#ifdef MOZ_WIDGET_ANDROID
-class ProcInfoParent;
-#endif
 class PRemoteSpellcheckEngineParent;
 
 #if defined(XP_LINUX) && defined(MOZ_SANDBOX)
@@ -1089,6 +1086,9 @@ class ContentParent final : public PContentParent,
       const MaybeDiscarded<WindowContext>& aContext,
       WindowContext::BaseTransaction&& aTransaction, uint64_t aEpoch);
 
+  mozilla::ipc::IPCResult RecvAddSecurityState(
+      const MaybeDiscarded<WindowContext>& aContext, uint32_t aStateFlags);
+
   mozilla::ipc::IPCResult RecvFirstIdle();
 
   mozilla::ipc::IPCResult RecvDeviceReset();
@@ -1131,10 +1131,8 @@ class ContentParent final : public PContentParent,
 
   mozilla::ipc::IPCResult RecvAcquireHWInferenceProcess();
 
-#  ifdef MOZ_WEBSPEECH
   mozilla::ipc::IPCResult RecvCreateSpeechRecognition(
       Endpoint<hwinference::PSpeechRecognitionParent>&& aEndpoint);
-#  endif
 
   mozilla::ipc::IPCResult RecvReleaseHWInferenceConnection();
 #endif  // !ANDROID
@@ -1504,7 +1502,7 @@ class ContentParent final : public PContentParent,
   // release these objects in ShutDownProcess.  See the comment there for more
   // details.
 
-  RefPtr<GeckoChildProcessHost> mSubprocess;
+  GeckoChildProcessHost* mSubprocess;
   const TimeStamp mLaunchTS;  // used to calculate time to start content process
   TimeStamp mLaunchYieldTS;   // used to calculate async launch main thread time
 
@@ -1598,10 +1596,6 @@ class ContentParent final : public PContentParent,
   // Dup of child's X socket, used to scope its resources to this
   // object instead of the child process's lifetime.
   UniqueFileHandle mChildXSocketFdDup;
-#endif
-
-#ifdef MOZ_WIDGET_ANDROID
-  RefPtr<ProcInfoParent> mProcInfoParent;
 #endif
 
   RefPtr<PProcessHangMonitorParent> mHangMonitorActor;

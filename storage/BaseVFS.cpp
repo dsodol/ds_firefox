@@ -237,7 +237,7 @@ UniquePtr<sqlite3_vfs> ConstructVFS(bool exclusive) {
       origVfs->xNextSystemCall    /* xNextSystemCall */
   };
 
-  return std::make_unique<sqlite3_vfs>(vfs);
+  return MakeUnique<sqlite3_vfs>(vfs);
 }
 
 }  // namespace mozilla::storage::basevfs

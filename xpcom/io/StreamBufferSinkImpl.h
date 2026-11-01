@@ -23,7 +23,7 @@ class BufferSink final : public StreamBufferSink {
       return nullptr;
     }
 
-    return std::make_unique<BufferSink>(maybeBuffer.extract());
+    return MakeUnique<BufferSink>(maybeBuffer.extract());
   }
 
   mozilla::Span<char> Data() override { return mBuffer.AsWritableSpan(); }

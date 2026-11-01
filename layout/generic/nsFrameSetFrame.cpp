@@ -320,8 +320,8 @@ void nsHTMLFramesetFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
 
     // XXX the blank frame is using the content of its parent - at some point it
     // should just have null content, if we support that
-    nsHTMLFramesetBlankFrame* blankFrame =
-        new nsHTMLFramesetBlankFrame(pseudoComputedStyle, PresContext());
+    nsHTMLFramesetBlankFrame* blankFrame = new (presShell)
+        nsHTMLFramesetBlankFrame(pseudoComputedStyle, PresContext());
 
     blankFrame->Init(mContent, this, nullptr);
 
@@ -887,7 +887,7 @@ void nsHTMLFramesetFrame::Reflow(nsPresContext* aPresContext,
         pseudoComputedStyle = styleSet->ResolveNonInheritingAnonymousBoxStyle(
             PseudoStyleType::MozHframesetBorder);
 
-        borderFrame = new nsHTMLFramesetBorderFrame(
+        borderFrame = new (presShell) nsHTMLFramesetBorderFrame(
             pseudoComputedStyle, PresContext(), borderWidth, false, false);
         borderFrame->Init(mContent, this, nullptr);
         mChildCount++;
@@ -918,7 +918,7 @@ void nsHTMLFramesetFrame::Reflow(nsPresContext* aPresContext,
                 styleSet->ResolveNonInheritingAnonymousBoxStyle(
                     PseudoStyleType::MozVframesetBorder);
 
-            borderFrame = new nsHTMLFramesetBorderFrame(
+            borderFrame = new (presShell) nsHTMLFramesetBorderFrame(
                 pseudoComputedStyle, PresContext(), borderWidth, true, false);
             borderFrame->Init(mContent, this, nullptr);
             mChildCount++;
@@ -1235,7 +1235,7 @@ void nsHTMLFramesetFrame::MouseDrag(nsPresContext* aPresContext,
       GenerateRowCol(aPresContext, width, colSpecs, mColSizes, newColAttr);
       // Setting the attr will trigger a reflow
       mContent->AsElement()->SetAttr(kNameSpaceID_None, nsGkAtoms::cols,
-                                     newColAttr, true, IsKnownNewAttr::No);
+                                     newColAttr, true);
     }
   } else {
     change = aPresContext->DevPixelsToAppUnits(aEvent->mRefPoint.y -
@@ -1259,7 +1259,7 @@ void nsHTMLFramesetFrame::MouseDrag(nsPresContext* aPresContext,
       GenerateRowCol(aPresContext, height, rowSpecs, mRowSizes, newRowAttr);
       // Setting the attr will trigger a reflow
       mContent->AsElement()->SetAttr(kNameSpaceID_None, nsGkAtoms::rows,
-                                     newRowAttr, true, IsKnownNewAttr::No);
+                                     newRowAttr, true);
     }
   }
 
@@ -1277,7 +1277,8 @@ void nsHTMLFramesetFrame::EndMouseDrag(nsPresContext* aPresContext) {
 
 nsIFrame* NS_NewHTMLFramesetFrame(PresShell* aPresShell,
                                   ComputedStyle* aStyle) {
-  return new nsHTMLFramesetFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      nsHTMLFramesetFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsHTMLFramesetFrame)

@@ -82,8 +82,9 @@ abstract class DependenciesPlugin : Plugin<Settings> {
     protected abstract val flowProviders: FlowProviders
 
     override fun apply(settings: Settings) {
-        val mozconfig = settings.gradle.extensions.extraProperties["mozconfig"] as Map<*, *>
-        val substs = mozconfig["substs"] as Map<*, *>
+        @Suppress("UNCHECKED_CAST")
+        val mozconfig = settings.gradle.extensions.extraProperties["mozconfig"] as Map<String, Any>
+        val substs = mozconfig["substs"] as Map<String, Any>
         val appservicesInTree = (substs["MOZ_APPSERVICES_IN_TREE"] as? String ?: "0") == "1"
         val onTry = settings.providers.environmentVariable("MOZ_SOURCE_REPO")
             .orNull == "https://hg.mozilla.org/try"

@@ -14,7 +14,7 @@
 
 use crate::serde::{Serialize, Deserialize};
 use crate::{
-    AlphaMode, AlphaType, BoxShadowClipMode, ColorDepth, ColorRange, ColorU, ExtendMode, ImageKey,
+    AlphaType, BoxShadowClipMode, ColorDepth, ColorRange, ColorU, ExtendMode, ImageKey,
     ImageRendering, LineOrientation, LineStyle, PropertyBinding, YuvColorSpace, YuvFormat,
 };
 use crate::key_types::{
@@ -61,7 +61,7 @@ pub struct BoxShadow {
     /// local space.
     pub box_offset: VectorKey,
     /// Signed spread radius. Positive for Outset, negative for Inset
-    /// (matches the convention in `DisplayListBuilder::push_box_shadow`).
+    /// (matches the convention in `add_box_shadow`).
     pub spread_amount: Au,
 }
 
@@ -140,7 +140,6 @@ pub struct BackdropRender {
 #[derive(Clone, Debug, Eq, MallocSizeOf, PartialEq, Hash, Serialize, Deserialize)]
 pub struct LinearGradient {
     pub extend_mode: ExtendMode,
-    pub alpha_mode: AlphaMode,
     pub start_point: VectorKey,
     pub end_point: VectorKey,
     /// Per-axis tile size encoded as a fraction of the prim's size. See the
@@ -155,7 +154,6 @@ pub struct LinearGradient {
 #[derive(Clone, Debug, Eq, MallocSizeOf, PartialEq, Hash, Serialize, Deserialize)]
 pub struct RadialGradient {
     pub extend_mode: ExtendMode,
-    pub alpha_mode: AlphaMode,
     pub center: VectorKey,
     pub params: RadialGradientParams,
     /// Per-axis tile size encoded as a fraction of the prim's size. See the
@@ -169,7 +167,6 @@ pub struct RadialGradient {
 #[derive(Clone, Debug, Eq, MallocSizeOf, PartialEq, Hash, Serialize, Deserialize)]
 pub struct ConicGradient {
     pub extend_mode: ExtendMode,
-    pub alpha_mode: AlphaMode,
     pub center: VectorKey,
     pub params: ConicGradientParams,
     /// Per-axis tile size encoded as a fraction of the prim's size. See the
@@ -190,7 +187,6 @@ pub struct ConicGradient {
 pub struct LinearGradientKey {
     pub common: PrimKeyCommonData,
     pub extend_mode: ExtendMode,
-    pub alpha_mode: AlphaMode,
     pub start_point: VectorKey,
     pub end_point: VectorKey,
     /// Per-axis tile size encoded as a fraction of `common.prim_size`. The
@@ -207,7 +203,6 @@ impl LinearGradientKey {
         LinearGradientKey {
             common,
             extend_mode: linear_grad.extend_mode,
-            alpha_mode: linear_grad.alpha_mode,
             start_point: linear_grad.start_point,
             end_point: linear_grad.end_point,
             stretch_ratio: linear_grad.stretch_ratio,
@@ -223,7 +218,6 @@ impl LinearGradientKey {
 pub struct RadialGradientKey {
     pub common: PrimKeyCommonData,
     pub extend_mode: ExtendMode,
-    pub alpha_mode: AlphaMode,
     pub center: VectorKey,
     pub params: RadialGradientParams,
     /// Per-axis tile size encoded as a fraction of `common.prim_size`. The
@@ -239,7 +233,6 @@ impl RadialGradientKey {
         RadialGradientKey {
             common,
             extend_mode: radial_grad.extend_mode,
-            alpha_mode: radial_grad.alpha_mode,
             center: radial_grad.center,
             params: radial_grad.params,
             stretch_ratio: radial_grad.stretch_ratio,
@@ -254,7 +247,6 @@ impl RadialGradientKey {
 pub struct ConicGradientKey {
     pub common: PrimKeyCommonData,
     pub extend_mode: ExtendMode,
-    pub alpha_mode: AlphaMode,
     pub center: VectorKey,
     pub params: ConicGradientParams,
     /// Per-axis tile size encoded as a fraction of `common.prim_size`. The
@@ -270,7 +262,6 @@ impl ConicGradientKey {
         ConicGradientKey {
             common,
             extend_mode: conic_grad.extend_mode,
-            alpha_mode: conic_grad.alpha_mode,
             center: conic_grad.center,
             params: conic_grad.params,
             stretch_ratio: conic_grad.stretch_ratio,

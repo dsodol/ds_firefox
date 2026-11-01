@@ -70,9 +70,12 @@ struct ColorRect {
 
 // DrawRect is mostly the same as ColorRect, but exists as an implementation
 // detail to simplify drawing borders. We draw borders as a strokeOnly rect
-// underneath an inner rect of a particular color.
+// underneath an inner rect of a particular color. We also need to keep
+// track of the backgroundColor for rounding rects, in order to correctly
+// anti-alias.
 struct DrawRect {
   uint32_t color;
+  uint32_t backgroundColor;
   int x;
   int y;
   int width;
@@ -96,9 +99,9 @@ NormalizedRGB UintToRGB(uint32_t color) {
 }
 
 uint32_t RGBToUint(const NormalizedRGB& rgb) {
-  return (static_cast<uint32_t>(rgb.r * 255.0 + 0.5) << 16) |
-         (static_cast<uint32_t>(rgb.g * 255.0 + 0.5) << 8) |
-         (static_cast<uint32_t>(rgb.b * 255.0 + 0.5) << 0);
+  return (static_cast<uint32_t>(rgb.r * 255.0) << 16) |
+         (static_cast<uint32_t>(rgb.g * 255.0) << 8) |
+         (static_cast<uint32_t>(rgb.b * 255.0) << 0);
 }
 
 double Lerp(double a, double b, double x) { return a + x * (b - a); }
@@ -109,10 +112,6 @@ NormalizedRGB Lerp(const NormalizedRGB& a, const NormalizedRGB& b, double x) {
 
 // Produces a smooth curve in [0,1] based on a linear input in [0,1]
 double SmoothStep3(double x) { return x * x * (3.0 - 2.0 * x); }
-
-uint32_t Composite(uint32_t color, double alpha, uint32_t base) {
-  return RGBToUint(Lerp(UintToRGB(base), UintToRGB(color), alpha));
-}
 
 struct Margin {
   int top = 0;
@@ -229,7 +228,7 @@ Result<UniquePtr<wchar_t[]>, PreXULSkeletonUIError> GetBinaryPath() {
   DWORD bufLen = MAX_PATH;
   UniquePtr<wchar_t[]> buf;
   while (true) {
-    buf = std::make_unique<wchar_t[]>(bufLen);
+    buf = MakeUnique<wchar_t[]>(bufLen);
     DWORD retLen = ::GetModuleFileNameW(nullptr, buf.get(), bufLen);
     if (!retLen) {
       return Err(PreXULSkeletonUIError::FilesystemFailure);
@@ -297,7 +296,7 @@ static Result<Ok, PreXULSkeletonUIError> GetSkeletonUILock() {
 
   // The number of bytes * 2 characters per byte + 1 for the null terminator
   uint32_t hexHashSize = sizeof(uint32_t) * 2 + 1;
-  auto installHash = std::make_unique<wchar_t[]>(hexHashSize);
+  UniquePtr<wchar_t[]> installHash = MakeUnique<wchar_t[]>(hexHashSize);
   // This isn't perfect - it's a 32-bit hash of the path to our executable. It
   // could reasonably collide, or casing could potentially affect things, but
   // the theory is that that should be uncommon enough and the failure case
@@ -432,20 +431,17 @@ double DistanceAntiAlias(double signedDistance) {
 }
 
 void RasterizeRoundedRectTopAndBottom(const DrawRect& rect) {
-  if (rect.height < 2 * rect.borderRadius) {
+  if (rect.height <= 2 * rect.borderRadius) {
     MOZ_ASSERT(false, "Skeleton UI rect height too small for border radius.");
     return;
   }
-  if (rect.width < 2 * rect.borderRadius) {
+  if (rect.width <= 2 * rect.borderRadius) {
     MOZ_ASSERT(false, "Skeleton UI rect width too small for border radius.");
     return;
   }
 
-  // Blend the corner pixels with what is already painted below them, which is
-  // the border for the inner part of a bordered rect.
-  auto blend = [&](uint32_t* pixel, double alpha) {
-    *pixel = Composite(rect.color, alpha, *pixel);
-  };
+  NormalizedRGB rgbBase = UintToRGB(rect.backgroundColor);
+  NormalizedRGB rgbBlend = UintToRGB(rect.color);
 
   for (int rowIndex = 0; rowIndex < rect.borderRadius; ++rowIndex) {
     int yTop = rect.y + rect.borderRadius - 1 - rowIndex;
@@ -469,11 +465,13 @@ void RasterizeRoundedRectTopAndBottom(const DrawRect& rect) {
       double distance =
           SignedDistanceToCircle(pixelX, pixelY, (double)rect.borderRadius);
       double alpha = DistanceAntiAlias(distance);
+      NormalizedRGB rgb = Lerp(rgbBase, rgbBlend, alpha);
+      uint32_t color = RGBToUint(rgb);
 
-      blend(&innermostPixelTopLeft[-columnIndex], alpha);
-      blend(&innermostPixelTopRight[columnIndex], alpha);
-      blend(&innermostPixelBottomLeft[-columnIndex], alpha);
-      blend(&innermostPixelBottomRight[columnIndex], alpha);
+      innermostPixelTopLeft[-columnIndex] = color;
+      innermostPixelTopRight[columnIndex] = color;
+      innermostPixelBottomLeft[-columnIndex] = color;
+      innermostPixelBottomRight[columnIndex] = color;
     }
 
     std::fill(innermostPixelTopLeft + 1, innermostPixelTopRight, rect.color);
@@ -543,6 +541,8 @@ void RasterizeColorRect(const ColorRect& colorRect) {
   if (colorRect.borderWidth == 0) {
     DrawRect rect = {};
     rect.color = colorRect.color;
+    rect.backgroundColor =
+        sPixelBuffer[colorRect.y * sWindowWidth + colorRect.x];
     rect.x = colorRect.x;
     rect.y = colorRect.y;
     rect.width = colorRect.width;
@@ -553,6 +553,8 @@ void RasterizeColorRect(const ColorRect& colorRect) {
   } else {
     DrawRect borderRect = {};
     borderRect.color = colorRect.borderColor;
+    borderRect.backgroundColor =
+        sPixelBuffer[colorRect.y * sWindowWidth + colorRect.x];
     borderRect.x = colorRect.x;
     borderRect.y = colorRect.y;
     borderRect.width = colorRect.width;
@@ -564,6 +566,7 @@ void RasterizeColorRect(const ColorRect& colorRect) {
 
     DrawRect baseRect = {};
     baseRect.color = colorRect.color;
+    baseRect.backgroundColor = borderRect.color;
     baseRect.x = colorRect.x + colorRect.borderWidth;
     baseRect.y = colorRect.y + colorRect.borderWidth;
     baseRect.width = colorRect.width - 2 * colorRect.borderWidth;
@@ -736,26 +739,26 @@ Result<Ok, PreXULSkeletonUIError> DrawSkeletonUI(
   int horizontalOffset =
       sHorizontalResizeMargin - (sMaximized ? 0 : chromeHorMargin);
 
-  // found in tabs.css, "--tab-min-height" + 2 * "--tab-margin-block"
+  // found in tabs.inc.css, "--tab-min-height" + 2 * "--tab-block-margin"
   int tabBarHeight =
       verticalTabs ? 0 : CSSToDevPixels(44, sCSSToDevPixelScaling);
-  int selectedTabBorderWidth = CSSToDevPixels(1, sCSSToDevPixelScaling);
-  // found in tabs.css, "--tab-margin-overflow-clip"
-  int titlebarSpacerWidth =
-      horizontalOffset + CSSToDevPixels(2, sCSSToDevPixelScaling);
+  int selectedTabBorderWidth = CSSToDevPixels(2, sCSSToDevPixelScaling);
+  // found in tabs.inc.css, "--tab-block-margin"
+  int titlebarSpacerWidth = horizontalOffset +
+                            CSSToDevPixels(2, sCSSToDevPixelScaling) -
+                            selectedTabBorderWidth;
   if (!sMaximized && !menubarShown) {
-    // found in browser-shared.css, ".titlebar-spacer"
+    // found in tabs.inc.css, ".titlebar-spacer"
     titlebarSpacerWidth += CSSToDevPixels(40, sCSSToDevPixelScaling);
   }
-  // found in tab.tokens.css, "--tab-margin-block"
-  int selectedTabMarginTop = CSSToDevPixels(6, sCSSToDevPixelScaling);
-  // found in tabs.css, "--tab-min-height"
-  int selectedTabHeight = CSSToDevPixels(32, sCSSToDevPixelScaling);
-  // "--tab-border-radius" is more than half the tab height.
-  int selectedTabBorderRadius = selectedTabHeight / 2;
-  // found in tabs.css, "--tab-max-width" minus "--tab-margin-overflow-clip"
-  // on both sides
-  int selectedTabWidth = CSSToDevPixels(221, sCSSToDevPixelScaling);
+  // found in tabs.inc.css, "--tab-block-margin"
+  int selectedTabMarginTop =
+      CSSToDevPixels(4, sCSSToDevPixelScaling) - selectedTabBorderWidth;
+  int selectedTabMarginBottom =
+      CSSToDevPixels(4, sCSSToDevPixelScaling) - selectedTabBorderWidth;
+  int selectedTabBorderRadius = CSSToDevPixels(4, sCSSToDevPixelScaling);
+  int selectedTabWidth =
+      CSSToDevPixels(221, sCSSToDevPixelScaling) + 2 * selectedTabBorderWidth;
   int toolbarHeight = CSSToDevPixels(40, sCSSToDevPixelScaling);
   // found in browser.css, "#PersonalToolbar"
   int bookmarkToolbarHeight = CSSToDevPixels(28, sCSSToDevPixelScaling);
@@ -768,10 +771,9 @@ Result<Ok, PreXULSkeletonUIError> DrawSkeletonUI(
   // found in browser-aero.css, "#navigator-toolbox::after" border-bottom
   int chromeContentDividerHeight = CSSToDevPixels(1, sCSSToDevPixelScaling);
 
+  int tabPlaceholderBarMarginTop = CSSToDevPixels(14, sCSSToDevPixelScaling);
   int tabPlaceholderBarMarginLeft = CSSToDevPixels(10, sCSSToDevPixelScaling);
   int tabPlaceholderBarHeight = CSSToDevPixels(10, sCSSToDevPixelScaling);
-  int tabPlaceholderBarMarginTop =
-      (selectedTabHeight - tabPlaceholderBarHeight) / 2;
   int tabPlaceholderBarWidth = CSSToDevPixels(120, sCSSToDevPixelScaling);
 
   int toolbarPlaceholderHeight = CSSToDevPixels(10, sCSSToDevPixelScaling);
@@ -790,14 +792,14 @@ Result<Ok, PreXULSkeletonUIError> DrawSkeletonUI(
   int urlbarMargin =
       CSSToDevPixels(5, sCSSToDevPixelScaling) + horizontalOffset;
 
+  int urlbarTextPlaceholderMarginTop =
+      CSSToDevPixels(12, sCSSToDevPixelScaling);
   int urlbarTextPlaceholderMarginLeft =
       CSSToDevPixels(12, sCSSToDevPixelScaling);
   int urlbarTextPlaceHolderWidth = CSSToDevPixels(
       std::clamp(urlbarCSSSpan.end - urlbarCSSSpan.start - 10.0, 0.0, 260.0),
       sCSSToDevPixelScaling);
   int urlbarTextPlaceholderHeight = CSSToDevPixels(10, sCSSToDevPixelScaling);
-  int urlbarTextPlaceholderMarginTop =
-      (urlbarHeight - urlbarTextPlaceholderHeight) / 2;
 
   int searchbarTextPlaceholderWidth = CSSToDevPixels(62, sCSSToDevPixelScaling);
 
@@ -819,9 +821,9 @@ Result<Ok, PreXULSkeletonUIError> DrawSkeletonUI(
     return Err(PreXULSkeletonUIError::OOM);
   }
 
-  // The placeholders and the urlbar are fully rounded.
-  int placeholderBorderRadius = toolbarPlaceholderHeight / 2;
-  int urlbarBorderRadius = urlbarHeight / 2;
+  int placeholderBorderRadius = CSSToDevPixels(4, sCSSToDevPixelScaling);
+  // found in browser/themes/shared/urlbar "--urlbar-border-radius"
+  int urlbarBorderRadius = CSSToDevPixels(8, sCSSToDevPixelScaling);
 
   // The (traditionally dark blue on Windows) background of the tab bar.
   ColorRect tabBar = {};
@@ -842,7 +844,8 @@ Result<Ok, PreXULSkeletonUIError> DrawSkeletonUI(
     selectedTab.x = titlebarSpacerWidth;
     selectedTab.y = menubar.y + menubar.height + selectedTabMarginTop;
     selectedTab.width = selectedTabWidth;
-    selectedTab.height = selectedTabHeight;
+    selectedTab.height =
+        tabBar.y + tabBar.height - selectedTab.y - selectedTabMarginBottom;
     selectedTab.borderColor = currentTheme.tabOutlineColor;
     selectedTab.borderWidth = selectedTabBorderWidth;
     selectedTab.borderRadius = selectedTabBorderRadius;
@@ -968,7 +971,6 @@ Result<Ok, PreXULSkeletonUIError> DrawSkeletonUI(
         searchbarRect.y + urlbarTextPlaceholderMarginTop;
     searchbarTextPlaceholder.width = searchbarTextPlaceholderWidth;
     searchbarTextPlaceholder.height = urlbarTextPlaceholderHeight;
-    searchbarTextPlaceholder.borderRadius = placeholderBorderRadius;
     searchbarTextPlaceholder.flipIfRTL = false;
     if (!rects.append(searchbarTextPlaceholder) ||
         !sAnimatedRects->append(searchbarTextPlaceholder)) {
@@ -1168,7 +1170,8 @@ DWORD WINAPI AnimateSkeletonUI(void* aUnused) {
   // of the animation provided in the design mockup. We define it in CSS pixels
   // simply because the rest of our UI is based off of CSS scalings.
   int animationWidth = CSSToDevPixels(80, sCSSToDevPixelScaling);
-  auto animationLookup = std::make_unique<uint32_t[]>(animationWidth);
+  UniquePtr<uint32_t[]> animationLookup =
+      MakeUnique<uint32_t[]>(animationWidth);
   uint32_t animationColor = sAnimationColor;
   NormalizedRGB rgbBlend = UintToRGB(animationColor);
 
@@ -1741,7 +1744,7 @@ static Result<Ok, PreXULSkeletonUIError> WriteRegCSSPixelSpans(
     int spansLength) {
   // No guarantee on the packing of CSSPixelSpan. We could #pragma it, but it's
   // also trivial to just copy them into a buffer of doubles.
-  auto doubles = std::make_unique<double[]>(spansLength * 2);
+  auto doubles = MakeUnique<double[]>(spansLength * 2);
   for (int i = 0; i < spansLength; ++i) {
     doubles[i * 2] = spans[i].start;
     doubles[i * 2 + 1] = spans[i].end;

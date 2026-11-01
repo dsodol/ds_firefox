@@ -83,9 +83,6 @@ already_AddRefed<CSSUnitValue> MakeCSSUnitValue(
     nsCOMPtr<nsISupports> aParent, const StyleNumericType& aNumericType,
     double aValue, const nsACString& aUnit);
 
-already_AddRefed<CSSUnitValue> MakeCSSUnitValue(nsCOMPtr<nsISupports> aParent,
-                                                double aValue);
-
 }  // namespace dom
 }  // namespace mozilla
 

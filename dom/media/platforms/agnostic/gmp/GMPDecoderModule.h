@@ -32,7 +32,11 @@ class GMPDecoderModule : public PlatformDecoderModule {
   static already_AddRefed<PlatformDecoderModule> Create();
 
   // Decode thread.
-  RefPtr<CreateDecoderPromise> AsyncCreateDecoder(
+  already_AddRefed<MediaDataDecoder> CreateVideoDecoder(
+      const CreateDecoderParams& aParams) override;
+
+  // Decode thread.
+  already_AddRefed<MediaDataDecoder> CreateAudioDecoder(
       const CreateDecoderParams& aParams) override;
 
   media::DecodeSupportSet SupportsMimeType(

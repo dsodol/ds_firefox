@@ -1,18 +1,15 @@
 [DEFAULT]
+dupe-manifest = true
 prefs = [
-  "extensions.getAddons.langpacks.url=https://mochi.test:8000/langpacks",
+  "browser.settings-redesign.enabled=false",
 ]
 support-files = [
   "head.js",
 ]
 tags = "os_integration"
 
-["browser_browser_languages_fallback.js"]
-
 ["browser_browser_languages_preferred.js"]
 
-["browser_browser_languages_preferred_remote.js"]
+["browser_browser_languages_subdialog.js"]
 
-["browser_languages_pane.js"]
-
-["browser_website_language_reorder.js"]
+["browser_languages_subdialog.js"]

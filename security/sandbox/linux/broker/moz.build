@@ -13,8 +13,6 @@ UNIFIED_SOURCES += [
     "SandboxBrokerPolicyFactory.cpp",
 ]
 
-SOURCE_HEADERS += ["SandboxBrokerUtils.h"]
-
 # Conflicts with ipc/chromium headers in a unified build.
 SOURCES += [
     "SandboxBroker.cpp",

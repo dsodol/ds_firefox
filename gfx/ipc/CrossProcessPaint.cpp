@@ -110,11 +110,6 @@ PaintFragment PaintFragment::Record(dom::BrowsingContext* aBc,
   // TODO: This may OOM crash if the content is complex enough
   RefPtr<DrawEventRecorderMemory> recorder =
       MakeAndAddRef<DrawEventRecorderMemory>(nullptr);
-  // When printing, this is replayed directly into the print target, which
-  // might be a PDF.
-  if (aFlags & CrossProcessPaintFlags::ForPrinting) {
-    recorder->SetSupportsGlyphSourceText(true);
-  }
   RefPtr<DrawTarget> dt = Factory::CreateRecordingDrawTarget(
       recorder, referenceDt,
       IntRect(IntPoint(0, 0), surfaceSize.ToUnknownSize()));

@@ -70,8 +70,8 @@ Realm::~Realm() {
     runtime_->lcovOutput().writeLCovResult(*lcovRealm_);
   }
 
-  if (hasAllocationMetadataBuilder_) {
-    disableAllocationMetadataBuilder();
+  if (allocationMetadataBuilder_) {
+    forgetAllocationMetadataBuilder();
   }
 
   if (isTracingExecution_) {
@@ -383,28 +383,36 @@ void Realm::purge() {
   objects_.iteratorCache.clearAndCompact();
 }
 
-void Realm::enableAllocationMetadataBuilder() {
-  if (hasAllocationMetadataBuilder_) {
-    return;
-  }
+// Check to see if this individual realm is recording allocations. Debuggers or
+// runtimes can try and record allocations, so this method can check to see if
+// any initialization is needed.
+bool Realm::isRecordingAllocations() { return !!allocationMetadataBuilder_; }
 
+void Realm::setAllocationMetadataBuilder(
+    const js::AllocationMetadataBuilder* builder) {
   // Clear any jitcode in the runtime, which behaves differently depending on
-  // whether there is an allocation metadata builder.
-  ReleaseAllJITCode(runtime_->gcContext());
-  zone()->incNumRealmsWithAllocMetadataBuilder();
+  // whether there is a creation callback.
+  if (bool(allocationMetadataBuilder_) != bool(builder)) {
+    ReleaseAllJITCode(runtime_->gcContext());
+    if (builder) {
+      zone()->incNumRealmsWithAllocMetadataBuilder();
+    } else {
+      zone()->decNumRealmsWithAllocMetadataBuilder();
+    }
+  }
 
   for (auto iter = wasm.instances().iter(); !iter.done(); iter.next()) {
-    iter.get()->setHasAllocationMetadataBuilder(true);
+    iter.get()->setAllocationMetadataBuilder(builder);
   }
-  hasAllocationMetadataBuilder_ = true;
+  allocationMetadataBuilder_ = builder;
 }
 
-void Realm::disableAllocationMetadataBuilder() {
-  if (!hasAllocationMetadataBuilder_) {
+void Realm::forgetAllocationMetadataBuilder() {
+  if (!allocationMetadataBuilder_) {
     return;
   }
 
-  // Unlike enableAllocationMetadataBuilder, we don't have to discard all JIT
+  // Unlike setAllocationMetadataBuilder, we don't have to discard all JIT
   // code here (code is still valid, just a bit slower because it doesn't do
   // inline GC allocations when a metadata builder is present), but we do want
   // to cancel off-thread Ion compilations to avoid races when Ion accesses
@@ -414,9 +422,9 @@ void Realm::disableAllocationMetadataBuilder() {
   zone()->decNumRealmsWithAllocMetadataBuilder();
 
   for (auto iter = wasm.instances().iter(); !iter.done(); iter.next()) {
-    iter.get()->setHasAllocationMetadataBuilder(false);
+    iter.get()->setAllocationMetadataBuilder(nullptr);
   }
-  hasAllocationMetadataBuilder_ = false;
+  allocationMetadataBuilder_ = nullptr;
 }
 
 void Realm::setNewObjectMetadata(JSContext* cx, HandleObject obj) {
@@ -424,8 +432,8 @@ void Realm::setNewObjectMetadata(JSContext* cx, HandleObject obj) {
   cx->check(compartment(), obj);
 
   AutoEnterOOMUnsafeRegion oomUnsafe;
-  if (SavedFrame* metadata =
-          SavedStacks::buildAllocationMetadata(cx, obj, oomUnsafe)) {
+  if (JSObject* metadata =
+          allocationMetadataBuilder_->build(cx, obj, oomUnsafe)) {
     MOZ_ASSERT(metadata->maybeCCWRealm() == obj->maybeCCWRealm());
     cx->check(metadata);
 
@@ -443,18 +451,6 @@ void Realm::setNewObjectMetadata(JSContext* cx, HandleObject obj) {
       oomUnsafe.crash("setNewObjectMetadata");
     }
   }
-}
-
-SavedFrame* js::GetAllocationMetadata(JSObject* obj) {
-  ObjectRealm::ObjectMetadataTable* map =
-      ObjectRealm::get(obj).objectMetadataTable.get();
-  if (map) {
-    auto ptr = map->lookup(obj);
-    if (ptr) {
-      return ptr->value();
-    }
-  }
-  return nullptr;
 }
 
 void Realm::updateDebuggerObservesFlag(unsigned flag) {
@@ -829,16 +825,6 @@ JS_PUBLIC_API JSObject* JS::GetRealmErrorPrototype(JSContext* cx) {
 JS_PUBLIC_API JSObject* JS::GetRealmIteratorPrototype(JSContext* cx) {
   CHECK_THREAD(cx);
   return GlobalObject::getOrCreateIteratorPrototype(cx, cx->global());
-}
-
-JS_PUBLIC_API JSObject* JS::GetRealmMapIteratorPrototype(JSContext* cx) {
-  CHECK_THREAD(cx);
-  return GlobalObject::getOrCreateMapIteratorPrototype(cx, cx->global());
-}
-
-JS_PUBLIC_API JSObject* JS::GetRealmSetIteratorPrototype(JSContext* cx) {
-  CHECK_THREAD(cx);
-  return GlobalObject::getOrCreateSetIteratorPrototype(cx, cx->global());
 }
 
 JS_PUBLIC_API JSObject* JS::GetRealmAsyncIteratorPrototype(JSContext* cx) {

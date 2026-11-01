@@ -460,7 +460,7 @@ nsresult HeadlessWidget::SynthesizeNativeTouchPoint(
   }
 
   if (!mSynthesizedTouchInput) {
-    mSynthesizedTouchInput = std::make_unique<MultiTouchInput>();
+    mSynthesizedTouchInput = MakeUnique<MultiTouchInput>();
   }
 
   LayoutDeviceIntPoint pointInWindow = aPoint - WidgetToScreenOffset();

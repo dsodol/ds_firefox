@@ -16,13 +16,11 @@ var contextDescriptorAll = {
   type: ContextDescriptorType.All,
 };
 
-function createRootMessageHandler(internalSessionId) {
+function createRootMessageHandler(sessionId) {
   const { RootMessageHandlerRegistry } = ChromeUtils.importESModule(
     "chrome://remote/content/shared/messagehandler/RootMessageHandlerRegistry.sys.mjs"
   );
-  return RootMessageHandlerRegistry.getOrCreateMessageHandler(
-    internalSessionId
-  );
+  return RootMessageHandlerRegistry.getOrCreateMessageHandler(sessionId);
 }
 
 /**

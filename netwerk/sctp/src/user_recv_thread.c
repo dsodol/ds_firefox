@@ -135,7 +135,8 @@ sctp_handle_ifamsg(unsigned char type, unsigned short index, struct sockaddr *sa
 		                           1);
 	} else {
 		sctp_del_addr_from_vrf(SCTP_DEFAULT_VRFID, ifa->ifa_addr,
-		                       NULL, if_nametoindex(ifa->ifa_name));
+		                       if_nametoindex(ifa->ifa_name),
+		                       ifa->ifa_name);
 	}
 	freeifaddrs(ifas);
 }

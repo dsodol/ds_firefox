@@ -1152,6 +1152,10 @@ struct BaseCompiler final {
   // Emit a table switch, `theTable` is the jump table.
   void tableSwitch(Label* theTable, RegI32 switchValue, Label* dispatchCode);
 
+  // Compare i64 and set an i32 boolean result according to the condition.
+  inline void cmp64Set(Assembler::Condition cond, RegI64 lhs, RegI64 rhs,
+                       RegI32 dest);
+
   // Round floating to integer.
   [[nodiscard]] inline bool supportsRoundInstruction(RoundingMode mode);
   inline void roundF32(RoundingMode roundingMode, RegF32 f0);
@@ -1230,20 +1234,7 @@ struct BaseCompiler final {
   //
   // Global variable access.
 
-  // The address of a global variable, together with the scratch register it is
-  // based on when it needs one. Construct it as a temporary or local that
-  // outlives the access.
-  class GlobalVarAddress {
-    Maybe<ScratchPtr> tmp_;
-    Address address_;
-
-    Address init(BaseCompiler& bc, const GlobalDesc& global);
-
-   public:
-    GlobalVarAddress(BaseCompiler& bc, const GlobalDesc& global)
-        : address_(init(bc, global)) {}
-    operator Address() const { return address_; }
-  };
+  Address addressOfGlobalVar(const GlobalDesc& global, RegPtr tmp);
 
   //////////////////////////////////////////////////////////////////////
   //
@@ -1396,11 +1387,10 @@ struct BaseCompiler final {
   inline TrapSiteDesc trapSiteDesc() const;
 
   // Generate a trap instruction for the current bytecodeOffset.
-  inline FaultingCodeRange trap(Trap t);
+  inline void trap(Trap t);
 
   // Generate a trap instruction for given location and stack map.
-  inline FaultingCodeRange trap(Trap t, const TrapSiteDesc& trapSite,
-                                StackMap* stackMap);
+  inline void trap(Trap t, const TrapSiteDesc& trapSite, StackMap* stackMap);
 
   // Abstracted helper for throwing, used for throw, rethrow, and rethrowing
   // at the end of a series of catch blocks (if none matched the exception).

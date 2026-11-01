@@ -19,8 +19,7 @@
 
 #include "nsPrimitiveHelpers.h"
 
-#include <memory>
-
+#include "mozilla/UniquePtr.h"
 #include "nsCOMPtr.h"
 #include "nsComponentManagerUtils.h"
 #include "nsISupportsPrimitives.h"
@@ -62,7 +61,7 @@ void nsPrimitiveHelpers ::CreatePrimitiveForData(const nsACString& aFlavor,
     if (primitive) {
       if (aDataLen % 2) {
         // Account for odd number of bytes.
-        auto buffer = std::make_unique<char[]>(aDataLen + 1);
+        auto buffer = mozilla::MakeUnique<char[]>(aDataLen + 1);
         if (!MOZ_LIKELY(buffer)) {
           return;
         }

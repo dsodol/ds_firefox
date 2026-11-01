@@ -5,12 +5,9 @@
 #ifndef mozilla_widget_AndroidCompositorWidget_h
 #define mozilla_widget_AndroidCompositorWidget_h
 
-#include <android/native_window.h>
-
+#include "AndroidNativeWindow.h"
 #include "CompositorWidget.h"
 #include "GLDefs.h"
-#include "SurfaceTexture.h"
-#include "mozilla/java/GeckoSurfaceWrappers.h"
 
 namespace mozilla {
 namespace widget {

@@ -207,7 +207,7 @@ class Notification : public DOMEventTargetHelper, public SupportsWeakPtr {
     nsCOMPtr<nsIPrincipal> mEffectiveStoragePrincipal = nullptr;
     bool mIsSecureContext = false;
   };
-  Maybe<ContextInfo> GetContextInfo();
+  ContextInfo GetContextInfo();
 
   WeakPtr<notification::NotificationChild> CreateActor(
       const ContextInfo& aInfo);

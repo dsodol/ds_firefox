@@ -139,7 +139,7 @@ void nsTableColFrame::Dump(int32_t aIndent) {
 
 nsTableColFrame* NS_NewTableColFrame(PresShell* aPresShell,
                                      ComputedStyle* aStyle) {
-  return new nsTableColFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell) nsTableColFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsTableColFrame)

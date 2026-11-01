@@ -7,5 +7,3 @@ sequential = true
 ["test_reftest_manifest_parser.py"]
 
 ["test_reftest_output.py"]
-
-["test_run_by_manifest.py"]

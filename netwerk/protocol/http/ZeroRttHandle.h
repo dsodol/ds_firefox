@@ -115,7 +115,7 @@ class ZeroRttHandle {
   void Cleanup();
 
  private:
-  ~ZeroRttHandle();
+  ~ZeroRttHandle() = default;
 
   // Lifecycle state.
   //   Open           : default. Race in progress. Do0RTT and Finish0RTT

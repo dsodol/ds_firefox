@@ -3,7 +3,7 @@
 :::{NOTE}
 This documentation is kept for historical purposes.
 The frecency algorithm was changed in Firefox 147. For current documentation,
-see {doc}`ranking.rst </browser/urlbar/ranking>`
+see [ranking.rst](https://firefox-source-docs.mozilla.org/browser/urlbar/ranking.html)
 :::
 
 :::{NOTE}
@@ -14,7 +14,7 @@ hardcoded defaults that were in effect at the time of removal.
 
 Before results appear in the UrlbarView, they are fetched from providers.
 
-Each [UrlbarProvider](/browser/urlbar/overview.md#urlbarprovider)
+Each [UrlbarProvider](https://firefox-source-docs.mozilla.org/browser/urlbar/overview.html#urlbarprovider)
 implements its own internal ranking and returns sorted results.
 
 Externally all the results are ranked by the {searchfox}`UrlbarMuxer <browser/components/urlbar/UrlbarMuxerStandard.sys.mjs>`

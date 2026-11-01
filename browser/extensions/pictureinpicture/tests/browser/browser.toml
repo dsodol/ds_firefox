@@ -3,7 +3,6 @@ support-files = [
   "test-mock-wrapper.html",
   "test-mock-wrapper.js",
   "test-toggle-visibility.html",
-  "test-youtube-caption-container.html",
   "../../../../../toolkit/components/pictureinpicture/tests/click-event-helper.js",
   "../../../../../toolkit/components/pictureinpicture/tests/head.js",
   "../../../../../toolkit/components/pictureinpicture/tests/test-video.mp4",
@@ -20,5 +19,6 @@ prefs = [
 ]
 
 ["browser_mock_wrapper.js"]
-
-["browser_youtube_wrapper_captions.js"]
+skip-if = [
+  "!nightly_build", # Bug 1751793
+]

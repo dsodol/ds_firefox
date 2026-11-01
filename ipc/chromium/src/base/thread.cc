@@ -149,7 +149,7 @@ void Thread::ThreadMain() {
   if (loopType == MessageLoop::TYPE_MOZILLA_NONMAINTHREAD ||
       loopType == MessageLoop::TYPE_MOZILLA_NONMAINUITHREAD) {
     auto queue = mozilla::MakeRefPtr<mozilla::ThreadEventQueue>(
-        std::make_unique<mozilla::EventQueue>());
+        mozilla::MakeUnique<mozilla::EventQueue>());
     xpcomThread = nsThreadManager::get().CreateCurrentThread(queue);
   } else {
     xpcomThread = NS_GetCurrentThread();

@@ -149,8 +149,6 @@ export class ScreenshotsComponentChild extends JSWindowActorChild {
           region: event.detail.region,
           viewportWidth: event.detail.viewportWidth,
           viewportHeight: event.detail.viewportHeight,
-          innerWidth: event.detail.innerWidth,
-          innerHeight: event.detail.innerHeight,
         });
         this.endScreenshotsOverlay();
         break;

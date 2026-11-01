@@ -119,11 +119,7 @@ pub fn natural_coeff_order(transform: HfTransformType) -> Vec<u32> {
     out
 }
 
-pub fn decode_coeff_orders(
-    used_orders: u32,
-    br: &mut BitReader,
-    lz77_scratch: &mut Vec<u32>,
-) -> Result<Vec<Permutation>> {
+pub fn decode_coeff_orders(used_orders: u32, br: &mut BitReader) -> Result<Vec<Permutation>> {
     // Use cached natural coefficient orders instead of recomputing
     let all_component_orders = 3 * NUM_ORDERS;
     let mut permutations: Vec<Permutation> = (0..all_component_orders)
@@ -132,8 +128,8 @@ pub fn decode_coeff_orders(
     if used_orders == 0 {
         return Ok(permutations);
     }
-    let histograms = Histograms::decode(NUM_PERMUTATION_CONTEXTS, br, true, lz77_scratch)?;
-    let mut reader = SymbolReader::new(&histograms, br, None, lz77_scratch)?;
+    let histograms = Histograms::decode(NUM_PERMUTATION_CONTEXTS, br, true)?;
+    let mut reader = SymbolReader::new(&histograms, br, None)?;
     for (ord, transform_type) in TRANSFORM_TYPE_LUT.iter().enumerate() {
         if used_orders & (1 << ord) == 0 {
             continue;
@@ -147,7 +143,6 @@ pub fn decode_coeff_orders(
             permutations[index].compose(&permutation);
         }
     }
-    reader.reclaim_lz77_scratch(lz77_scratch);
     reader.check_final_state(&histograms, br)?;
     Ok(permutations)
 }

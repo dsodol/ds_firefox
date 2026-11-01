@@ -62,7 +62,6 @@ const ENABLEMENT_PREFS = new Set([
   PREF_WIDGETS_ENABLED,
   RECENT_SEARCHES_ENTRY.enabledPref,
   RECENT_SEARCHES_ENTRY.systemEnabledPref,
-  "region",
   "trainhopConfig",
 ]);
 

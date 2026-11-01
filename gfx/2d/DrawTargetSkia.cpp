@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 
 #include "Blur.h"
 #include "DataSurfaceHelpers.h"
@@ -1341,48 +1340,14 @@ void DrawTargetSkia::DrawGlyphs(ScaledFont* aFont, const GlyphBuffer& aBuffer,
   // Limit the amount of internal batch allocations Skia does.
   const uint32_t kMaxGlyphBatchSize = 8192;
 
-  const bool haveClusters =
-      mSupportsGlyphSourceText && aBuffer.mText && aBuffer.mClusters;
-
   for (uint32_t offset = 0; offset < aBuffer.mNumGlyphs;) {
     uint32_t batchSize =
         std::min(aBuffer.mNumGlyphs - offset, kMaxGlyphBatchSize);
-    if (haveClusters) {
-      // Each batch only includes the source text for its own glyphs, so avoid
-      // splitting glyphs which share a cluster across batches.
-      const uint32_t* clusters = aBuffer.mClusters + offset;
-      while (offset + batchSize < aBuffer.mNumGlyphs && batchSize > 1 &&
-             clusters[batchSize] == clusters[batchSize - 1]) {
-        --batchSize;
-      }
-    }
-    uint32_t minByte = 0;
-    uint32_t textSize = 0;
-    if (haveClusters) {
-      // Associate this run with the source text it was shaped from, so
-      // backends that support it (e.g. SkPDF) can produce a correct
-      // ToUnicode/ActualText mapping even for glyphs reached via OpenType
-      // substitution. mClusters specifies, for each glyph, the byte offset in
-      // mText of the source character(s) it came from.
-      minByte = aBuffer.mClusters[offset];
-      const uint32_t maxByte = offset + batchSize < aBuffer.mNumGlyphs
-                                   ? aBuffer.mClusters[offset + batchSize]
-                                   : aBuffer.mTextLength;
-      textSize = maxByte - minByte;
-    }
     SkTextBlobBuilder builder;
-    auto runBuffer = haveClusters
-                         ? builder.allocRunTextPos(font, batchSize, textSize)
-                         : builder.allocRunPos(font, batchSize);
-    if (haveClusters) {
-      memcpy(runBuffer.utf8text, aBuffer.mText + minByte, textSize);
-    }
+    auto runBuffer = builder.allocRunPos(font, batchSize);
     for (uint32_t i = 0; i < batchSize; i++, offset++) {
       runBuffer.glyphs[i] = aBuffer.mGlyphs[offset].mIndex;
       runBuffer.points()[i] = PointToSkPoint(aBuffer.mGlyphs[offset].mPosition);
-      if (haveClusters) {
-        runBuffer.clusters[i] = aBuffer.mClusters[offset] - minByte;
-      }
     }
 
     sk_sp<SkTextBlob> text = builder.make();
@@ -1656,7 +1621,8 @@ bool DrawTarget::Draw3DTransformedSurface(SourceSurface* aSurface,
   }
   // Transform the surface bounds and clip to this DT.
   IntRect xformBounds = RoundedOut(fullMat.TransformAndClipBounds(
-      Rect(Point(0, 0), Size(aSurface->GetSize())), Rect(GetRect())));
+      Rect(Point(0, 0), Size(aSurface->GetSize())),
+      Rect(Point(0, 0), Size(GetSize()))));
   if (xformBounds.IsEmpty()) {
     return true;
   }
@@ -2029,9 +1995,8 @@ bool DrawTargetSkia::Init(const IntSize& aSize, SurfaceFormat aFormat) {
   return true;
 }
 
-bool DrawTargetSkia::Init(SkCanvas* aCanvas, bool aSupportsGlyphSourceText) {
+bool DrawTargetSkia::Init(SkCanvas* aCanvas) {
   mCanvas = aCanvas;
-  mSupportsGlyphSourceText = aSupportsGlyphSourceText;
 
   SkImageInfo imageInfo = mCanvas->imageInfo();
 

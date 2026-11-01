@@ -4,8 +4,6 @@
 
 #include "mozilla/Assertions.h"
 #include "RLBoxHunspell.h"
-
-#include <memory>
 #include "mozHunspellRLBoxGlue.h"
 #include "mozHunspellRLBoxHost.h"
 #include "nsThread.h"
@@ -29,7 +27,8 @@ RLBoxHunspell* RLBoxHunspell::Create(const nsCString& affpath,
                                      const nsCString& dpath) {
   MOZ_DIAGNOSTIC_ASSERT(NS_IsMainThread());
 
-  auto sandbox = std::make_unique<rlbox_sandbox_hunspell>();
+  mozilla::UniquePtr<rlbox_sandbox_hunspell> sandbox(
+      new rlbox_sandbox_hunspell());
 
 #if defined(MOZ_WASM_SANDBOXING_HUNSPELL) && !defined(HAVE_64BIT_BUILD)
   // By default, the rlbox sandbox size is smaller on 32-bit builds than the max

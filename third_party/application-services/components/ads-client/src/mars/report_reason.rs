@@ -6,10 +6,7 @@
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ReportReason {
     Inappropriate,
-    Misleading,
     NotInterested,
-    Offensive,
-    Scam,
     SeenTooManyTimes,
 }
 
@@ -17,10 +14,7 @@ impl ReportReason {
     pub fn as_str(&self) -> &'static str {
         match self {
             ReportReason::Inappropriate => "inappropriate",
-            ReportReason::Misleading => "misleading",
             ReportReason::NotInterested => "not_interested",
-            ReportReason::Offensive => "offensive",
-            ReportReason::Scam => "scam",
             ReportReason::SeenTooManyTimes => "seen_too_many_times",
         }
     }

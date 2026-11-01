@@ -50,8 +50,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
   extensionStorageSync: "resource://gre/modules/ExtensionStorageSync.sys.mjs",
 });
 
-// Options for initial actions to perform before syncing
+// Options for wiping data during a sync
 const SYNC_RESET_CLIENT = "resetClient";
+const SYNC_WIPE_CLIENT = "wipeClient";
+const SYNC_WIPE_REMOTE = "wipeRemote";
 
 // Actions a test can perform
 const ACTION_ADD = "add";
@@ -60,6 +62,8 @@ const ACTION_MODIFY = "modify";
 const ACTION_SET_ENABLED = "set-enabled";
 const ACTION_SYNC = "sync";
 const ACTION_SYNC_RESET_CLIENT = SYNC_RESET_CLIENT;
+const ACTION_SYNC_WIPE_CLIENT = SYNC_WIPE_CLIENT;
+const ACTION_SYNC_WIPE_REMOTE = SYNC_WIPE_REMOTE;
 const ACTION_VERIFY = "verify";
 const ACTION_VERIFY_NOT = "verify-not";
 
@@ -93,7 +97,7 @@ export var TPS = {
   _syncCount: 0,
   _syncsReportedViaTelemetry: 0,
   _syncErrors: 0,
-  _firstSyncAction: null,
+  _syncWipeAction: null,
   _tabsAdded: 0,
   _tabsFinished: 0,
   _test: null,
@@ -105,6 +109,8 @@ export var TPS = {
   shouldValidatePasswords: false,
   shouldValidateForms: false,
   _placesInitDeferred: Promise.withResolvers(),
+  SYNC_WIPE_CLIENT,
+  SYNC_WIPE_REMOTE,
   ACTIONS: [
     ACTION_ADD,
     ACTION_DELETE,
@@ -112,6 +118,8 @@ export var TPS = {
     ACTION_SET_ENABLED,
     ACTION_SYNC,
     ACTION_SYNC_RESET_CLIENT,
+    ACTION_SYNC_WIPE_CLIENT,
+    ACTION_SYNC_WIPE_REMOTE,
     ACTION_VERIFY,
     ACTION_VERIFY_NOT,
   ],
@@ -173,12 +181,12 @@ export var TPS = {
         case "weave:service:setup-complete":
           this._setupComplete = true;
 
-          if (this._firstSyncAction) {
+          if (this._syncWipeAction) {
             lazy.Weave.Svc.PrefBranch.setStringPref(
               "firstSync",
-              this._firstSyncAction
+              this._syncWipeAction
             );
-            this._firstSyncAction = null;
+            this._syncWipeAction = null;
           }
 
           break;
@@ -1311,24 +1319,24 @@ export var TPS = {
   /**
    * Triggers a sync operation
    *
-   * @param {string} [firstSyncAction]
-   *        Type of wipe to perform (empty or 'resetClient')
+   * @param {string} [wipeAction]
+   *        Type of wipe to perform (resetClient, wipeClient, wipeRemote)
    */
-  async Sync(firstSyncAction) {
+  async Sync(wipeAction) {
     if (this._syncActive) {
       this.DumpError("Sync currently active which should be impossible");
       return;
     }
     lazy.Logger.logInfo(
-      "Executing Sync" + (firstSyncAction ? ": " + firstSyncAction : "")
+      "Executing Sync" + (wipeAction ? ": " + wipeAction : "")
     );
 
     // Force a wipe action if requested. In case of an initial sync the pref
     // will be overwritten by Sync itself (see bug 992198), so ensure that we
     // also handle it via the "weave:service:setup-complete" notification.
-    if (firstSyncAction) {
-      this._firstSyncAction = firstSyncAction;
-      lazy.Weave.Svc.PrefBranch.setStringPref("firstSync", firstSyncAction);
+    if (wipeAction) {
+      this._syncWipeAction = wipeAction;
+      lazy.Weave.Svc.PrefBranch.setStringPref("firstSync", wipeAction);
     } else {
       lazy.Weave.Svc.PrefBranch.clearUserPref("firstSync");
     }
@@ -1340,7 +1348,7 @@ export var TPS = {
     ++this._syncCount;
 
     lazy.Logger.logInfo(
-      "Executing Sync" + (firstSyncAction ? ": " + firstSyncAction : "")
+      "Executing Sync" + (wipeAction ? ": " + wipeAction : "")
     );
     this._triggeredSync = true;
     await lazy.Weave.Service.sync();

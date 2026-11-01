@@ -89,7 +89,6 @@ import org.mozilla.fenix.telemetry.ACTION_SHARE_CLICKED
 import org.mozilla.fenix.telemetry.ACTION_SITE_CUSTOM_CLICKED
 import org.mozilla.fenix.telemetry.SOURCE_ADDRESS_BAR
 import org.mozilla.fenix.telemetry.SURFACE_CUSTOM_TAB
-import org.mozilla.fenix.utils.Settings
 
 private const val CUSTOM_BUTTON_CLICK_RETURN_CODE = 0
 
@@ -113,7 +112,6 @@ private const val CUSTOM_BUTTON_CLICK_RETURN_CODE = 0
  * @param navController [NavController] to use for navigating to other in-app destinations.
  * @param closeTabDelegate Callback for when the current custom tab needs to be closed.
  * @param scope [CoroutineScope] used for running long running operations in background.
- * @param settings [Settings] to access application settings.
  * @param isSandboxCustomTab Whether the custom tab is sandboxed.
  */
 @Suppress("LongParameterList")
@@ -131,7 +129,6 @@ class CustomTabBrowserToolbarMiddleware(
     private val navController: NavController,
     private val closeTabDelegate: () -> Unit,
     private val scope: CoroutineScope,
-    private val settings: Settings,
     private val isSandboxCustomTab: Boolean = false,
 ) : Middleware<BrowserToolbarState, BrowserToolbarAction> {
     private val customTab
@@ -177,7 +174,7 @@ class CustomTabBrowserToolbarMiddleware(
             }
 
             is StartPageActions.ProxyActivationAnimationFinished -> {
-                ipProtectionStore.dispatch(IPProtectionAction.ActivationAction.ProxyActivationShown)
+                ipProtectionStore.dispatch(IPProtectionAction.ProxyActivationShown)
                 next(action)
             }
 
@@ -278,21 +275,11 @@ class CustomTabBrowserToolbarMiddleware(
                 )
                 navController.nav(
                     R.id.externalAppBrowserFragment,
-                    when (settings.isMenuCustomizationEnabled) {
-                        true ->
-                            ExternalAppBrowserFragmentDirections.actionExternalAppBrowserFragmentToMenuFragment(
-                                accessPoint = MenuAccessPoint.External,
-                                customTabSessionId = customTabId,
-                                isSandboxCustomTab = isSandboxCustomTab,
-                            )
-
-                        else ->
-                            BrowserFragmentDirections.actionGlobalMenuDialogFragment(
-                                accesspoint = MenuAccessPoint.External,
-                                customTabSessionId = customTabId,
-                                isSandboxCustomTab = isSandboxCustomTab,
-                            )
-                    },
+                    BrowserFragmentDirections.actionGlobalMenuDialogFragment(
+                        accesspoint = MenuAccessPoint.External,
+                        customTabSessionId = customTabId,
+                        isSandboxCustomTab = isSandboxCustomTab,
+                    ),
                 )
             }
 

@@ -7509,7 +7509,7 @@
       ${If} $4 == $2 ; Check if the entry matches our installation directory
         StrCpy $4 $1 "" $3
         ${If} ${FileExists} "$4\*.*" ; Check if the directory exists
-          Exec '"$INSTDIR\notification-helper.exe" --profile "$4"'
+          ExecShell "open" "$INSTDIR\notification-helper.exe" '--profile "$4"' SW_HIDE
         ${EndIf}
       ${EndIf}
     ${Loop}

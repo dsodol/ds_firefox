@@ -69,10 +69,23 @@ XPCOMUtils.defineLazyPreferenceGetter(
   true
 );
 
+const kDownloadsStringBundleUrl =
+  "chrome://browser/locale/downloads/downloads.properties";
+
 const kDownloadsFluentStrings = new Localization(
   ["browser/downloads.ftl"],
   true
 );
+
+const kDownloadsStringsRequiringFormatting = {
+  contentAnalysisNoAgentError: true,
+  contentAnalysisInvalidAgentSignatureError: true,
+  contentAnalysisUnspecifiedError: true,
+  contentAnalysisTimeoutError: true,
+  sizeWithUnits: true,
+  statusSeparator: true,
+  statusSeparatorBeforeNumber: true,
+};
 
 const kMaxHistoryResultsForLimitedView = 42;
 
@@ -156,6 +169,29 @@ export var DownloadsCommon = {
   SUPPRESS_PANEL_OPEN: 1,
   SUPPRESS_ALL_DOWNLOADS_OPEN: 2,
   SUPPRESS_CONTENT_AREA_DOWNLOADS_OPEN: 4,
+
+  /**
+   * Returns an object whose keys are the string names from the downloads string
+   * bundle, and whose values are either the translated strings or functions
+   * returning formatted strings.
+   */
+  get strings() {
+    let strings = {};
+    let sb = Services.strings.createBundle(kDownloadsStringBundleUrl);
+    for (let string of sb.getSimpleEnumeration()) {
+      let stringName = string.key;
+      if (stringName in kDownloadsStringsRequiringFormatting) {
+        strings[stringName] = function () {
+          // Convert "arguments" to a real array before calling into XPCOM.
+          return sb.formatStringFromName(stringName, Array.from(arguments));
+        };
+      } else {
+        strings[stringName] = string.value;
+      }
+    }
+    delete this.strings;
+    return (this.strings = strings);
+  },
 
   /**
    * Indicates whether or not to show the 'Open in system viewer' context menu item when appropriate
@@ -377,9 +413,9 @@ export var DownloadsCommon = {
       return null;
     }
     let contentType = download.contentType;
-    let url = Services.io
-      .newURI("http://example.com") // construct the URL
-      .mutate()
+    let url = Cc["@mozilla.org/network/standard-url-mutator;1"]
+      .createInstance(Ci.nsIURIMutator)
+      .setSpec("http://example.com") // construct the URL
       .setFilePath(download.target.path)
       .finalize()
       .QueryInterface(Ci.nsIURL);
@@ -658,12 +694,14 @@ export var DownloadsCommon = {
     window,
     dialogType,
   }) {
+    let s = DownloadsCommon.strings;
+
     // All the dialogs have an action button and a cancel button, while only
     // some of them have an additonal button to remove the file. The cancel
     // button must always be the one at BUTTON_POS_1 because this is the value
     // returned by confirmEx when using ESC or closing the dialog (bug 345067).
-    let titleId = "downloads-unblock-header-unblock";
-    let firstButtonId = "downloads-unblock-button-unblock";
+    let title = s.unblockHeaderUnblock;
+    let firstButtonText = s.unblockButtonUnblock;
     let firstButtonAction = "unblock";
     let buttonFlags =
       Ci.nsIPrompt.BUTTON_TITLE_IS_STRING * Ci.nsIPrompt.BUTTON_POS_0 +
@@ -682,8 +720,8 @@ export var DownloadsCommon = {
         break;
       case "chooseOpen":
         // Use the unblock and open file actions. The default is open file.
-        titleId = "downloads-unblock-header-open";
-        firstButtonId = "downloads-unblock-button-open";
+        title = s.unblockHeaderOpen;
+        firstButtonText = s.unblockButtonOpen;
         firstButtonAction = "open";
         buttonFlags +=
           Ci.nsIPrompt.BUTTON_TITLE_IS_STRING * Ci.nsIPrompt.BUTTON_POS_2 +
@@ -694,38 +732,29 @@ export var DownloadsCommon = {
         return "cancel";
     }
 
-    let messageId;
-    let tipId = "downloads-unblock-tip";
+    let message;
+    let tip = s.unblockTip2;
     switch (verdict) {
       case lazy.Downloads.Error.BLOCK_VERDICT_UNCOMMON:
-        messageId = "downloads-unblock-type-uncommon";
+        message = s.unblockTypeUncommon2;
         break;
       case lazy.Downloads.Error.BLOCK_VERDICT_POTENTIALLY_UNWANTED:
         if (becauseBlockedByReputationCheck) {
-          messageId = "downloads-unblock-type-potentially-unwanted";
+          message = s.unblockTypePotentiallyUnwanted2;
         } else {
-          messageId = "downloads-unblock-type-content-analysis-warn";
-          tipId = "downloads-unblock-content-analysis-tip";
+          message = s.unblockTypeContentAnalysisWarn;
+          tip = s.unblockContentAnalysisTip;
         }
         break;
       case lazy.Downloads.Error.BLOCK_VERDICT_INSECURE:
-        messageId = "downloads-unblock-insecure";
+        message = s.unblockInsecure2;
         break;
       default:
         // Assume Downloads.Error.BLOCK_VERDICT_MALWARE
-        messageId = "downloads-unblock-type-malware";
+        message = s.unblockTypeMalware;
         break;
     }
-
-    let [title, message, tip, firstButton, confirmBlockButton] =
-      await kDownloadsFluentStrings.formatMessages([
-        titleId,
-        messageId,
-        tipId,
-        firstButtonId,
-        "downloads-unblock-button-confirm-block",
-      ]);
-    let getLabel = msg => msg.attributes.find(a => a.name == "label").value;
+    message += "\n\n" + tip;
 
     Services.ww.registerNotification(function onOpen(subj, topic) {
       if (topic == "domwindowopened" && subj instanceof Ci.nsIDOMWindow) {
@@ -753,12 +782,12 @@ export var DownloadsCommon = {
 
     let rv = Services.prompt.confirmEx(
       window,
-      title.value,
-      message.value + "\n\n" + tip.value,
+      title,
+      message,
       buttonFlags,
-      getLabel(firstButton),
+      firstButtonText,
       null,
-      getLabel(confirmBlockButton),
+      s.unblockButtonConfirmBlock,
       null,
       {}
     );

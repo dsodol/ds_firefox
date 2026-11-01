@@ -15,8 +15,7 @@ export class GenAIParent extends JSWindowActorParent {
     lazy.GenAI.handleShortcutsMessage(
       name,
       data,
-      this.browsingContext.topFrameElement,
-      this.manager.documentURI
+      this.browsingContext.topFrameElement
     );
   }
 }

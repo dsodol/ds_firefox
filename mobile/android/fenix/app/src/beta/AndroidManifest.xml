@@ -11,6 +11,5 @@
                 - https://issuetracker.google.com/issues/36905922
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    android:sharedUserId="${sharedUserId}"
-    android:sharedUserMaxSdkVersion="32">
+    android:sharedUserId="${sharedUserId}">
 </manifest>

@@ -13,7 +13,10 @@ registerCleanupFunction(() => {
 
 add_setup(async () => {
   await SpecialPowers.pushPrefEnv({
-    set: [["signon.firefoxRelay.showToAllBrowsers", true]],
+    set: [
+      ["signon.firefoxRelay.showToAllBrowsers", true],
+      ["browser.settings-redesign.enabled", true],
+    ],
   });
 });
 

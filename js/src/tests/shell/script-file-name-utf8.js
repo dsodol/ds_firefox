@@ -167,7 +167,6 @@ function getLcovInfoScriptName(fileName) {
 
 // Return the file name from the error during module import.
 function moduleResolutionError(fileName) {
-  clearModules();
   const a = parseModule(`import { x } from "b";`, fileName);
   const ma = registerModule("a", a);
   const b = parseModule(`export var y = 10;`);

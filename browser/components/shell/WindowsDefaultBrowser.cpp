@@ -72,7 +72,7 @@ bool GetAppRegName(mozilla::UniquePtr<wchar_t[]>& aAppRegName) {
   const wchar_t* format = L"%s%I64X";
   int bufferSize = _scwprintf(format, APP_REG_NAME_BASE, hash);
   ++bufferSize;  // Extra byte for terminating null
-  aAppRegName = std::make_unique<wchar_t[]>(bufferSize);
+  aAppRegName = mozilla::MakeUnique<wchar_t[]>(bufferSize);
 
   _snwprintf_s(aAppRegName.get(), bufferSize, _TRUNCATE, format,
                APP_REG_NAME_BASE, hash);
@@ -101,7 +101,8 @@ bool LaunchControlPanelDefaultPrograms() {
   GetAppRegName(appRegName);
   int bufferSize = _scwprintf(paramFormat, appRegName.get());
   ++bufferSize;  // Extra byte for terminating null
-  auto params = std::make_unique<wchar_t[]>(bufferSize);
+  mozilla::UniquePtr<wchar_t[]> params =
+      mozilla::MakeUnique<wchar_t[]>(bufferSize);
   _snwprintf_s(params.get(), bufferSize, _TRUNCATE, paramFormat,
                appRegName.get());
 
@@ -138,7 +139,7 @@ static bool LaunchMsSettingsProtocol() {
           L"ms-settings:defaultapps?registeredAUMID=%s!App";
       int bufferSize = _scwprintf(paramFormat, packageFamilyName.get());
       ++bufferSize;  // Extra byte for terminating null
-      params = std::make_unique<wchar_t[]>(bufferSize);
+      params = mozilla::MakeUnique<wchar_t[]>(bufferSize);
       _snwprintf_s(params.get(), bufferSize, _TRUNCATE, paramFormat,
                    packageFamilyName.get());
     }
@@ -153,7 +154,7 @@ static bool LaunchMsSettingsProtocol() {
             : L"ms-settings:defaultapps?registeredAppMachine=%s";
     int bufferSize = _scwprintf(paramFormat, appRegName.get());
     ++bufferSize;  // Extra byte for terminating null
-    params = std::make_unique<wchar_t[]>(bufferSize);
+    params = mozilla::MakeUnique<wchar_t[]>(bufferSize);
     _snwprintf_s(params.get(), bufferSize, _TRUNCATE, paramFormat,
                  appRegName.get());
   }
@@ -254,7 +255,7 @@ static bool IsSystemSettingsProcessByPid(DWORD aPid) {
   }
 
   DWORD bufferLength{MAX_PATH};
-  auto buffer{std::make_unique<wchar_t[]>(bufferLength)};
+  auto buffer{mozilla::MakeUnique<wchar_t[]>(bufferLength)};
   if (::QueryFullProcessImageNameW(process, 0, buffer.get(), &bufferLength)) {
     LPCWSTR kProcessName{L"SystemSettings.exe"};
     return PathHasFilename(buffer.get(), kProcessName);

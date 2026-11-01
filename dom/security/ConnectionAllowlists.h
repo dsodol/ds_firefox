@@ -18,7 +18,6 @@
 #include "nsString.h"
 #include "nsTArray.h"
 
-class nsPIDOMWindowInner;
 class nsILoadInfo;
 
 namespace mozilla::ipc {
@@ -54,7 +53,6 @@ class ConnectionAllowlists final {
   }
 
   bool ShouldLoad(nsIURI* aURI, nsILoadInfo* aLoadInfo) const;
-  bool ShouldBlockWebRTC(nsPIDOMWindowInner* aWindow) const;
 
   void ToArgs(mozilla::ipc::ConnectionAllowlistsArgs& aArgs) const;
   static already_AddRefed<ConnectionAllowlists> FromArgs(
@@ -108,14 +106,8 @@ class ConnectionAllowlists final {
 
   bool ShouldBlockURL(nsIURI* aURI, nsILoadInfo* aLoadInfo) const;
 
-  using Resource = Variant<nsIURI*, nsCString>;
-
-  static void ReportViolation(const Resource& aResource,
-                              nsPIDOMWindowInner* aWindow,
-                              const Allowlist& aAllowlist);
-
-  static void ReportToConsole(const Resource& aResource,
-                              uint64_t aInnerWindowID,
+  static void ReportViolation(const Variant<nsIURI*, nsCString>& aResource,
+                              nsILoadInfo* aLoadInfo,
                               const Allowlist& aAllowlist);
 
   static Maybe<Allowlist> ParseConnectionAllowlistHeader(

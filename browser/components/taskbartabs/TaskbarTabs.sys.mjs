@@ -80,9 +80,6 @@ export const TaskbarTabs = new (class {
    * attempted even if the Taskbar Tab already exists.
    * @param {DOMWindow?} [aDetails.window] - The window to associate any UI
    * with, if applicable.
-   * @returns {Promise<{created: boolean, taskbarTab: TaskbarTab,
-   * pin: ?Promise<{rejected: boolean}>}>} `pin` settles once the pin attempt,
-   * including any OS prompt, completes, or is null if no pin was attempted.
    */
   async findOrCreateTaskbarTab(aUrl, aUserContextId, aDetails = {}) {
     if (aDetails.manifest) {
@@ -106,10 +103,9 @@ export const TaskbarTabs = new (class {
       aDetails
     );
 
-    let pin = null;
     if (result.created || aDetails.ensurePinned) {
       // Don't wait for the pinning to complete.
-      pin = this.#pinTaskbarTab(result.taskbarTab, result.icon, {
+      this.#pinTaskbarTab(result.taskbarTab, result.icon, {
         window: aDetails.window ?? null,
       });
     }
@@ -117,7 +113,6 @@ export const TaskbarTabs = new (class {
     return {
       created: result.created,
       taskbarTab: result.taskbarTab,
-      pin,
     };
   }
 
@@ -157,7 +152,7 @@ export const TaskbarTabs = new (class {
       aDetails
     );
     this.#registry.patchTaskbarTab(aTaskbarTab, {
-      shortcutRelativePath: result.shortcut,
+      shortcutRelativePath: result,
     });
     return result;
   }

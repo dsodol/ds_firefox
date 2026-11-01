@@ -198,13 +198,12 @@ function normalized_superellipse_half_corner(superellipse_param) {
  * @param {Vector2D} normalizedV2
  * @param {number} superellipse_param
  * @param {"fill" | "stroke"} mode
- * @returns {Path2D | null}
  */
 function corner_clip_out_path(startRadius, endRadius, startInset, endInset,
   targetOuter, normalizedV3, normalizedV2,
   superellipse_param, mode = 'fill') {
   if (!startRadius || !endRadius || superellipse_param === Infinity)
-    return null;
+    return new Path2D();
 
   const originalOuter = extend_point(targetOuter, normalizedV3.scale(-endInset),
     normalizedV2.scale(-startInset));
@@ -221,7 +220,7 @@ function corner_clip_out_path(startRadius, endRadius, startInset, endInset,
   const insetDiff = clamp(-startRadius, endInset - startInset, endRadius);
 
   if (superellipse_param <= 0 && (insetDiff == -startRadius || insetDiff == endRadius))
-    return null;
+    return new Path2D();
 
   let startControlPointX = controlPointX;
   let endControlPointX = controlPointX;
@@ -356,11 +355,12 @@ function corner_clip_out_path(startRadius, endRadius, startInset, endInset,
 }
 
 /**
+ *
  * @param {CanvasRenderingContext2D} ctx
  * @param {object} style
  * @param {DOMRectReadOnly} borderEdge
  * @param {{left: number, top: number, right: number, bottom: number}} inset
- * @param {"fill" | "stroke" | "clip" | "stroke-clip"} mode
+ * @param {"fill" | "stroke" | "clip-fill" | "clip-stroke"} mode
  */
 function draw_contoured_path(ctx, style, borderEdge, inset, mode = 'fill') {
   const targetEdge = new DOMRectReadOnly(
@@ -387,39 +387,33 @@ function draw_contoured_path(ctx, style, borderEdge, inset, mode = 'fill') {
   const topLeftInset = adjusted_inset(borderEdge.width, borderEdge.height,
     topLeftRadius, inset.left, inset.top);
 
-  if (mode !== 'clip')
-    ctx.save();
-
-  const targetRectPath = new Path2D();
-  targetRectPath.rect(
-    targetEdge.x, targetEdge.y, targetEdge.width, targetEdge.height);
-
-  if (mode === 'stroke') {
-    ctx.strokeStyle = 'blue';
-    ctx.lineWidth = 3;
-  } else if (mode === 'stroke-clip') {
-    ctx.strokeStyle = 'green';
-    ctx.lineWidth = 3;
-    ctx.stroke(targetRectPath);
-  }
-
-  ctx.clip(targetRectPath, 'evenodd');
-
-  const cornerMode = mode.startsWith('stroke') ? 'stroke' : 'fill';
-
-  function add_corner(cornerPath) {
-    if (!cornerPath)
+  function add_corner(path) {
+    if (!path)
       return;
+    const targetRectPath = new Path2D();
+    targetRectPath.rect(
+      targetEdge.x, targetEdge.y, targetEdge.width, targetEdge.height);
 
-    if (cornerMode === 'fill') {
-      const clipPath = new Path2D(targetRectPath);
-      clipPath.addPath(cornerPath);
-      ctx.clip(clipPath, 'evenodd');
-    } else {
-      ctx.stroke(cornerPath);
+    if (mode === 'fill' || mode === 'clip-fill') {
+      targetRectPath.addPath(path);
+      ctx.clip(targetRectPath, 'evenodd');
+    } else if (mode === 'stroke') {
+      ctx.clip(targetRectPath, 'evenodd');
+      ctx.strokeStyle = 'blue';
+      ctx.lineWidth = 3;
+      ctx.stroke(path);
+    } else if (mode === 'clip-stroke') {
+      targetRectPath.addPath(path);
+      ctx.strokeStyle = 'green';
+      ctx.lineWidth = 3;
+      ctx.stroke(targetRectPath);
     }
   };
 
+  if (mode !== 'clip-fill')
+    ctx.save();
+
+  const cornerMode = mode.endsWith('fill') ? 'fill' : 'stroke';
   add_corner(corner_clip_out_path(
     topRightRadius[1], topRightRadius[0], topRightInset[1], topRightInset[0],
     new DOMPoint(targetEdge.right, targetEdge.top), new Vector2D(-1, 0),
@@ -442,16 +436,18 @@ function draw_contoured_path(ctx, style, borderEdge, inset, mode = 'fill') {
   if (mode === 'fill')
     ctx.fillRect(targetEdge.x, targetEdge.y, targetEdge.width, targetEdge.height);
 
-  if (mode !== 'clip')
+  if (mode !== 'clip-fill')
     ctx.restore();
+  else
+    ctx.save();
 }
 
 /**
+ *
  * @param {object} style
  * @param {CanvasRenderingContext2D} ctx
  * @param {number} width
  * @param {number} height
- * @param {"fill" | "stroke"} mode
  */
 function render(style, ctx, width, height, mode = 'fill') {
   const border_rect = new DOMRect(0, 0, width, height);
@@ -462,16 +458,14 @@ function render(style, ctx, width, height, mode = 'fill') {
       top: -style['margin-top'],
       right: -style['margin-right'],
       bottom: -style['margin-bottom']
-    }, mode === 'fill' ? 'clip' : 'stroke-clip');
+    }, `clip-${mode}`);
   }
 
-  const shadow_spread = style['shadow-spread'];
-  const shadow_offset_x = style['shadow-offset-x'];
-  const shadow_offset_y = style['shadow-offset-y'];
-  const has_shadow = shadow_offset_x || shadow_offset_y || shadow_spread;
-  if (has_shadow && style['shadow-position'] !== 'inset') {
+  const shadow_spread = style['shadow-spread'] || 0;
+  const shadow_offset = [style['shadow-offset-x'] || 0, style['shadow-offset-y'] || 0];
+  if (shadow_offset[0] || shadow_offset[1] || shadow_spread) {
     ctx.save();
-    ctx.translate(shadow_offset_x, shadow_offset_y);
+    ctx.translate(...shadow_offset);
     ctx.fillStyle = 'black';
     draw_contoured_path(ctx, style, border_rect, {
       left: -shadow_spread,
@@ -482,48 +476,21 @@ function render(style, ctx, width, height, mode = 'fill') {
     ctx.restore();
   }
 
-  const has_border = style['border-left-width'] || style['border-top-width']
-    || style['border-right-width'] || style['border-bottom-width'];
-  if (has_border) {
-    ctx.fillStyle = 'purple';
-    draw_contoured_path(ctx, style, border_rect, {
-      left: 0,
-      top: 0,
-      right: 0,
-      bottom: 0
-    }, mode);
-  }
+  ctx.fillStyle = 'purple';
+  draw_contoured_path(ctx, style, border_rect, {
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0
+  }, mode);
 
-  if (!has_shadow || style['shadow-position'] !== 'inset') {
-    ctx.fillStyle = 'yellow';
-    draw_contoured_path(ctx, style, border_rect, {
-      left: style['border-left-width'],
-      top: style['border-top-width'],
-      right: style['border-right-width'],
-      bottom: style['border-bottom-width']
-    }, mode);
-  } else {
-    ctx.fillStyle = 'black';
-    for (const padding_path_mode of [mode, `clip`]) {
-      draw_contoured_path(ctx, style, border_rect, {
-        left: style['border-left-width'],
-        top: style['border-top-width'],
-        right: style['border-right-width'],
-        bottom: style['border-bottom-width']
-      }, padding_path_mode);
-    }
-
-    ctx.save();
-    ctx.translate(shadow_offset_x, shadow_offset_y);
-    ctx.fillStyle = 'yellow';
-    draw_contoured_path(ctx, style, border_rect, {
-      left: style['border-left-width'] + shadow_spread,
-      top: style['border-top-width'] + shadow_spread,
-      right: style['border-right-width'] + shadow_spread,
-      bottom: style['border-bottom-width'] + shadow_spread
-    }, mode);
-    ctx.restore();
-  }
+  ctx.fillStyle = 'yellow';
+  draw_contoured_path(ctx, style, border_rect, {
+    left: style['border-left-width'],
+    top: style['border-top-width'],
+    right: style['border-right-width'],
+    bottom: style['border-bottom-width']
+  }, mode);
 }
 
 const padding = 100;
@@ -531,7 +498,7 @@ function create_ref_canvas(style, width, height, mode = 'fill') {
   const canvas = document.createElement('canvas');
   canvas.width = width + padding * 2;
   canvas.height = height + padding * 2;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const ctx = canvas.getContext('2d');
   ctx.translate(padding, padding);
   canvas.style.position = 'absolute';
   canvas.style.top = '0';
@@ -541,13 +508,15 @@ function create_ref_canvas(style, width, height, mode = 'fill') {
 }
 
 function create_ref(style, width, height) {
-  const article = document.createElement('article');
-  article.style.position = 'relative';
+  const div = document.createElement('div');
+  div.style.width = width + 'px';
+  div.style.height = height + 'px';
+  div.style.position = 'relative';
   const fill_canvas = create_ref_canvas(style, width, height, 'fill');
   const stroke_canvas = create_ref_canvas(style, width, height, 'stroke');
-  article.appendChild(fill_canvas);
-  article.appendChild(stroke_canvas);
-  return article;
+  div.appendChild(fill_canvas);
+  div.appendChild(stroke_canvas);
+  return div;
 }
 
 function create_actual(style, width, height) {
@@ -589,7 +558,7 @@ function create_actual(style, width, height) {
   }
 
   div.style.boxShadow =
-    `${style['shadow-position']} ${style['shadow-offset-x']}px ${style['shadow-offset-y']}px 0px ${style['shadow-spread']}px black`;
+    `${style['shadow-offset-x'] || 0}px ${style['shadow-offset-y'] || 0}px 0px ${style['shadow-spread'] || 0}px black`;
 
   div.style.borderRadius = border_radius;
 
@@ -625,8 +594,8 @@ const corner_shape_keywords = new Map([
  */
 function create_element_with_corner_shape(params, mode) {
   const style = Object.fromEntries(params.entries());
-  const width = params.has('width') ? parseFloat(params.get('width')) : 200;
-  const height = params.has('height') ? parseFloat(params.get('height')) : 100;
+  const width = +(params.get('width') || 200);
+  const height = +(params.get('height') || 100);
   for (const prop
     of ['border-left-width', 'border-top-width', 'border-bottom-width',
       'border-right-width']) {
@@ -634,15 +603,16 @@ function create_element_with_corner_shape(params, mode) {
       params.has('border-width') ? parseFloat(params.get('border-width')) : 0;
   }
 
-  style['shadow-position'] = params.get('shadow-position') === 'inset' ? 'inset' : '';
   for (const prop
-    of ['shadow-spread', 'shadow-offset-x', 'shadow-offset-y']) {
+    of ['shadow-spread', 'shadow-offset-x',
+      'shadow-offset-y']) {
     style[prop] = params.has(prop) ? parseFloat(params.get(prop)) : 0;
   }
 
   style['clip-path'] = params.get('clip-path') === 'margin-box' ? 'margin-box' : 'none';
   for (const prop
-    of ['margin-left', 'margin-top', 'margin-bottom', 'margin-right']) {
+    of ['margin-left', 'margin-top', 'margin-bottom',
+      'margin-right']) {
     style[prop] = params.has(prop) ? parseFloat(params.get(prop)) :
       params.has('margin') ? parseFloat(params.get('margin')) : 0;
   }

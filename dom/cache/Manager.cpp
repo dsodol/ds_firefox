@@ -67,24 +67,22 @@ nsresult MaybeUpdatePaddingFile(nsIFile* aBaseDir, mozIStorageConnection* aConn,
   return NS_OK;
 }
 
-Result<Maybe<CipherKey>, nsresult> GetOrCreateCipherKey(
-    NotNull<Context*> aContext, const nsID& aBodyId, bool aCreate) {
+Maybe<CipherKey> GetOrCreateCipherKey(NotNull<Context*> aContext,
+                                      const nsID& aBodyId, bool aCreate) {
   const auto& maybeMetadata = aContext->MaybeCacheDirectoryMetadataRef();
   MOZ_DIAGNOSTIC_ASSERT(maybeMetadata);
 
-  if (!maybeMetadata->ShouldEncrypt()) {
-    return Maybe<CipherKey>(Nothing());
+  auto privateOrigin = maybeMetadata->mIsPrivate;
+  if (!privateOrigin) {
+    return Nothing{};
   }
 
   nsCString bodyIdStr{aBodyId.ToString().get()};
 
   auto& cipherKeyManager = aContext->MutableCipherKeyManagerRef();
 
-  if (aCreate) {
-    QM_TRY_UNWRAP(auto key, cipherKeyManager.Ensure(bodyIdStr));
-    return Some(key);
-  }
-  return cipherKeyManager.Get(bodyIdStr);
+  return aCreate ? Some(cipherKeyManager.Ensure(bodyIdStr))
+                 : cipherKeyManager.Get(bodyIdStr);
 }
 
 // An Action that is executed when a Context is first created.  It ensures that
@@ -659,11 +657,10 @@ class Manager::CacheMatchAction final : public Manager::BaseAction {
     nsCOMPtr<nsIInputStream> stream;
     if (mArgs.openMode() == OpenMode::Eager) {
       QM_TRY_UNWRAP(
-          auto maybeCipherKey,
-          GetOrCreateCipherKey(WrapNotNull(mManager->mContext), bodyId,
-                               /* aCreate */ false));
-      QM_TRY_UNWRAP(stream, BodyOpen(aDirectoryMetadata, *aDBDir, bodyId,
-                                     std::move(maybeCipherKey)));
+          stream,
+          BodyOpen(aDirectoryMetadata, *aDBDir, bodyId,
+                   GetOrCreateCipherKey(WrapNotNull(mManager->mContext), bodyId,
+                                        /* aCreate */ false)));
     }
 
     // If we entered shutdown on the main thread while we were doing IO,
@@ -736,12 +733,11 @@ class Manager::CacheMatchAllAction final : public Manager::BaseAction {
 
       nsCOMPtr<nsIInputStream> stream;
       if (mArgs.openMode() == OpenMode::Eager) {
-        QM_TRY_UNWRAP(
-            auto maybeCipherKey,
-            GetOrCreateCipherKey(WrapNotNull(mManager->mContext), bodyId,
-                                 /* aCreate */ false));
-        QM_TRY_UNWRAP(stream, BodyOpen(aDirectoryMetadata, *aDBDir, bodyId,
-                                       std::move(maybeCipherKey)));
+        QM_TRY_UNWRAP(stream,
+                      BodyOpen(aDirectoryMetadata, *aDBDir, bodyId,
+                               GetOrCreateCipherKey(
+                                   WrapNotNull(mManager->mContext), bodyId,
+                                   /* aCreate */ false)));
       }
 
       // If we entered shutdown on the main thread while we were doing IO,
@@ -1076,9 +1072,9 @@ class Manager::CachePutAllAction final : public DBAction {
     nsID bodyId{};
     QM_TRY(MOZ_TO_RESULT(idGen->GenerateUUIDInPlace(&bodyId)));
 
-    QM_TRY_UNWRAP(auto maybeKey,
-                  GetOrCreateCipherKey(WrapNotNull(mManager->mContext), bodyId,
-                                       /* aCreate */ true));
+    Maybe<CipherKey> maybeKey =
+        GetOrCreateCipherKey(WrapNotNull(mManager->mContext), bodyId,
+                             /* aCreate */ true);
 
     QM_TRY_INSPECT(
         const auto& copyContext,
@@ -1301,12 +1297,11 @@ class Manager::CacheKeysAction final : public Manager::BaseAction {
 
       nsCOMPtr<nsIInputStream> stream;
       if (mArgs.openMode() == OpenMode::Eager) {
-        QM_TRY_UNWRAP(
-            auto maybeCipherKey,
-            GetOrCreateCipherKey(WrapNotNull(mManager->mContext), bodyId,
-                                 /* aCreate */ false));
-        QM_TRY_UNWRAP(stream, BodyOpen(aDirectoryMetadata, *aDBDir, bodyId,
-                                       std::move(maybeCipherKey)));
+        QM_TRY_UNWRAP(stream,
+                      BodyOpen(aDirectoryMetadata, *aDBDir, bodyId,
+                               GetOrCreateCipherKey(
+                                   WrapNotNull(mManager->mContext), bodyId,
+                                   /* aCreate */ false)));
       }
 
       // If we entered shutdown on the main thread while we were doing IO,
@@ -1383,11 +1378,10 @@ class Manager::StorageMatchAction final : public Manager::BaseAction {
     nsCOMPtr<nsIInputStream> stream;
     if (mArgs.openMode() == OpenMode::Eager) {
       QM_TRY_UNWRAP(
-          auto maybeCipherKey,
-          GetOrCreateCipherKey(WrapNotNull(mManager->mContext), bodyId,
-                               /* aCreate */ false));
-      QM_TRY_UNWRAP(stream, BodyOpen(aDirectoryMetadata, *aDBDir, bodyId,
-                                     std::move(maybeCipherKey)));
+          stream,
+          BodyOpen(aDirectoryMetadata, *aDBDir, bodyId,
+                   GetOrCreateCipherKey(WrapNotNull(mManager->mContext), bodyId,
+                                        /* aCreate */ false)));
     }
 
     // If we entered shutdown on the main thread while we were doing IO,
@@ -1622,11 +1616,11 @@ class Manager::OpenStreamAction final : public Manager::BaseAction {
       mozIStorageConnection* aConn) override {
     MOZ_DIAGNOSTIC_ASSERT(aDBDir);
 
-    QM_TRY_UNWRAP(auto maybeCipherKey,
-                  GetOrCreateCipherKey(WrapNotNull(mManager->mContext), mBodyId,
-                                       /* aCreate */ false));
-    QM_TRY_UNWRAP(mBodyStream, BodyOpen(aDirectoryMetadata, *aDBDir, mBodyId,
-                                        std::move(maybeCipherKey)));
+    QM_TRY_UNWRAP(
+        mBodyStream,
+        BodyOpen(aDirectoryMetadata, *aDBDir, mBodyId,
+                 GetOrCreateCipherKey(WrapNotNull(mManager->mContext), mBodyId,
+                                      /* aCreate */ false)));
 
     return NS_OK;
   }

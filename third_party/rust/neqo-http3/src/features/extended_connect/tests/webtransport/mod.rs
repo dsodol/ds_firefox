@@ -4,7 +4,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-mod anticipated_streams;
 mod datagrams;
 mod negotiation;
 mod sessions;
@@ -12,10 +11,7 @@ mod streams;
 use std::{cell::RefCell, rc::Rc, time::Duration};
 
 use neqo_common::{event::Provider as _, header::HeadersExt as _, to_u64};
-use neqo_transport::{
-    ConnectionParameters, Pmtud, StreamId, StreamType, recv_stream, send_stream,
-    streams::SendGroupId,
-};
+use neqo_transport::{ConnectionParameters, Pmtud, StreamId, StreamType, recv_stream, send_stream};
 use nss::AuthenticationStatus;
 use test_fixture::{
     CountingConnectionIdGenerator, DEFAULT_ADDR, DEFAULT_ALPN_H3, DEFAULT_KEYS,
@@ -623,10 +619,9 @@ impl WtTest {
         self.client.webtransport_max_datagram_size(stream_id)
     }
 
-    fn send_datagram(&mut self, stream_id: StreamId, buf: &[u8]) -> Result<(), Error> {
+    fn send_datagram(&mut self, stream_id: StreamId, buf: &[u8]) -> Result<bool, Error> {
         self.client
-            .webtransport_send_datagram(stream_id, buf, None, now(), SendGroupId::new(0), 0)
-            .map(|_outcome| ())
+            .webtransport_send_datagram(stream_id, buf, None, now())
     }
 
     fn check_datagram_received_client(

@@ -91,15 +91,11 @@ After creating the stream with the algorithms, the rough flow will look like thi
 
 ```{mermaid}
 sequenceDiagram
-   participant JavaScript
-   participant ReadableStream
-   participant UnderlyingSourceAlgorithmsWrapper
-   participant DS as (Data source)
    JavaScript->>ReadableStream: await reader.read()
    ReadableStream->>UnderlyingSourceAlgorithmsWrapper: PullCallback()
-   UnderlyingSourceAlgorithmsWrapper->>DS: (implementation detail)
-   NOTE left of DS: (Can be file IO, network IO, etc.)
-   DS->>UnderlyingSourceAlgorithmsWrapper: (notifies back)
+   UnderlyingSourceAlgorithmsWrapper->>(Data source): (implementation detail)
+   NOTE left of (Data source): (Can be file IO, network IO, etc.)
+   (Data source)->>UnderlyingSourceAlgorithmsWrapper: (notifies back)
    UnderlyingSourceAlgorithmsWrapper->>ReadableStream: EnqueueNative()
    ReadableStream->>JavaScript: Resolves reader.read()
 ```

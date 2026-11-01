@@ -184,7 +184,7 @@ android-arm-shippable/opt:
         enable-full-crashsymbols: true
         shippable: true
     shipping-phase: build
-    shipping-product: firefox-android
+    shipping-product: fennec
     index:
         job-name: android-arm-opt
         type: android-shippable-with-multi-l10n
@@ -198,7 +198,6 @@ android-arm-shippable/opt:
             TOOLTOOL_MANIFEST: "mobile/android/config/tooltool-manifests/android/releng.manifest"
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
-            SOURCE_DATE_EPOCH: "{build_date}"
     run:
         actions: [get-secrets, build, multi-l10n]
         config: [taskcluster_nightly.py]
@@ -216,7 +215,7 @@ android-arm-shippable-lite/opt:
         enable-full-crashsymbols: true
         shippable: true
     shipping-phase: build
-    shipping-product: firefox-android
+    shipping-product: fennec
     index:
         job-name: android-arm-lite-opt
         type: android-shippable-with-multi-l10n
@@ -230,7 +229,6 @@ android-arm-shippable-lite/opt:
             TOOLTOOL_MANIFEST: "mobile/android/config/tooltool-manifests/android/releng.manifest"
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
-            SOURCE_DATE_EPOCH: "{build_date}"
             PERFHERDER_EXTRA_OPTIONS: lite
     mozconfig:
         platform: android-arm-lite
@@ -389,7 +387,7 @@ android-aarch64-shippable/opt:
         enable-full-crashsymbols: true
         shippable: true
     shipping-phase: build
-    shipping-product: firefox-android
+    shipping-product: fennec
     index:
         job-name: android-aarch64-opt
         type: android-shippable
@@ -403,7 +401,6 @@ android-aarch64-shippable/opt:
             TOOLTOOL_MANIFEST: "mobile/android/config/tooltool-manifests/android/releng.manifest"
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
-            SOURCE_DATE_EPOCH: "{build_date}"
     run:
         actions: [get-secrets, build, multi-l10n]
         config: [taskcluster_nightly.py]
@@ -421,7 +418,7 @@ android-aarch64-shippable-lite/opt:
         enable-full-crashsymbols: true
         shippable: true
     shipping-phase: build
-    shipping-product: firefox-android
+    shipping-product: fennec
     index:
         job-name: android-aarch64-lite-opt
         type: android-shippable
@@ -435,7 +432,6 @@ android-aarch64-shippable-lite/opt:
             TOOLTOOL_MANIFEST: "mobile/android/config/tooltool-manifests/android/releng.manifest"
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
-            SOURCE_DATE_EPOCH: "{build_date}"
             PERFHERDER_EXTRA_OPTIONS: lite
     mozconfig:
         platform: android-aarch64-lite
@@ -623,7 +619,7 @@ android-x86_64-shippable/opt:
         enable-full-crashsymbols: true
         shippable: true
     shipping-phase: build
-    shipping-product: firefox-android
+    shipping-product: fennec
     index:
         job-name: android-x86_64-opt
         type: android-shippable
@@ -637,7 +633,6 @@ android-x86_64-shippable/opt:
             TOOLTOOL_MANIFEST: "mobile/android/config/tooltool-manifests/android-x86/releng.manifest"
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
-            SOURCE_DATE_EPOCH: "{build_date}"
     run:
         actions: [get-secrets, build, multi-l10n]
         config: [taskcluster_nightly.py]
@@ -655,7 +650,7 @@ android-x86_64-shippable-lite/opt:
         enable-full-crashsymbols: true
         shippable: true
     shipping-phase: build
-    shipping-product: firefox-android
+    shipping-product: fennec
     index:
         job-name: android-x86_64-lite-opt
         type: android-shippable
@@ -669,7 +664,6 @@ android-x86_64-shippable-lite/opt:
             TOOLTOOL_MANIFEST: "mobile/android/config/tooltool-manifests/android-x86/releng.manifest"
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             MOZ_GENERATE_SBOM: "1"
-            SOURCE_DATE_EPOCH: "{build_date}"
             PERFHERDER_EXTRA_OPTIONS: lite
     mozconfig:
         platform: android-x86_64-lite

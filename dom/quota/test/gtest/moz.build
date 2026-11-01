@@ -17,7 +17,6 @@ UNIFIED_SOURCES = [
     "QuotaManagerDependencyFixture.cpp",
     "QuotaManagerTestHelpers.cpp",
     "TestCheckedUnsafePtr.cpp",
-    "TestCipherKeyManager.cpp",
     "TestClientDirectoryLockHandle.cpp",
     "TestClientStorageScope.cpp",
     "TestClientUsageArray.cpp",
@@ -61,8 +60,4 @@ FINAL_LIBRARY = "xul-gtest"
 
 LOCAL_INCLUDES += [
     "/dom/quota",
-]
-
-SOURCE_HEADERS += [
-    "Common.h",
 ]

@@ -39,6 +39,7 @@ class NetworkThrottleListener {
   #pendingException;
   #queue;
   #responseStarted;
+  #shouldStopThrottling;
 
   /**
    * Construct a new nsIStreamListener that buffers data and provides a
@@ -58,6 +59,13 @@ class NetworkThrottleListener {
     this.#pendingException = null;
     this.#queue = queue;
     this.#responseStarted = false;
+    this.#shouldStopThrottling = false;
+  }
+
+  stopThrottling() {
+    // When the shouldStopThrottling flag is flipped the next call to
+    // sendSomeData will bypass throttling and send all data immediately.
+    this.#shouldStopThrottling = true;
   }
 
   /**
@@ -134,7 +142,7 @@ class NetworkThrottleListener {
       return { length: 0, done: true };
     }
 
-    if (bytesPermitted > count) {
+    if (bytesPermitted > count || this.#shouldStopThrottling) {
       bytesPermitted = count;
     }
 
@@ -280,7 +288,6 @@ class NetworkThrottleListener {
 }
 
 class NetworkThrottleQueue {
-  #destroyed;
   #latencyMax;
   #latencyMean;
   #maxBPS;
@@ -310,19 +317,12 @@ class NetworkThrottleQueue {
     this.#previousReads = [];
 
     this.#pumping = false;
-    this.#destroyed = false;
   }
 
-  /**
-   * Stop throttling: skip the latency of pending requests and send all
-   * buffered data immediately, including for requests which start later.
-   */
   destroy() {
-    this.#destroyed = true;
-    for (const listener of [...this.#pendingRequests]) {
-      this.#allowDataFrom(listener);
+    for (const listener of this.#throttleListeners) {
+      listener.stopThrottling();
     }
-    this.#pump();
   }
 
   /**
@@ -331,9 +331,6 @@ class NetworkThrottleQueue {
    * listener has elapsed.
    */
   #allowDataFrom(throttleListener) {
-    if (!this.#pendingRequests.has(throttleListener)) {
-      return;
-    }
     throttleListener.responseStart();
     this.#pendingRequests.delete(throttleListener);
     const count = throttleListener.pendingCount();
@@ -370,9 +367,7 @@ class NetworkThrottleQueue {
       return sum + elt.numBytes;
     }, 0);
 
-    let thisSliceBytes = this.#destroyed
-      ? Infinity
-      : this.#random(this.#meanBPS, this.#maxBPS);
+    let thisSliceBytes = this.#random(this.#meanBPS, this.#maxBPS);
     if (totalBytes < thisSliceBytes) {
       thisSliceBytes -= totalBytes;
       let readThisTime = 0;
@@ -416,9 +411,7 @@ class NetworkThrottleQueue {
    */
   start(throttleListener) {
     this.#pendingRequests.add(throttleListener);
-    const delay = this.#destroyed
-      ? 0
-      : this.#random(this.#latencyMean, this.#latencyMax);
+    const delay = this.#random(this.#latencyMean, this.#latencyMax);
     if (delay > 0) {
       lazy.setTimeout(() => this.#allowDataFrom(throttleListener), delay);
     } else {

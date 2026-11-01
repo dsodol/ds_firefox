@@ -32,7 +32,7 @@ ShareGroupState::~ShareGroupState() = default;
 
 void ShareGroupState::addSharedContext(gl::Context *context)
 {
-    mContexts.insert(context->id(), context);
+    mContexts.insert(std::pair(context->id().value, context));
 
     if (context->isRobustnessEnabled())
     {
@@ -46,7 +46,7 @@ void ShareGroupState::addSharedContext(gl::Context *context)
 
 void ShareGroupState::removeSharedContext(gl::Context *context)
 {
-    mContexts.erase(context->id());
+    mContexts.erase(context->id().value);
 }
 
 // ShareGroup
@@ -81,12 +81,13 @@ void ShareGroup::release(const Display *display)
 
 void ShareGroup::finishAllContexts()
 {
-    mState.getContexts().forEach([](gl::Context *shareContext) {
-        if (shareContext->hasBeenCurrent() && !shareContext->isDestroyed())
+    for (auto shareContext : mState.getContexts())
+    {
+        if (shareContext.second->hasBeenCurrent() && !shareContext.second->isDestroyed())
         {
-            shareContext->finish();
+            shareContext.second->finish();
         }
-    });
+    }
 }
 
 void ShareGroup::addSharedContext(gl::Context *context)

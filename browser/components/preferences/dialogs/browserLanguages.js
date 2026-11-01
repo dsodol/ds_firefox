@@ -27,14 +27,17 @@ ChromeUtils.defineESModuleGetters(this, {
  * the user has opted to search for more languages.
  */
 
-async function installFromUrl(url, options) {
+async function installFromUrl(url, hash, callback) {
   let telemetryInfo = {
     source: "about:preferences",
   };
   let install = await AddonManager.getInstallForURL(url, {
-    ...options,
+    hash,
     telemetryInfo,
   });
+  if (callback) {
+    callback(install.installId.toString());
+  }
   await install.install();
   return install.addon;
 }
@@ -50,12 +53,20 @@ async function dictionaryIdsForLocale(locale) {
 }
 
 class OrderedListBox {
-  constructor({ richlistbox, upButton, downButton, removeButton, onRemove }) {
+  constructor({
+    richlistbox,
+    upButton,
+    downButton,
+    removeButton,
+    onRemove,
+    onReorder,
+  }) {
     this.richlistbox = richlistbox;
     this.upButton = upButton;
     this.downButton = downButton;
     this.removeButton = removeButton;
     this.onRemove = onRemove;
+    this.onReorder = onReorder;
 
     this.items = [];
 
@@ -92,6 +103,8 @@ class OrderedListBox {
     this.richlistbox.insertBefore(selectedEl, prevEl);
     this.richlistbox.ensureElementIsVisible(selectedEl);
     this.setButtonState();
+
+    this.onReorder();
   }
 
   moveDown() {
@@ -109,6 +122,8 @@ class OrderedListBox {
     this.richlistbox.insertBefore(nextEl, selectedEl);
     this.richlistbox.ensureElementIsVisible(selectedEl);
     this.setButtonState();
+
+    this.onReorder();
   }
 
   removeItem() {
@@ -371,6 +386,12 @@ var gBrowserLanguagesDialog = {
   selected: null,
 
   /**
+   * @type {string | null} An ID used for telemetry pings. It is unique to the current
+   * opening of the browser language.
+   */
+  _telemetryId: null,
+
+  /**
    * @type {SortedItemSelectList}
    */
   _availableLocalesUI: null,
@@ -385,9 +406,15 @@ var gBrowserLanguagesDialog = {
     return Services.prefs.getBoolPref("intl.multilingual.downloadEnabled");
   },
 
+  recordTelemetry(method, extra = {}) {
+    extra.value = this._telemetryId;
+    Glean.intlUiBrowserLanguage[method + "Dialog"].record(extra);
+  },
+
   async onLoad() {
     /**
      * @typedef {object} Options - Options passed in to configure the subdialog.
+     * @property {string} telemetryId,
      * @property {Array<string>} [selectedLocalesForRestart] The optional list of
      *   previously selected locales for when a restart is required. This list is
      *   preserved between openings of the dialog.
@@ -396,7 +423,10 @@ var gBrowserLanguagesDialog = {
      */
 
     /** @type {Options} */
-    let { selectedLocalesForRestart, search } = window.arguments[0];
+    let { telemetryId, selectedLocalesForRestart, search } =
+      window.arguments[0];
+
+    this._telemetryId = telemetryId;
 
     // This is a list of available locales that the user selected. It's more
     // restricted than the Intl notion of `requested` as it only contains
@@ -439,6 +469,7 @@ var gBrowserLanguagesDialog = {
       downButton: document.getElementById("down"),
       removeButton: document.getElementById("remove"),
       onRemove: item => this.selectedLocaleRemoved(item),
+      onReorder: () => this.recordTelemetry("reorder"),
     });
     this._selectedLocalesUI.setItems(
       await getLocaleDisplayInfo(selectedLocales)
@@ -459,6 +490,9 @@ var gBrowserLanguagesDialog = {
       onChange: item => {
         this.hideError();
         if (item.value == "search") {
+          // Record the search event here so we don't track the search from
+          // the main preferences pane twice.
+          this.recordTelemetry("search");
           this.loadLocalesFromAMO();
         }
       },
@@ -498,8 +532,8 @@ var gBrowserLanguagesDialog = {
 
     // Store the available langpack info for later use.
     this.availableLangpacks = new Map();
-    for (let { target_locale, url, hash, id, version } of availableLangpacks) {
-      this.availableLangpacks.set(target_locale, { url, hash, id, version });
+    for (let { target_locale, url, hash } of availableLangpacks) {
+      this.availableLangpacks.set(target_locale, { url, hash });
     }
 
     // Remove the installed locales from the available ones.
@@ -556,6 +590,7 @@ var gBrowserLanguagesDialog = {
    */
   async availableLanguageSelected(item) {
     if ((await LangPackMatcher.getAvailableLocales()).includes(item.value)) {
+      this.recordTelemetry("add");
       await this.requestLocalLanguage(item);
     } else if (this.availableLangpacks.has(item.value)) {
       // Telemetry is tracked in requestRemoteLanguage.
@@ -591,16 +626,13 @@ var gBrowserLanguagesDialog = {
       "browser-languages-downloading"
     );
 
-    let { url, hash, id, version } = this.availableLangpacks.get(item.value);
+    let { url, hash } = this.availableLangpacks.get(item.value);
     let addon;
 
     try {
-      addon = await installFromUrl(url, {
-        id,
-        type: "locale",
-        hash,
-        version,
-      });
+      addon = await installFromUrl(url, hash, installId =>
+        this.recordTelemetry("add", { installId })
+      );
     } catch (e) {
       this.showError();
       return;
@@ -631,13 +663,7 @@ var gBrowserLanguagesDialog = {
       let ids = await dictionaryIdsForLocale(locale);
       let addonInfos = await AddonRepository.getAddonsByIDs(ids);
       await Promise.all(
-        addonInfos.map(info =>
-          installFromUrl(info.sourceURI.spec, {
-            id: info.id,
-            type: "dictionary",
-            version: info.version,
-          })
-        )
+        addonInfos.map(info => installFromUrl(info.sourceURI.spec))
       );
     } catch (e) {
       console.error(e);
@@ -668,6 +694,8 @@ var gBrowserLanguagesDialog = {
    * @param {LocaleDisplayInfo} item
    */
   async selectedLocaleRemoved(item) {
+    this.recordTelemetry("remove");
+
     this._availableLocalesUI.addItem(item);
 
     // If the item we added is at the top of the list, it needs the label.

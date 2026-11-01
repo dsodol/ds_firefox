@@ -57,7 +57,7 @@ class AudioChecksum : public AudioSink {
                                     return view.size();
                                   });
     }
-    return HexEncode(checksum_result_);
+    return hex_encode(checksum_result_);
   }
 
  private:

@@ -5,7 +5,6 @@
 #include "VRManager.h"
 
 #include <cstring>
-#include <memory>
 
 #include "GeckoProfiler.h"
 #include "VRManagerParent.h"
@@ -85,7 +84,7 @@ static bool ValidVRManagerProcess() {
 
 /* static */
 VRManager* VRManager::Get() {
-  MOZ_RELEASE_ASSERT(sVRManagerSingleton != nullptr);
+  MOZ_ASSERT(sVRManagerSingleton != nullptr);
   MOZ_ASSERT(ValidVRManagerProcess());
 
   return sVRManagerSingleton;
@@ -775,7 +774,7 @@ void VRManager::ProcessManagerState_Idle() {
 
 void VRManager::ProcessManagerState_DetectRuntimes() {
   MOZ_ASSERT(mState == VRManagerState::RuntimeDetection);
-  MOZ_RELEASE_ASSERT(mShmem != nullptr);
+  MOZ_ASSERT(mShmem != nullptr);
 
   PullState();
   if (mEnumerationCompleted) {
@@ -809,7 +808,7 @@ void VRManager::ProcessManagerState_DetectRuntimes() {
 
 void VRManager::ProcessManagerState_Enumeration() {
   MOZ_ASSERT(mState == VRManagerState::Enumeration);
-  MOZ_RELEASE_ASSERT(mShmem != nullptr);
+  MOZ_ASSERT(mShmem != nullptr);
 
   PullState();
   if (mEnumerationCompleted) {
@@ -927,10 +926,11 @@ void VRManager::VibrateHaptic(GamepadHandle aGamepadHandle,
   mHapticPulseRemaining[bestSlotIndex] = aDuration;
   MOZ_ASSERT(bestSlotIndex <= mHapticPromises.Length());
   if (bestSlotIndex == mHapticPromises.Length()) {
-    mHapticPromises.AppendElement(std::make_unique<VRManagerPromise>(aPromise));
+    mHapticPromises.AppendElement(
+        UniquePtr<VRManagerPromise>(new VRManagerPromise(aPromise)));
   } else {
     mHapticPromises[bestSlotIndex] =
-        std::make_unique<VRManagerPromise>(aPromise);
+        UniquePtr<VRManagerPromise>(new VRManagerPromise(aPromise));
   }
   PushState();
 }

@@ -11,12 +11,12 @@ interface LoginExceptions {
      *
      * @param origin The origin to search exceptions list for.
      */
-    suspend fun isLoginExceptionByOrigin(origin: String): Boolean
+    fun isLoginExceptionByOrigin(origin: String): Boolean
 
     /**
      * Adds a new origin to the exceptions list implementation.
      *
      * @param origin The origin to add to the list of exceptions.
      */
-    suspend fun addLoginException(origin: String)
+    fun addLoginException(origin: String)
 }

@@ -33,7 +33,7 @@ static Maybe<MetricIdToCallbackMutex::AutoLock> GetCallbackMapLock() {
     return Nothing();
   }
   if (!*lock) {
-    *lock = std::make_unique<CallbackMapType>();
+    *lock = MakeUnique<CallbackMapType>();
     RunOnShutdown(
         [&] {
           auto lock = sCallbacks.Lock();

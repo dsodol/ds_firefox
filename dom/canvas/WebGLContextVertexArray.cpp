@@ -14,6 +14,8 @@ void WebGLContext::BindVertexArray(WebGLVertexArray* array) {
   if (IsContextLost()) return;
   funcScope.mBindFailureGuard = true;
 
+  if (array && !ValidateObject("array", *array)) return;
+
   if (array == nullptr) {
     array = mDefaultVertexArray;
   }

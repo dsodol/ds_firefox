@@ -73,8 +73,7 @@ nsresult MathMLElement::BindToTree(BindContext& aContext, nsINode& aParent) {
         [self = RefPtr<MathMLElement>(this)]() {
           nsAutoString nonce;
           self->GetNonce(nonce);
-          self->SetAttr(kNameSpaceID_None, nsGkAtoms::nonce, u""_ns, true,
-                        IsKnownNewAttr::No);
+          self->SetAttr(kNameSpaceID_None, nsGkAtoms::nonce, u""_ns, true);
           self->SetNonce(nonce);
         }));
   }

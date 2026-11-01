@@ -30,8 +30,6 @@
 #if defined(HAVE_RES_NINIT)
 #  include <netinet/in.h>
 #  include <resolv.h>
-
-#  include <memory>
 #endif
 
 namespace mozilla::net {
@@ -756,7 +754,7 @@ void NetlinkService::OnLinkMessage(struct nlmsghdr* aNlh) {
   LOG(("NetlinkService::OnLinkMessage [type=%s]",
        aNlh->nlmsg_type == RTM_NEWLINK ? "new" : "del"));
 
-  auto link = std::make_unique<NetlinkLink>();
+  UniquePtr<NetlinkLink> link(new NetlinkLink());
   if (!link->Init(aNlh)) {
     return;
   }
@@ -770,7 +768,7 @@ void NetlinkService::OnLinkMessage(struct nlmsghdr* aNlh) {
       if (!entry) {
         LOG(("Creating new link [index=%u, name=%s, flags=%u, type=%u]",
              linkIndex, linkName.get(), link->GetFlags(), link->GetType()));
-        entry.Insert(std::make_unique<LinkInfo>(std::move(link)));
+        entry.Insert(MakeUnique<LinkInfo>(std::move(link)));
       } else {
         LOG(("Updating link [index=%u, name=%s, flags=%u, type=%u]", linkIndex,
              linkName.get(), link->GetFlags(), link->GetType()));
@@ -807,7 +805,7 @@ void NetlinkService::OnAddrMessage(struct nlmsghdr* aNlh) {
   LOG(("NetlinkService::OnAddrMessage [type=%s]",
        aNlh->nlmsg_type == RTM_NEWADDR ? "new" : "del"));
 
-  auto address = std::make_unique<NetlinkAddress>();
+  UniquePtr<NetlinkAddress> address(new NetlinkAddress());
   if (!address->Init(aNlh)) {
     return;
   }
@@ -899,7 +897,7 @@ void NetlinkService::OnRouteMessage(struct nlmsghdr* aNlh) {
   LOG(("NetlinkService::OnRouteMessage [type=%s]",
        aNlh->nlmsg_type == RTM_NEWROUTE ? "new" : "del"));
 
-  auto route = std::make_unique<NetlinkRoute>();
+  UniquePtr<NetlinkRoute> route(new NetlinkRoute());
   if (!route->Init(aNlh)) {
     return;
   }
@@ -997,7 +995,7 @@ void NetlinkService::OnNeighborMessage(struct nlmsghdr* aNlh) {
   LOG(("NetlinkService::OnNeighborMessage [type=%s]",
        aNlh->nlmsg_type == RTM_NEWNEIGH ? "new" : "del"));
 
-  auto neigh = std::make_unique<NetlinkNeighbor>();
+  UniquePtr<NetlinkNeighbor> neigh(new NetlinkNeighbor());
   if (!neigh->Init(aNlh)) {
     return;
   }
@@ -1070,7 +1068,7 @@ void NetlinkService::OnRouteCheckResult(struct nlmsghdr* aNlh) {
   UniquePtr<NetlinkRoute> route;
 
   if (aNlh) {
-    route = std::make_unique<NetlinkRoute>();
+    route = MakeUnique<NetlinkRoute>();
     if (!route->Init(aNlh)) {
       route = nullptr;
     } else {

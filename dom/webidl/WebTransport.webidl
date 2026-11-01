@@ -17,10 +17,6 @@ dictionary WebTransportOptions {
   sequence<WebTransportHash> serverCertificateHashes;
   WebTransportCongestionControl congestionControl = "default";
   sequence<DOMString> protocols = [];
-  // The spec says "= {}", but the WebIDL parser cannot coerce {} to a union
-  // containing a record.  See bug 2081884.
-  HeadersInit headers;
-  ReadableStreamType datagramsReadableType;
 };
 
 enum WebTransportCongestionControl {
@@ -85,12 +81,10 @@ interface WebTransport {
   Promise<WebTransportConnectionStats> getStats();
   [NewObject]
   Promise<Uint8Array> exportKeyingMaterial(BufferSource label,
-                                            BufferSource context,
-                                            unsigned long outputLength);
+                                            optional BufferSource context);
   readonly attribute Promise<undefined> ready;
   readonly attribute WebTransportReliabilityMode reliability;
   readonly attribute WebTransportCongestionControl congestionControl;
-  [SameObject] readonly attribute Headers? responseHeaders;
   readonly attribute DOMString protocol;
   readonly attribute Promise<WebTransportCloseInfo> closed;
   readonly attribute Promise<undefined> draining;

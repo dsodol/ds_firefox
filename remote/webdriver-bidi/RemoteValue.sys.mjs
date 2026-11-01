@@ -9,8 +9,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
   dom: "chrome://remote/content/shared/DOM.sys.mjs",
   error: "chrome://remote/content/shared/webdriver/Errors.sys.mjs",
   generateUUID: "chrome://remote/content/shared/UUID.sys.mjs",
+  Log: "chrome://remote/content/shared/Log.sys.mjs",
   pprint: "chrome://remote/content/shared/Format.sys.mjs",
 });
+
+ChromeUtils.defineLazyGetter(lazy, "logger", () =>
+  lazy.Log.get(lazy.Log.TYPES.WEBDRIVER_BIDI)
+);
 
 /**
  * @typedef {object} IncludeShadowTreeMode
@@ -407,9 +412,8 @@ export function deserialize(serializedValue, realm, extraOptions) {
     }
   }
 
-  throw new lazy.error.InvalidArgumentError(
-    `Unsupported type for local value ${type}`
-  );
+  lazy.logger.warn(`Unsupported type for local value ${type}`);
+  return undefined;
 }
 
 /**

@@ -10,7 +10,6 @@ import android.os.Bundle
 import androidx.annotation.VisibleForTesting
 import androidx.core.content.edit
 import androidx.navigation.fragment.findNavController
-import androidx.navigation.fragment.navArgs
 import androidx.preference.CheckBoxPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
@@ -31,14 +30,12 @@ import org.mozilla.fenix.settings.SharedPreferenceUpdater
 import org.mozilla.fenix.settings.SupportUtils
 import org.mozilla.fenix.settings.SwitchWithCaptionPreference
 import org.mozilla.fenix.settings.requirePreference
-import org.mozilla.fenix.settings.scrollToPreferenceWithHighlight
 import org.mozilla.fenix.utils.canShowAddSearchWidgetPrompt
 import org.mozilla.fenix.utils.maybeShowAddSearchWidgetPrompt
 import org.mozilla.gecko.search.SearchWidgetProvider
 
 /** Settings screen allowing users to configure the browser search functionality. */
 class SearchEngineFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFragment {
-    private val args by navArgs<SearchEngineFragmentArgs>()
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         setPreferencesFromResource(
@@ -191,14 +188,6 @@ class SearchEngineFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFragm
         showNonSponsoredSuggestionsPreference.setOnPreferenceClickListener {
             showSuggestionCardsPreference.isEnabled = showNonSponsoredSuggestionsPreference.isChecked
             true
-        }
-
-        scrollToRequestedPreference()
-    }
-
-    private fun scrollToRequestedPreference() {
-        args.preferenceToScrollTo?.let {
-            scrollToPreferenceWithHighlight(it)
         }
     }
 

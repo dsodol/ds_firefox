@@ -262,7 +262,11 @@ export class ContextMenuChild extends JSWindowActorChild {
               ctx.drawImage(target, 0, 0);
             }
             let dataURL = canvas.toDataURL();
-            return Promise.resolve({ failed: false, dataURL });
+            let url = target.ownerDocument.location;
+            let imageName = url.pathname.substr(
+              url.pathname.lastIndexOf("/") + 1
+            );
+            return Promise.resolve({ failed: false, dataURL, imageName });
           } catch (e) {
             console.error(e);
           }
@@ -271,6 +275,7 @@ export class ContextMenuChild extends JSWindowActorChild {
         return Promise.resolve({
           failed: true,
           dataURL: null,
+          imageName: null,
         });
       }
 

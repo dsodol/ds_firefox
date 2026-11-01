@@ -332,6 +332,9 @@ void HTMLSlotElement::AddedAssignedNode(nsIContent& aNode) {
         aNode, true /* aMarkDesendants*/);
   }
   SlotAssignedNodeAddedForDir(this, aNode);
+  if (StaticPrefs::dom_headingoffset_enabled()) {
+    aNode.UpdateHeadingElementsOffsetChange();
+  }
 }
 
 void HTMLSlotElement::RecalculateHasSlottedState() {
@@ -378,6 +381,9 @@ void HTMLSlotElement::ClearAssignedNodes() {
                    node->AsContent()->GetAssignedSlot() == this,
                "How exactly?");
     node->AsContent()->SetAssignedSlot(nullptr);
+    if (StaticPrefs::dom_headingoffset_enabled()) {
+      node->AsContent()->UpdateHeadingElementsOffsetChange();
+    }
     RemovedAssignedNode(*node->AsContent());
   }
 

@@ -8,6 +8,10 @@ import android.content.Context
 import android.os.StrictMode
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.asLiveData
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.browser.state.state.createTab
 import mozilla.components.feature.tab.collections.Tab
@@ -39,6 +43,7 @@ class TabCollectionStorage(
         fun onCollectionRenamed(tabCollection: TabCollection, title: String) = Unit
     }
 
+    private val ioScope = CoroutineScope(Dispatchers.IO)
     var cachedTabCollections = listOf<TabCollection>()
 
     private val collectionStorage by lazy {
@@ -48,22 +53,28 @@ class TabCollectionStorage(
     }
 
     suspend fun createCollection(title: String, sessions: List<TabSessionState>): Long? {
-        val id = collectionStorage.createCollection(title, sessions)
-        notifyObservers { onCollectionCreated(title, sessions, id) }
-        return id
+        return withContext(ioScope.coroutineContext) {
+            val id = collectionStorage.createCollection(title, sessions)
+            notifyObservers { onCollectionCreated(title, sessions, id) }
+            id
+        }
     }
 
     suspend fun createCollection(tabCollection: TabCollection): Long? {
-        val sessions = tabCollection.tabs.map { createTab(url = it.url, title = it.title) }
-        val id = collectionStorage.createCollection(tabCollection.title, sessions)
-        notifyObservers { onCollectionCreated(tabCollection.title, sessions, id) }
-        return id
+        return withContext(ioScope.coroutineContext) {
+            val sessions = tabCollection.tabs.map { createTab(url = it.url, title = it.title) }
+            val id = collectionStorage.createCollection(tabCollection.title, sessions)
+            notifyObservers { onCollectionCreated(tabCollection.title, sessions, id) }
+            id
+        }
     }
 
     suspend fun addTabsToCollection(tabCollection: TabCollection, sessions: List<TabSessionState>): Long? {
-        val id = collectionStorage.addTabsToCollection(tabCollection, sessions)
-        notifyObservers { onTabsAdded(tabCollection, sessions) }
-        return id
+        return withContext(ioScope.coroutineContext) {
+            val id = collectionStorage.addTabsToCollection(tabCollection, sessions)
+            notifyObservers { onTabsAdded(tabCollection, sessions) }
+            id
+        }
     }
 
     fun getCollections(): LiveData<List<TabCollection>> {
@@ -71,20 +82,30 @@ class TabCollectionStorage(
     }
 
     /** Returns the list of stored [TabCollection]s. */
-    suspend fun getCollectionsList(): List<TabCollection> = collectionStorage.getCollectionsList()
+    suspend fun getCollectionsList(): List<TabCollection> =
+        withContext(ioScope.coroutineContext) { collectionStorage.getCollectionsList() }
 
-    suspend fun removeCollection(tabCollection: TabCollection) {
-        collectionStorage.removeCollection(tabCollection)
-    }
+    suspend fun removeCollection(tabCollection: TabCollection) =
+        ioScope
+            .launch {
+                collectionStorage.removeCollection(tabCollection)
+            }
+            .join()
 
-    suspend fun removeTabFromCollection(tabCollection: TabCollection, tab: Tab) {
-        collectionStorage.removeTabFromCollection(tabCollection, tab)
-    }
+    suspend fun removeTabFromCollection(tabCollection: TabCollection, tab: Tab) =
+        ioScope
+            .launch {
+                collectionStorage.removeTabFromCollection(tabCollection, tab)
+            }
+            .join()
 
-    suspend fun renameCollection(tabCollection: TabCollection, title: String) {
-        collectionStorage.renameCollection(tabCollection, title)
-        notifyObservers { onCollectionRenamed(tabCollection, title) }
-    }
+    suspend fun renameCollection(tabCollection: TabCollection, title: String) =
+        ioScope
+            .launch {
+                collectionStorage.renameCollection(tabCollection, title)
+                notifyObservers { onCollectionRenamed(tabCollection, title) }
+            }
+            .join()
 }
 
 fun TabCollection.description(context: Context): String {

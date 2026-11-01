@@ -57,7 +57,7 @@ class RenderCompositorOGLSWGL : public RenderCompositorLayersSWGL {
                      const Range<uint8_t>& aReadbackBuffer,
                      bool* aNeedsYFlip) override;
 #ifdef MOZ_WIDGET_ANDROID
-  bool CaptureScreenPixels(
+  bool MaybeCaptureScreenPixels(
       const gfx::IntRect& aSourceRect,
       layers::AndroidHardwareBuffer* aHardwareBuffer) override;
 #endif

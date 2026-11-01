@@ -32,10 +32,8 @@ async function loadGeneratedSource(sourceActor) {
 
   let response;
   try {
-    response = await sourceActor.targetFront.getSourceContentForResource(
-      sourceActor.sourceObject.type,
-      sourceActor.id
-    );
+    response =
+      await sourceActor.targetFront.getSourceContentForResource(sourceActor);
   } catch (e) {
     throw new Error(`targetFront.getSourceContentForResource failed: ${e}`);
   }

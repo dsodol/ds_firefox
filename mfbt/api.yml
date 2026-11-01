@@ -899,8 +899,10 @@ UniquePtrExtensions.h:
 
 UniquePtr.h:
   types:
+    - DefaultDelete
     - UniquePtr
   functions:
+    - MakeUnique
     - WrapUnique
     - TempPtrToSetter
 

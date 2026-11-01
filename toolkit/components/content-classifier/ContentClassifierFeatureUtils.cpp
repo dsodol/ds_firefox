@@ -65,16 +65,9 @@ NS_IMETHODIMP HarmfulAddonPingSender::Observe(nsISupports*, const char* aTopic,
 }  // namespace
 
 /* static */
-bool ContentClassifierFeatureUtils::ShouldClassifyForETP(
+bool ContentClassifierFeatureUtils::IsThirdPartyUnlessAnnotating(
     const ContentClassifierRequest& aRequest, ClassifyMode aMode) {
-  return aMode == ClassifyMode::Annotate ||
-         (aRequest.ThirdParty() && !aRequest.AddonMayLoad());
-}
-
-/* static */
-bool ContentClassifierFeatureUtils::ShouldClassifyNonPassiveForETP(
-    const ContentClassifierRequest& aRequest, ClassifyMode aMode) {
-  return !aRequest.IsPassiveContent() && ShouldClassifyForETP(aRequest, aMode);
+  return aMode == ClassifyMode::Annotate || aRequest.ThirdParty();
 }
 
 /* static */

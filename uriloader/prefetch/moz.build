@@ -22,7 +22,3 @@ FINAL_LIBRARY = "xul"
 LOCAL_INCLUDES += [
     "/dom/base",
 ]
-
-SOURCE_HEADERS += [
-    "nsPrefetchService.h",
-]

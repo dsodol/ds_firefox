@@ -67,8 +67,7 @@ void XULButtonElement::PopupOpened() {
     return;
   }
   gMenuJustOpenedOrClosedTime = TimeStamp::Now();
-  SetAttr(kNameSpaceID_None, nsGkAtoms::open, u"true"_ns, true,
-          IsKnownNewAttr::No);
+  SetAttr(kNameSpaceID_None, nsGkAtoms::open, u"true"_ns, true);
 }
 
 void XULButtonElement::PopupClosed(bool aDeselectMenu) {
@@ -301,7 +300,7 @@ void XULButtonElement::StartBlinking() {
           if (parent->GetActiveMenuChild() == self) {
             // Restore the highlighting if we're still the active item.
             self->SetAttr(kNameSpaceID_None, nsGkAtoms::menuactive, u"true"_ns,
-                          true, IsKnownNewAttr::No);
+                          true);
           }
         }
         // Reuse our timer to actually execute.

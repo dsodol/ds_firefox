@@ -355,8 +355,7 @@ xpcAccessible::GetCache(nsIPersistentProperties** aCachedFields) {
 }
 
 NS_IMETHODIMP
-xpcAccessible::GetNativeInterface(
-    [[maybe_unused]] nsISupports** aNativeInterface) {
+xpcAccessible::GetNativeInterface(nsISupports** aNativeInterface) {
 #ifdef MOZ_WIDGET_COCOA
   NS_ENSURE_ARG_POINTER(aNativeInterface);
 

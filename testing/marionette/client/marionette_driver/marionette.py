@@ -635,13 +635,8 @@ class Marionette:
             )
             self.start_binary(self.startup_timeout)
 
-    @property
-    def actions(self):
-        return Actions(self)
-
-    @property
-    def timeout(self):
-        return Timeouts(self)
+        self.actions = Actions(self)
+        self.timeout = Timeouts(self)
 
     @property
     def profile_path(self):

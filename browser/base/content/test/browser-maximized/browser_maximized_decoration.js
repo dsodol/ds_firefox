@@ -7,11 +7,14 @@
  * This test verifies that when maximized, any browser chrome decoration is removed
  * so that chrome blocks are flush against the window edges. Any corner touching a
  * window edge has its radius removed to eliminate non-interative pixels.
- * *inner* corners are left as-is (rounded).
+ * *inner* corners are left as-is (rounded in nova)
  *
- * Split-view panels are excluded from these assertions: they are deliberately
- * inset cards that keep their inline margin and rounded corners.
+ * Split-view panels are excluded from these assertions: in both pref states they
+ * are deliberately inset cards that keep their inline margin and rounded
+ * corners.
  */
+
+const NOVA_ENABLED = Services.prefs.getBoolPref("browser.nova.enabled", false);
 
 // Allow for sub-pixel rounding
 const EDGE_TOLERANCE = 1;
@@ -21,7 +24,8 @@ function getCustomPropertyPx(win, el, name) {
 }
 
 /**
- * The corner where the content area meets the sidebar and the toolbox.
+ * The corner where the content area meets the sidebar and the toolbox uses the
+ * same radius with and without nova.
  */
 function getContentCornerRadius(win) {
   return getCustomPropertyPx(
@@ -123,8 +127,9 @@ function assertEdgeBordersRemoved(win, blocks, label) {
 /**
  * For every chrome block, a corner whose x sits on a vertical window edge OR
  * whose y sits on a horizontal window edge must be squared.
+ * When Nova is enabled, require that inner corners keep a > 0 radius.
  */
-function assertCornerRadii(win, blocks, { requireInnerRounded }, label) {
+function assertCornerRadii(win, blocks, { nova, requireInnerRounded }, label) {
   for (let block of blocks) {
     let style = win.getComputedStyle(block);
     let { atLeft, atRight, atTop, atBottom } = getWindowEdges(win, block);
@@ -168,9 +173,10 @@ function assertCornerRadii(win, blocks, { requireInnerRounded }, label) {
     }
 
     // A .browserContainer with a sidebar/toolbox-facing inner corner should keep
-    // it rounded. Only assert on the content area, and only when the
+    // it rounded under Nova. Only assert on the content area, and only when the
     // caller opts in.
     if (
+      nova &&
       requireInnerRounded &&
       getContentCornerRadius(win) > 0 &&
       block.classList.contains("browserContainer")
@@ -249,8 +255,8 @@ const CORNER_RADIUS_PROPS = [
 ];
 
 /**
- * Split-view panels are inset cards rather than window-edge blocks. They
- * intentionally keep an inline margin and a fully rounded
+ * Split-view panels are inset cards rather than window-edge blocks. In both
+ * pref states they intentionally keep an inline margin and a fully rounded
  * .browserContainer so maximizing must not square those corners
  * or pull the panels flush against the window.
  */
@@ -261,7 +267,7 @@ function assertSplitViewPanels(win, label) {
   ].filter(el => BrowserTestUtils.isVisible(el));
   Assert.greater(panels.length, 0, `${label}: split-view panels are present`);
 
-  // Only the inline-end margin is checked: with a sidebar shown, the
+  // Only the inline-end margin is checked: with nova and a sidebar shown, the
   // inline-start panel deliberately drops its margin because the #browser gap
   // beside the sidebar already supplies the separation.
   let outer = tabpanels.getBoundingClientRect();
@@ -291,9 +297,10 @@ function assertSplitViewPanels(win, label) {
 }
 
 /**
- * Runs the universal decoration assertions. `requireInnerRounded` and
- * `checkSeparator` are opt-in per state (the split-view and customize states
- * have no unsplit content area to check).
+ * Runs the universal decoration assertions, plus the nova-only checks when
+ * `browser.nova.enabled` is set. `requireInnerRounded` and `checkSeparator` are
+ * only meaningful under nova, and are further opt-in per state (the split-view
+ * and customize states have no unsplit content area to check).
  */
 function assertDecoration(
   win,
@@ -301,7 +308,7 @@ function assertDecoration(
   label,
   { requireInnerRounded = false, checkSeparator = false } = {}
 ) {
-  if (requireInnerRounded && !getContentCornerRadius(win)) {
+  if (NOVA_ENABLED && requireInnerRounded && !getContentCornerRadius(win)) {
     info(
       `${label}: --border-radius-medium is 0 on this platform; ` +
         `skipping the inner-corner-rounded assertions.`
@@ -309,8 +316,13 @@ function assertDecoration(
   }
   assertFlushToWindowEdges(win, blocks, label);
   assertEdgeBordersRemoved(win, blocks, label);
-  assertCornerRadii(win, blocks, { requireInnerRounded }, label);
-  if (checkSeparator) {
+  assertCornerRadii(
+    win,
+    blocks,
+    { nova: NOVA_ENABLED, requireInnerRounded },
+    label
+  );
+  if (NOVA_ENABLED && checkSeparator) {
     assertSeparators(win, blocks, label);
   }
 }

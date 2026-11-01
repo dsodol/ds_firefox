@@ -56,8 +56,7 @@ if CONFIG["OS_TARGET"] == "Android":
     DEFINES["__STDC_FORMAT_MACROS"] = True
 
     OS_LIBS += [
-        "log",
-        "nativewindow"
+        "log"
     ]
 
 if CONFIG["OS_TARGET"] == "Darwin":

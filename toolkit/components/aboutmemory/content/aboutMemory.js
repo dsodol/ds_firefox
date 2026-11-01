@@ -534,13 +534,7 @@ window.onload = function () {
   );
   labelDiv2.setAttribute("role", "heading");
   labelDiv2.setAttribute("aria-level", "1");
-  appendButton(
-    row2,
-    SvDesc,
-    saveReportsToFile,
-    "Measure and save…",
-    "measureAndSaveButton"
-  );
+  appendButton(row2, SvDesc, saveReportsToFile, "Measure and save…");
 
   // XXX: this isn't a great place for this checkbox, but I can't think of
   // anywhere better.
@@ -3530,8 +3524,12 @@ function appendSectionHeader(aP, aText) {
 // ---------------------------------------------------------------------------
 
 function saveReportsToFile() {
-  const defaultFilename = "memory-report.json.gz";
   let fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+  fp.appendFilter("Zipped JSON files", "*.json.gz");
+  fp.appendFilters(Ci.nsIFilePicker.filterAll);
+  fp.filterIndex = 0;
+  fp.addToRecentDocs = true;
+  fp.defaultString = "memory-report.json.gz";
 
   let fpFinish = function (aFile) {
     let dumper = Cc["@mozilla.org/memory-info-dumper;1"].getService(
@@ -3571,20 +3569,13 @@ function saveReportsToFile() {
   } catch (ex) {
     // This will fail on Android, since there is no Save as file picker there.
     // Just save to the default downloads dir if it does.
-    Downloads.getSystemDownloadsDirectory()
-      .then(function (aDirPath) {
-        let file = FileUtils.File(aDirPath);
-        file.append(defaultFilename);
-        fpFinish(file);
-      })
-      .catch(handleException);
+    Downloads.getSystemDownloadsDirectory().then(function (aDirPath) {
+      let file = FileUtils.File(aDirPath);
+      file.append(fp.defaultString);
+      fpFinish(file);
+    });
 
     return;
   }
-  fp.appendFilter("Zipped JSON files", "*.json.gz");
-  fp.appendFilters(Ci.nsIFilePicker.filterAll);
-  fp.filterIndex = 0;
-  fp.addToRecentDocs = true;
-  fp.defaultString = defaultFilename;
   fp.open(fpCallback);
 }

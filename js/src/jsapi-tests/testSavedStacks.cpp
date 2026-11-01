@@ -22,9 +22,9 @@
 
 BEGIN_TEST(testSavedStacks_withNoStack) {
   JS::Realm* realm = cx->realm();
-  realm->enableAllocationMetadataBuilder();
+  realm->setAllocationMetadataBuilder(&js::SavedStacks::metadataBuilder);
   JS::RootedObject obj(cx, js::NewDenseEmptyArray(cx));
-  realm->disableAllocationMetadataBuilder();
+  realm->setAllocationMetadataBuilder(nullptr);
   return true;
 }
 END_TEST(testSavedStacks_withNoStack)

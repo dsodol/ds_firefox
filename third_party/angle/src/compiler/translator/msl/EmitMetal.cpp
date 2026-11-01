@@ -281,19 +281,19 @@ static const char *GetOperatorString(TOperator op,
         case TOperator::EOpInitialize:
             return "=";
         case TOperator::EOpAddAssign:
-            return resultType.isSignedInt() ? "ANGLE_addInt" : "+=";
+            return "+=";
         case TOperator::EOpSubAssign:
-            return resultType.isSignedInt() ? "ANGLE_subInt" : "-=";
+            return "-=";
         case TOperator::EOpMulAssign:
-            return resultType.isSignedInt() ? "ANGLE_imul" : "*=";
+            return "*=";
         case TOperator::EOpDivAssign:
-            return IsInteger(resultType.getBasicType()) ? "ANGLE_div" : "/=";
+            return "/=";
         case TOperator::EOpIModAssign:
-            return "ANGLE_imod";
+            return "%=";
         case TOperator::EOpBitShiftLeftAssign:
-            return resultType.isSignedInt() ? "ANGLE_ilshift" : "ANGLE_ulshift";
+            return "<<=";  // TODO: Check logical vs arithmetic shifting.
         case TOperator::EOpBitShiftRightAssign:
-            return "ANGLE_rshift";
+            return ">>=";  // TODO: Check logical vs arithmetic shifting.
         case TOperator::EOpBitwiseAndAssign:
             return "&=";
         case TOperator::EOpBitwiseXorAssign:
@@ -301,19 +301,19 @@ static const char *GetOperatorString(TOperator op,
         case TOperator::EOpBitwiseOrAssign:
             return "|=";
         case TOperator::EOpAdd:
-            return resultType.isSignedInt() ? "ANGLE_addInt" : "+";
+            return "+";
         case TOperator::EOpSub:
-            return resultType.isSignedInt() ? "ANGLE_subInt" : "-";
+            return "-";
         case TOperator::EOpMul:
-            return resultType.isSignedInt() ? "ANGLE_imul" : "*";
+            return "*";
         case TOperator::EOpDiv:
-            return IsInteger(resultType.getBasicType()) ? "ANGLE_div" : "/";
+            return "/";
         case TOperator::EOpIMod:
-            return "ANGLE_imod";
+            return "%";
         case TOperator::EOpBitShiftLeft:
-            return resultType.isSignedInt() ? "ANGLE_ilshift" : "ANGLE_ulshift";
+            return "<<";  // TODO: Check logical vs arithmetic shifting.
         case TOperator::EOpBitShiftRight:
-            return "ANGLE_rshift";
+            return ">>";  // TODO: Check logical vs arithmetic shifting.
         case TOperator::EOpBitwiseAnd:
             return "&";
         case TOperator::EOpBitwiseXor:
@@ -344,12 +344,7 @@ static const char *GetOperatorString(TOperator op,
         case TOperator::EOpLogicalAnd:
             return "&&";
         case TOperator::EOpNegative:
-            // Matrices have an operator- overload in the program prelude.
-            if (argType0->isMatrix())
-            {
-                return "-";
-            }
-            return resultType.isSignedInt() ? "ANGLE_negInt" : "-";
+            return "-";
         case TOperator::EOpPositive:
             if (argType0->isMatrix())
             {
@@ -363,15 +358,15 @@ static const char *GetOperatorString(TOperator op,
         case TOperator::EOpBitwiseNot:
             return "~";
         case TOperator::EOpPostIncrement:
-            return resultType.isSignedInt() ? "ANGLE_postIncrementInt" : "++";
+            return "++";
         case TOperator::EOpPostDecrement:
-            return resultType.isSignedInt() ? "ANGLE_postDecrementInt" : "--";
+            return "--";
         case TOperator::EOpPreIncrement:
-            return resultType.isSignedInt() ? "ANGLE_preIncrementInt" : "++";
+            return "++";
         case TOperator::EOpPreDecrement:
-            return resultType.isSignedInt() ? "ANGLE_preDecrementInt" : "--";
+            return "--";
         case TOperator::EOpVectorTimesScalarAssign:
-            return resultType.isSignedInt() ? "ANGLE_imul" : "*=";
+            return "*=";
         case TOperator::EOpVectorTimesMatrixAssign:
             return "*=";
         case TOperator::EOpMatrixTimesScalarAssign:
@@ -379,7 +374,7 @@ static const char *GetOperatorString(TOperator op,
         case TOperator::EOpMatrixTimesMatrixAssign:
             return "*=";
         case TOperator::EOpVectorTimesScalar:
-            return resultType.isSignedInt() ? "ANGLE_imul" : "*";
+            return "*";
         case TOperator::EOpVectorTimesMatrix:
             return "*";
         case TOperator::EOpMatrixTimesVector:
@@ -789,20 +784,6 @@ static bool Parenthesize(TIntermNode &node)
             case TOperator::EOpInitialize:
                 return AsSpecificBinaryNode(*binaryNode->getRight(), TOperator::EOpComma);
 
-            case TOperator::EOpAddAssign:
-            case TOperator::EOpSubAssign:
-            case TOperator::EOpMulAssign:
-            case TOperator::EOpDivAssign:
-            case TOperator::EOpIModAssign:
-            case TOperator::EOpBitShiftLeftAssign:
-            case TOperator::EOpBitShiftRightAssign:
-            case TOperator::EOpVectorTimesScalarAssign:
-                // A compound assignment binds less tightly than any operator that can enclose it,
-                // both in its symbolic form `a += b` and when it is emulated and emitted as an
-                // assignment `a = ANGLE_addInt(a, b)`. The latter form has an alphanumeric operator
-                // string, so it cannot be detected with IsSymbolicOperator().
-                return true;
-
             default:
             {
                 const TType &resultType = binaryNode->getType();
@@ -933,7 +914,7 @@ static void EmitName(Sink &out, const Name &name, char userSymbolPrefix)
 
 void GenMetalTraverser::emitNameOf(const TField &object)
 {
-    EmitName(mOut, Name(object), kUserVariableNamePrefix);
+    EmitName(mOut, Name(object), mCompiler.getUserVariableNamePrefix());
 }
 
 void GenMetalTraverser::emitNameOf(const TSymbol &object)
@@ -941,18 +922,18 @@ void GenMetalTraverser::emitNameOf(const TSymbol &object)
     auto it = mRenamedSymbols.find(&object);
     if (it == mRenamedSymbols.end())
     {
-        EmitName(mOut, Name(object), kUserVariableNamePrefix);
+        EmitName(mOut, Name(object), mCompiler.getUserVariableNamePrefix());
     }
     else
     {
-        EmitName(mOut, it->second, kUserVariableNamePrefix);
+        EmitName(mOut, it->second, mCompiler.getUserVariableNamePrefix());
     }
 }
 
 void GenMetalTraverser::emitBlockNameOf(const TSymbol &object)
 {
     ASSERT(mRenamedSymbols.find(&object) == mRenamedSymbols.end());
-    EmitName(mOut, Name(object), kUserBlockNamePrefix);
+    EmitName(mOut, Name(object), mCompiler.getUserBlockNamePrefix());
 }
 
 void GenMetalTraverser::emitNameOf(const VarDecl &object)
@@ -1021,7 +1002,8 @@ void GenMetalTraverser::emitBareTypeName(const TType &type, const EmitTypeConfig
             {
                 if (etConfig.evdConfig && etConfig.evdConfig->isMainParameter)
                 {
-                    EmitName(mOut, GetTextureTypeName(basicType), kUserVariableNamePrefix);
+                    EmitName(mOut, GetTextureTypeName(basicType),
+                             mCompiler.getUserVariableNamePrefix());
                 }
                 else
                 {
@@ -1849,26 +1831,6 @@ bool GenMetalTraverser::visitBinary(Visit, TIntermBinary *binaryNode)
         }
         break;
 
-        case TOperator::EOpAddAssign:
-        case TOperator::EOpSubAssign:
-        case TOperator::EOpMulAssign:
-        case TOperator::EOpDivAssign:
-        case TOperator::EOpIModAssign:
-        case TOperator::EOpBitShiftLeftAssign:
-        case TOperator::EOpBitShiftRightAssign:
-        case TOperator::EOpVectorTimesScalarAssign:
-            // Operators that are emulated with a function do not assign to the left hand side, so
-            // decompose e.g. `a %= b` into `a = ANGLE_imod(a, b)`. The left hand side can be
-            // emitted twice because SeparateCompoundExpressions has already hoisted out any side
-            // effects.
-            if (!IsSymbolicOperator(op, binaryNode->getType(), &leftNode.getType(),
-                                    &rightNode.getType()))
-            {
-                groupedTraverse(leftNode);
-                mOut << " = ";
-            }
-            [[fallthrough]];
-
         default:
         {
             const TType &resultType = binaryNode->getType();
@@ -2303,13 +2265,6 @@ bool GenMetalTraverser::visitAggregate(Visit, TIntermAggregate *aggregateNode)
             emitType(retType, etConfig);
             emitArgList("{", "}");
         }
-        else if (IsFloatToIntegerConstructor(*aggregateNode))
-        {
-            mOut << "ANGLE_ftoi<";
-            emitType(retType, etConfig);
-            mOut << ">";
-            emitArgList("(", ")");
-        }
         else
         {
             emitType(retType, etConfig);
@@ -2404,7 +2359,7 @@ bool GenMetalTraverser::visitAggregate(Visit, TIntermAggregate *aggregateNode)
                     const TFunction &func = *aggregateNode->getFunction();
                     auto it               = mFuncToName.find(func.name());
                     ASSERT(it != mFuncToName.end());
-                    EmitName(mOut, it->second, kUserVariableNamePrefix);
+                    EmitName(mOut, it->second, mCompiler.getUserVariableNamePrefix());
                     emitArgList("(", ")");
                     return false;
                 }

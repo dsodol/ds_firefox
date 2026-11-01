@@ -8,7 +8,6 @@ import android.view.View
 import androidx.annotation.LayoutRes
 import androidx.recyclerview.widget.RecyclerView
 import mozilla.components.browser.state.state.recover.TabState
-import mozilla.components.support.ktx.util.URLStringUtils
 import mozilla.components.ui.icons.R as iconsR
 import org.mozilla.fenix.R
 import org.mozilla.fenix.databinding.HistoryListItemBinding
@@ -38,9 +37,8 @@ class RecentlyClosedItemViewHolder(
     }
 
     fun bind(item: TabState) {
-        val displayUrl = URLStringUtils.toLosslessDisplayUrl(item.url)
-        binding.historyLayout.titleView.text = item.title.ifEmpty { displayUrl }
-        binding.historyLayout.urlView.text = displayUrl
+        binding.historyLayout.titleView.text = item.title.ifEmpty { item.url }
+        binding.historyLayout.urlView.text = item.url
 
         binding.historyLayout.setSelectionInteractor(
             item,

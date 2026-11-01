@@ -9,6 +9,7 @@ import io.mockk.slot
 import io.mockk.verify
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -17,10 +18,8 @@ import mozilla.components.browser.state.state.ContentState
 import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.text.Text
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.ui.MenuItemIconRes
-import mozilla.components.compose.menu.ui.MenuItemState
 import mozilla.components.concept.engine.EngineSession.LoadUrlFlags
 import mozilla.components.feature.session.SessionUseCases
 import mozilla.components.ui.icons.R as iconsR
@@ -40,24 +39,8 @@ class RefreshMenuItemProviderTest {
     fun `GIVEN there is no selected tab WHEN building the refresh menu item THEN return null`() = runTest {
         val provider = provider(BrowserStore())
 
-        assertTrue(provider.itemsFlow.value.isEmpty())
+        assertNull(provider.itemFlow.value)
     }
-
-    @Test
-    fun `GIVEN target is CustomizeMenu WHEN building the refresh menu item THEN return refresh menu item without click event`() =
-        runTest {
-            val provider = provider(BrowserStore(), target = MenuTarget.CustomizeMenu)
-
-            assertEquals(
-                StandardMenuItem(
-                    title = MenuItemTitle(Text.Resource(R.string.browser_menu_refresh)),
-                    icon = MenuItemIconRes(iconsR.drawable.mozac_ic_arrow_clockwise_24),
-                    onClickEvent = null,
-                    state = MenuItemState.DEFAULT,
-                ),
-                provider.itemsFlow.value.single(),
-            )
-        }
 
     @Test
     fun `GIVEN the current page is loading WHEN building the refresh menu item THEN return stop menu item`() = runTest {
@@ -65,11 +48,11 @@ class RefreshMenuItemProviderTest {
 
         assertEquals(
             StandardMenuItem(
-                title = MenuItemTitle(Text.Resource(R.string.browser_menu_stop)),
+                title = Text.Resource(R.string.browser_menu_stop),
                 icon = MenuItemIconRes(iconsR.drawable.mozac_ic_cross_24),
                 onClickEvent = MenuAction.Navigate.Stop,
             ),
-            provider.itemsFlow.value.single(),
+            provider.itemFlow.value,
         )
     }
 
@@ -80,12 +63,12 @@ class RefreshMenuItemProviderTest {
 
             assertEquals(
                 StandardMenuItem(
-                    title = MenuItemTitle(Text.Resource(R.string.browser_menu_refresh)),
+                    title = Text.Resource(R.string.browser_menu_refresh),
                     icon = MenuItemIconRes(iconsR.drawable.mozac_ic_arrow_clockwise_24),
                     onClickEvent = MenuAction.Navigate.Reload(bypassCache = false),
                     onLongClickEvent = MenuAction.Navigate.Reload(bypassCache = true),
                 ),
-                provider.itemsFlow.value.single(),
+                provider.itemFlow.value,
             )
         }
 
@@ -144,7 +127,7 @@ class RefreshMenuItemProviderTest {
         listOf(browserStore(loading = true), browserStore(loading = false)).forEach { store ->
             val provider = provider(store)
 
-            val events = provider.itemsFlow.value.single().reachableEvents()
+            val events = requireNotNull(provider.itemFlow.value).reachableEvents()
 
             assertTrue(events.all { provider.handles(it) }, "Not all of $events are handled")
         }

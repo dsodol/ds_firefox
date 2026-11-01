@@ -32,7 +32,8 @@ class nsScrollbarFrame final : public nsContainerFrame,
   using CSSIntCoord = mozilla::CSSIntCoord;
 
  public:
-  explicit nsScrollbarFrame(ComputedStyle* aStyle, nsPresContext* aPresContext);
+  explicit nsScrollbarFrame(ComputedStyle* aStyle, nsPresContext* aPresContext)
+      : nsContainerFrame(aStyle, aPresContext, kClassID) {}
 
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsScrollbarFrame)

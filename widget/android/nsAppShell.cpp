@@ -353,7 +353,7 @@ class XPCOMEventTargetWrapper final
   static void CreateWrapper(mozilla::jni::String::Param aName,
                             nsCOMPtr<nsIEventTarget> aTarget) {
     auto java = java::XPCOMEventTarget::New();
-    auto native = std::make_unique<XPCOMEventTargetWrapper>(aTarget.forget());
+    auto native = MakeUnique<XPCOMEventTargetWrapper>(aTarget.forget());
     AttachNative(java, std::move(native));
 
     java::XPCOMEventTarget::SetTarget(aName, java);
@@ -397,7 +397,7 @@ nsAppShell::nsAppShell()
 
   if (jni::IsAvailable()) {
     ScreenManager& screenManager = ScreenManager::GetSingleton();
-    screenManager.SetHelper(std::make_unique<ScreenHelperAndroid>());
+    screenManager.SetHelper(mozilla::MakeUnique<ScreenHelperAndroid>());
 
     // Initialize JNI and Set the corresponding state in GeckoThread.
     AndroidBridge::ConstructBridge();
@@ -659,7 +659,7 @@ bool nsAppShell::SyncRunEvent(
   };
 
   UniquePtr<Event> runAndNotifyEvent =
-      std::make_unique<LambdaEvent<decltype(runAndNotify)>>(
+      mozilla::MakeUnique<LambdaEvent<decltype(runAndNotify)>>(
           std::move(runAndNotify));
 
   if (eventFactory) {

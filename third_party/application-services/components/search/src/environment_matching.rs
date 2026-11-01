@@ -5,64 +5,17 @@
 //! This module defines functions for testing if an environment from the
 //! configuration matches the user environment.
 
-use crate::{
-    ConfigVersion, JSONVariantEnvironment, SearchUserEnvironment, SearchUserEnvironmentV3, V2, V3,
-};
+use crate::{JSONVariantEnvironment, SearchUserEnvironment};
 use firefox_versioning::version::Version;
-
-/// The user's environment, in a form common to all versions of the search
-/// configuration. This is converted from the version specific environment
-/// that is passed in from the application.
-#[derive(Clone, Debug, Default)]
-pub(crate) struct UserEnvironment<V: ConfigVersion> {
-    pub locale: String,
-    pub region: String,
-    pub update_channel: V::UpdateChannel,
-    pub distribution_id: String,
-    pub experiment: String,
-    pub app_name: V::ApplicationName,
-    pub version: String,
-    pub device_type: V::DeviceType,
-}
-
-impl From<SearchUserEnvironment> for UserEnvironment<V2> {
-    fn from(env: SearchUserEnvironment) -> Self {
-        Self {
-            locale: env.locale,
-            region: env.region,
-            update_channel: env.update_channel,
-            distribution_id: env.distribution_id,
-            experiment: env.experiment,
-            app_name: env.app_name,
-            version: env.version,
-            device_type: env.device_type,
-        }
-    }
-}
-
-impl From<SearchUserEnvironmentV3> for UserEnvironment<V3> {
-    fn from(env: SearchUserEnvironmentV3) -> Self {
-        Self {
-            locale: env.locale,
-            region: env.region,
-            update_channel: env.update_channel,
-            distribution_id: env.distribution_id,
-            experiment: env.experiment,
-            app_name: env.app_name,
-            version: env.version,
-            device_type: env.device_type,
-        }
-    }
-}
 
 /// Matches the user's environment against the given environment from the
 /// configuration.
 ///
 /// This function expects the locale, region and app version in the environment
 /// to be lower case.
-pub(crate) fn matches_user_environment<V: ConfigVersion>(
-    environment: &JSONVariantEnvironment<V>,
-    user_environment: &UserEnvironment<V>,
+pub(crate) fn matches_user_environment(
+    environment: &JSONVariantEnvironment,
+    user_environment: &SearchUserEnvironment,
 ) -> bool {
     if !environment.experiment.is_empty() && user_environment.experiment != environment.experiment {
         return false;
@@ -94,10 +47,10 @@ pub(crate) fn matches_user_environment<V: ConfigVersion>(
 
 /// Determines whether the region and locale constraints in the supplied
 /// environment apply to a user given the region and locale they are using.
-fn matches_region_and_locale<V: ConfigVersion>(
+fn matches_region_and_locale(
     user_region: &str,
     user_locale: &str,
-    environment: &JSONVariantEnvironment<V>,
+    environment: &JSONVariantEnvironment,
 ) -> bool {
     if does_array_include(&environment.excluded_regions, user_region)
         || does_array_include(&environment.excluded_locales, user_locale)
@@ -205,7 +158,6 @@ mod tests {
                     region: "FR".into(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return true when all_regions_and_locales is true"
         );
@@ -224,7 +176,7 @@ mod tests {
                     locale: "fi".into(),
                     region: "fr".into(),
                     ..Default::default()
-                }.into()
+                }
             ),
             "Should return true when all_regions_and_locales is false (default) and no regions/locales are specified"
         );
@@ -244,7 +196,6 @@ mod tests {
                     region: "fr".into(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return false when all_regions_and_locales is true and the locale is excluded"
         );
@@ -263,7 +214,7 @@ mod tests {
                     locale: "fi".into(),
                     region: "fr".into(),
                     ..Default::default()
-                }.into()
+                }
             ),
             "Should return false when all_regions_and_locales is true and the excluded locale is a different case"
         );
@@ -282,7 +233,7 @@ mod tests {
                     locale: "fi".into(),
                     region: "fr".into(),
                     ..Default::default()
-                }.into()
+                }
             ),
             "Should return true when all_regions_and_locales is true and the locale is not excluded"
         );
@@ -301,7 +252,6 @@ mod tests {
                     region: "fr".into(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return false when all_regions_and_locales is true and the region is excluded"
         );
@@ -320,7 +270,7 @@ mod tests {
                     locale: "fi".into(),
                     region: "fr".into(),
                     ..Default::default()
-                }.into()
+                }
             ),
             "Should return false when all_regions_and_locales is true and the excluded region is a different case"
         );
@@ -339,7 +289,7 @@ mod tests {
                     locale: "fi".into(),
                     region: "fr".into(),
                     ..Default::default()
-                }.into()
+                }
             ),
             "Should return true when all_regions_and_locales is true and the region is not excluded"
         );
@@ -362,7 +312,6 @@ mod tests {
                     region: "fr".into(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return true when the user locale matches one from the config"
         );
@@ -381,7 +330,7 @@ mod tests {
                     locale: "fi".into(),
                     region: "fr".into(),
                     ..Default::default()
-                }.into()
+                }
             ),
             "Should return true when the user locale matches one from the config and is a different case"
         );
@@ -401,7 +350,6 @@ mod tests {
                     region: "fr".into(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return false when the user locale does not match one from the config"
         );
@@ -424,7 +372,6 @@ mod tests {
                     region: "fr".into(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return true when the user region matches one from the config"
         );
@@ -443,7 +390,7 @@ mod tests {
                     locale: "fi".into(),
                     region: "fr".into(),
                     ..Default::default()
-                }.into()
+                }
             ),
             "Should return true when the user region matches one from the config and is a different case"
         );
@@ -463,7 +410,6 @@ mod tests {
                     region: "fr".into(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return false when the user region does not match one from the config"
         );
@@ -486,7 +432,6 @@ mod tests {
                     region: "fr".into(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return true when the locale matches and the region is not excluded"
         );
@@ -506,7 +451,6 @@ mod tests {
                     region: "fr".into(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return false when the locale matches and the region is excluded"
         );
@@ -529,7 +473,6 @@ mod tests {
                     region: "fr".into(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return true when the region matches and the locale is not excluded"
         );
@@ -549,7 +492,6 @@ mod tests {
                     region: "fr".into(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return false when the region matches and the locale is excluded"
         );
@@ -567,7 +509,6 @@ mod tests {
                     distribution_id: "distro-1".into(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return true when the distribution matches one in the environment"
         );
@@ -581,7 +522,7 @@ mod tests {
                 &SearchUserEnvironment {
                     distribution_id: "distro-3".into(),
                     ..Default::default()
-                }.into()
+                }
             ),
             "Should return true when the distribution matches one in the environment when there are multiple"
         );
@@ -596,7 +537,6 @@ mod tests {
                     distribution_id: "distro-4".into(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return false when the distribution does not match any in the environment"
         );
@@ -614,7 +554,6 @@ mod tests {
                     distribution_id: "distro-2".into(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return true when the distribution and region matches the environment"
         );
@@ -634,7 +573,7 @@ mod tests {
                 &SearchUserEnvironment {
                     distribution_id: "distro-2".into(),
                     ..Default::default()
-                }.into()
+                }
             ),
             "Should return true when the distribution matches the distribution list but not the excluded distributions"
         );
@@ -650,7 +589,6 @@ mod tests {
                     distribution_id: "distro-3".into(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return false when the distribution matches the the excluded distributions"
         );
@@ -668,7 +606,6 @@ mod tests {
                     app_name: SearchApplicationName::Firefox,
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return true when the application name matches the one in the environment"
         );
@@ -685,7 +622,7 @@ mod tests {
                 &SearchUserEnvironment {
                     app_name: SearchApplicationName::Firefox,
                     ..Default::default()
-                }.into()
+                }
             ),
             "Should return true when the application name matches one in the environment when there are multiple"
         );
@@ -703,7 +640,6 @@ mod tests {
                     app_name: SearchApplicationName::FirefoxIos,
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return false when the applications do not match the one in the environment"
         );
@@ -724,7 +660,6 @@ mod tests {
                     app_name: SearchApplicationName::Firefox,
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return true when the application name matches the one in the environment"
         );
@@ -742,7 +677,6 @@ mod tests {
                     update_channel: SearchUpdateChannel::Nightly,
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return true when the channel matches one in the environment"
         );
@@ -756,7 +690,7 @@ mod tests {
                 &SearchUserEnvironment {
                     update_channel: SearchUpdateChannel::Release,
                     ..Default::default()
-                }.into()
+                }
             ),
             "Should return true when the channel matches one in the environment when there are multiple"
         );
@@ -777,7 +711,6 @@ mod tests {
                     version: String::new(),
                     device_type: SearchDeviceType::None,
                 }
-                .into()
             ),
             "Should return false when the channel does not match any in the environment"
         );
@@ -795,7 +728,6 @@ mod tests {
                     update_channel: SearchUpdateChannel::Default,
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return true when the channel and region matches the environment"
         );
@@ -813,7 +745,6 @@ mod tests {
                     experiment: "warp-drive".to_string(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return true when the experiment matches the one in the environment"
         );
@@ -828,7 +759,6 @@ mod tests {
                     experiment: "cloak".to_string(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return false when the experiment does not match the one in the environment"
         );
@@ -846,7 +776,6 @@ mod tests {
                     experiment: "warp-drive".to_string(),
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return true when the experiment and region matches the environment"
         );
@@ -864,8 +793,7 @@ mod tests {
                 &SearchUserEnvironment {
                     version: "42.0.0".to_string(),
                     ..Default::default()
-                }
-                .into(),
+                },
             ),
             "Should return false when the version is below the minimum"
         );
@@ -879,8 +807,7 @@ mod tests {
                 &SearchUserEnvironment {
                     version: "42.0.0".to_string(),
                     ..Default::default()
-                }
-                .into(),
+                },
             ),
             "Should return true when the version is equal to the minimum"
         );
@@ -894,8 +821,7 @@ mod tests {
                 &SearchUserEnvironment {
                     version: "42.0.0".to_string(),
                     ..Default::default()
-                }
-                .into(),
+                },
             ),
             "Should return true when the version is above the minimum"
         );
@@ -910,8 +836,7 @@ mod tests {
                 &SearchUserEnvironment {
                     version: "42.0.0".to_string(),
                     ..Default::default()
-                }
-                .into(),
+                },
             ),
             "Should return true when the version is below the maximum"
         );
@@ -925,8 +850,7 @@ mod tests {
                 &SearchUserEnvironment {
                     version: "42.0.0".to_string(),
                     ..Default::default()
-                }
-                .into(),
+                },
             ),
             "Should return true when the version is equal to the maximum"
         );
@@ -940,8 +864,7 @@ mod tests {
                 &SearchUserEnvironment {
                     version: "42.0.0".to_string(),
                     ..Default::default()
-                }
-                .into(),
+                },
             ),
             "Should return false when the version is above the maximum"
         );
@@ -956,8 +879,7 @@ mod tests {
                 &SearchUserEnvironment {
                     version: "2.0.0".to_string(),
                     ..Default::default()
-                }
-                .into(),
+                },
             ),
             "Should return false when the version is below the minimum and both are specified"
         );
@@ -971,8 +893,7 @@ mod tests {
                 &SearchUserEnvironment {
                     version: "41.0.0".to_string(),
                     ..Default::default()
-                }
-                .into(),
+                },
             ),
             "Should return true when the version is equal to the minimum and both are specified"
         );
@@ -986,8 +907,7 @@ mod tests {
                 &SearchUserEnvironment {
                     version: "42.0.0".to_string(),
                     ..Default::default()
-                }
-                .into(),
+                },
             ),
             "Should return true when the version is between the minimum and maximum"
         );
@@ -1001,8 +921,7 @@ mod tests {
                 &SearchUserEnvironment {
                     version: "43.0.0".to_string(),
                     ..Default::default()
-                }
-                .into(),
+                },
             ),
             "Should return true when the version is equal to the maximum and both are specified"
         );
@@ -1016,8 +935,7 @@ mod tests {
                 &SearchUserEnvironment {
                     version: "44.0.0".to_string(),
                     ..Default::default()
-                }
-                .into(),
+                },
             ),
             "Should return false when the version is above the maximum and both are specified"
         );
@@ -1035,7 +953,6 @@ mod tests {
                     device_type: SearchDeviceType::None,
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return true when the device type matches one in the environment"
         );
@@ -1049,7 +966,7 @@ mod tests {
                 &SearchUserEnvironment {
                     device_type: SearchDeviceType::Tablet,
                     ..Default::default()
-                }.into()
+                }
             ),
             "Should return true when the device type matches one in the environment when there are multiple"
         );
@@ -1064,7 +981,6 @@ mod tests {
                     device_type: SearchDeviceType::None,
                     ..Default::default()
                 }
-                .into()
             ),
             "Should return false when the device type does not match any in the environment"
         );
@@ -1082,951 +998,6 @@ mod tests {
                     device_type: SearchDeviceType::Tablet,
                     ..Default::default()
                 }
-                .into()
-            ),
-            "Should return true when the device type and region matches the environment"
-        );
-    }
-}
-
-#[cfg(test)]
-mod tests_v3 {
-    use std::vec;
-
-    use super::*;
-    use crate::*;
-
-    #[test]
-    fn test_matches_user_environment_all_locales() {
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: true,
-                    excluded_locales: vec![],
-                    excluded_regions: vec![],
-                    locales: vec![],
-                    regions: vec![],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "FR".into(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return true when all_regions_and_locales is true"
-        );
-
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: false,
-                    excluded_locales: vec![],
-                    excluded_regions: vec![],
-                    locales: vec![],
-                    regions: vec![],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    ..Default::default()
-                }.into()
-            ),
-            "Should return true when all_regions_and_locales is false (default) and no regions/locales are specified"
-        );
-
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: true,
-                    excluded_locales: vec!["fi".to_string()],
-                    excluded_regions: vec![],
-                    locales: vec![],
-                    regions: vec![],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return false when all_regions_and_locales is true and the locale is excluded"
-        );
-
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: true,
-                    excluded_locales: vec!["FI".to_string()],
-                    excluded_regions: vec![],
-                    locales: vec![],
-                    regions: vec![],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    ..Default::default()
-                }.into()
-            ),
-            "Should return false when all_regions_and_locales is true and the excluded locale is a different case"
-        );
-
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: true,
-                    excluded_locales: vec!["en-US".to_string()],
-                    excluded_regions: vec![],
-                    locales: vec![],
-                    regions: vec![],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    ..Default::default()
-                }.into()
-            ),
-            "Should return true when all_regions_and_locales is true and the locale is not excluded"
-        );
-
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: true,
-                    excluded_regions: vec!["us".to_string(), "fr".to_string()],
-                    locales: vec![],
-                    regions: vec![],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return false when all_regions_and_locales is true and the region is excluded"
-        );
-
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: true,
-                    excluded_locales: vec![],
-                    excluded_regions: vec!["US".to_string(), "FR".to_string()],
-                    locales: vec![],
-                    regions: vec![],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    ..Default::default()
-                }.into()
-            ),
-            "Should return false when all_regions_and_locales is true and the excluded region is a different case"
-        );
-
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: true,
-                    excluded_locales: vec![],
-                    excluded_regions: vec!["us".to_string()],
-                    locales: vec![],
-                    regions: vec![],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    ..Default::default()
-                }.into()
-            ),
-            "Should return true when all_regions_and_locales is true and the region is not excluded"
-        );
-    }
-
-    #[test]
-    fn test_matches_user_environment_locales() {
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: false,
-                    excluded_locales: vec![],
-                    excluded_regions: vec![],
-                    locales: vec!["en-gb".to_string(), "fi".to_string()],
-                    regions: vec![],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return true when the user locale matches one from the config"
-        );
-
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: false,
-                    excluded_locales: vec![],
-                    excluded_regions: vec![],
-                    locales: vec!["en-GB".to_string(), "FI".to_string()],
-                    regions: vec![],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    ..Default::default()
-                }.into()
-            ),
-            "Should return true when the user locale matches one from the config and is a different case"
-        );
-
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: false,
-                    excluded_locales: vec![],
-                    excluded_regions: vec![],
-                    locales: vec!["en-gb".to_string(), "en-ca".to_string()],
-                    regions: vec![],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return false when the user locale does not match one from the config"
-        );
-    }
-
-    #[test]
-    fn test_matches_user_environment_regions() {
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: false,
-                    excluded_locales: vec![],
-                    excluded_regions: vec![],
-                    locales: vec![],
-                    regions: vec!["gb".to_string(), "fr".to_string()],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return true when the user region matches one from the config"
-        );
-
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: false,
-                    excluded_locales: vec![],
-                    excluded_regions: vec![],
-                    locales: vec![],
-                    regions: vec!["GB".to_string(), "FR".to_string()],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    ..Default::default()
-                }.into()
-            ),
-            "Should return true when the user region matches one from the config and is a different case"
-        );
-
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: false,
-                    excluded_locales: vec![],
-                    excluded_regions: vec![],
-                    locales: vec!["gb".to_string(), "ca".to_string()],
-                    regions: vec![],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return false when the user region does not match one from the config"
-        );
-    }
-
-    #[test]
-    fn test_matches_user_environment_locales_with_excluded_regions() {
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: false,
-                    excluded_locales: vec![],
-                    excluded_regions: vec!["gb".to_string(), "ca".to_string()],
-                    locales: vec!["en-gb".to_string(), "fi".to_string()],
-                    regions: vec![],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return true when the locale matches and the region is not excluded"
-        );
-
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: false,
-                    excluded_locales: vec![],
-                    excluded_regions: vec!["gb".to_string(), "fr".to_string()],
-                    locales: vec!["en-gb".to_string(), "fi".to_string()],
-                    regions: vec![],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return false when the locale matches and the region is excluded"
-        );
-    }
-
-    #[test]
-    fn test_matches_user_environment_regions_with_excluded_locales() {
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: false,
-                    excluded_locales: vec!["en-gb".to_string(), "de".to_string()],
-                    excluded_regions: vec![],
-                    locales: vec![],
-                    regions: vec!["gb".to_string(), "fr".to_string()],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return true when the region matches and the locale is not excluded"
-        );
-
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    all_regions_and_locales: false,
-                    excluded_locales: vec!["en-gb".to_string(), "fi".to_string()],
-                    excluded_regions: vec![],
-                    locales: vec![],
-                    regions: vec!["gb".to_string(), "fr".to_string()],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return false when the region matches and the locale is excluded"
-        );
-    }
-
-    #[test]
-    fn test_matches_user_environment_distributions() {
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    distributions: vec!["distro-1".to_string()],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    distribution_id: "distro-1".into(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return true when the distribution matches one in the environment"
-        );
-
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    distributions: vec!["distro-2".to_string(), "distro-3".to_string()],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    distribution_id: "distro-3".into(),
-                    ..Default::default()
-                }.into()
-            ),
-            "Should return true when the distribution matches one in the environment when there are multiple"
-        );
-
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    distributions: vec!["distro-2".to_string(), "distro-3".to_string()],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    distribution_id: "distro-4".into(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return false when the distribution does not match any in the environment"
-        );
-
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    regions: vec!["fr".to_string()],
-                    distributions: vec!["distro-1".to_string(), "distro-2".to_string()],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    distribution_id: "distro-2".into(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return true when the distribution and region matches the environment"
-        );
-    }
-
-    #[test]
-    fn test_matches_user_environment_excluded_distributions() {
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    distributions: vec!["distro-1".to_string(), "distro-2".to_string()],
-                    excluded_distributions: vec!["
-                        distro-3".to_string(), "distro-4".to_string()
-                    ],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    distribution_id: "distro-2".into(),
-                    ..Default::default()
-                }.into()
-            ),
-            "Should return true when the distribution matches the distribution list but not the excluded distributions"
-        );
-
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    distributions: vec!["distro-1".to_string(), "distro-2".to_string()],
-                    excluded_distributions: vec!["distro-3".to_string(), "distro-4".to_string()],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    distribution_id: "distro-3".into(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return false when the distribution matches the the excluded distributions"
-        );
-    }
-
-    #[test]
-    fn test_matches_user_environment_application_name() {
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    applications: vec![SearchApplicationNameV3::FirefoxWin],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    app_name: SearchApplicationNameV3::FirefoxWin,
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return true when the application name matches the one in the environment"
-        );
-
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    applications: vec![
-                        SearchApplicationNameV3::FirefoxAndroid,
-                        SearchApplicationNameV3::FirefoxWin
-                    ],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    app_name: SearchApplicationNameV3::FirefoxWin,
-                    ..Default::default()
-                }.into()
-            ),
-            "Should return true when the application name matches one in the environment when there are multiple"
-        );
-
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    applications: vec![
-                        SearchApplicationNameV3::FirefoxAndroid,
-                        SearchApplicationNameV3::FirefoxWin
-                    ],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    app_name: SearchApplicationNameV3::FirefoxIos,
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return false when the applications do not match the one in the environment"
-        );
-
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    regions: vec!["fr".to_string()],
-                    applications: vec![
-                        SearchApplicationNameV3::FirefoxAndroid,
-                        SearchApplicationNameV3::FirefoxWin
-                    ],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    app_name: SearchApplicationNameV3::FirefoxWin,
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return true when the application name matches the one in the environment"
-        );
-
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    applications: vec![
-                        SearchApplicationNameV3::FirefoxMacosx,
-                        SearchApplicationNameV3::FirefoxLinux
-                    ],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    app_name: SearchApplicationNameV3::FirefoxLinux,
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return true when the desktop application name matches one in the environment"
-        );
-
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    applications: vec![
-                        SearchApplicationNameV3::FirefoxMacosx,
-                        SearchApplicationNameV3::FirefoxLinux
-                    ],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    app_name: SearchApplicationNameV3::FirefoxWin,
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return false when the desktop application name does not match the ones in the environment"
-        );
-    }
-
-    #[test]
-    fn test_matches_user_environment_channel() {
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    channels: vec![SearchUpdateChannelV3::Nightly],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    update_channel: SearchUpdateChannelV3::Nightly,
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return true when the channel matches one in the environment"
-        );
-
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    channels: vec![SearchUpdateChannelV3::Nightly, SearchUpdateChannelV3::Release],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    update_channel: SearchUpdateChannelV3::Release,
-                    ..Default::default()
-                }.into()
-            ),
-            "Should return true when the channel matches one in the environment when there are multiple"
-        );
-
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    channels: vec![SearchUpdateChannelV3::Nightly],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    update_channel: SearchUpdateChannelV3::Default,
-                    distribution_id: "distro-4".into(),
-                    experiment: String::new(),
-                    app_name: SearchApplicationNameV3::FirefoxWin,
-                    version: String::new(),
-                    device_type: SearchDeviceTypeV3::None,
-                }
-                .into()
-            ),
-            "Should return false when the channel does not match any in the environment"
-        );
-
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    regions: vec!["fr".to_string()],
-                    channels: vec![SearchUpdateChannelV3::Default],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    update_channel: SearchUpdateChannelV3::Default,
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return true when the channel and region matches the environment"
-        );
-    }
-
-    #[test]
-    fn test_matches_user_environment_experiment() {
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    experiment: "warp-drive".to_string(),
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    experiment: "warp-drive".to_string(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return true when the experiment matches the one in the environment"
-        );
-
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    experiment: "warp-drive".to_string(),
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    experiment: "cloak".to_string(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return false when the experiment does not match the one in the environment"
-        );
-
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    regions: vec!["fr".to_string()],
-                    experiment: "warp-drive".to_string(),
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    experiment: "warp-drive".to_string(),
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return true when the experiment and region matches the environment"
-        );
-    }
-
-    #[test]
-    fn test_matches_user_environment_versions() {
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    min_version: "43.0.0".to_string(),
-                    max_version: "".to_string(),
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    version: "42.0.0".to_string(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            "Should return false when the version is below the minimum"
-        );
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    min_version: "42.0.0".to_string(),
-                    max_version: "".to_string(),
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    version: "42.0.0".to_string(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            "Should return true when the version is equal to the minimum"
-        );
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    min_version: "41.0.0".to_string(),
-                    max_version: "".to_string(),
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    version: "42.0.0".to_string(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            "Should return true when the version is above the minimum"
-        );
-
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    min_version: "".to_string(),
-                    max_version: "43.0.0".to_string(),
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    version: "42.0.0".to_string(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            "Should return true when the version is below the maximum"
-        );
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    min_version: "".to_string(),
-                    max_version: "42.0.0".to_string(),
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    version: "42.0.0".to_string(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            "Should return true when the version is equal to the maximum"
-        );
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    min_version: "".to_string(),
-                    max_version: "41.0.0".to_string(),
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    version: "42.0.0".to_string(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            "Should return false when the version is above the maximum"
-        );
-
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    min_version: "41.0.0".to_string(),
-                    max_version: "43.0.0".to_string(),
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    version: "2.0.0".to_string(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            "Should return false when the version is below the minimum and both are specified"
-        );
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    min_version: "41.0.0".to_string(),
-                    max_version: "43.0.0".to_string(),
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    version: "41.0.0".to_string(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            "Should return true when the version is equal to the minimum and both are specified"
-        );
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    min_version: "41.0.0".to_string(),
-                    max_version: "43.0.0".to_string(),
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    version: "42.0.0".to_string(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            "Should return true when the version is between the minimum and maximum"
-        );
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    min_version: "41.0.0".to_string(),
-                    max_version: "43.0.0".to_string(),
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    version: "43.0.0".to_string(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            "Should return true when the version is equal to the maximum and both are specified"
-        );
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    min_version: "41.0.0".to_string(),
-                    max_version: "43.0.0".to_string(),
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    version: "44.0.0".to_string(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            "Should return false when the version is above the maximum and both are specified"
-        );
-    }
-
-    #[test]
-    fn test_matches_user_environment_device_type() {
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    device_type: vec![SearchDeviceTypeV3::None],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    device_type: SearchDeviceTypeV3::None,
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return true when the device type matches one in the environment"
-        );
-
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    device_type: vec![SearchDeviceTypeV3::Smartphone, SearchDeviceTypeV3::Tablet],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    device_type: SearchDeviceTypeV3::Tablet,
-                    ..Default::default()
-                }.into()
-            ),
-            "Should return true when the device type matches one in the environment when there are multiple"
-        );
-
-        assert!(
-            !matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    device_type: vec![SearchDeviceTypeV3::Smartphone],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    device_type: SearchDeviceTypeV3::None,
-                    ..Default::default()
-                }
-                .into()
-            ),
-            "Should return false when the device type does not match any in the environment"
-        );
-
-        assert!(
-            matches_user_environment(
-                &crate::JSONVariantEnvironment {
-                    regions: vec!["fr".to_string()],
-                    device_type: vec![SearchDeviceTypeV3::Tablet],
-                    ..Default::default()
-                },
-                &SearchUserEnvironmentV3 {
-                    locale: "fi".into(),
-                    region: "fr".into(),
-                    device_type: SearchDeviceTypeV3::Tablet,
-                    ..Default::default()
-                }
-                .into()
             ),
             "Should return true when the device type and region matches the environment"
         );

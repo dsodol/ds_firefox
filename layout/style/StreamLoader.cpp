@@ -133,8 +133,7 @@ StreamLoader::OnStopRequest(nsIRequest* aRequest, nsresult aStatus) {
         }
       }
     }
-    mSheetLoadData->mLoader->SheetComplete(*mSheetLoadData, mStatus,
-                                           Loader::TriggeringPendingLoad::No);
+    mSheetLoadData->mLoader->SheetComplete(*mSheetLoadData, mStatus);
   };
 
   if (mOnStopProcessingDone) {

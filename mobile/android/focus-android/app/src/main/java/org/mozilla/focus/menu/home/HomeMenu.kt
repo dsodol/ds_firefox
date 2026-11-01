@@ -5,7 +5,6 @@
 package org.mozilla.focus.menu.home
 
 import mozilla.components.compose.base.text.Text
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.MenuItemsGroup
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.ui.MenuItemIconRes
@@ -18,14 +17,14 @@ private const val HOME_GROUP_ID = "home"
 fun homeMenuGroups(): List<MenuItemsGroup> {
     val help =
         StandardMenuItem(
-            title = MenuItemTitle(Text.Resource(R.string.menu_help)),
+            title = Text.Resource(R.string.menu_help),
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_help_circle_24),
             onClickEvent = HomeMenuItemTapped(HomeMenuItem.Help),
         )
 
     val settings =
         StandardMenuItem(
-            title = MenuItemTitle(Text.Resource(R.string.menu_settings)),
+            title = Text.Resource(R.string.menu_settings),
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_settings_24),
             onClickEvent = HomeMenuItemTapped(HomeMenuItem.Settings),
         )

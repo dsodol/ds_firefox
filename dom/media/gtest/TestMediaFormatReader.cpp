@@ -473,8 +473,8 @@ TEST_F(TestMediaFormatReader, PositiveVideoMediaTimeDoesNotDelayAudio) {
   EXPECT_CALL(*mPdm, CreateAudioDecoder)
       .WillOnce([](const CreateDecoderParams& aParams) {
         RefPtr<MediaDataDecoder> decoder = new DummyMediaDataDecoder(
-            std::make_unique<BlankAudioDataCreator>(
-                aParams.AudioConfig().mChannels, aParams.AudioConfig().mRate),
+            MakeUnique<BlankAudioDataCreator>(aParams.AudioConfig().mChannels,
+                                              aParams.AudioConfig().mRate),
             "MockAudioDataDecoder"_ns, aParams);
         return decoder.forget();
       });

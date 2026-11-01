@@ -67,7 +67,8 @@ class SVGSwitchFrame final : public SVGGFrame {
 
 nsIFrame* NS_NewSVGSwitchFrame(mozilla::PresShell* aPresShell,
                                mozilla::ComputedStyle* aStyle) {
-  return new mozilla::SVGSwitchFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      mozilla::SVGSwitchFrame(aStyle, aPresShell->GetPresContext());
 }
 
 namespace mozilla {

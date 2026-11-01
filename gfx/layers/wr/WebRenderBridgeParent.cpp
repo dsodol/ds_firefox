@@ -375,9 +375,6 @@ WebRenderBridgeParent::WebRenderBridgeParent(
       wr::AsUint64(mPipelineId), wr::AsUint64(mLateInit->mApi->GetId()),
       IsRootWebRenderBridgeParent());
 
-  SharedSurfacesParent::AddIdNamespace(
-      mLateInit->mIdNamespace,
-      aCompositorBridge->GetCompositorManager()->GetNamespace());
   mLateInit->mAsyncImageManager->AddPipeline(mPipelineId, this);
   mRemoteTextureTxnScheduler =
       RemoteTextureTxnScheduler::Create(aCompositorBridge);
@@ -440,9 +437,6 @@ void WebRenderBridgeParent::FinishInitialization(
       .mCompositorScheduler = new CompositorVsyncScheduler(this, mWidget),
       .mIdNamespace = aApi->GetNamespace(),
   });
-  SharedSurfacesParent::AddIdNamespace(
-      mLateInit->mIdNamespace,
-      mCompositorBridge->GetCompositorManager()->GetNamespace());
   mLateInit->mAsyncImageManager->AddPipeline(mPipelineId, this);
 
   UpdateDebugFlags();
@@ -564,37 +558,6 @@ void WebRenderBridgeParent::Destroy() {
     entry.second->OnReleased();
   }
   mCompositables.clear();
-
-  if (mLateInit->mApi) {
-    // Blobs already submitted for this namespace may still be rasterizing on
-    // the scene builder thread, resolving their external image IDs against the
-    // namespace's mapping. A notification is delivered once the scene builder
-    // has processed everything queued before this transaction, so the mapping
-    // outlives that rasterization. Any checkpoint means we are done with it,
-    // including TransactionDropped, which WebRender guarantees for a
-    // notification it never delivers.
-    class RemoveIdNamespaceNotification final : public wr::NotificationHandler {
-     public:
-      explicit RemoveIdNamespaceNotification(
-          const wr::IdNamespace& aIdNamespace)
-          : mIdNamespace(aIdNamespace) {}
-
-      void Notify(wr::Checkpoint) override {
-        SharedSurfacesParent::RemoveIdNamespace(mIdNamespace);
-      }
-
-     private:
-      wr::IdNamespace mIdNamespace;
-    };
-
-    wr::TransactionBuilder txn(mLateInit->mApi);
-    txn.SetLowPriority(true);
-    txn.Notify(wr::Checkpoint::SceneBuilt,
-               std::make_unique<RemoveIdNamespaceNotification>(
-                   mLateInit->mIdNamespace));
-    mLateInit->mApi->SendTransaction(txn);
-  }
-
   ClearResources();
 #ifdef MOZ_WIDGET_ANDROID
   if (mScreenPixelsRequest) {
@@ -642,7 +605,7 @@ static bool ReadRawFont(const OpAddRawFont& aOp, wr::ShmSegmentsReader& aReader,
     return false;
   }
   gfxOTSExpandingMemoryStream<WROTSAlloc> output(lengthHint);
-  gfxOTSContext otsContext(/* aDropShapingTables = */ true);
+  gfxOTSContext otsContext;
   if (!otsContext.Process(&output, source.Data(), source.Length())) {
     gfxCriticalNote << "Failed sanitizing font " << aOp.key().mHandle;
     return false;
@@ -651,39 +614,6 @@ static bool ReadRawFont(const OpAddRawFont& aOp, wr::ShmSegmentsReader& aReader,
 
   aUpdates.AddRawFont(aOp.key(), bytes, aOp.fontIndex());
   return true;
-}
-
-already_AddRefed<WebRenderBridgeParent>
-WebRenderBridgeParent::FindSnapshotSourceBridge(
-    const wr::IdNamespace& aNamespace) {
-  // The source namespace is this bridge's own, so no lookup is needed.
-  if (aNamespace == mLateInit->mIdNamespace) {
-    return do_AddRef(this);
-  }
-  RefPtr<WebRenderBridgeParent> source;
-  bool done = false;
-  CompositorBridgeParent::WithIndirectLayerTreesLock(
-      [&](const StaticMonitorAutoLock& aLock) {
-        CompositorBridgeParent::ForEachLayerTreeStateUnderLock(
-            aLock,
-            [&](LayersId, CompositorBridgeParent::LayerTreeState& aState) {
-              WebRenderBridgeParent* bridge = aState.mWrBridge;
-              if (done || !bridge || bridge == this || !bridge->mLateInit ||
-                  !(bridge->mLateInit->mIdNamespace == aNamespace)) {
-                return;
-              }
-              // Namespaces are unique, so no other bridge can match.
-              done = true;
-              // Unlike pids, child ids are never reused. Each WebRender window
-              // has its own resource cache.
-              if (bridge->OtherChildID() == OtherChildID() &&
-                  bridge->mLateInit->mApi->GetId() ==
-                      mLateInit->mApi->GetId()) {
-                source = bridge;
-              }
-            });
-      });
-  return source.forget();
 }
 
 bool WebRenderBridgeParent::UpdateResources(
@@ -702,10 +632,6 @@ bool WebRenderBridgeParent::UpdateResources(
       break;
     }
   }
-
-  // The snapshots of one adoption come from one bridge. Find it only once.
-  Maybe<wr::IdNamespace> adoptSourceNamespace;
-  bool adoptSourceFound = false;
 
   bool success = true;
   for (const auto& cmd : aResourceUpdates) {
@@ -795,33 +721,6 @@ bool WebRenderBridgeParent::UpdateResources(
           break;
         }
         aUpdates.AddSnapshotImage(op.key());
-        break;
-      }
-      case OpUpdateResource::TOpAdoptSnapshotImage: {
-        const auto& op = cmd.get_OpAdoptSnapshotImage();
-        if (NS_WARN_IF(!MatchesNamespace(wr::AsImageKey(op.key())))) {
-          break;
-        }
-        const wr::IdNamespace fromNamespace =
-            wr::AsImageKey(op.fromKey()).mNamespace;
-        if (adoptSourceNamespace != Some(fromNamespace)) {
-          adoptSourceNamespace = Some(fromNamespace);
-          RefPtr<WebRenderBridgeParent> source =
-              FindSnapshotSourceBridge(fromNamespace);
-          adoptSourceFound = !!source;
-          // The transaction that captured the snapshots can still wait in
-          // the queue of the source bridge, for example for remote textures.
-          // Send it to WebRender before the adoption.
-          if (source && source != this) {
-            source->FlushPendingWrTransactionEventsWithWait();
-          }
-        }
-        // The source bridge can already be gone if the old document was torn
-        // down before the restored document adopted the snapshots.
-        if (NS_WARN_IF(!adoptSourceFound)) {
-          break;
-        }
-        aUpdates.AdoptSnapshotImage(op.fromKey(), op.key());
         break;
       }
       case OpUpdateResource::TOpDeleteSnapshotImage: {
@@ -1135,7 +1034,7 @@ bool WebRenderBridgeParent::UpdateSharedExternalImage(
     // previous external image ID. This can happen when an image is animated,
     // and it is changing the external image that the animation points to.
     if (!aScheduleRelease) {
-      aScheduleRelease = std::make_unique<ScheduleSharedSurfaceRelease>(this);
+      aScheduleRelease = MakeUnique<ScheduleSharedSurfaceRelease>(this);
     }
     aScheduleRelease->Add(aKey, it->second);
     it->second = aExtId;
@@ -1430,9 +1329,6 @@ bool WebRenderBridgeParent::SetDisplayList(
     pipelineId = gfx::GetTemporaryWebRenderPipelineId(pipelineId);
   }
 
-  if (StaticPrefs::gfx_webrender_enforce_embed_policy_AtStartup()) {
-    aTxn.SetEmbedPolicy(pipelineId, ComputeEmbedPolicy());
-  }
   aTxn.SetDisplayList(aWrEpoch, mLateInit->mIdNamespace, pipelineId, aDLDesc,
                       dlItems, dlSpatialTreeData, dlInternerDelta);
 
@@ -1444,9 +1340,8 @@ bool WebRenderBridgeParent::SetDisplayList(
   }
 
   if (!IsRootWebRenderBridgeParent() && !aRenderOffscreen) {
-    aTxn.Notify(wr::Checkpoint::SceneBuilt,
-                std::make_unique<SceneBuiltNotification>(this, aWrEpoch,
-                                                         aTxnStartTime));
+    aTxn.Notify(wr::Checkpoint::SceneBuilt, MakeUnique<SceneBuiltNotification>(
+                                                this, aWrEpoch, aTxnStartTime));
   }
 
   NeedIncreasedMaxDirtyPageModifier();
@@ -1492,32 +1387,6 @@ void WebRenderBridgeParent::SanitizeScrollData(
     return;
   }
   ClearUnconfirmedReferentIds(aScrollData, GetLayersId());
-}
-
-Maybe<nsTArray<uint32_t>> WebRenderBridgeParent::ComputeEmbedPolicy() const {
-  if (IsRootWebRenderBridgeParent()) {
-    return Nothing();
-  }
-  nsTArray<uint32_t> namespaces;
-  if (mCompositorBridge) {
-    namespaces.AppendElement(mCompositorBridge->GetNamespace());
-  }
-  CompositorBridgeParent::CollectEmbeddedChildNamespaces(GetLayersId(),
-                                                         namespaces);
-  return Some(std::move(namespaces));
-}
-
-void WebRenderBridgeParent::RefreshEmbedPolicy() {
-  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
-  // Before initialization no display list was sent, and the first one carries
-  // the policy.
-  if (mDestroyed || !mLateInit || IsRootWebRenderBridgeParent()) {
-    return;
-  }
-  wr::TransactionBuilder txn(mLateInit->mApi);
-  txn.SetLowPriority(true);
-  txn.SetEmbedPolicy(mPipelineId, ComputeEmbedPolicy());
-  mLateInit->mApi->SendTransaction(txn);
 }
 
 bool WebRenderBridgeParent::ProcessDisplayListData(
@@ -2087,8 +1956,6 @@ void WebRenderBridgeParent::UpdateParameters() {
     mLateInit->mApi->SetBatchingLookback(count);
     mLateInit->mApi->SetInt(wr::IntParameter::BatchedUploadThreshold,
                             gfxVars::WebRenderBatchedUploadThreshold());
-    mLateInit->mApi->SetInt(wr::IntParameter::PathAaSamples,
-                            gfxVars::WebRenderPathAaSamples());
     float slow_cpu_frame = gfxVars::WebRenderSlowCpuFrameThreshold();
     mLateInit->mApi->SetFloat(wr::FloatParameter::SlowCpuFrameThreshold,
                               slow_cpu_frame);
@@ -2393,7 +2260,7 @@ void WebRenderBridgeParent::MaybeNotifyOfLayers(
   }
 
   aBuilder.Notify(wr::Checkpoint::SceneBuilt,
-                  std::make_unique<ScheduleObserveLayersUpdate>(
+                  MakeUnique<ScheduleObserveLayersUpdate>(
                       mCompositorBridge, GetLayersId(), aWillHaveLayers));
   mLastNotifiedHasLayers = aWillHaveLayers;
 }
@@ -2443,9 +2310,6 @@ wr::Epoch WebRenderBridgeParent::UpdateWebRender(
   // Update id name space to identify obsoleted keys.
   // Since usage of invalid keys could cause crash in webrender.
   mLateInit->mIdNamespace = aApi->GetNamespace();
-  SharedSurfacesParent::AddIdNamespace(
-      mLateInit->mIdNamespace,
-      mCompositorBridge->GetCompositorManager()->GetNamespace());
   // XXX Remove it when webrender supports sharing/moving Keys between different
   // webrender instances.
   // XXX It requests client to update/reallocate webrender related resources,
@@ -3362,14 +3226,6 @@ TextureFactoryIdentifier WebRenderBridgeParent::GetTextureFactoryIdentifier() {
       mLateInit->mAsyncImageManager->UseCompositorWnd(), false, false, false,
       supportsD3D11NV12, mLateInit->mApi->GetSyncHandle());
   return ident;
-}
-
-Maybe<TextureFactoryIdentifier>
-WebRenderBridgeParent::MaybeGetTextureFactoryIdentifier() {
-  if (mDestroyed || mLateInit.isNothing() || !mLateInit->mApi) {
-    return Nothing();
-  }
-  return Some(GetTextureFactoryIdentifier());
 }
 
 wr::Epoch WebRenderBridgeParent::GetNextWrEpoch() {

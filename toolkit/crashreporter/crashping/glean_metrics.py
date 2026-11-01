@@ -48,7 +48,6 @@ def generate_string(annotations):
         bug_urls = [
             make_bugzilla_url(bug) for bug in definition.get("bugs", ["1950749"])
         ]
-        expires = glean.pop("expires", "never")
 
         glean.update({
             "description": definition["description"].strip(),
@@ -59,7 +58,7 @@ def generate_string(annotations):
             "bugs": bug_urls,
             "data_reviews": bug_urls.copy(),  # Copy so the produced yaml doesn't use anchors
             "data_sensitivity": ["technical"],
-            "expires": expires,
+            "expires": "never",
             "send_in_pings": ["crash"],
         })
 

@@ -420,13 +420,15 @@ export class OpenAIPipeline {
         engineId,
         maxRetries,
       } = this.#options;
-      const token = request.token ?? null;
+      const fxAccountToken = request.fxAccountToken
+        ? request.fxAccountToken
+        : null;
       const chatId = request.chatId;
 
       const userAgent = navigator.userAgent;
       const client = new OpenAIPipeline.OpenAILib.OpenAI({
         baseURL: baseURL ? baseURL : "http://localhost:11434/v1",
-        apiKey: apiKey || token || "apiKey",
+        apiKey: apiKey || fxAccountToken || "apiKey",
         maxRetries,
         defaultHeaders: {
           "user-agent": userAgent,

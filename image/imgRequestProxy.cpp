@@ -1223,7 +1223,7 @@ imgRequestProxyStatic::imgRequestProxyStatic(mozilla::image::Image* aImage,
     : mImagePrincipal(aImagePrincipal),
       mTriggeringPrincipal(aTriggeringPrincipal),
       mHadCrossOriginRedirects(aHadCrossOriginRedirects) {
-  mBehaviour = std::make_unique<StaticBehaviour>(aImage);
+  mBehaviour = mozilla::MakeUnique<StaticBehaviour>(aImage);
 }
 
 NS_IMETHODIMP

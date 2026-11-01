@@ -32,19 +32,20 @@ describe("<DSEmptyState>", () => {
 
   it("should render failed state message", () => {
     wrapper = render(<DSEmptyState status="failed" />);
-    expect(
-      wrapper.container.querySelector(".try-again-button")
-    ).toBeInTheDocument();
+    const button = wrapper.container.querySelector(
+      "button[data-l10n-id='newtab-discovery-empty-section-topstories-try-again-button']"
+    );
+
+    expect(button).toBeInTheDocument();
   });
 
   it("should render waiting state message", () => {
     wrapper = render(<DSEmptyState status="waiting" />);
-    expect(
-      wrapper.container.querySelector(".try-again-spinner")
-    ).toBeInTheDocument();
-    expect(
-      wrapper.container.querySelector(".try-again-button")
-    ).not.toBeInTheDocument();
+    const button = wrapper.container.querySelector(
+      "button[data-l10n-id='newtab-discovery-empty-section-topstories-loading']"
+    );
+
+    expect(button).toBeInTheDocument();
   });
 
   it("should dispatch DISCOVERY_STREAM_RETRY_FEED on failed state button click", () => {
@@ -57,9 +58,7 @@ describe("<DSEmptyState>", () => {
         feed={{ url: "https://foo.com", data: {} }}
       />
     );
-    fireEvent.click(
-      wrapper.container.querySelector("moz-button.try-again-button")
-    );
+    fireEvent.click(wrapper.container.querySelector("button.try-again-button"));
 
     expect(dispatch).toHaveBeenCalledTimes(2);
     const [firstCallArgs, secondCallArgs] = dispatch.mock.calls;

@@ -703,7 +703,7 @@ void GpuProcessAndroidImageReaderMap::Register(
   }
 
   mImageReaders.emplace(aImageReader->mImageReaderId,
-                        std::make_unique<ImageReaderHolder>(aImageReader));
+                        MakeUnique<ImageReaderHolder>(aImageReader));
 }
 
 void GpuProcessAndroidImageReaderMap::Unregister(

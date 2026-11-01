@@ -10,12 +10,6 @@
 const TEST_ENGINE_NAME = "Test";
 
 add_setup(async function () {
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      ["browser.urlbar.unifiedSearchButton.always", false],
-      ["browser.urlbar.unifiedSearchButton.historyInSearchMode", false],
-    ],
-  });
   // The topSites task needs a search shortcut Top Site, so set up the
   // configuration to make Baidu available as a search engine.
   await SearchTestUtils.updateRemoteSettingsConfig([

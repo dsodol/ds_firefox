@@ -160,7 +160,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include <memory>
 #include <utility>
 
 #include "js/SliceBudget.h"
@@ -2262,7 +2261,7 @@ void CCGraphBuilder::DoneAddingRoots() {
   // We've finished adding roots, and everything in the graph is a root.
   mGraph.mRootCount = mGraph.MapCount();
 
-  mCurrNode = std::make_unique<NodePool::Enumerator>(mGraph.mNodes);
+  mCurrNode = MakeUnique<NodePool::Enumerator>(mGraph.mNodes);
 }
 
 MOZ_NEVER_INLINE bool CCGraphBuilder::BuildGraph(SliceBudget& aBudget) {
@@ -3958,8 +3957,8 @@ void nsCycleCollector::BeginCollection(
   mResults.mMergedZones = mergeZones;
 
   MOZ_ASSERT(!mBuilder, "Forgot to clear mBuilder");
-  mBuilder = std::make_unique<CCGraphBuilder>(mGraph, mResults, mCCJSRuntime,
-                                              mLogger, mergeZones);
+  mBuilder = MakeUnique<CCGraphBuilder>(mGraph, mResults, mCCJSRuntime, mLogger,
+                                        mergeZones);
   timeLog.Checkpoint("BeginCollection prepare graph builder");
 
   if (mCCJSRuntime) {
@@ -4191,7 +4190,7 @@ void nsCycleCollector_startup() {
   CollectorData* data = new CollectorData;
   data->mCollector = new nsCycleCollector();
   data->mContext = nullptr;
-  data->mStats = std::make_unique<mozilla::CycleCollectorStats>();
+  data->mStats.reset(new mozilla::CycleCollectorStats());
 
   sCollectorData.set(data);
 }

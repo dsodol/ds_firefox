@@ -52,7 +52,7 @@ is_eager = true
 is_css2 = true
 is_eager = true
 [highlight]
-argument = "HighlightNameSelector"
+argument = "AtomIdent"
 [selection]
 [target-text]
 [view-transition]

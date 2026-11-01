@@ -14,7 +14,7 @@ class ClientWebGLExtensionBase : public nsWrapperCache {
   friend ClientWebGLContext;
 
  protected:
-  RefPtr<ClientWebGLContext> mContext;
+  WeakPtr<ClientWebGLContext> mContext;
 
  public:
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(ClientWebGLExtensionBase)
@@ -26,7 +26,7 @@ class ClientWebGLExtensionBase : public nsWrapperCache {
   virtual ~ClientWebGLExtensionBase() = default;
 
  public:
-  ClientWebGLContext* GetParentObject() const { return mContext; }
+  ClientWebGLContext* GetParentObject() const { return mContext.get(); }
 };
 
 // -

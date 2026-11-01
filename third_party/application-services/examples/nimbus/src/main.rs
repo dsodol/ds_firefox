@@ -140,14 +140,6 @@ fn main() -> Result<()> {
         fn submit_targeting_context(&self) {
             // do nothing
         }
-
-        fn record_rollouts_opt_out(&self) {
-            // do nothing
-        }
-
-        fn record_studies_opt_out(&self) {
-            // do nothing
-        }
     }
 
     // We set the logging level to be `warn` here, meaning that only
@@ -157,7 +149,7 @@ fn main() -> Result<()> {
     // Possible values are "info", "debug", "warn" and "error"
     // Check [`env_logger`](https://docs.rs/env_logger/) for more details
     error_support::init_for_tests_with_level(error_support::Level::Info);
-    viaduct_backend_rust::viaduct_init_backend_rust();
+    viaduct_hyper::viaduct_init_backend_hyper();
 
     // Initiate the matches for the command line arguments
     let args = Args::parse();

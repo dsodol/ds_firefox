@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.menu.data.MenuItem
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.store.MenuEvent
 import mozilla.components.compose.menu.ui.MenuItemIconRes
@@ -19,7 +18,6 @@ import mozilla.components.ui.icons.R as iconsR
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.menu.MenuHost
 import org.mozilla.fenix.components.menu.MenuItemProvider
-import org.mozilla.fenix.components.menu.MenuTarget
 import org.mozilla.fenix.components.menu.store.MenuAction
 
 /**
@@ -34,7 +32,6 @@ import org.mozilla.fenix.components.menu.store.MenuAction
  * @param quitApplicationDelegate Quits the application, once there is nothing left to delete.
  * @param applicationScope [CoroutineScope] tied to the lifetime of the application, on which to delete the data since
  *   that must complete even after the menu is closed.
- * @param target [MenuTarget] for which this menu item would be shown for.
  */
 class QuitMenuItemProvider(
     appName: String,
@@ -42,22 +39,21 @@ class QuitMenuItemProvider(
     private val deleteBrowsingDataController: () -> DeleteBrowsingDataController,
     private val quitApplicationDelegate: () -> Unit,
     private val applicationScope: CoroutineScope,
-    private val target: MenuTarget,
 ) : MenuItemProvider {
-    override val itemsFlow: StateFlow<List<MenuItem>> =
-        if (target == MenuTarget.CustomizeMenu) {
-            MutableStateFlow(listOf(defaultMenuItem(appName)))
-        } else {
-            MutableStateFlow(
-                listOfNotNull(
-                    when (deletesBrowsingDataOnQuit) {
-                        true -> defaultMenuItem(appName).copy(onClickEvent = MenuAction.DeleteBrowsingDataAndQuit)
+    override val itemFlow: StateFlow<MenuItem?> =
+        MutableStateFlow(
+            when (deletesBrowsingDataOnQuit) {
+                true ->
+                    StandardMenuItem(
+                        title = Text.Resource(R.string.browser_menu_delete_browsing_data_on_quit, listOf(appName)),
+                        icon = MenuItemIconRes(iconsR.drawable.mozac_ic_cross_circle_fill_24),
+                        onClickEvent = MenuAction.DeleteBrowsingDataAndQuit,
+                        state = MenuItemState.WARNING,
+                    )
 
-                        else -> null
-                    }
-                )
-            )
-        }
+                else -> null
+            }
+        )
 
     override fun handles(event: MenuEvent) = event == MenuAction.DeleteBrowsingDataAndQuit
 
@@ -72,15 +68,5 @@ class QuitMenuItemProvider(
         menu.dismiss()
 
         applicationScope.launch { controller.clearBrowsingDataOnQuit(onDeletionComplete = quitApplication) }
-    }
-
-    companion object {
-        private fun defaultMenuItem(appName: String) =
-            StandardMenuItem(
-                title =
-                    MenuItemTitle(Text.Resource(R.string.browser_menu_delete_browsing_data_on_quit, listOf(appName))),
-                icon = MenuItemIconRes(iconsR.drawable.mozac_ic_cross_circle_fill_24),
-                state = MenuItemState.WARNING,
-            )
     }
 }

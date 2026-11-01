@@ -101,7 +101,7 @@ void WaylandVsyncSource::Init() {
         // we will not get any regular frame callback any more and we will
         // not get any notification of it.
         // So always set up hidden window callback to catch it up.
-        WatchHiddenWindowVSync();
+        SetHiddenWindowVSync();
       },
       /* aEmulateFrameCallback */ true);
 
@@ -129,10 +129,10 @@ WaylandVsyncSource::~WaylandVsyncSource() {
   gWaylandVsyncSources.RemoveElement(this);
 }
 
-void WaylandVsyncSource::WatchHiddenWindowVSync() {
+void WaylandVsyncSource::SetHiddenWindowVSync() {
   MOZ_DIAGNOSTIC_ASSERT(NS_IsMainThread());
   if (!mHiddenWindowTimerID) {
-    LOG("WaylandVsyncSource::WatchHiddenWindowVSync()");
+    LOG("WaylandVsyncSource::SetHiddenWindowVSync()");
     mHiddenWindowTimerID = g_timeout_add(
         mHiddenWindowTimeout,
         [](void* data) -> gint {

@@ -36,12 +36,18 @@ add_task(async function test_policy_masterpassword_set() {
 
   await LoginTestUtils.primaryPassword.enable();
 
+  const srdEnabled = Services.prefs.getBoolPref(
+    "browser.settings-redesign.enabled",
+    false
+  );
   await BrowserTestUtils.withNewTab(
-    "about:preferences#passwordsAutofill",
+    srdEnabled
+      ? "about:preferences#passwordsAutofill"
+      : "about:preferences#privacy",
     async browser => {
-      let primaryPasswordControl = browser.contentDocument.getElementById(
-        "turnOffPrimaryPassword"
-      );
+      let primaryPasswordControl = srdEnabled
+        ? browser.contentDocument.getElementById("turnOffPrimaryPassword")
+        : browser.contentDocument.getElementById("useMasterPassword");
       is(
         primaryPasswordControl.disabled,
         true,

@@ -7,31 +7,17 @@
 
 #include <windows.h>
 
-#include <string>
-
 #include "DefaultBrowser.h"
 #include "DefaultPDF.h"
 #include "Notification.h"
 
 namespace mozilla::default_agent {
 
-// How this installation was installed. Empty strings mean unknown or not
-// applicable; `fromMsi` and `silent` only apply when `installerType` is
-// "full".
-struct InstallInfo {
-  bool hasWinPackageId;
-  std::string winPackageFamilyName;
-  std::string installerType;
-  bool fromMsi;
-  bool silent;
-};
-
 HRESULT SendDefaultAgentPing(const DefaultBrowserInfo& browserInfo,
                              const DefaultPdfInfo& pdfInfo,
                              const NotificationActivities& activitiesPerformed,
                              uint32_t daysSinceLastAppLaunch,
-                             const std::string& isTaskbarPinned,
-                             const InstallInfo& installInfo);
+                             const std::string& isTaskbarPinned);
 
 }  // namespace mozilla::default_agent
 

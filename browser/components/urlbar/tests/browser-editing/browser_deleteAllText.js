@@ -6,8 +6,14 @@
 
 "use strict";
 
-add_setup(function () {
-  UrlbarTestUtils.registerZeroPrefixProvider();
+const TEST_TOP_SITE = "https://example.com";
+
+add_setup(async function () {
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.newtabpage.activity-stream.default.sites", TEST_TOP_SITE]],
+  });
+
+  await updateTopSites(sites => sites?.length == 1);
 });
 
 add_task(async function test() {

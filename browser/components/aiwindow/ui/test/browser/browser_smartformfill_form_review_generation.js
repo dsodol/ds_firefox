@@ -192,7 +192,7 @@ describe("Smart Form Fill form review generation", () => {
       context.mockEngineManager,
       FORM_VALUES_SCHEMA
     );
-    await context.mockEngineManager.rejectAllRequests();
+    context.mockEngineManager.rejectAllRequests();
     await waitForFormReviewState(reviewBrowser, FORM_REVIEW_STATES.FINAL);
 
     const snapshot = await getFormReviewSnapshot(reviewBrowser);

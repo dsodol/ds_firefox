@@ -27,7 +27,8 @@ using namespace mozilla;
 
 nsIFrame* NS_NewMathMLmmultiscriptsFrame(PresShell* aPresShell,
                                          ComputedStyle* aStyle) {
-  return new nsMathMLmmultiscriptsFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      nsMathMLmmultiscriptsFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMathMLmmultiscriptsFrame)

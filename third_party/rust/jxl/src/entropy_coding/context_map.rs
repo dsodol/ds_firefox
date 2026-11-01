@@ -40,11 +40,7 @@ fn verify_context_map(ctx_map: &[u8]) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn decode_context_map(
-    num_contexts: usize,
-    br: &mut BitReader,
-    lz77_scratch: &mut Vec<u32>,
-) -> Result<Vec<u8>, Error> {
+pub fn decode_context_map(num_contexts: usize, br: &mut BitReader) -> Result<Vec<u8>, Error> {
     let is_simple = br.read(1)? != 0;
     if is_simple {
         let bits_per_entry = br.read(2)? as usize;
@@ -61,9 +57,8 @@ pub fn decode_context_map(
         Ok(ctx_map)
     } else {
         let use_mtf = br.read(1)? != 0;
-        let histograms =
-            Histograms::decode(1, br, /*allow_lz77=*/ num_contexts > 2, lz77_scratch)?;
-        let mut reader = SymbolReader::new(&histograms, br, None, lz77_scratch)?;
+        let histograms = Histograms::decode(1, br, /*allow_lz77=*/ num_contexts > 2)?;
+        let mut reader = SymbolReader::new(&histograms, br, None)?;
 
         let mut ctx_map: Vec<u8> = (0..num_contexts)
             .map(|_| {
@@ -75,7 +70,6 @@ pub fn decode_context_map(
                 }
             })
             .collect::<Result<_, _>>()?;
-        reader.reclaim_lz77_scratch(lz77_scratch);
         reader.check_final_state(&histograms, br)?;
         if use_mtf {
             inverse_move_to_front(&mut ctx_map[..]);

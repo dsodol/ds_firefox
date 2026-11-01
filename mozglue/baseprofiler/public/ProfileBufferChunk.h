@@ -108,7 +108,7 @@ class ProfileBufferChunk {
              (sizeof(ChunkStruct) - 1)) /
             sizeof(ChunkStruct);
 #endif
-    auto chunkStorage = std::make_unique<ChunkStruct[]>(count);
+    auto chunkStorage = MakeUnique<ChunkStruct[]>(count);
     MOZ_ASSERT(reinterpret_cast<uintptr_t>(chunkStorage.get()) %
                    alignof(InternalHeader) ==
                0);

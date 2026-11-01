@@ -31,8 +31,8 @@ namespace SVGT = SVGGeometryProperty::Tags;
 
 nsContainerFrame* NS_NewSVGForeignObjectFrame(mozilla::PresShell* aPresShell,
                                               mozilla::ComputedStyle* aStyle) {
-  return new mozilla::SVGForeignObjectFrame(aStyle,
-                                            aPresShell->GetPresContext());
+  return new (aPresShell)
+      mozilla::SVGForeignObjectFrame(aStyle, aPresShell->GetPresContext());
 }
 
 namespace mozilla {
@@ -137,7 +137,7 @@ void SVGForeignObjectFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
   if (!static_cast<const SVGElement*>(GetContent())->HasValidDimensions()) {
     return;
   }
-  nsDisplayList newList;
+  nsDisplayList newList(aBuilder);
   nsDisplayListSet set(&newList, &newList, &newList, &newList, &newList,
                        &newList);
   DisplayOutline(aBuilder, set);

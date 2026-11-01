@@ -9,7 +9,7 @@ interface TestInterfaceMaplike {
   [Throws]
   constructor();
 
-  [DOMBackedStorage] maplike<DOMString, long>;
+  maplike<DOMString, long>;
   undefined setInternal(DOMString aKey, long aValue);
   undefined clearInternal();
   boolean deleteInternal(DOMString aKey);
@@ -24,7 +24,7 @@ interface TestInterfaceMaplikeObject {
   [Throws]
   constructor();
 
-  [DOMBackedStorage] readonly maplike<DOMString, TestInterfaceMaplike>;
+  readonly maplike<DOMString, TestInterfaceMaplike>;
   undefined setInternal(DOMString aKey);
   undefined clearInternal();
   boolean deleteInternal(DOMString aKey);
@@ -54,7 +54,7 @@ interface TestInterfaceSetlike {
   [Throws]
   constructor();
 
-  [DOMBackedStorage] setlike<DOMString>;
+  setlike<DOMString>;
 };
 
 [Pref="dom.expose_test_interfaces",
@@ -63,7 +63,7 @@ interface TestInterfaceSetlikeNode {
   [Throws]
   constructor();
 
-  [DOMBackedStorage] setlike<Node>;
+  setlike<Node>;
 };
 
 [Pref="dom.expose_test_interfaces",

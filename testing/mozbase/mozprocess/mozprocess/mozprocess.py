@@ -56,27 +56,22 @@ def run_and_wait(
             "preexec_fn": os.setsid,
         }
 
-    deadline = None if timeout is None else time.monotonic() + timeout
+    start_time = time.time()
+    if timeout is not None:
+        timeout += start_time
 
     queue = Queue()
 
     def get_line():
-        nonlocal pending_handler
-        queue_timeout = pending_handler = None
-        if not reader_thread.is_alive():
-            return queue.get()
-        if deadline is not None:
-            queue_timeout = deadline - time.monotonic()
-            pending_handler = timeout_handler
-            if queue_timeout <= 0:
-                return None
-        if output_timeout and (queue_timeout is None or output_timeout < queue_timeout):
-            queue_timeout = output_timeout
-            pending_handler = output_timeout_handler
-        try:
-            return queue.get(timeout=queue_timeout)
-        except Empty:
-            return None
+        queue_timeout = None
+        if timeout:
+            queue_timeout = timeout - time.time()
+        if output_timeout:
+            if queue_timeout:
+                queue_timeout = min(queue_timeout, output_timeout)
+            else:
+                queue_timeout = output_timeout
+        return queue.get(timeout=queue_timeout)
 
     proc = subprocess.Popen(
         args,
@@ -85,19 +80,16 @@ def run_and_wait(
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=text,
-        errors="replace" if text else None,
         **kwargs,
     )
 
     def reader(fh, queue):
-        try:
-            for line in iter(fh.readline, "" if text else b""):
-                queue.put(line)
-        finally:
-            # Give a chance to the reading loop to exit without a timeout.
-            queue.put(b"")
+        for line in iter(fh.readline, "" if text else b""):
+            queue.put(line)
+        # Give a chance to the reading loop to exit without a timeout.
+        queue.put(b"")
 
-    reader_thread = threading.Thread(
+    threading.Thread(
         name="reader",
         target=reader,
         args=(
@@ -105,23 +97,20 @@ def run_and_wait(
             queue,
         ),
         daemon=True,
-    )
-    reader_thread.start()
+    ).start()
 
-    for line in iter(get_line, b""):
-        if line is None:
-            break
-        if output_line_handler:
-            output_line_handler(proc, line)
-        else:
-            print(line)
-    else:
-        pending_handler = None
-        try:
-            proc.wait(None if deadline is None else max(0, deadline - time.monotonic()))
-        except subprocess.TimeoutExpired:
-            pending_handler = timeout_handler
-    if pending_handler:
-        pending_handler(proc)
+    try:
+        for line in iter(get_line, b""):
+            if output_line_handler:
+                output_line_handler(proc, line)
+            else:
+                print(line)
+        proc.wait()
+    except Empty:
+        if timeout and time.time() < timeout or not timeout:
+            if output_timeout_handler:
+                output_timeout_handler(proc)
+        elif timeout_handler:
+            timeout_handler(proc)
 
     return proc

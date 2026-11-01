@@ -9,8 +9,6 @@ subsuite = "raptor"
 
 ["test_cmdline.py"]
 
-["test_filters.py"]
-
 ["test_gecko_profile.py"]
 
 ["test_manifest.py"]
@@ -20,7 +18,5 @@ subsuite = "raptor"
 ["test_print_tests.py"]
 
 ["test_raptor.py"]
-
-["test_raptor_profiling.py"]
 
 ["test_utils.py"]

@@ -70,6 +70,9 @@ SwapChain11::SwapChain11(Renderer11 *renderer,
       mPassThroughResourcesInit(false),
       mNativeWindow(nativeWindow),
       mFirstSwap(true),
+      mSwapChain(nullptr),
+      mSwapChain1(nullptr),
+      mKeyedMutex(nullptr),
       mBackBufferTexture(),
       mBackBufferRTView(),
       mBackBufferSRView(),
@@ -112,9 +115,9 @@ void SwapChain11::release()
 {
     // TODO(jmadill): Should probably signal that the RenderTarget is dirty.
 
-    mSwapChain1.Reset();
-    mSwapChain.Reset();
-    mKeyedMutex.Reset();
+    SafeRelease(mSwapChain1);
+    SafeRelease(mSwapChain);
+    SafeRelease(mKeyedMutex);
     mBackBufferTexture.reset();
     mBackBufferRTView.reset();
     mBackBufferSRView.reset();
@@ -210,13 +213,13 @@ EGLint SwapChain11::resetOffscreenColorBuffer(DisplayD3D *displayD3D,
     {
         if (mAppCreatedShareHandle)
         {
-            angle::ComPtr<ID3D11Resource> tempResource11;
-            HRESULT result =
-                device->OpenSharedResource(mShareHandle, IID_PPV_ARGS(&tempResource11));
+            ID3D11Resource *tempResource11;
+            HRESULT result = device->OpenSharedResource(mShareHandle, __uuidof(ID3D11Resource),
+                                                        (void **)&tempResource11);
             if (FAILED(result) && mRenderer->getDevice1())
             {
                 result = mRenderer->getDevice1()->OpenSharedResource1(
-                    mShareHandle, IID_PPV_ARGS(&tempResource11));
+                    mShareHandle, __uuidof(ID3D11Resource), (void **)&tempResource11);
             }
 
             if (FAILED(result))
@@ -226,13 +229,13 @@ EGLint SwapChain11::resetOffscreenColorBuffer(DisplayD3D *displayD3D,
                 return EGL_BAD_SURFACE;
             }
 
-            mOffscreenTexture.set(
-                angle::DynamicCastComObject<ID3D11Texture2D>(tempResource11.Get()),
-                backbufferFormatInfo);
+            mOffscreenTexture.set(d3d11::DynamicCastComObject<ID3D11Texture2D>(tempResource11),
+                                  backbufferFormatInfo);
+            SafeRelease(tempResource11);
         }
         else if (mD3DTexture != nullptr)
         {
-            mOffscreenTexture.set(angle::DynamicCastComObject<ID3D11Texture2D>(mD3DTexture.Get()),
+            mOffscreenTexture.set(d3d11::DynamicCastComObject<ID3D11Texture2D>(mD3DTexture),
                                   backbufferFormatInfo);
         }
         else
@@ -282,9 +285,9 @@ EGLint SwapChain11::resetOffscreenColorBuffer(DisplayD3D *displayD3D,
         // the client
         if (useSharedResource)
         {
-            angle::ComPtr<IDXGIResource> offscreenTextureResource;
-            HRESULT hr =
-                mOffscreenTexture.get()->QueryInterface(IID_PPV_ARGS(&offscreenTextureResource));
+            IDXGIResource *offscreenTextureResource = nullptr;
+            HRESULT hr                              = mOffscreenTexture.get()->QueryInterface(
+                __uuidof(IDXGIResource), (void **)&offscreenTextureResource);
 
             // Fall back to no share handle on failure
             if (FAILED(hr))
@@ -294,6 +297,7 @@ EGLint SwapChain11::resetOffscreenColorBuffer(DisplayD3D *displayD3D,
             else
             {
                 hr = offscreenTextureResource->GetSharedHandle(&mShareHandle);
+                SafeRelease(offscreenTextureResource);
 
                 if (FAILED(hr))
                 {
@@ -305,7 +309,7 @@ EGLint SwapChain11::resetOffscreenColorBuffer(DisplayD3D *displayD3D,
     }
 
     // This may return null if the original texture was created without a keyed mutex.
-    mKeyedMutex = angle::DynamicCastComObject<IDXGIKeyedMutex>(mOffscreenTexture.get());
+    mKeyedMutex = d3d11::DynamicCastComObject<IDXGIKeyedMutex>(mOffscreenTexture.get());
 
     D3D11_RENDER_TARGET_VIEW_DESC offscreenRTVDesc;
     offscreenRTVDesc.Format = backbufferFormatInfo.rtvFormat;
@@ -526,14 +530,15 @@ EGLint SwapChain11::resize(DisplayD3D *displayD3D, EGLint backbufferWidth, EGLin
         }
     }
 
-    angle::ComPtr<ID3D11Texture2D> backbufferTexture;
-    hr = mSwapChain->GetBuffer(0, IID_PPV_ARGS(&backbufferTexture));
+    ID3D11Texture2D *backbufferTexture = nullptr;
+    hr                                 = mSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D),
+                                                               reinterpret_cast<void **>(&backbufferTexture));
     ASSERT(SUCCEEDED(hr));
     if (SUCCEEDED(hr))
     {
         const auto &format =
             d3d11::Format::Get(mOffscreenRenderTargetFormat, mRenderer->getRenderer11DeviceCaps());
-        mBackBufferTexture.set(std::move(backbufferTexture), format);
+        mBackBufferTexture.set(backbufferTexture, format);
         mBackBufferTexture.setInternalName("BackBufferTexture");
 
         angle::Result result = mRenderer->allocateResourceNoDesc(
@@ -609,8 +614,8 @@ EGLint SwapChain11::reset(DisplayD3D *displayD3D,
 
     // Release specific resources to free up memory for the new render target, while the
     // old render target still exists for the purpose of preserving its contents.
-    mSwapChain1.Reset();
-    mSwapChain.Reset();
+    SafeRelease(mSwapChain1);
+    SafeRelease(mSwapChain);
     mBackBufferTexture.reset();
     mBackBufferRTView.reset();
 
@@ -646,14 +651,15 @@ EGLint SwapChain11::reset(DisplayD3D *displayD3D,
             }
         }
 
-        mSwapChain1 = angle::DynamicCastComObject<IDXGISwapChain1>(mSwapChain.Get());
+        mSwapChain1 = d3d11::DynamicCastComObject<IDXGISwapChain1>(mSwapChain);
 
-        angle::ComPtr<ID3D11Texture2D> backbufferTexture;
-        hr = mSwapChain->GetBuffer(0, IID_PPV_ARGS(&backbufferTexture));
+        ID3D11Texture2D *backbufferTex = nullptr;
+        hr                             = mSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D),
+                                                               reinterpret_cast<LPVOID *>(&backbufferTex));
         ASSERT(SUCCEEDED(hr));
         const auto &format =
             d3d11::Format::Get(mOffscreenRenderTargetFormat, mRenderer->getRenderer11DeviceCaps());
-        mBackBufferTexture.set(std::move(backbufferTexture), format);
+        mBackBufferTexture.set(backbufferTex, format);
         mBackBufferTexture.setInternalName("BackBufferTexture");
 
         angle::Result result = mRenderer->allocateResourceNoDesc(
@@ -1036,7 +1042,7 @@ const TextureHelper11 &SwapChain11::getDepthStencilTexture()
 
 void *SwapChain11::getKeyedMutex()
 {
-    return mKeyedMutex.Get();
+    return mKeyedMutex;
 }
 
 void SwapChain11::recreate()

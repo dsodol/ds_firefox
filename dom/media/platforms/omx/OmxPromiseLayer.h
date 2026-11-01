@@ -116,10 +116,11 @@ class OmxPromiseLayer {
   // And a promise because OMX buffer working among different threads.
   class BufferData {
    protected:
-    virtual ~BufferData();
+    virtual ~BufferData() = default;
 
    public:
-    explicit BufferData(OMX_BUFFERHEADERTYPE* aBuffer);
+    explicit BufferData(OMX_BUFFERHEADERTYPE* aBuffer)
+        : mEos(false), mStatus(BufferStatus::FREE), mBuffer(aBuffer) {}
 
     typedef void* BufferID;
 

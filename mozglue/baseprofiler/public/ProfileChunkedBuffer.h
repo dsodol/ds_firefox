@@ -1448,8 +1448,7 @@ struct ProfileBufferEntryReader::Deserializer<ProfileChunkedBuffer> {
     } else {
       // Output buffer is out-of-session, set a new chunk manager that will
       // provide a single chunk of just the right size.
-      aBuffer.SetChunkManager(
-          std::make_unique<ProfileBufferChunkManagerSingle>(len));
+      aBuffer.SetChunkManager(MakeUnique<ProfileBufferChunkManagerSingle>(len));
       MOZ_ASSERT(aBuffer.BufferLength().value() >= len);
     }
 
@@ -1550,7 +1549,7 @@ struct ProfileBufferEntryReader::Deserializer<UniquePtr<ProfileChunkedBuffer>> {
     }
     // We have a non-empty buffer.
     // allocate an empty ProfileChunkedBuffer without mutex.
-    bufferUPtr = std::make_unique<ProfileChunkedBuffer>(
+    bufferUPtr = MakeUnique<ProfileChunkedBuffer>(
         ProfileChunkedBuffer::ThreadSafety::WithoutMutex);
     // Rewind the reader before the length and deserialize the contents, using
     // the non-UniquePtr Deserializer.

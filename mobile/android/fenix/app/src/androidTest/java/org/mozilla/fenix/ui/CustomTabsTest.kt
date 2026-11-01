@@ -251,7 +251,6 @@ class CustomTabsTest {
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2239544
     @Test
     fun verifyPDFViewerInACustomTabTest() {
-        // Bug 2081257 will add back PDF viewer tool test
         val customTabPage = mockWebServer.getGenericAsset(3)
         val pdfFormResource = mockWebServer.pdfFormAsset
 
@@ -261,6 +260,7 @@ class CustomTabsTest {
             clickPageObject(composeTestRule, itemWithText("PDF form file"))
             clickPageObject(composeTestRule, itemContainingText("Stay in"))
             waitForPageToLoad()
+            verifyPDFReaderToolbarItems()
             verifyCustomTabCloseButton()
             verifyCustomTabsSiteInfoButton()
             verifyCustomTabToolbarTitle("Untitled document - pdfForm.pdf")

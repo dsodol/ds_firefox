@@ -13,7 +13,6 @@ namespace OT {
  * https://docs.microsoft.com/en-us/typography/opentype/spec/loca
  */
 #define HB_OT_TAG_loca HB_TAG('l','o','c','a')
-#define HB_OT_TAG_LOCA HB_TAG('L','O','C','A')
 
 struct loca
 {

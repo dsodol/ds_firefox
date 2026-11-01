@@ -182,6 +182,7 @@ class WebPushTest : BaseSessionTest() {
     }
 
     private fun sendNotification() {
+        val notificationResult = GeckoResult<Void>()
         val expectedTitle = "The title"
         val expectedBody = "The body"
 
@@ -193,6 +194,7 @@ class WebPushTest : BaseSessionTest() {
                     assertThat("Body should match", notification.text, equalTo(expectedBody))
                     assertThat("Source should match", notification.source, endsWith("sw.js"))
                     notification.show()
+                    notificationResult.complete(null)
                 }
             }
         )
@@ -205,7 +207,7 @@ class WebPushTest : BaseSessionTest() {
             delegate!!.storedSubscription!!.scope,
             testPayload.toString().toByteArray(Charsets.UTF_8),
         )
-        sessionRule.waitUntilCalled(WebNotificationDelegate::class, "onShowNotification")
+        sessionRule.waitForResult(notificationResult)
     }
 
     @Test

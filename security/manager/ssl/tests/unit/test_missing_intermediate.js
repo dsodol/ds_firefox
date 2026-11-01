@@ -9,6 +9,14 @@
 
 do_get_profile(); // must be called before getting nsIX509CertDB
 
+registerCleanupFunction(() => {
+  let certDir = Services.dirsvc.get("CurWorkD", Ci.nsIFile);
+  certDir.append("bad_certs");
+  Assert.ok(certDir.exists(), "bad_certs should exist");
+  let args = ["-D", "-n", "manually-added-missing-intermediate"];
+  run_certutil_on_directory(certDir.path, args, false);
+});
+
 function run_test() {
   add_tls_server_setup("BadCertAndPinningServer", "bad_certs");
   // If we don't know about the intermediate, we'll get an unknown issuer error.
@@ -29,7 +37,10 @@ function run_test() {
       "-t",
       ",,",
     ];
-    run_certutil_on_directory(getCertDirCopy("bad_certs").path, args);
+    let certDir = Services.dirsvc.get("CurWorkD", Ci.nsIFile);
+    certDir.append("bad_certs");
+    Assert.ok(certDir.exists(), "bad_certs should exist");
+    run_certutil_on_directory(certDir.path, args);
     run_next_test();
   });
 

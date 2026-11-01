@@ -8,14 +8,9 @@ description: >
 info: |
   NumberingSystemsOfLocale ( loc )
   ...
-  3. If match is not undefined, then
-    ...
-    d. Let list be « numberingSystems[0] ».
-  ...
-  5. Return CreateArrayFromList(list).
+  5. Return ! CreateArrayFromListAndPreferred( list, preferred ).
 features: [Intl.Locale,Intl.Locale-info]
 ---*/
 
-var numberingSystems = new Intl.Locale('en').getNumberingSystems();
-assert.sameValue(Object.getPrototypeOf(numberingSystems), Array.prototype);
-assert.sameValue(numberingSystems.length, 1, 'array has exactly one element');
+assert(Array.isArray(new Intl.Locale('en').getNumberingSystems()));
+assert(new Intl.Locale('en').getNumberingSystems().length > 0, 'array has at least one element');

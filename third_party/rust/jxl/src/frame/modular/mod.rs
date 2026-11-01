@@ -23,10 +23,10 @@ use crate::headers::modular::{GroupHeader, TransformId};
 use crate::headers::{ImageMetadata, JxlHeader};
 use crate::image::{BufferRecycler, ImageDataType, ImageRect, OwnedRawImage, RawImageRect, Rect};
 use crate::render::buffer_splitter::OutputChannelRef;
-use crate::util::CeilLog2;
 use crate::util::sync::Mutex;
 use crate::util::sync::atomic::{AtomicBool, Ordering};
 use crate::util::tracing_wrappers::*;
+use crate::util::{CeilLog2, PerThreadStorage, PerThreadStorageRef};
 
 mod buffers;
 mod decode;
@@ -187,8 +187,8 @@ impl ModularBufferInfo {
         let bx = output_grid_pos.0 * grid_dim.0;
         let by = output_grid_pos.1 * grid_dim.1;
         let size = (
-            chan_size.0.saturating_sub(bx).min(grid_dim.0),
-            chan_size.1.saturating_sub(by).min(grid_dim.1),
+            (chan_size.0 - bx).min(grid_dim.0),
+            (chan_size.1 - by).min(grid_dim.1),
         );
         if size.0 == 0 || size.1 == 0 {
             return Rect {
@@ -210,34 +210,15 @@ impl ModularBufferInfo {
     }
 }
 
-use std::collections::VecDeque;
-
-use crate::frame::modular::decode::specialized_trees::{LUT_TABLE_SIZE, RangeAndNode};
-use crate::frame::modular::flat_tree::FlatTreeNode;
-use crate::frame::modular::predict::WeightedPredictorScratch;
+use crate::frame::modular::decode::specialized_trees::LUT_TABLE_SIZE;
 use crate::frame::modular::transforms::smooth_squeeze::SmoothUpsampleScratch;
-use crate::frame::modular::tree::TreeNode;
 
-#[derive(Default)]
-struct TreeScratch {
-    pruned_tree: Vec<TreeNode>,
-    pruned_tree_queue: VecDeque<u32>,
-    flat_tree: Vec<FlatTreeNode>,
-    flat_tree_bfs_queue: VecDeque<usize>,
-    lut_stack: Vec<RangeAndNode>,
-    wp_scratch: WeightedPredictorScratch,
-    property_buffer: Vec<i32>,
-    references: Vec<i32>,
-}
-
-pub(crate) struct ScratchSpace {
+pub(super) struct ScratchSpace {
     smooth_upsample_scratch: SmoothUpsampleScratch,
     palette_row_scratch: [Vec<i32>; 4],
     decode_row_scratch: [Vec<i32>; 3],
     tree_lut_scratch: Box<[u8; LUT_TABLE_SIZE]>,
     hsqueeze_i16_scratch: Box<[i16; 2048]>,
-    pub(crate) lz77_window: Vec<u32>,
-    tree_scratch: TreeScratch,
 }
 
 impl Debug for ScratchSpace {
@@ -247,15 +228,13 @@ impl Debug for ScratchSpace {
 }
 
 impl ScratchSpace {
-    pub(crate) fn new() -> ScratchSpace {
+    fn new() -> ScratchSpace {
         ScratchSpace {
             smooth_upsample_scratch: SmoothUpsampleScratch::default(),
             palette_row_scratch: [vec![], vec![], vec![], vec![]],
             decode_row_scratch: [vec![], vec![], vec![]],
             tree_lut_scratch: crate::util::box_array(0u8),
             hsqueeze_i16_scratch: crate::util::box_array(0i16),
-            lz77_window: Vec::new(),
-            tree_scratch: TreeScratch::default(),
         }
     }
 }
@@ -270,6 +249,7 @@ impl ScratchSpace {
 /// transforms to each of the groups in the input of the transforms.
 #[derive(Debug)]
 pub struct FullModularImage {
+    scratch_space: PerThreadStorage<ScratchSpace>,
     buffer_info: Vec<ModularBufferInfo>,
     transform_steps: Vec<TransformStepChunk>,
     // List of buffer indices of the channels of the modular image encoded in each kind of section.
@@ -288,27 +268,23 @@ pub struct FullModularImage {
     pipeline_used_channels: Vec<bool>,
     // Stack of transforms that are ready to process
     ready_transform_steps: Mutex<Vec<usize>>,
-    recycler: Arc<BufferRecycler>,
+    pub(super) recycler: Arc<BufferRecycler>,
     storage: ModularStorage,
-    pub(super) level5_limits: bool,
+    pub(super) force_level5: bool,
 }
 
-fn max_modular_transforms(level5_limits: bool) -> usize {
-    if level5_limits { 8 } else { 512 }
-}
-
-fn max_channels(level5_limits: bool) -> usize {
-    if level5_limits { 256 } else { 1 << 16 }
+pub(super) fn max_channels(force_level5: bool) -> usize {
+    if force_level5 { 256 } else { 1 << 16 }
 }
 
 impl FullModularImage {
-    pub(super) fn recycler(&self) -> &BufferRecycler {
-        &self.recycler
+    pub(super) fn get_scratch_space(&self) -> PerThreadStorageRef<'_, ScratchSpace> {
+        self.scratch_space.get()
     }
 
     #[inline(always)]
     #[allow(dead_code)]
-    pub fn storage(&self) -> ModularStorage {
+    pub(crate) fn storage(&self) -> ModularStorage {
         self.storage
     }
 
@@ -334,7 +310,7 @@ impl FullModularImage {
         recycler: Arc<BufferRecycler>,
         sample_limit: Option<usize>,
         storage: ModularStorage,
-        level5_limits: bool,
+        force_level5: bool,
     ) -> Result<Self> {
         let mut channels = vec![];
         for c in 0..modular_color_channels {
@@ -379,6 +355,7 @@ impl FullModularImage {
 
         if channels.is_empty() {
             return Ok(Self {
+                scratch_space: PerThreadStorage::new(ScratchSpace::new),
                 buffer_info: vec![],
                 transform_steps: vec![],
                 section_buffer_indices: vec![vec![]; 2 + frame_header.passes.num_passes as usize],
@@ -395,7 +372,7 @@ impl FullModularImage {
                 delayed_ready_sections: Mutex::new(BTreeSet::new()),
                 recycler,
                 storage,
-                level5_limits,
+                force_level5,
             });
         }
 
@@ -416,12 +393,14 @@ impl FullModularImage {
 
         let max_palette_samples = sample_limit.unwrap_or(usize::MAX);
 
+        let max_channels = max_channels(force_level5);
+
         let (mut buffer_info, transform_steps) = transforms::meta_apply::meta_apply_transforms(
             &channels,
             &header,
             max_palette_samples,
+            max_channels,
             storage,
-            level5_limits,
         )?;
 
         // Assign each (channel, group) pair present in the bitstream to the section in which it
@@ -462,14 +441,7 @@ impl FullModularImage {
                         .info
                         .is_meta_or_small(frame_header.group_dim())
                 })
-                .filter(|x| {
-                    let info = &buffer_info[x.1].info;
-                    info.is_shift_in_range(3, usize::MAX) && {
-                        let shift = info.shift.unwrap();
-                        let dim = ModularGridKind::Lf.grid_dim(frame_header, shift);
-                        dim.0 > 0 && dim.1 > 0
-                    }
-                })
+                .filter(|x| buffer_info[x.1].info.is_shift_in_range(3, usize::MAX))
                 .map(|x| x.1)
                 .collect(),
         );
@@ -485,12 +457,9 @@ impl FullModularImage {
                             .is_meta_or_small(frame_header.group_dim())
                     })
                     .filter(|x| {
-                        let info = &buffer_info[x.1].info;
-                        info.is_shift_in_range(min_shift, max_shift) && {
-                            let shift = info.shift.unwrap();
-                            let dim = ModularGridKind::Hf.grid_dim(frame_header, shift);
-                            dim.0 > 0 && dim.1 > 0
-                        }
+                        buffer_info[x.1]
+                            .info
+                            .is_shift_in_range(min_shift, max_shift)
                     })
                     .map(|x| x.1)
                     .collect(),
@@ -565,22 +534,14 @@ impl FullModularImage {
             .filter(|b| b.coded_channel_id >= 0 && b.info.is_meta())
             .count();
 
-        let has_small_group_tiles = buffer_info.iter().any(|bi| {
-            bi.grid_kind != ModularGridKind::None && {
-                let shift = bi.info.shift.unwrap_or((0, 0));
-                let (gw, gh) = bi.grid_kind.grid_dim(frame_header, shift);
-                gw <= 1 || gh <= 1
-            }
-        });
-
-        let can_do_partial_render = !has_problematic_palette_transform && !has_small_group_tiles;
-
         Ok(FullModularImage {
+            scratch_space: PerThreadStorage::new(ScratchSpace::new),
             buffer_info,
             transform_steps,
             section_buffer_indices,
-            can_do_partial_render,
-            can_do_early_partial_render: can_do_partial_render && has_squeeze_transform,
+            can_do_partial_render: !has_problematic_palette_transform,
+            can_do_early_partial_render: !has_problematic_palette_transform
+                && has_squeeze_transform,
             needed_section0_channels_for_early_render: num_channels + num_meta_channels,
             has_decoded_data: AtomicBool::new(false),
             global_header: Some(header),
@@ -592,7 +553,7 @@ impl FullModularImage {
             delayed_ready_sections: Mutex::new(BTreeSet::new()),
             recycler,
             storage,
-            level5_limits,
+            force_level5,
         })
     }
 
@@ -607,7 +568,7 @@ impl FullModularImage {
     ) -> Result<bool> {
         let allow_partial = allow_partial && self.can_do_early_partial_render;
         let mut decoded_if_partial = 0;
-        let mut scratch = self.recycler.modular_scratch.get();
+        let mut scratch = self.scratch_space.get();
         let ret = with_buffers(
             &self.buffer_info,
             &self.section_buffer_indices[0],
@@ -623,8 +584,7 @@ impl FullModularImage {
                     br,
                     Some(&mut decoded_if_partial),
                     &mut scratch,
-                    &self.recycler,
-                    self.level5_limits,
+                    self.force_level5,
                 )
             },
         );
@@ -701,7 +661,7 @@ impl FullModularImage {
             }
         };
 
-        let mut scratch = self.recycler.modular_scratch.get();
+        let mut scratch = self.scratch_space.get();
         with_buffers(
             &self.buffer_info,
             &self.section_buffer_indices[section_id],
@@ -717,8 +677,7 @@ impl FullModularImage {
                     br,
                     None,
                     &mut scratch,
-                    &self.recycler,
-                    self.level5_limits,
+                    self.force_level5,
                 )?;
                 Ok(())
             },
@@ -916,7 +875,6 @@ impl FullModularImage {
             &self.buffer_info,
             scratch_space,
             &self.recycler,
-            &self.pipeline_used_channels,
             pass_to_pipeline,
         )?;
 
@@ -931,7 +889,7 @@ impl FullModularImage {
         frame_header: &FrameHeader,
         pass_to_pipeline: &dyn Fn(usize, usize, bool, OwnedRawImage) -> Result<()>,
     ) -> Result<()> {
-        let mut scratch_space = self.recycler.modular_scratch.get();
+        let mut scratch_space = self.scratch_space.get();
         loop {
             let Some(t) = self.ready_transform_steps.lock().unwrap().pop() else {
                 return Ok(());
@@ -1116,8 +1074,8 @@ pub(super) fn decode_vardct_lf(
     quant_lf: &mut OutputChannelRef,
     br: &mut BitReader,
     storage: ModularStorage,
-    recycler: &BufferRecycler,
-    level5_limits: bool,
+    scratch_space: &mut ScratchSpace,
+    force_level5: bool,
 ) -> Result<()> {
     let extra_precision = br.read(2)?;
     debug!(?extra_precision);
@@ -1135,26 +1093,10 @@ pub(super) fn decode_vardct_lf(
         )
     };
     let mut buffers = [
-        ModularChannel::new(
-            shrink_rect(r.size, 1),
-            storage,
-            image_metadata.bit_depth,
-            recycler,
-        )?,
-        ModularChannel::new(
-            shrink_rect(r.size, 0),
-            storage,
-            image_metadata.bit_depth,
-            recycler,
-        )?,
-        ModularChannel::new(
-            shrink_rect(r.size, 2),
-            storage,
-            image_metadata.bit_depth,
-            recycler,
-        )?,
+        ModularChannel::new(shrink_rect(r.size, 1), storage, image_metadata.bit_depth)?,
+        ModularChannel::new(shrink_rect(r.size, 0), storage, image_metadata.bit_depth)?,
+        ModularChannel::new(shrink_rect(r.size, 2), storage, image_metadata.bit_depth)?,
     ];
-    let mut scratch_space = recycler.modular_scratch.get();
     decode_modular_subbitstream(
         buffers.iter_mut().collect(),
         storage,
@@ -1163,11 +1105,9 @@ pub(super) fn decode_vardct_lf(
         global_tree,
         br,
         None,
-        &mut scratch_space,
-        recycler,
-        level5_limits,
+        scratch_space,
+        force_level5,
     )?;
-    drop(scratch_space);
     dequant_lf(
         r,
         lf,
@@ -1184,11 +1124,7 @@ pub(super) fn decode_vardct_lf(
         mul,
         frame_header,
         bctx,
-    )?;
-    for b in buffers {
-        recycler.recycle_raw_buffer(b.data);
-    }
-    Ok(())
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1200,8 +1136,8 @@ pub(super) fn decode_hf_metadata(
     hf_meta: &mut HfMetaViews,
     br: &mut BitReader,
     storage: ModularStorage,
-    recycler: &BufferRecycler,
-    level5_limits: bool,
+    scratch_space: &mut ScratchSpace,
+    force_level5: bool,
 ) -> Result<()> {
     let stream_id = ModularStreamId::LFMeta(group).get_id(frame_header);
     debug!(?stream_id);
@@ -1216,24 +1152,11 @@ pub(super) fn decode_hf_metadata(
         size: (r.size.0.div_ceil(8), r.size.1.div_ceil(8)),
     };
     let mut buffers = [
-        ModularChannel::new_with_shift(
-            cr.size,
-            storage,
-            Some((3, 3)),
-            image_metadata.bit_depth,
-            recycler,
-        )?,
-        ModularChannel::new_with_shift(
-            cr.size,
-            storage,
-            Some((3, 3)),
-            image_metadata.bit_depth,
-            recycler,
-        )?,
-        ModularChannel::new((count, 2), storage, image_metadata.bit_depth, recycler)?,
-        ModularChannel::new(r.size, storage, image_metadata.bit_depth, recycler)?,
+        ModularChannel::new_with_shift(cr.size, storage, Some((3, 3)), image_metadata.bit_depth)?,
+        ModularChannel::new_with_shift(cr.size, storage, Some((3, 3)), image_metadata.bit_depth)?,
+        ModularChannel::new((count, 2), storage, image_metadata.bit_depth)?,
+        ModularChannel::new(r.size, storage, image_metadata.bit_depth)?,
     ];
-    let mut scratch_space = recycler.modular_scratch.get();
     decode_modular_subbitstream(
         buffers.iter_mut().collect(),
         storage,
@@ -1242,20 +1165,14 @@ pub(super) fn decode_hf_metadata(
         global_tree,
         br,
         None,
-        &mut scratch_space,
-        recycler,
-        level5_limits,
+        scratch_space,
+        force_level5,
     )?;
-    drop(scratch_space);
     if storage == ModularStorage::I16 {
-        decode_hf_metadata_finish::<i16>(&buffers, hf_meta, cr, r, count, frame_header)?;
+        decode_hf_metadata_finish::<i16>(&buffers, hf_meta, cr, r, count, frame_header)
     } else {
-        decode_hf_metadata_finish::<i32>(&buffers, hf_meta, cr, r, count, frame_header)?;
+        decode_hf_metadata_finish::<i32>(&buffers, hf_meta, cr, r, count, frame_header)
     }
-    for b in buffers {
-        recycler.recycle_raw_buffer(b.data);
-    }
-    Ok(())
 }
 
 fn decode_hf_metadata_finish<T: ImageDataType + Into<i32> + Copy>(
@@ -1347,33 +1264,17 @@ pub(super) fn decode_quant_table(
     (required_size_x, required_size_y): (usize, usize),
     global_tree: &Option<Tree>,
     br: &mut BitReader,
-    recycler: &BufferRecycler,
+    scratch_space: &mut ScratchSpace,
     storage: ModularStorage,
-    level5_limits: bool,
+    force_level5: bool,
 ) -> Result<Vec<i32>> {
     let bit_depth = BitDepth::integer_samples(8);
     let mut image = [
-        ModularChannel::new(
-            (required_size_x, required_size_y),
-            storage,
-            bit_depth,
-            recycler,
-        )?,
-        ModularChannel::new(
-            (required_size_x, required_size_y),
-            storage,
-            bit_depth,
-            recycler,
-        )?,
-        ModularChannel::new(
-            (required_size_x, required_size_y),
-            storage,
-            bit_depth,
-            recycler,
-        )?,
+        ModularChannel::new((required_size_x, required_size_y), storage, bit_depth)?,
+        ModularChannel::new((required_size_x, required_size_y), storage, bit_depth)?,
+        ModularChannel::new((required_size_x, required_size_y), storage, bit_depth)?,
     ];
     let stream_id = ModularStreamId::QuantTable(index).get_id(frame_header);
-    let mut scratch_space = recycler.modular_scratch.get();
     decode_modular_subbitstream(
         image.iter_mut().collect(),
         storage,
@@ -1382,11 +1283,9 @@ pub(super) fn decode_quant_table(
         global_tree,
         br,
         None,
-        &mut scratch_space,
-        recycler,
-        level5_limits,
+        scratch_space,
+        force_level5,
     )?;
-    drop(scratch_space);
     let mut qtable = Vec::with_capacity(required_size_x * required_size_y * 3);
     for channel in image.iter_mut() {
         if storage == ModularStorage::I16 {
@@ -1417,9 +1316,6 @@ pub(super) fn decode_quant_table(
                 }
             }
         }
-    }
-    for channel in image {
-        recycler.recycle_raw_buffer(channel.data);
     }
     Ok(qtable)
 }

@@ -153,7 +153,6 @@ import mozilla.components.support.ktx.android.view.hideKeyboard
 import mozilla.components.support.ktx.kotlinx.coroutines.flow.ifAnyChanged
 import mozilla.components.support.locale.ActivityContextWrapper
 import mozilla.components.support.utils.DefaultDownloadFileUtils
-import mozilla.components.support.utils.ext.isLandscape
 import mozilla.components.support.utils.ext.pixelSizeFor
 import mozilla.components.ui.widgets.R as widgetsR
 import mozilla.components.ui.widgets.behavior.EngineViewClippingBehavior
@@ -187,7 +186,6 @@ import org.mozilla.fenix.browser.store.BrowserScreenMiddleware
 import org.mozilla.fenix.browser.store.BrowserScreenState
 import org.mozilla.fenix.browser.store.BrowserScreenStore
 import org.mozilla.fenix.browser.tabstrip.TabStrip
-import org.mozilla.fenix.browser.tabstrip.ext.handleTabStripLastTabClosed
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.FenixAutocompletePrompt
 import org.mozilla.fenix.components.FenixEmailMaskPrompt
@@ -220,7 +218,6 @@ import org.mozilla.fenix.ext.getBottomToolbarHeight
 import org.mozilla.fenix.ext.getPreferenceKey
 import org.mozilla.fenix.ext.getTopToolbarHeight
 import org.mozilla.fenix.ext.hideToolbar
-import org.mozilla.fenix.ext.isMicrosurveyPromptVisible
 import org.mozilla.fenix.ext.isOnline
 import org.mozilla.fenix.ext.isToolbarAtBottom
 import org.mozilla.fenix.ext.nav
@@ -229,6 +226,7 @@ import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.ext.runIfFragmentIsAttached
 import org.mozilla.fenix.ext.secure
 import org.mozilla.fenix.ext.tabClosedUndoMessage
+import org.mozilla.fenix.ext.updateMicrosurveyPromptForConfigurationChange
 import org.mozilla.fenix.messaging.FenixMessageSurfaceId
 import org.mozilla.fenix.messaging.MessagingFeature
 import org.mozilla.fenix.microsurvey.ui.MicrosurveyRequestPrompt
@@ -243,9 +241,6 @@ import org.mozilla.fenix.settings.downloads.DownloadLocationManager
 import org.mozilla.fenix.snackbar.FenixSnackbarDelegate
 import org.mozilla.fenix.snackbar.SnackbarBinding
 import org.mozilla.fenix.tabgroups.TabGroupsStrip
-import org.mozilla.fenix.tabgroups.strip.redux.TabGroupsStripAction
-import org.mozilla.fenix.tabgroups.strip.redux.TabGroupsStripMiddleware
-import org.mozilla.fenix.tabgroups.strip.redux.TabGroupsStripStore
 import org.mozilla.fenix.tabstray.ext.toDisplayTitle
 import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.theme.FirefoxTheme
@@ -448,9 +443,9 @@ abstract class BaseBrowserFragment :
                     fragmentManager = parentFragmentManager,
                     sessionId = customTabSessionId,
                     dialog = appLinksPromptDialog(),
-                    launchInApp = { _ -> requireComponents.settings.shouldOpenLinksInApp(customTabSessionId != null) },
+                    launchInApp = { requireComponents.settings.shouldOpenLinksInApp(customTabSessionId != null) },
                     loadUrlUseCase = requireComponents.useCases.sessionUseCases.loadUrl,
-                    shouldPrompt = { _ -> requireComponents.settings.shouldPromptOpenLinksInApp() },
+                    shouldPrompt = { requireComponents.settings.shouldPromptOpenLinksInApp() },
                     alwaysOpenCheckboxAction = {
                         requireComponents.settings.openLinksInExternalApp =
                             requireContext().getString(R.string.pref_key_open_links_in_apps_always)
@@ -479,10 +474,6 @@ abstract class BaseBrowserFragment :
             requireComponents.core.store,
             isCustomTabSession = customTabSessionId != null,
         )
-
-        if (customTabSessionId == null) {
-            tabGroupsStripStore.dispatch(TabGroupsStripAction.InitializeDataObservation)
-        }
 
         observePrivateModeLock {
             findNavController()
@@ -756,12 +747,12 @@ abstract class BaseBrowserFragment :
                         shouldWidthMatchParent = true,
                         positiveButtonBackgroundColor =
                             ThemeManager.resolveAttribute(
-                                materialR.attr.colorTertiary,
+                                R.attr.accent,
                                 context,
                             ),
                         positiveButtonTextColor =
                             ThemeManager.resolveAttribute(
-                                materialR.attr.colorOnTertiary,
+                                R.attr.textOnColorPrimary,
                                 context,
                             ),
                         positiveButtonRadius = pixelSizeFor(R.dimen.tab_corner_radius).toFloat(),
@@ -1362,7 +1353,6 @@ abstract class BaseBrowserFragment :
                     },
                     shouldShowDoNotAskAgainCheckBox = context.components.appStore.state.mode != BrowsingMode.Private,
                     store = store,
-                    coroutineScope = requireComponents.applicationScope,
                     shouldHide = {
                         // if the fragment is detached,
                         // returning true will hide the site permission prompt rather than crash
@@ -1444,7 +1434,7 @@ abstract class BaseBrowserFragment :
                 .collect { tab -> pipModeChanged(tab) }
         }
 
-        binding.swipeRefresh.isEnabled = shouldPullToRefreshBeEnabled()
+        binding.swipeRefresh.isEnabled = shouldPullToRefreshBeEnabled(false)
 
         if (binding.swipeRefresh.isEnabled) {
             val primaryTextColor = ThemeManager.resolveAttribute(materialR.attr.colorOnSurface, context)
@@ -1476,7 +1466,6 @@ abstract class BaseBrowserFragment :
                     store = requireComponents.core.store,
                     accountManager = requireComponents.backgroundServices.accountManager,
                     serverConfig = requireComponents.backgroundServices.serverConfig,
-                    fxaCapabilities = requireComponents.backgroundServices.fxaCapabilities,
                     activityRef = WeakReference(getActivity()),
                 ),
             owner = this,
@@ -1610,17 +1599,8 @@ abstract class BaseBrowserFragment :
                     }
                 },
                 onLastTabClose = { isPrivate ->
-                    handleTabStripLastTabClosed(
-                        isHomepageAsNewTabEnabled = settings.enableHomepageAsNewTab,
-                        isLastTabClosedPrivate = isPrivate,
-                        navigateFromId = R.id.browserFragment,
-                        appStore = requireComponents.appStore,
-                        browsingMode = requireComponents.appStore.state.mode,
-                        navController = findNavController(),
-                    ) {
-                        requireComponents.appStore.dispatch(AppAction.TabStripAction.UpdateLastTabClosed(isPrivate))
-                        findNavController().navigate(BrowserFragmentDirections.actionGlobalHome())
-                    }
+                    requireComponents.appStore.dispatch(AppAction.TabStripAction.UpdateLastTabClosed(isPrivate))
+                    findNavController().navigate(BrowserFragmentDirections.actionGlobalHome())
                 },
                 onSelectedTabClick = {},
                 onCloseTabClick = { isPrivate ->
@@ -1631,19 +1611,7 @@ abstract class BaseBrowserFragment :
         }
     }
 
-    private val tabGroupsStripStore by lazy {
-        TabGroupsStripStore(
-            middleware =
-                listOf(
-                    TabGroupsStripMiddleware(
-                        tabDataCoordinator = requireComponents.tabDataCoordinator,
-                        scope = lifecycleScope,
-                    )
-                )
-        )
-    }
-
-    private fun buildTabGroupsStrip(): @Composable () -> Unit = { TabGroupsStrip(store = tabGroupsStripStore) }
+    private fun buildTabGroupsStrip(): @Composable () -> Unit = { TabGroupsStrip() }
 
     private fun buildAwesomeBar(
         activity: HomeActivity,
@@ -1814,8 +1782,10 @@ abstract class BaseBrowserFragment :
     }
 
     @VisibleForTesting
-    internal fun shouldPullToRefreshBeEnabled(): Boolean {
-        return FeatureFlags.PULL_TO_REFRESH_ENABLED && requireComponents.settings.isPullToRefreshEnabledInBrowser
+    internal fun shouldPullToRefreshBeEnabled(inFullScreen: Boolean): Boolean {
+        return FeatureFlags.PULL_TO_REFRESH_ENABLED &&
+            requireComponents.settings.isPullToRefreshEnabledInBrowser &&
+            !inFullScreen
     }
 
     /**
@@ -1986,22 +1956,20 @@ abstract class BaseBrowserFragment :
         browserToolbar.layout.elevation = 0.0f
     }
 
-    /**
-     * Listens for the microsurvey message, initializes the microsurvey prompt if one is available, and updates the
-     * engine view insets when the prompt is shown or hidden.
-     */
+    /** Listens for the microsurvey message and initializes the microsurvey prompt if one is available. */
     private fun listenForMicrosurveyMessage(context: Context) {
-        var wasMicrosurveyVisible = isMicrosurveyPromptVisible()
         binding.root.consumeFrom(context.components.appStore, viewLifecycleOwner) { state ->
             val isMicrosurveyVisible = state.microsurvey.current != null
+            if (isMicrosurveyVisible != context.components.settings.shouldShowMicrosurveyPrompt) {
+                context.components.settings.shouldShowMicrosurveyPrompt = isMicrosurveyVisible
+            }
             if (isMicrosurveyVisible && _bottomToolbarContainerView == null) {
                 initializeMicrosurveyPrompt()
-            } else if (isMicrosurveyVisible != wasMicrosurveyVisible) {
-                reinitializeEngineView()
             }
-            wasMicrosurveyVisible = isMicrosurveyVisible
         }
     }
+
+    private fun shouldShowMicrosurveyPrompt(context: Context) = context.components.settings.shouldShowMicrosurveyPrompt
 
     private fun isToolbarDynamic(context: Context) =
         !context.components.settings.shouldUseFixedTopToolbar && context.components.settings.isDynamicToolbarEnabled
@@ -2357,6 +2325,8 @@ abstract class BaseBrowserFragment :
             }
             collapseBrowserView()
         }
+
+        binding.swipeRefresh.isEnabled = shouldPullToRefreshBeEnabled(inFullScreen)
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
@@ -2409,16 +2379,12 @@ abstract class BaseBrowserFragment :
         reinitializeEngineView()
 
         // If the microsurvey feature is visible, we should update it's state.
-        if (isMicrosurveyPromptVisible() && !requireContext().isLandscape()) {
-            // Already having a bottomContainer after switching back to portrait mode will happen when address bar
-            // is positioned at bottom and also as an edge case if configurationChange is called after onCreateView
-            // with the same orientation. Observed on a foldable emulator while going from single screen portrait
-            // mode to landscape tablet, back and forth.
-            _bottomToolbarContainerView?.toolbarContainerView?.let {
-                binding.browserLayout.removeView(it)
-            }
-
-            initializeMicrosurveyPrompt()
+        if (shouldShowMicrosurveyPrompt(requireContext())) {
+            updateMicrosurveyPromptForConfigurationChange(
+                parent = binding.browserLayout,
+                bottomToolbarContainerView = _bottomToolbarContainerView?.toolbarContainerView,
+                reinitializeMicrosurveyPrompt = ::initializeMicrosurveyPrompt,
+            )
         }
 
         view?.let { setupIMEInsetsHandling(it) }

@@ -24,22 +24,17 @@ namespace mozilla {
 class ErrorResult;
 
 namespace dom {
+
 class GlobalObject;
 template <typename T>
 class Optional;
-enum class PredefinedColorSpace : uint8_t;
-struct ImageDataSettings;
 
 // ImageData extends nsWrapperCache only to support nursery allocated wrapper.
 class ImageData final : public nsISupports, public nsWrapperCache {
  public:
   ImageData(nsISupports* aOwner, uint32_t aWidth, uint32_t aHeight,
-            PredefinedColorSpace aColorSpace, JS::Handle<JSObject*> aData)
-      : mOwner(aOwner),
-        mWidth(aWidth),
-        mHeight(aHeight),
-        mColorSpace(aColorSpace),
-        mData(aData) {
+            JS::Handle<JSObject*> aData)
+      : mOwner(aOwner), mWidth(aWidth), mHeight(aHeight), mData(aData) {
     HoldData();
   }
 
@@ -50,20 +45,18 @@ class ImageData final : public nsISupports, public nsWrapperCache {
 
   nsISupports* GetParentObject() const { return mOwner; }
 
-  static already_AddRefed<ImageData> Constructor(
-      const GlobalObject& aGlobal, const uint32_t aWidth,
-      const uint32_t aHeight, const ImageDataSettings& aSettings,
-      ErrorResult& aRv);
+  static already_AddRefed<ImageData> Constructor(const GlobalObject& aGlobal,
+                                                 const uint32_t aWidth,
+                                                 const uint32_t aHeight,
+                                                 ErrorResult& aRv);
 
   static already_AddRefed<ImageData> Constructor(
       const GlobalObject& aGlobal, const Uint8ClampedArray& aData,
       const uint32_t aWidth, const Optional<uint32_t>& aHeight,
-      const ImageDataSettings& aSettings, ErrorResult& aRv);
+      ErrorResult& aRv);
 
   uint32_t Width() const { return mWidth; }
   uint32_t Height() const { return mHeight; }
-  PredefinedColorSpace ColorSpace() const { return mColorSpace; }
-
   void GetData(JSContext* cx, JS::MutableHandle<JSObject*> aData) const {
     aData.set(GetDataObject());
   }
@@ -88,7 +81,6 @@ class ImageData final : public nsISupports, public nsWrapperCache {
 
   const uint32_t mWidth;
   const uint32_t mHeight;
-  const PredefinedColorSpace mColorSpace;
 
   JS::Heap<JSObject*> mData;
 };

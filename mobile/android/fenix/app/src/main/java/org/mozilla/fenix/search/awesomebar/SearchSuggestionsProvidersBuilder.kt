@@ -275,10 +275,6 @@ class SearchSuggestionsProvidersBuilder(
             )
         }
 
-        if (state.searchEngineSource is SearchEngineSource.Default) {
-            providersToAdd.add(defaultSearchActionProvider)
-        }
-
         providersToAdd.add(requireNotNull(searchEngineSuggestionProvider))
 
         if (state.showTrendingSearches) {

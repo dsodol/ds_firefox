@@ -13,7 +13,6 @@
       'sources': [
         'bloomfilter_unittest.cc',
         'libssl_internals.c',
-        '<(DEPTH)/gtests/common/pk11_import.cc',
         'selfencrypt_unittest.cc',
         'ssl_0rtt_unittest.cc',
         'ssl_aead_unittest.cc',

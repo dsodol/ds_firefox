@@ -20,7 +20,6 @@ RUN /usr/local/sbin/setup_packages.sh $TASKCLUSTER_ROOT_URL $DOCKER_IMAGE_PACKAG
       git \
       openssh-client \
       python3-pip \
-      python3-psutil \
       python3-requests \
       python3-zstandard \
       unzip \

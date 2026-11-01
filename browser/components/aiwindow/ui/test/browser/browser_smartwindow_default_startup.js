@@ -65,8 +65,10 @@ add_task(
       set: [[PREF_IS_DEFAULT_WINDOW, true]],
     });
 
-    // Simulate a user who declines sign-in: maybeSignIn returns false.
-    const authStub = sinon.stub(AuthProvider, "maybeSignIn").resolves(false);
+    // Simulate a user who declines sign-in: ensureAIWindowAccess returns false.
+    const authStub = sinon
+      .stub(AIWindowAccountAuth, "ensureAIWindowAccess")
+      .resolves(false);
     const win = await BrowserTestUtils.openNewBrowserWindow();
 
     try {

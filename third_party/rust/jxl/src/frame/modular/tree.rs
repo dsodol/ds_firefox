@@ -10,8 +10,8 @@ use super::predict::WeightedPredictorState;
 use crate::bit_reader::BitReader;
 use crate::entropy_coding::decode::{Histograms, SymbolReader};
 use crate::error::{Error, Result};
-use crate::frame::modular::decode::References;
 use crate::frame::modular::predict::PredictionData;
+use crate::image::Image;
 use crate::util::tracing_wrappers::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -36,12 +36,12 @@ pub struct Tree {
     pub num_properties: usize,
 }
 
-fn validate_tree(tree: &[TreeNode], num_properties: usize, level5_limits: bool) -> Result<()> {
+fn validate_tree(tree: &[TreeNode], num_properties: usize) -> Result<()> {
+    const HEIGHT_LIMIT: usize = 2048;
+
     if tree.is_empty() {
         return Ok(());
     }
-
-    let max_depth = if level5_limits { 64 } else { 2048 };
 
     // This mirrors libjxl's ValidateTree(), but avoids allocating
     // `num_properties * tree.len()` entries.
@@ -74,13 +74,8 @@ fn validate_tree(tree: &[TreeNode], num_properties: usize, level5_limits: bool) 
     }];
 
     while let Some(mut frame) = stack.pop() {
-        if frame.depth > max_depth {
-            return Err(Error::level_limit(
-                level5_limits,
-                "modular tree depth",
-                frame.depth as u64,
-                max_depth as u64,
-            ));
+        if frame.depth > HEIGHT_LIMIT {
+            return Err(Error::TreeTooTall(frame.depth, HEIGHT_LIMIT));
         }
 
         match (frame.stage, tree[frame.node]) {
@@ -196,7 +191,7 @@ pub(super) fn compute_properties(
     wp_state: Option<&mut WeightedPredictorState>,
     x: usize,
     y: usize,
-    references: &References,
+    references: &Image<i32>,
     property_buffer: &mut [i32],
 ) -> i64 {
     assert!(property_buffer.len() >= NUM_NONREF_PROPERTIES);
@@ -239,27 +234,10 @@ pub(super) fn compute_properties(
     property_buffer[15] = wp_prop;
 
     // Reference properties.
-    let num_refs = references.num_ref_props;
+    let num_refs = references.size().0;
     if num_refs != 0 {
         let ref_properties = &mut property_buffer[NUM_NONREF_PROPERTIES..];
-        let src = &references.data[x * num_refs..];
-        match num_refs {
-            4 => ref_properties[..4].copy_from_slice(&src[..4]),
-            8 => ref_properties[..8].copy_from_slice(&src[..8]),
-            12 => ref_properties[..12].copy_from_slice(&src[..12]),
-            _ => {
-                // `num_refs` is always a multiple of 4 (`Tree::max_property_count`).
-                // Use `black_box(4)` to prevent LLVM's LoopIdiomRecognize from turning
-                // this cold fallback (`num_refs >= 16`) into a `memcpy` call inside
-                // `FlatTree::decode_row`'s per-pixel loop, which would otherwise force
-                // caller-saved register spills across the hot loop.
-                let mut i = 0;
-                while i + 4 <= num_refs {
-                    ref_properties[i..i + 4].copy_from_slice(&src[i..i + 4]);
-                    i += std::hint::black_box(4);
-                }
-            }
-        }
+        ref_properties[..num_refs].copy_from_slice(&references.row(x)[..num_refs]);
     }
 
     wp_pred
@@ -275,7 +253,7 @@ pub(super) fn predict(
     wp_state: Option<&mut WeightedPredictorState>,
     x: usize,
     y: usize,
-    references: &References,
+    references: &Image<i32>,
     property_buffer: &mut [i32],
 ) -> PredictionResult {
     let wp_pred = compute_properties(prediction_data, wp_state, x, y, references, property_buffer);
@@ -302,18 +280,12 @@ pub(super) fn predict(
 }
 
 impl Tree {
-    #[instrument(level = "debug", skip(br, lz77_scratch), err)]
-    pub fn read(
-        br: &mut BitReader,
-        size_limit: usize,
-        level5_limits: bool,
-        limit_name: &'static str,
-        lz77_scratch: &mut Vec<u32>,
-    ) -> Result<Tree> {
+    #[instrument(level = "debug", skip(br), err)]
+    pub fn read(br: &mut BitReader, size_limit: usize) -> Result<Tree> {
         assert!(size_limit <= u32::MAX as usize);
         trace!(pos = br.total_bits_read());
-        let tree_histograms = Histograms::decode(NUM_TREE_CONTEXTS, br, true, lz77_scratch)?;
-        let mut tree_reader = SymbolReader::new(&tree_histograms, br, None, lz77_scratch)?;
+        let tree_histograms = Histograms::decode(NUM_TREE_CONTEXTS, br, true)?;
+        let mut tree_reader = SymbolReader::new(&tree_histograms, br, None)?;
         // TODO(veluca): consider early-exiting for trees known to be infinite.
         let mut tree: Vec<TreeNode> = vec![];
         let mut to_decode = 1;
@@ -321,12 +293,7 @@ impl Tree {
         let mut max_property = 0;
         while to_decode > 0 {
             if tree.len() > size_limit {
-                return Err(Error::level_limit(
-                    level5_limits,
-                    limit_name,
-                    tree.len() as u64,
-                    size_limit as u64,
-                ));
+                return Err(Error::TreeTooLarge(tree.len(), size_limit));
             }
             if tree.len() >= tree.capacity() {
                 tree.try_reserve(tree.len() * 2 + 1)?;
@@ -380,13 +347,12 @@ impl Tree {
                 tree.push(node);
             }
         }
-        tree_reader.reclaim_lz77_scratch(lz77_scratch);
         tree_reader.check_final_state(&tree_histograms, br)?;
 
         let num_properties = max_property as usize + 1;
-        validate_tree(&tree, num_properties, level5_limits)?;
+        validate_tree(&tree, num_properties)?;
 
-        let histograms = Histograms::decode(tree.len().div_ceil(2), br, true, lz77_scratch)?;
+        let histograms = Histograms::decode(tree.len().div_ceil(2), br, true)?;
 
         Ok(Tree {
             nodes: tree,

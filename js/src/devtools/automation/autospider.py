@@ -472,7 +472,7 @@ if not args.nobuild:
         run_mach_command(
             [
                 "build",
-                "syms",
+                "recurse_syms",
             ],
             check=True,
             env=cmd_env,

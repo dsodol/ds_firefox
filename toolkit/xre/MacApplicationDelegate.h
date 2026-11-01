@@ -8,9 +8,6 @@
 #ifndef MacApplicationDelegate_h_
 #define MacApplicationDelegate_h_
 
-#include "nsTArray.h"
-#include "nsStringFwd.h"
-
 void EnsureUseCocoaDockAPI();
 void SetupMacApplicationDelegate(bool* gRestartedByOS);
 void InitializeMacApp();

@@ -67,8 +67,7 @@
 #include "jit/JitRuntime.h"
 #include "jit/JitScript.h"
 #include "jit/TrialInlining.h"
-#include "js/AllocationRecording.h"  // JS::{Enable,Disable}RecordingAllocations
-#include "js/Array.h"                // JS::NewArrayObject
+#include "js/Array.h"        // JS::NewArrayObject
 #include "js/ArrayBuffer.h"  // JS::{DetachArrayBuffer,GetArrayBufferLengthAndData,NewArrayBufferWithContents}
 #include "js/CallAndConstruct.h"  // JS::Call, JS::IsCallable, JS::IsConstructor, JS_CallFunction
 #include "js/CharacterEncoding.h"
@@ -293,6 +292,15 @@ static bool GetBuildConfiguration(JSContext* cx, unsigned argc, Value* vp) {
   value = BooleanValue(false);
 #endif
   if (!JS_SetProperty(cx, info, "release_or_beta", value)) {
+    return false;
+  }
+
+#ifdef EARLY_BETA_OR_EARLIER
+  value = BooleanValue(true);
+#else
+  value = BooleanValue(false);
+#endif
+  if (!JS_SetProperty(cx, info, "early_beta_or_earlier", value)) {
     return false;
   }
 
@@ -2518,12 +2526,11 @@ static bool WasmGcArrayLength(JSContext* cx, unsigned argc, Value* vp) {
 }
 
 #ifdef ENABLE_WASM_COMPONENTS
-static bool WasmComponentCoreInstanceExports(JSContext* cx, unsigned argc,
-                                             Value* vp) {
+static bool WasmComponentCoreInstance(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   RootedObject callee(cx, &args.callee());
 
-  if (!args.requireAtLeast(cx, "wasmComponentCoreInstanceExports", 2)) {
+  if (!args.requireAtLeast(cx, "wasmComponentCoreInstance", 2)) {
     return false;
   }
 
@@ -2542,14 +2549,15 @@ static bool WasmComponentCoreInstanceExports(JSContext* cx, unsigned argc,
   const WasmComponentInstanceObject& instanceObj =
       args[0].toObject().as<WasmComponentInstanceObject>();
   const wasm::ComponentInstance& instance = instanceObj.instance();
-  JSObject* exportsObj = instance.coreInstanceExports(coreInstanceIndex);
-  if (!exportsObj) {
+  WasmInstanceObject* coreInstance = instance.coreInstance(coreInstanceIndex);
+  if (!coreInstance) {
     ReportUsageErrorASCII(
-        cx, callee, "Second argument must be a valid core instance index");
+        cx, callee,
+        "Second argument must refer to a `(core instance (instantiate ...))`");
     return false;
   }
 
-  args.rval().setObject(*exportsObj);
+  args.rval().setObject(*coreInstance);
   return true;
 }
 #endif
@@ -3702,133 +3710,12 @@ static bool CallFunctionWithAsyncStack(JSContext* cx, unsigned argc,
 }
 
 static bool EnableTrackAllocations(JSContext* cx, unsigned argc, Value* vp) {
-  cx->realm()->enableAllocationMetadataBuilder();
+  SetAllocationMetadataBuilder(cx, &SavedStacks::metadataBuilder);
   return true;
 }
 
 static bool DisableTrackAllocations(JSContext* cx, unsigned argc, Value* vp) {
-  cx->realm()->disableAllocationMetadataBuilder();
-  return true;
-}
-
-static void RecordAllocation(JS::RecordAllocationInfo&& info) {
-  TestingFunctionData& data = TlsContext.get()->testingFunctionData();
-  MOZ_ASSERT(data.recordedAllocations.isSome());
-  RecordedAllocations& recorded = *data.recordedAllocations;
-
-  UniqueTwoByteChars typeName;
-  if (info.typeName) {
-    typeName = DuplicateString(info.typeName);
-    if (!typeName) {
-      return;
-    }
-  }
-  UniqueChars className;
-  if (info.className) {
-    className = DuplicateString(info.className);
-    if (!className) {
-      return;
-    }
-  }
-  UniqueTwoByteChars descriptiveTypeName;
-  if (info.descriptiveTypeName) {
-    descriptiveTypeName = DuplicateString(info.descriptiveTypeName);
-    if (!descriptiveTypeName) {
-      return;
-    }
-  }
-
-  (void)recorded.emplaceBack(std::move(typeName), std::move(className),
-                             std::move(descriptiveTypeName), info.coarseType,
-                             info.size, info.inNursery);
-}
-
-static bool StartRecordingAllocations(JSContext* cx, unsigned argc, Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-
-  double probability = 1.0;
-  if (args.hasDefined(0)) {
-    if (!ToNumber(cx, args[0], &probability)) {
-      return false;
-    }
-    if (!(probability >= 0.0 && probability <= 1.0)) {
-      JS_ReportErrorASCII(cx, "probability must be between 0 and 1");
-      return false;
-    }
-  }
-
-  TestingFunctionData* data = cx->getOrCreateTestingFunctionData();
-  if (!data) {
-    return false;
-  }
-  if (data->recordedAllocations.isNothing()) {
-    data->recordedAllocations.emplace();
-  }
-
-  JS::EnableRecordingAllocations(cx, RecordAllocation, probability);
-
-  args.rval().setUndefined();
-  return true;
-}
-
-template <typename CharT>
-static bool DefineStringOrNullProperty(JSContext* cx, HandleObject obj,
-                                       const char* name, const CharT* chars) {
-  RootedValue val(cx, NullValue());
-  if (chars) {
-    JSString* str = NewStringCopyZ<CanGC>(cx, chars);
-    if (!str) {
-      return false;
-    }
-    val.setString(str);
-  }
-  return JS_DefineProperty(cx, obj, name, val, JSPROP_ENUMERATE);
-}
-
-static bool StopRecordingAllocations(JSContext* cx, unsigned argc, Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-
-  TestingFunctionData* data = cx->maybeTestingFunctionData();
-  if (!data || data->recordedAllocations.isNothing()) {
-    JS_ReportErrorASCII(cx, "not recording allocations");
-    return false;
-  }
-
-  JS::DisableRecordingAllocations(cx);
-  RecordedAllocations recorded = std::move(*data->recordedAllocations);
-  data->recordedAllocations.reset();
-
-  Rooted<ArrayObject*> result(cx, NewDenseEmptyArray(cx));
-  if (!result) {
-    return false;
-  }
-
-  RootedObject obj(cx);
-  for (const RecordedAllocation& entry : recorded) {
-    obj = NewPlainObject(cx);
-    if (!obj) {
-      return false;
-    }
-    if (!DefineStringOrNullProperty(cx, obj, "typeName",
-                                    entry.typeName.get()) ||
-        !DefineStringOrNullProperty(cx, obj, "className",
-                                    entry.className.get()) ||
-        !DefineStringOrNullProperty(cx, obj, "descriptiveTypeName",
-                                    entry.descriptiveTypeName.get()) ||
-        !DefineStringOrNullProperty(cx, obj, "coarseType", entry.coarseType) ||
-        !JS_DefineProperty(cx, obj, "size", double(entry.size),
-                           JSPROP_ENUMERATE) ||
-        !JS_DefineProperty(cx, obj, "inNursery",
-                           entry.inNursery ? TrueHandleValue : FalseHandleValue,
-                           JSPROP_ENUMERATE)) {
-      return false;
-    }
-    if (!NewbornArrayPush(cx, result, ObjectValue(*obj))) {
-      return false;
-    }
-  }
-
-  args.rval().setObject(*result);
+  SetAllocationMetadataBuilder(cx, nullptr);
   return true;
 }
 
@@ -5677,6 +5564,76 @@ static bool IsAvxPresent(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
+class ShellAllocationMetadataBuilder : public AllocationMetadataBuilder {
+ public:
+  ShellAllocationMetadataBuilder() = default;
+
+  virtual JSObject* build(JSContext* cx, HandleObject,
+                          AutoEnterOOMUnsafeRegion& oomUnsafe) const override;
+
+  static const ShellAllocationMetadataBuilder metadataBuilder;
+};
+
+JSObject* ShellAllocationMetadataBuilder::build(
+    JSContext* cx, HandleObject, AutoEnterOOMUnsafeRegion& oomUnsafe) const {
+  RootedObject obj(cx, NewPlainObject(cx));
+  if (!obj) {
+    oomUnsafe.crash("ShellAllocationMetadataBuilder::build");
+  }
+
+  RootedObject stack(cx, NewDenseEmptyArray(cx));
+  if (!stack) {
+    oomUnsafe.crash("ShellAllocationMetadataBuilder::build");
+  }
+
+  static int createdIndex = 0;
+  createdIndex++;
+
+  if (!JS_DefineProperty(cx, obj, "index", createdIndex, 0)) {
+    oomUnsafe.crash("ShellAllocationMetadataBuilder::build");
+  }
+
+  if (!JS_DefineProperty(cx, obj, "stack", stack, 0)) {
+    oomUnsafe.crash("ShellAllocationMetadataBuilder::build");
+  }
+
+  int stackIndex = 0;
+  RootedId id(cx);
+  RootedValue callee(cx);
+  for (NonBuiltinScriptFrameIter iter(cx); !iter.done(); ++iter) {
+    if (iter.isFunctionFrame() && iter.compartment() == cx->compartment()) {
+      id = PropertyKey::Int(stackIndex);
+      RootedObject callee(cx, iter.callee(cx));
+      if (!JS_DefinePropertyById(cx, stack, id, callee, JSPROP_ENUMERATE)) {
+        oomUnsafe.crash("ShellAllocationMetadataBuilder::build");
+      }
+      stackIndex++;
+    }
+  }
+
+  return obj;
+}
+
+const ShellAllocationMetadataBuilder
+    ShellAllocationMetadataBuilder::metadataBuilder;
+
+static bool EnableShellAllocationMetadataBuilder(JSContext* cx, unsigned argc,
+                                                 Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+
+  // ShellAllocationMetadataBuilder::build constructs arrays. Ensure the
+  // Array constructor is already resolved.
+  if (!GlobalObject::ensureConstructor(cx, cx->global(), JSProto_Array)) {
+    return false;
+  }
+
+  SetAllocationMetadataBuilder(
+      cx, &ShellAllocationMetadataBuilder::metadataBuilder);
+
+  args.rval().setUndefined();
+  return true;
+}
+
 static bool GetAllocationMetadata(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   if (args.length() != 1 || !args[0].isObject()) {
@@ -6159,18 +6116,54 @@ static mozilla::Maybe<JS::StructuredCloneScope> ParseCloneScope(
 
 // A custom object that is serializable and transferable using
 // the engine's custom hooks. The callbacks log their activity
-// to a per-JSContext log (tagging actions with IDs to distinguish them).
+// to a JSRuntime-wide log (tagging actions with IDs to distinguish them).
 class CustomSerializableObject : public NativeObject {
   static const size_t ID_SLOT = 0;
   static const size_t DETACHED_SLOT = 1;
   static const size_t BEHAVIOR_SLOT = 2;
   static const size_t NUM_SLOTS = 3;
 
-  using ActivityLog = TestingFunctionData::SerializableActivityLog;
+  static constexpr size_t MAX_LOG_LEN = 100;
 
-  static ActivityLog& activityLog() {
-    return TlsContext.get()->testingFunctionData().serializableActivityLog;
-  }
+  // The activity log should be specific to a JSRuntime.
+  struct ActivityLog {
+    uint32_t buffer[MAX_LOG_LEN];
+    size_t length = 0;
+
+    static MOZ_THREAD_LOCAL(ActivityLog*) self;
+    static ActivityLog* getThreadLog() {
+      if (!self.initialized() || !self.get()) {
+        self.infallibleInit();
+        AutoEnterOOMUnsafeRegion oomUnsafe;
+        self.set(js_new<ActivityLog>());
+        if (!self.get()) {
+          oomUnsafe.crash("allocating activity log");
+        }
+        if (!TlsContext.get()->runtime()->atExit(
+                [](void* vpData) {
+                  auto* log = static_cast<ActivityLog*>(vpData);
+                  js_delete(log);
+                },
+                self.get())) {
+          oomUnsafe.crash("atExit");
+        }
+      }
+      return self.get();
+    }
+
+    static bool log(int32_t id, char action) {
+      return getThreadLog()->logImpl(id, action);
+    }
+
+    bool logImpl(int32_t id, char action) {
+      if (length + 2 > MAX_LOG_LEN) {
+        return false;
+      }
+      buffer[length++] = id;
+      buffer[length++] = uint32_t(action);
+      return true;
+    }
+  };
 
  public:
   enum class Behavior {
@@ -6190,10 +6183,6 @@ class CustomSerializableObject : public NativeObject {
 
   static CustomSerializableObject* Create(JSContext* cx, int32_t id,
                                           Behavior behavior) {
-    if (!cx->getOrCreateTestingFunctionData()) {
-      return nullptr;
-    }
-
     Rooted<CustomSerializableObject*> obj(
         cx, static_cast<CustomSerializableObject*>(JS_NewObject(cx, &class_)));
     if (!obj) {
@@ -6215,7 +6204,7 @@ class CustomSerializableObject : public NativeObject {
   static uint32_t tag() { return JS_SCTAG_USER_MIN; }
 
   static bool log(int32_t id, char action) {
-    return activityLog().append(id, action);
+    return ActivityLog::log(id, action);
   }
   bool log(char action) {
     return log(getReservedSlot(ID_SLOT).toInt32(), action);
@@ -6238,8 +6227,8 @@ class CustomSerializableObject : public NativeObject {
     Rooted<CustomSerializableObject*> obj(
         cx, &args.thisv().toObject().as<CustomSerializableObject>());
 
-    size_t len = activityLog().length;
-    uint32_t* logBuffer = activityLog().buffer;
+    size_t len = ActivityLog::getThreadLog()->length;
+    uint32_t* logBuffer = ActivityLog::getThreadLog()->buffer;
 
     Rooted<ArrayObject*> result(cx, NewDenseFullyAllocatedArray(cx, len));
     if (!result) {
@@ -6268,7 +6257,7 @@ class CustomSerializableObject : public NativeObject {
       JS_ReportErrorASCII(cx, "log may only be assigned null/undefined");
       return false;
     }
-    activityLog().length = 0;
+    ActivityLog::getThreadLog()->length = 0;
     args.rval().setUndefined();
     return true;
   }
@@ -6389,6 +6378,9 @@ class CustomSerializableObject : public NativeObject {
                                   'F');
   }
 };
+
+MOZ_THREAD_LOCAL(CustomSerializableObject::ActivityLog*)
+CustomSerializableObject::ActivityLog::self;
 
 static bool MakeSerializable(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
@@ -7785,7 +7777,7 @@ static bool ShortestPaths(JSContext* cx, unsigned argc, Value* vp) {
 
     for (size_t i = 0; i < length; i++) {
       if (!values.append(GCVector<GCVector<Value>>(cx)) ||
-          !names.emplaceBack(cx)) {
+          !names.append(Vector<Vector<JS::ubi::EdgeName>>(cx))) {
         return false;
       }
 
@@ -9975,7 +9967,6 @@ static bool RecordIonCompilationForHints(JSContext* cx, unsigned argc,
   jit::JitHintsMap* jitHints = cx->runtime()->jitRuntime()->getJitHintsMap();
   jitHints->setEagerBaselineHint(script);
   if (!jitHints->recordIonCompilation(script)) {
-    ReportOutOfMemory(cx);
     return false;
   }
 
@@ -10577,21 +10568,13 @@ static const JSFunctionSpecWithHelp TestingFunctions[] = {
 
     JS_FN_HELP("enableTrackAllocations", EnableTrackAllocations, 0, 0,
 "enableTrackAllocations()",
-"  Start capturing the JS stack at every allocation."),
+"  Start capturing the JS stack at every allocation. Note that this sets an\n"
+"  object metadata callback that will override any other object metadata\n"
+"  callback that may be set."),
 
     JS_FN_HELP("disableTrackAllocations", DisableTrackAllocations, 0, 0,
 "disableTrackAllocations()",
 "  Stop capturing the JS stack at every allocation."),
-
-    JS_FN_HELP("startRecordingAllocations", StartRecordingAllocations, 1, 0,
-"startRecordingAllocations([probability])",
-"  Start recording allocations for all realms using the allocation recording\n"
-"  API that is used by the Firefox profiler. Each object is recorded with the\n"
-"  given probability (default 1)."),
-
-    JS_FN_HELP("stopRecordingAllocations", StopRecordingAllocations, 0, 0,
-"stopRecordingAllocations()",
-"  Stop recording allocations and return an array of the recorded allocations."),
 
     JS_FN_HELP("setTestFilenameValidationCallback", SetTestFilenameValidationCallback, 0, 0,
 "setTestFilenameValidationCallback()",
@@ -11155,6 +11138,10 @@ JS_FOR_WASM_FEATURES(WASM_FEATURE)
 "hasSameBytecodeData(fun1, fun2)",
 "  True if fun1 and fun2 share the same copy of bytecode data. This will\n"
 "  delazify the function if necessary."),
+
+    JS_FN_HELP("enableShellAllocationMetadataBuilder", EnableShellAllocationMetadataBuilder, 0, 0,
+"enableShellAllocationMetadataBuilder()",
+"  Use ShellAllocationMetadataBuilder to supply metadata for all newly created objects."),
 
     JS_FN_HELP("getAllocationMetadata", GetAllocationMetadata, 1, 0,
 "getAllocationMetadata(obj)",
@@ -11810,9 +11797,9 @@ JS_FN_HELP("getFuseState", GetFuseState, 0, 0,
 "  Prints an analysis of the size of metadata on this wasm object.\n"),
 
 #ifdef ENABLE_WASM_COMPONENTS
-    JS_FN_HELP("wasmComponentCoreInstanceExports", WasmComponentCoreInstanceExports, 2, 0,
-"wasmComponentCoreInstanceExports(componentInstance, coreInstanceIndex)",
-"  Gets the exports object of a core instance in a WebAssembly.ComponentInstance.\n"),
+    JS_FN_HELP("wasmComponentCoreInstance", WasmComponentCoreInstance, 2, 0,
+"wasmComponentCoreInstance(componentInstance, coreInstanceIndex)",
+"  Extracts a WebAssembly.Instance from a WebAssembly.ComponentInstance.\n"),
 #endif
 
     JS_FS_HELP_END

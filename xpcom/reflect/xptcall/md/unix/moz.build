@@ -233,7 +233,3 @@ FINAL_LIBRARY = "xul"
 LOCAL_INCLUDES += [
     "../..",
 ]
-
-SOURCE_HEADERS += [
-    "xptc_gcc_x86_unix.h",
-]

@@ -209,30 +209,43 @@ RegRef BaseCompiler::captureReturnedRef() {
 //
 // Miscellaneous.
 
-FaultingCodeRange BaseCompiler::trap(Trap t) {
-  FaultingCodeRange fcr = masm.wasmTrap(t, trapSiteDesc());
+void BaseCompiler::trap(Trap t) {
+  masm.wasmTrap(t, trapSiteDesc());
 
-  if (MOZ_LIKELY(!compilerEnv_.debugEnabled()) || !fcr.isValid()) {
-    return fcr;
+  if (MOZ_LIKELY(!compilerEnv_.debugEnabled())) {
+    return;
   }
 
   masm.propagateOOM(
-      createStackMap(mozilla::Some(t), fcr, HasDebugFrameWithLiveRefs::Maybe));
-  return fcr;
+      createStackMap(mozilla::Some(t), HasDebugFrameWithLiveRefs::Maybe));
 }
 
-FaultingCodeRange BaseCompiler::trap(Trap t, const TrapSiteDesc& trapSite,
-                                     StackMap* stackMap) {
+void BaseCompiler::trap(Trap t, const TrapSiteDesc& trapSite,
+                        StackMap* stackMap) {
   // TODO: ideally we should check that the resumability of `t` was taken into
   // account when constructing `stackMap`.
-  FaultingCodeRange fcr = masm.wasmTrap(t, trapSite);
+  masm.wasmTrap(t, trapSite);
 
-  if (stackMap && fcr.isValid() &&
-      !stackMaps_->add(fcr.resumeOffset(), stackMap)) {
+  if (stackMap && !stackMaps_->add(masm.currentOffset(), stackMap)) {
     masm.setOOM();
   }
+}
 
-  return fcr;
+void BaseCompiler::cmp64Set(Assembler::Condition cond, RegI64 lhs, RegI64 rhs,
+                            RegI32 dest) {
+#if defined(JS_PUNBOX64)
+  masm.cmpPtrSet(cond, lhs.reg, rhs.reg, dest);
+#else
+  // TODO / OPTIMIZE (Bug 1316822): This is pretty branchy, we should be
+  // able to do better.
+  Label done, condTrue;
+  masm.branch64(cond, lhs, rhs, &condTrue);
+  moveImm32(0, dest);
+  masm.jump(&done);
+  masm.bind(&condTrue);
+  moveImm32(1, dest);
+  masm.bind(&done);
+#endif
 }
 
 [[nodiscard]] bool BaseCompiler::supportsRoundInstruction(RoundingMode mode) {

@@ -8,8 +8,6 @@
 
 namespace mozilla::dom {
 
-XRNativeOriginViewer::~XRNativeOriginViewer() = default;
-
 XRNativeOriginViewer::XRNativeOriginViewer(gfx::VRDisplayClient* aDisplay)
     : mDisplay(aDisplay) {
   MOZ_ASSERT(aDisplay);

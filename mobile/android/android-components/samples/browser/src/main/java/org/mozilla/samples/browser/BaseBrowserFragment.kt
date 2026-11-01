@@ -247,7 +247,6 @@ abstract class BaseBrowserFragment : Fragment(), UserInteractionHandler, Activit
                     },
                     onShouldShowRequestPermissionRationale = { shouldShowRequestPermissionRationale(it) },
                     store = components.store,
-                    coroutineScope = components.applicationScope,
                 ),
             owner = this,
             view = binding.root,

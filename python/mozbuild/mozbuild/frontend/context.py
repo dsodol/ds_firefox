@@ -480,26 +480,6 @@ class LinkFlags(BaseCompileFlags):
                 ),
                 ("LDFLAGS",),
             ),
-            (
-                "WIN32_EXE_DEFAULT",
-                context.config.substs.get("WIN32_EXE_DEFAULT_LDFLAGS"),
-                ("PROGRAM_LDFLAGS",),
-            ),
-            (
-                # For Mac executables, set the @rpath to be @executable_path by
-                # default so that shared libraries built with an @rpath install
-                # name in the same directory as the executable can be resolved.
-                # Executables not in the same directory should override the
-                # @rpath with a relative path such as @executable_path/../
-                # depending on their install location.
-                "MACOS_RPATH",
-                (
-                    ["-Wl,-rpath,@executable_path"]
-                    if context.config.substs.get("OS_ARCH") == "Darwin"
-                    else []
-                ),
-                ("PROGRAM_LDFLAGS",),
-            ),
         )
         BaseCompileFlags.__init__(self, context)
 
@@ -638,16 +618,6 @@ class CompileFlags(TargetCompileFlags):
                 ("CXXFLAGS",),
             ),
             (
-                "OS_COMPILE_CMFLAGS",
-                context.config.substs.get("OS_COMPILE_CMFLAGS"),
-                ("CMFLAGS",),
-            ),
-            (
-                "OS_COMPILE_CMMFLAGS",
-                context.config.substs.get("OS_COMPILE_CMMFLAGS"),
-                ("CMMFLAGS",),
-            ),
-            (
                 "OS_CPPFLAGS",
                 context.config.substs.get("OS_CPPFLAGS"),
                 ("CXXFLAGS", "CFLAGS", "CXX_LDFLAGS", "C_LDFLAGS"),
@@ -699,8 +669,6 @@ class CompileFlags(TargetCompileFlags):
             ),
             ("MOZBUILD_CFLAGS", None, ("CFLAGS",)),
             ("MOZBUILD_CXXFLAGS", None, ("CXXFLAGS",)),
-            ("MOZBUILD_CMFLAGS", None, ("CMFLAGS",)),
-            ("MOZBUILD_CMMFLAGS", None, ("CMMFLAGS",)),
             (
                 "COVERAGE",
                 context.config.substs.get("COVERAGE_CFLAGS"),
@@ -1483,11 +1451,7 @@ VARIABLES = {
     "SOURCES": (
         ContextDerivedTypedListWithItems(
             Path,
-            StrictOrderingOnAppendListWithFlagsFactory({
-                "no_pgo": bool,
-                "flags": List,
-                "object_deps": List,
-            }),
+            StrictOrderingOnAppendListWithFlagsFactory({"no_pgo": bool, "flags": List}),
         ),
         list,
         """Source code files.

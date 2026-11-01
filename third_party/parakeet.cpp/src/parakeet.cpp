@@ -6,9 +6,7 @@
 #include <stdexcept>
 #include <string>
 
-#ifndef PARAKEET_VERSION
 #define PARAKEET_VERSION "0.0.1"
-#endif
 
 extern "C" const char* parakeet_version(void) { return PARAKEET_VERSION; }
 

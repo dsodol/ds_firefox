@@ -4,18 +4,12 @@
 <link rel="help" href="https://drafts.csswg.org/css-pseudo-4/#first-text-line">
 <link rel="help" href="https://github.com/w3c/csswg-drafts/issues/13926">
 <style>
-.direct::first-line {
+input::first-line,
+textarea::first-line {
   color: red;
-}
-.container::first-line {
-  color: red;
-}
-.container > input {
-  display: block;
 }
 </style>
-<input class="direct" value="Some text">
-<textarea class="direct">
+<input value="Some text">
+<textarea>
   Some more text
 </textarea>
-<div class="container"><input value="Some more text"></div>

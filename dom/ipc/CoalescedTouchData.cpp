@@ -15,7 +15,7 @@ static const uint32_t sMaxTouchMoveIdentifiers = 10;
 void CoalescedTouchData::CreateCoalescedTouchEvent(
     const WidgetTouchEvent& aEvent) {
   MOZ_ASSERT(IsEmpty());
-  mCoalescedInputEvent = std::make_unique<WidgetTouchEvent>(aEvent);
+  mCoalescedInputEvent = MakeUnique<WidgetTouchEvent>(aEvent);
   for (size_t i = 0; i < mCoalescedInputEvent->mTouches.Length(); i++) {
     const RefPtr<Touch>& touch = mCoalescedInputEvent->mTouches[i];
     touch->mCoalescedWidgetEvents = MakeAndAddRef<WidgetPointerEventHolder>();

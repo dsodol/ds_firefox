@@ -22,6 +22,7 @@ class WindowsBootstrapper(BaseBootstrapper):
         "diffutils",
         "tar",
         "unzip",
+        "mingw-w64-x86_64-toolchain",  # TODO: Remove when Mercurial is installable from a wheel.
         "mingw-w64-i686-toolchain",
     ]
 
@@ -48,6 +49,9 @@ class WindowsBootstrapper(BaseBootstrapper):
 
     def install_system_packages(self):
         self.pacman_install(*self.SYSTEM_PACKAGES)
+
+    def upgrade_mercurial(self, current):
+        self.pip_install("mercurial")
 
     def install_browser_packages(self, mozconfig_builder):
         self.pacman_install(*self.BROWSER_PACKAGES)
@@ -86,5 +90,10 @@ class WindowsBootstrapper(BaseBootstrapper):
         if self.no_interactive:
             command.append("--noconfirm")
 
+        command.extend(packages)
+        self.run(command)
+
+    def pip_install(self, *packages):
+        command = ["pip", "install", "--upgrade"]
         command.extend(packages)
         self.run(command)

@@ -48,19 +48,12 @@ _INFO = """\
 XPCSHELL_FUNCS = "add_task", "run_test", "run_next_test"
 
 # Injected in the Node.js sandbox used to extract metadata. Values returned by
-# stubbed calls must be destructurable and tolerate property accesses and calls,
+# stubbed calls must be destructurable and tolerate arbitrary property accesses,
 # since scripts commonly do `const { Foo } = ChromeUtils.importESModule(...)`
 # and then use `Foo` at the top level.
 STUB_RETURN_JS = """\
 globalThis.__perfdocsStubObject = () =>
-  new Proxy(() => globalThis.__perfdocsStubObject(), {
-    get: (t, p) =>
-      p in t
-        ? Reflect.get(t, p)
-        : typeof p === "symbol"
-          ? undefined
-          : globalThis.__perfdocsStubObject(),
-  });
+  new Proxy({}, { get: (t, p) => (typeof p === "symbol" ? undefined : {}) });
 """
 
 

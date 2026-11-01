@@ -148,7 +148,6 @@ export default class SidebarMain extends MozLitElement {
     window.addEventListener("SidebarItemRemoved", this);
 
     this.setCustomize();
-    this.createTabsObservers();
     this.createSplitter();
     this.createToolsObservers();
   }
@@ -167,7 +166,6 @@ export default class SidebarMain extends MozLitElement {
     window.removeEventListener("SidebarItemChanged", this);
     window.removeEventListener("SidebarItemRemoved", this);
 
-    this._tabsOverflowObserver?.disconnect();
     this._toolsIntersectionObserver?.disconnect();
     this._toolsResizeObserver?.disconnect();
     this.ownerDocument
@@ -177,18 +175,6 @@ export default class SidebarMain extends MozLitElement {
 
   get isToolsDragging() {
     return this.toolsSplitter.getAttribute("state") === "dragging";
-  }
-
-  createTabsObservers() {
-    let tabs = document.getElementById("tabbrowser-tabs");
-    let syncOverflow = () =>
-      this.toggleAttribute("tabs-overflow", tabs.hasAttribute("overflow"));
-    this._tabsOverflowObserver = new MutationObserver(syncOverflow);
-    this._tabsOverflowObserver.observe(tabs, {
-      attributes: true,
-      attributeFilter: ["overflow"],
-    });
-    syncOverflow();
   }
 
   createToolsObservers() {
@@ -585,11 +571,15 @@ export default class SidebarMain extends MozLitElement {
             this.unpinExtension();
             break;
           case "sidebar-context-menu-hide-sidebar":
-            window.SidebarController._maybeAnimate(() => {
-              window.SidebarController.hide({ dismissPanel: false });
-              window.SidebarController._state.userLauncherVisible = false;
-              window.SidebarController.updateToolbarButton();
-            });
+            if (
+              window.SidebarController._animationEnabled &&
+              !window.gReduceMotion
+            ) {
+              window.SidebarController._animateSidebarContainer();
+            }
+            window.SidebarController.hide({ dismissPanel: false });
+            window.SidebarController._state.updateVisibility(false);
+            window.SidebarController.updateToolbarButton();
             break;
           case "sidebar-context-menu-enable-vertical-tabs":
             await window.SidebarController.toggleVerticalTabs();

@@ -427,7 +427,7 @@ fn hsqueeze_impl<D: SimdDescriptor>(
     let remainder_rows = h - y_limit;
     // We need `lanes > N` to convince the compiler that this function does not recurse
     if lanes > 8 && remainder_rows >= 8 && w >= 8 {
-        return hsqueeze_fwd(
+        return hsqueeze_impl(
             d.maybe_downgrade_256bit(),
             y_limit,
             in_avg,
@@ -438,7 +438,7 @@ fn hsqueeze_impl<D: SimdDescriptor>(
         );
     }
     if lanes > 4 && remainder_rows >= 4 && w >= 4 {
-        return hsqueeze_fwd(
+        return hsqueeze_impl(
             d.maybe_downgrade_128bit(),
             y_limit,
             in_avg,
@@ -452,6 +452,7 @@ fn hsqueeze_impl<D: SimdDescriptor>(
     hsqueeze_scalar(y_limit, in_avg, in_res, in_next_avg, out_prev, out)
 }
 
+#[inline(always)]
 fn hsqueeze_scalar(
     y_start: usize,
     in_avg: &ImageRect<'_, i32>,
@@ -672,7 +673,7 @@ fn hsqueeze_impl_i16<D: SimdDescriptor>(
     let remainder_rows = h - y_limit;
     // We need `lanes > N` to convince the compiler that this function does not recurse
     if lanes > 16 && remainder_rows >= 16 && w >= 16 {
-        return hsqueeze_fwd_i16(
+        return hsqueeze_impl_i16(
             d.maybe_downgrade_256bit(),
             y_limit,
             in_avg,
@@ -684,7 +685,7 @@ fn hsqueeze_impl_i16<D: SimdDescriptor>(
         );
     }
     if lanes > 8 && remainder_rows >= 8 && w >= 8 {
-        return hsqueeze_fwd_i16(
+        return hsqueeze_impl_i16(
             d.maybe_downgrade_128bit(),
             y_limit,
             in_avg,
@@ -699,6 +700,7 @@ fn hsqueeze_impl_i16<D: SimdDescriptor>(
     hsqueeze_scalar_i16(y_limit, in_avg, in_res, in_next_avg, out_prev, out)
 }
 
+#[inline(always)]
 fn hsqueeze_scalar_i16(
     y_start: usize,
     in_avg: &ImageRect<'_, i16>,
@@ -764,26 +766,20 @@ simd_function!(
     hsqueeze,
     d: D,
     pub fn hsqueeze_fwd(
-        y_start: usize,
         in_avg: &ImageRect<'_, i32>,
         in_res: &ImageRect<'_, i32>,
         in_next_avg: Option<&ImageRect<'_, i32>>,
         out_prev: Option<&ImageRect<'_, i32>>,
         out: &mut ImageRectMut<'_, i32>,
     ) {
-        d.call(
-            #[inline(always)]
-            |d| hsqueeze_impl(d, y_start, in_avg, in_res, in_next_avg, out_prev, out),
-        )
+        hsqueeze_impl(d, 0, in_avg, in_res, in_next_avg, out_prev, out)
     }
 );
 
 simd_function!(
     hsqueeze_i16,
     d: D,
-    #[allow(clippy::too_many_arguments)]
     pub fn hsqueeze_fwd_i16(
-        y_start: usize,
         in_avg: &ImageRect<'_, i16>,
         in_res: &ImageRect<'_, i16>,
         in_next_avg: Option<&ImageRect<'_, i16>>,
@@ -791,10 +787,7 @@ simd_function!(
         out: &mut ImageRectMut<'_, i16>,
         buf: &mut [i16; 2048],
     ) {
-        d.call(
-            #[inline(always)]
-            |d| hsqueeze_impl_i16(d, y_start, in_avg, in_res, in_next_avg, out_prev, out, buf),
-        )
+        hsqueeze_impl_i16(d, 0, in_avg, in_res, in_next_avg, out_prev, out, buf)
     }
 );
 
@@ -826,7 +819,6 @@ fn do_hsqueeze_step_i16(
     }
     // Otherwise: 2 or more in in row
     hsqueeze_i16(
-        0,
         in_avg,
         in_res,
         in_next_avg,
@@ -862,7 +854,7 @@ fn do_hsqueeze_step_i32(
         return;
     }
     // Otherwise: 2 or more in in row
-    hsqueeze(0, in_avg, in_res, in_next_avg, out_prev, &mut out_rect);
+    hsqueeze(in_avg, in_res, in_next_avg, out_prev, &mut out_rect);
 }
 
 #[inline(always)]
@@ -963,7 +955,7 @@ fn vsqueeze_impl<D: SimdDescriptor>(
     let remainder_cols = w - x_limit;
     // We need `lanes > N` to convince the compiler that this function does not recurse
     if lanes > 8 && remainder_cols >= 8 {
-        return vsqueeze_fwd(
+        return vsqueeze_impl(
             d.maybe_downgrade_256bit(),
             x_limit,
             in_avg,
@@ -974,7 +966,7 @@ fn vsqueeze_impl<D: SimdDescriptor>(
         );
     }
     if lanes > 4 && remainder_cols >= 4 {
-        return vsqueeze_fwd(
+        return vsqueeze_impl(
             d.maybe_downgrade_128bit(),
             x_limit,
             in_avg,
@@ -1056,7 +1048,7 @@ fn vsqueeze_impl_i16<D: SimdDescriptor>(
     let remainder_cols = w - x_limit;
     // We need `lanes > N` to convince the compiler that this function does not recurse
     if lanes > 16 && remainder_cols >= 16 {
-        return vsqueeze_fwd_i16(
+        return vsqueeze_impl_i16(
             d.maybe_downgrade_256bit(),
             x_limit,
             in_avg,
@@ -1067,7 +1059,7 @@ fn vsqueeze_impl_i16<D: SimdDescriptor>(
         );
     }
     if lanes > 8 && remainder_cols >= 8 {
-        return vsqueeze_fwd_i16(
+        return vsqueeze_impl_i16(
             d.maybe_downgrade_128bit(),
             x_limit,
             in_avg,
@@ -1081,6 +1073,7 @@ fn vsqueeze_impl_i16<D: SimdDescriptor>(
     vsqueeze_scalar_i16(x_limit, in_avg, in_res, in_next_avg, out_prev, out)
 }
 
+#[inline(always)]
 fn vsqueeze_scalar(
     x_start: usize,
     in_avg: &ImageRect<'_, i32>,
@@ -1147,6 +1140,7 @@ fn vsqueeze_scalar(
     }
 }
 
+#[inline(always)]
 fn vsqueeze_scalar_i16(
     x_start: usize,
     in_avg: &ImageRect<'_, i16>,
@@ -1227,17 +1221,13 @@ simd_function!(
     vsqueeze,
     d: D,
     pub fn vsqueeze_fwd(
-        x_start: usize,
         in_avg: &ImageRect<'_, i32>,
         in_res: &ImageRect<'_, i32>,
         in_next_avg: Option<&ImageRect<'_, i32>>,
         out_prev: Option<&ImageRect<'_, i32>>,
         out: &mut ImageRectMut<'_, i32>,
     ) {
-        d.call(
-            #[inline(always)]
-            |d| vsqueeze_impl(d, x_start, in_avg, in_res, in_next_avg, out_prev, out),
-        )
+        vsqueeze_impl(d, 0, in_avg, in_res, in_next_avg, out_prev, out)
     }
 );
 
@@ -1245,17 +1235,13 @@ simd_function!(
     vsqueeze_i16,
     d: D,
     pub fn vsqueeze_fwd_i16(
-        x_start: usize,
         in_avg: &ImageRect<'_, i16>,
         in_res: &ImageRect<'_, i16>,
         in_next_avg: Option<&ImageRect<'_, i16>>,
         out_prev: Option<&ImageRect<'_, i16>>,
         out: &mut ImageRectMut<'_, i16>,
     ) {
-        d.call(
-            #[inline(always)]
-            |d| vsqueeze_impl_i16(d, x_start, in_avg, in_res, in_next_avg, out_prev, out),
-        )
+        vsqueeze_impl_i16(d, 0, in_avg, in_res, in_next_avg, out_prev, out)
     }
 );
 
@@ -1283,7 +1269,7 @@ fn do_vsqueeze_step_i16(
     }
     // Otherwise: 2 or more rows
 
-    vsqueeze_i16(0, in_avg, in_res, in_next_avg, out_prev, &mut out_rect);
+    vsqueeze_i16(in_avg, in_res, in_next_avg, out_prev, &mut out_rect);
 }
 
 #[inline(always)]
@@ -1308,7 +1294,7 @@ fn do_vsqueeze_step_i32(
     }
     // Otherwise: 2 or more rows
 
-    vsqueeze(0, in_avg, in_res, in_next_avg, out_prev, &mut out_rect);
+    vsqueeze(in_avg, in_res, in_next_avg, out_prev, &mut out_rect);
 }
 
 #[inline(always)]

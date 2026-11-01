@@ -354,9 +354,4 @@ nsresult OmxPromiseLayer::Shutdown() {
   return mPlatformLayer->Shutdown();
 }
 
-OmxPromiseLayer::BufferData::BufferData(OMX_BUFFERHEADERTYPE* aBuffer)
-    : mEos(false), mStatus(BufferStatus::FREE), mBuffer(aBuffer) {}
-
-OmxPromiseLayer::BufferData::~BufferData() = default;
-
 }  // namespace mozilla

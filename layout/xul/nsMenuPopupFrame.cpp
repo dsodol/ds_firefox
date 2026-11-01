@@ -89,7 +89,8 @@ extern mozilla::LazyLogModule gWidgetPopupLog;
 #endif
 
 nsIFrame* NS_NewMenuPopupFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
-  return new nsMenuPopupFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      nsMenuPopupFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMenuPopupFrame)
@@ -2321,10 +2322,8 @@ void nsMenuPopupFrame::MoveTo(const CSSPoint& aPos, bool aUpdateAttrs,
     nsAutoString left, top;
     left.AppendInt(RoundedToInt(aPos).x);
     top.AppendInt(RoundedToInt(aPos).y);
-    popup->SetAttr(kNameSpaceID_None, nsGkAtoms::left, left, false,
-                   dom::IsKnownNewAttr::No);
-    popup->SetAttr(kNameSpaceID_None, nsGkAtoms::top, top, false,
-                   dom::IsKnownNewAttr::No);
+    popup->SetAttr(kNameSpaceID_None, nsGkAtoms::left, left, false);
+    popup->SetAttr(kNameSpaceID_None, nsGkAtoms::top, top, false);
   }
 }
 
@@ -2564,10 +2563,8 @@ void nsMenuPopupFrame::WindowResized(nsIWidget* aWidget,
   nsAutoString width, height;
   width.AppendInt(newCSS.width);
   height.AppendInt(newCSS.height);
-  popup->SetAttr(kNameSpaceID_None, nsGkAtoms::width, width, true,
-                 dom::IsKnownNewAttr::No);
-  popup->SetAttr(kNameSpaceID_None, nsGkAtoms::height, height, true,
-                 dom::IsKnownNewAttr::No);
+  popup->SetAttr(kNameSpaceID_None, nsGkAtoms::width, width, true);
+  popup->SetAttr(kNameSpaceID_None, nsGkAtoms::height, height, true);
 }
 
 bool nsMenuPopupFrame::RequestWindowClose(nsIWidget* aWidget) {

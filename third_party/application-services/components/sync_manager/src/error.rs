@@ -4,8 +4,7 @@
 
 use interrupt_support::Interrupted;
 
-#[derive(Debug, thiserror::Error, uniffi::Error)]
-#[uniffi(flat_error)]
+#[derive(Debug, thiserror::Error)]
 pub enum SyncManagerError {
     #[error("Unknown engine: {0}")]
     UnknownEngine(String),

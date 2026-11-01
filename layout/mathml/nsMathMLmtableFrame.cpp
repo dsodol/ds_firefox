@@ -635,7 +635,8 @@ NS_QUERYFRAME_TAIL_INHERITING(nsTableWrapperFrame)
 
 nsContainerFrame* NS_NewMathMLmtableOuterFrame(PresShell* aPresShell,
                                                ComputedStyle* aStyle) {
-  return new nsMathMLmtableWrapperFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      nsMathMLmtableWrapperFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMathMLmtableWrapperFrame)
@@ -854,7 +855,8 @@ void nsMathMLmtableWrapperFrame::Reflow(nsPresContext* aPresContext,
 
 nsContainerFrame* NS_NewMathMLmtableFrame(PresShell* aPresShell,
                                           ComputedStyle* aStyle) {
-  return new nsMathMLmtableFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      nsMathMLmtableFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMathMLmtableFrame)
@@ -1006,7 +1008,8 @@ NS_QUERYFRAME_TAIL_INHERITING(nsTableFrame)
 
 nsContainerFrame* NS_NewMathMLmtrFrame(PresShell* aPresShell,
                                        ComputedStyle* aStyle) {
-  return new nsMathMLmtrFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      nsMathMLmtrFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMathMLmtrFrame)
@@ -1050,7 +1053,7 @@ nsresult nsMathMLmtrFrame::AttributeChanged(int32_t aNameSpaceID,
 nsContainerFrame* NS_NewMathMLmtdFrame(PresShell* aPresShell,
                                        ComputedStyle* aStyle,
                                        nsTableFrame* aTableFrame) {
-  return new nsMathMLmtdFrame(aStyle, aTableFrame);
+  return new (aPresShell) nsMathMLmtdFrame(aStyle, aTableFrame);
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMathMLmtdFrame)
@@ -1147,7 +1150,8 @@ NS_QUERYFRAME_TAIL_INHERITING(nsBlockFrame)
 
 nsContainerFrame* NS_NewMathMLmtdInnerFrame(PresShell* aPresShell,
                                             ComputedStyle* aStyle) {
-  return new nsMathMLmtdInnerFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      nsMathMLmtdInnerFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMathMLmtdInnerFrame)
@@ -1157,7 +1161,7 @@ nsMathMLmtdInnerFrame::nsMathMLmtdInnerFrame(ComputedStyle* aStyle,
     : nsBlockFrame(aStyle, aPresContext, kClassID)
       // Make a copy of the parent nsStyleText for later modification.
       ,
-      mUniqueStyleText(std::make_unique<nsStyleText>(*StyleText())) {}
+      mUniqueStyleText(MakeUnique<nsStyleText>(*StyleText())) {}
 
 void nsMathMLmtdInnerFrame::Reflow(nsPresContext* aPresContext,
                                    ReflowOutput& aDesiredSize,
@@ -1198,5 +1202,5 @@ const nsStyleText* nsMathMLmtdInnerFrame::StyleTextForLineLayout() {
 void nsMathMLmtdInnerFrame::DidSetComputedStyle(
     ComputedStyle* aOldComputedStyle) {
   nsBlockFrame::DidSetComputedStyle(aOldComputedStyle);
-  mUniqueStyleText = std::make_unique<nsStyleText>(*StyleText());
+  mUniqueStyleText = MakeUnique<nsStyleText>(*StyleText());
 }

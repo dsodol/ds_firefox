@@ -5,6 +5,7 @@
 #ifndef GFX_SKIP_CHARS_H
 #define GFX_SKIP_CHARS_H
 
+#include "mozilla/Attributes.h"
 #include "nsTArray.h"
 
 /*
@@ -121,7 +122,7 @@ class gfxSkipChars {
  * or the skipped-characters string length if there is no next unskipped
  * character.
  */
-class gfxSkipCharsIterator {
+class MOZ_STACK_CLASS gfxSkipCharsIterator {
  public:
   /**
    * @param aOriginalStringToSkipCharsOffset add this to all incoming and

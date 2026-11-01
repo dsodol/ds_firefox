@@ -9,6 +9,17 @@
       }
     }
   },
+  "border": {
+    "color": {
+      "value": {
+        "nativeTheme": "{border.color.deemphasized.@base}",
+        "default": "{popup.border.color}"
+      }
+    },
+    "radius": {
+      "value": "{popup.border.radius}"
+    }
+  },
   "text": {
     "color": {
       "@base": {

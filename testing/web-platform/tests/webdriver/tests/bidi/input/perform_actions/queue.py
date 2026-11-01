@@ -7,7 +7,7 @@ from tests.support.helpers import filter_supported_key_events
 from tests.support.keys import Keys
 
 from .. import add_mouse_listeners, get_events, get_keys_value
-from ... import any_int, recursive_compare
+from ... import recursive_compare
 
 pytestmark = pytest.mark.asyncio
 
@@ -101,8 +101,7 @@ async def test_parallel_pointer(bidi_session, get_test_page, top_context):
     }
 
     mouse_events = [
-        # Allow any int for mousemove detail (0 per UI Events spec, 1 in Firefox).
-        {"type": "mousemove", "detail": any_int},
+        {"type": "mousemove"},
         {"type": "mousedown", "buttons": 1},
         {"type": "mouseup"},
         {"type": "click"},
@@ -120,5 +119,5 @@ async def test_parallel_pointer(bidi_session, get_test_page, top_context):
 
     events = await get_events(bidi_session, top_context["context"])
 
-    recursive_compare(expected_events_1, events[:4])
-    recursive_compare(expected_events_2, events[4:])
+    assert events[:4] == expected_events_1
+    assert events[4:] == expected_events_2

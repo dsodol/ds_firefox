@@ -16,7 +16,7 @@ class IDBFactory;
 namespace indexedDB {
 
 class ThreadLocal {
-  friend std::default_delete<ThreadLocal>;
+  friend DefaultDelete<ThreadLocal>;
   friend IDBFactory;
 
   LoggingInfo mLoggingInfo;

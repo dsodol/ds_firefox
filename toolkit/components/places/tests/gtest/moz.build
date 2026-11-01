@@ -14,8 +14,3 @@ LOCAL_INCLUDES += [
 ]
 
 FINAL_LIBRARY = "xul-gtest"
-
-SOURCE_HEADERS += [
-    "mock_Link.h",
-    "places_test_harness.h",
-]

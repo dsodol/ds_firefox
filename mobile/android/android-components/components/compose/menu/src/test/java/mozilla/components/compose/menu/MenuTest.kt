@@ -31,7 +31,6 @@ import mozilla.components.compose.menu.R as MozacMenuR
 import mozilla.components.compose.menu.data.BannerMenuItem
 import mozilla.components.compose.menu.data.MenuAttribution
 import mozilla.components.compose.menu.data.MenuItemSummary
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.MenuItemsGroup
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.store.MenuAction
@@ -205,28 +204,6 @@ class MenuTest {
         composeTestRule.onNodeWithText(BANNER_TITLE).assertDoesNotExist()
     }
 
-    @Test
-    fun `WHEN menu with sticky header is scrollable THEN report dark header background`() {
-        var isHeaderDark = false
-        val groups = listOf(stickyGroup("Header")) + List(20) { row("Item $it") }
-        val store = MenuStore(initialState = MenuState(groups))
-        composeTestRule.setContent {
-            AcornTheme {
-                Box(Modifier.fillMaxSize()) {
-                    Menu(
-                        store = store,
-                        modifier = Modifier.width(320.dp).heightIn(max = 300.dp),
-                        onHeaderDarkBackgroundChanged = { isHeaderDark = it },
-                    )
-                }
-            }
-        }
-
-        composeTestRule.runOnIdle {
-            assertTrue(isHeaderDark)
-        }
-    }
-
     private fun recording(events: MutableList<MenuAction>): List<Middleware<MenuState, MenuAction>> =
         listOf { _, next, action ->
             events += action
@@ -260,7 +237,7 @@ class MenuTest {
 
     private val banner =
         BannerMenuItem(
-            title = MenuItemTitle(Text.String(BANNER_TITLE)),
+            title = Text.String(BANNER_TITLE),
             summary = MenuItemSummary(Text.String(BANNER_SUBTITLE)),
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_globe_24),
             onClickEvent = BannerClicked,
@@ -269,7 +246,7 @@ class MenuTest {
 
     private fun item(title: String) =
         StandardMenuItem(
-            title = MenuItemTitle(Text.String(title)),
+            title = Text.String(title),
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_settings_24),
             onClickEvent = object : MenuEvent {},
         )

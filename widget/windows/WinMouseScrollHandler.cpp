@@ -361,7 +361,7 @@ nsresult MouseScrollHandler::SynthesizeNativeMouseScrollEvent(
   }
 
   if (!sInstance->mSynthesizingEvent) {
-    sInstance->mSynthesizingEvent = std::make_unique<SynthesizingEvent>();
+    sInstance->mSynthesizingEvent = MakeUnique<SynthesizingEvent>();
   }
 
   POINTS pts;

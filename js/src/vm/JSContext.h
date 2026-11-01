@@ -12,8 +12,6 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/MemoryReporting.h"
 
-#include <type_traits>
-
 #include "jstypes.h"  // JS_PUBLIC_API
 
 #include "builtin/AtomicsObject.h"
@@ -52,7 +50,6 @@ class AutoAllocInAtomsZone;
 class AutoMaybeLeaveAtomsZone;
 class AutoRealm;
 struct PortableBaselineStack;
-struct TestingFunctionData;
 
 #ifdef MOZ_EXECUTION_TRACING
 class ExecutionTracer;
@@ -157,12 +154,9 @@ class MicroTaskQueueElement {
     Embedder = JS::MicroTask::Kind::Embedder,
 
     // A PromiseReactionRecord, run by PromiseReactionJob.
-    PromiseReactionObject = JS::MicroTask::Kind::FirstJSKind,
-    // A settled, same-realm promise reaction held inline in the task's payload
-    // rather than allocated as a PromiseReactionRecord.
-    InlinePromiseReaction,
+    PromiseReaction = JS::MicroTask::Kind::FirstJSKind,
 
-    // A ThenableJobObject; the kind selects which resolution routine it runs.
+    // A ThenableJob; the kind selects which resolution routine it runs.
     ResolveThenable,
     ResolveBuiltinThenable,
     // Used by JS::SafeResolve: runs PerformPromiseResolution on the job's
@@ -190,27 +184,6 @@ class MicroTaskQueueElement {
 
   explicit MicroTaskQueueElement(const JS::MicroTask& microTask)
       : microTask_(microTask) {}
-
-  // Build a JS::MicroTask of a JS kind, for engine code which can't reach the
-  // private JS::MicroTask constructors.
-  template <typename... Args>
-  static JS::MicroTask MakeMicroTask(Kind kind, Args&&... args) {
-    return JS::MicroTask(static_cast<JS::MicroTask::Kind>(kind),
-                         std::forward<Args>(args)...);
-  }
-
-  // Accessors for the private fields of a JS::MicroTask of a JS kind.
-  static constexpr size_t ExtraCount =
-      std::extent_v<decltype(JS::MicroTask::extra_)>;
-  static uint8_t kind(const JS::MicroTask& task) { return task.kind_; }
-  static uint32_t jsBits(const JS::MicroTask& task) { return task.jsBits_; }
-  static const JS::Value& value(const JS::MicroTask& task) {
-    return task.value_;
-  }
-  static const JS::Value& extra(const JS::MicroTask& task, size_t index) {
-    MOZ_ASSERT(index < ExtraCount);
-    return task.extra_[index];
-  }
 
   const JS::MicroTask& toMicroTask() const { return microTask_; }
 
@@ -1226,21 +1199,6 @@ struct JS_PUBLIC_API JSContext : public JS::RootingContext,
 #endif
 
   JS::PersistentRooted<js::UniquePtr<js::MicroTaskQueueSet>> microTaskQueues;
-
- private:
-  js::ContextData<js::UniquePtr<js::TestingFunctionData>> testingFunctionData_;
-
- public:
-  js::TestingFunctionData* getOrCreateTestingFunctionData();
-
-  js::TestingFunctionData* maybeTestingFunctionData() {
-    return testingFunctionData_.ref().get();
-  }
-
-  js::TestingFunctionData& testingFunctionData() {
-    MOZ_ASSERT(testingFunctionData_.ref());
-    return *testingFunctionData_.ref();
-  }
 }; /* struct JSContext */
 
 inline JSContext* JSRuntime::mainContextFromOwnThread() {

@@ -174,6 +174,8 @@ void Event::Serialize(void* buffer) const {
   SerializeData(header + 1);
 }
 
+ScopedEvent Event::CloneForBroadcast() const { return nullptr; }
+
 UserMessageEvent::~UserMessageEvent() = default;
 
 UserMessageEvent::UserMessageEvent(size_t num_ports)
@@ -288,8 +290,8 @@ ScopedEvent PortAcceptedEvent::Deserialize(const PortName& port_name,
                                            uint64_t control_sequence_num,
                                            const void* buffer,
                                            size_t num_bytes) {
-  return std::make_unique<PortAcceptedEvent>(port_name, from_port,
-                                             control_sequence_num);
+  return mozilla::MakeUnique<PortAcceptedEvent>(port_name, from_port,
+                                                control_sequence_num);
 }
 
 size_t PortAcceptedEvent::GetSerializedDataSize() const { return 0; }
@@ -322,7 +324,7 @@ ScopedEvent ObserveProxyEvent::Deserialize(const PortName& port_name,
   }
 
   const auto* data = static_cast<const ObserveProxyEventData*>(buffer);
-  return std::make_unique<ObserveProxyEvent>(
+  return mozilla::MakeUnique<ObserveProxyEvent>(
       port_name, from_port, control_sequence_num, data->proxy_node_name,
       data->proxy_port_name, data->proxy_target_node_name,
       data->proxy_target_port_name);
@@ -338,6 +340,17 @@ void ObserveProxyEvent::SerializeData(void* buffer) const {
   data->proxy_port_name = proxy_port_name_;
   data->proxy_target_node_name = proxy_target_node_name_;
   data->proxy_target_port_name = proxy_target_port_name_;
+}
+
+ScopedEvent ObserveProxyEvent::CloneForBroadcast() const {
+  // Don't broadcast events targeted at specific ports. Otherwise a malicious
+  // node can use this to bypass sender verification.
+  if (port_name() != kInvalidPortName) {
+    return nullptr;
+  }
+  return mozilla::MakeUnique<ObserveProxyEvent>(
+      port_name(), from_port(), control_sequence_num(), proxy_node_name_,
+      proxy_port_name_, proxy_target_node_name_, proxy_target_port_name_);
 }
 
 ObserveProxyAckEvent::ObserveProxyAckEvent(const PortName& port_name,
@@ -360,7 +373,7 @@ ScopedEvent ObserveProxyAckEvent::Deserialize(const PortName& port_name,
   }
 
   const auto* data = static_cast<const ObserveProxyAckEventData*>(buffer);
-  return std::make_unique<ObserveProxyAckEvent>(
+  return mozilla::MakeUnique<ObserveProxyAckEvent>(
       port_name, from_port, control_sequence_num, data->last_sequence_num);
 }
 
@@ -393,7 +406,7 @@ ScopedEvent ObserveClosureEvent::Deserialize(const PortName& port_name,
   }
 
   const auto* data = static_cast<const ObserveClosureEventData*>(buffer);
-  return std::make_unique<ObserveClosureEvent>(
+  return mozilla::MakeUnique<ObserveClosureEvent>(
       port_name, from_port, control_sequence_num, data->last_sequence_num);
 }
 
@@ -427,7 +440,7 @@ ScopedEvent MergePortEvent::Deserialize(const PortName& port_name,
   }
 
   const auto* data = static_cast<const MergePortEventData*>(buffer);
-  return std::make_unique<MergePortEvent>(
+  return mozilla::MakeUnique<MergePortEvent>(
       port_name, from_port, control_sequence_num, data->new_port_name,
       data->new_port_descriptor);
 }
@@ -461,7 +474,7 @@ ScopedEvent UserMessageReadAckRequestEvent::Deserialize(
 
   const auto* data =
       static_cast<const UserMessageReadAckRequestEventData*>(buffer);
-  return std::make_unique<UserMessageReadAckRequestEvent>(
+  return mozilla::MakeUnique<UserMessageReadAckRequestEvent>(
       port_name, from_port, control_sequence_num,
       data->sequence_num_to_acknowledge);
 }
@@ -495,7 +508,7 @@ ScopedEvent UserMessageReadAckEvent::Deserialize(const PortName& port_name,
   }
 
   const auto* data = static_cast<const UserMessageReadAckEventData*>(buffer);
-  return std::make_unique<UserMessageReadAckEvent>(
+  return mozilla::MakeUnique<UserMessageReadAckEvent>(
       port_name, from_port, control_sequence_num,
       data->sequence_num_acknowledged);
 }
@@ -529,7 +542,7 @@ ScopedEvent UpdatePreviousPeerEvent::Deserialize(const PortName& port_name,
                                                  size_t num_bytes) {
   if (num_bytes < sizeof(UpdatePreviousPeerEventData)) return nullptr;
   const auto* data = static_cast<const UpdatePreviousPeerEventData*>(buffer);
-  return std::make_unique<UpdatePreviousPeerEvent>(
+  return mozilla::MakeUnique<UpdatePreviousPeerEvent>(
       port_name, from_port, control_sequence_num, data->new_node_name,
       data->new_port_name);
 }

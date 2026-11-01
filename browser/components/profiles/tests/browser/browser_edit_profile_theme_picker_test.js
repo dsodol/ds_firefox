@@ -104,9 +104,6 @@ add_task(async function test_edit_profile_theme() {
   let uninstallSun = await installNovaTheme(NOVA_SUN_ID);
   let uninstallSpark = await installNovaTheme(NOVA_SPARK_ID);
 
-  await Services.fog.testFlushAllChildren();
-  Services.fog.testResetFOG();
-
   await BrowserTestUtils.withNewTab(
     {
       gBrowser,
@@ -181,9 +178,6 @@ add_task(async function test_edit_profile_theme() {
       Assert.ok(sunAddon, "Nova Sun theme should be installed");
       Assert.ok(sunAddon.isActive, "Nova Sun theme should be active");
 
-      await assertThemePickerThemeChange(NOVA_SUN_ID);
-      Services.fog.testResetFOG();
-
       profileUpdated = TestUtils.topicObserved("sps-profiles-updated");
 
       // Test selecting a theme via keyboard navigation
@@ -228,8 +222,6 @@ add_task(async function test_edit_profile_theme() {
       let sparkAddon = await lazy.AddonManager.getAddonByID(NOVA_SPARK_ID);
       Assert.ok(sparkAddon, "Nova Spark theme should be installed");
       Assert.ok(sparkAddon.isActive, "Nova Spark theme should be active");
-
-      await assertThemePickerThemeChange(NOVA_SPARK_ID);
     }
   );
 
@@ -685,9 +677,6 @@ add_task(async function test_theme_picker_responds_to_external_theme_change() {
   let initialThemeFg = SelectableProfileService.currentProfile.theme.themeFg;
   let initialThemeBg = SelectableProfileService.currentProfile.theme.themeBg;
 
-  await Services.fog.testFlushAllChildren();
-  Services.fog.testResetFOG();
-
   await BrowserTestUtils.withNewTab(
     {
       gBrowser,
@@ -762,18 +751,9 @@ add_task(async function test_theme_picker_responds_to_external_theme_change() {
         initialThemeBg,
         "Profile theme background color should change"
       );
-
-      await Services.fog.testFlushAllChildren();
-      Assert.equal(
-        Glean.themePicker.change.testGetValue(),
-        null,
-        "External theme changes should not record theme telemetry"
-      );
     }
   );
 
-  let profileUpdated = TestUtils.topicObserved("sps-profiles-updated");
   await uninstallSun();
-  await profileUpdated;
   await SpecialPowers.popPrefEnv();
 });

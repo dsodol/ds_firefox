@@ -72,13 +72,13 @@ void ScriptableContentIterator::EnsureContentIterator() {
   switch (mIteratorType) {
     case POST_ORDER_ITERATOR:
     default:
-      mContentIterator = std::make_unique<PostContentIterator>();
+      mContentIterator = MakeUnique<PostContentIterator>();
       break;
     case PRE_ORDER_ITERATOR:
-      mContentIterator = std::make_unique<PreContentIterator>();
+      mContentIterator = MakeUnique<PreContentIterator>();
       break;
     case SUBTREE_ITERATOR:
-      mContentIterator = std::make_unique<ContentSubtreeIterator>();
+      mContentIterator = MakeUnique<ContentSubtreeIterator>();
       break;
   }
 }

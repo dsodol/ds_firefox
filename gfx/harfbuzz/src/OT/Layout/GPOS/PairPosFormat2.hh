@@ -12,7 +12,7 @@ struct PairPosFormat2_4 : ValueBase
 {
   protected:
   HBUINT16      format;                 /* Format identifier--format = 2 */
-  typename Types::template LOffsetTo<Coverage>
+  typename Types::template OffsetTo<Coverage>
                 coverage;               /* Offset to Coverage table--from
                                          * beginning of subtable */
   ValueFormat   valueFormat1;           /* ValueRecord definition--for the
@@ -21,11 +21,11 @@ struct PairPosFormat2_4 : ValueBase
   ValueFormat   valueFormat2;           /* ValueRecord definition--for the
                                          * second glyph of the pair--may be
                                          * zero (0) */
-  typename Types::template LOffsetTo<ClassDef>
+  typename Types::template OffsetTo<ClassDef>
                 classDef1;              /* Offset to ClassDef table--from
                                          * beginning of PairPos subtable--for
                                          * the first glyph of the pair */
-  typename Types::template LOffsetTo<ClassDef>
+  typename Types::template OffsetTo<ClassDef>
                 classDef2;              /* Offset to ClassDef table--from
                                          * beginning of PairPos subtable--for
                                          * the second glyph of the pair */
@@ -37,7 +37,7 @@ struct PairPosFormat2_4 : ValueBase
                                          * class1-major, class2-minor,
                                          * Each entry has value1 and value2 */
   public:
-  DEFINE_SIZE_ARRAY (10 + 3 * Types::LOffset::static_size, values);
+  DEFINE_SIZE_ARRAY (10 + 3 * Types::size, values);
 
   bool sanitize (hb_sanitize_context_t *c) const
   {

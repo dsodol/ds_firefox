@@ -19,16 +19,15 @@ const { writeFileSync } = require("fs");
 const { chdir } = require("process");
 const path = require("path");
 const os = require("os");
-const { parseArgs } = require("util");
 
 const REPOSITORY_ROOT = __dirname.replace("devtools/client/bin", "");
 
 // All Windows platforms report "win32", even for 64bit editions.
 const isWin = os.platform() === "win32";
 
-// On Windows, the ".cmd" suffix is mandatory to invoke mach ; or executables in
+// On Windows, the ".cmd" suffix is mandatory to invoke yarn ; or executables in
 // general.
-const MACH_PROCESS = path.join(REPOSITORY_ROOT, isWin ? "mach.cmd" : "mach");
+const YARN_PROCESS = isWin ? "yarn.cmd" : "yarn";
 
 // Supported node test suites for DevTools
 const TEST_TYPES = {
@@ -80,11 +79,11 @@ const SUITES = {
   },
 };
 
-function execOut(file, args) {
+function execOut(...args) {
   let out;
   let err;
   try {
-    out = execFileSync(file, args, { shell: isWin });
+    out = execFileSync(...args);
   } catch (e) {
     out = e.stdout;
     err = e.stderr;
@@ -209,18 +208,27 @@ function getTypescriptErrors(out, err, testPath) {
 }
 
 function runTests() {
-  console.log("[devtools-node-test] Extract arguments");
-  const { values: args } = parseArgs({
-    options: {
-      suite: { type: "string" },
-      artifact: { type: "string" },
-    },
-  });
-  const { suite } = args;
+  console.log("[devtools-node-test] Extract suite argument");
+  const suiteArg = process.argv.find(arg => arg.includes("suite="));
+  const suite = suiteArg.split("=")[1];
   if (suite !== "all" && !SUITES[suite]) {
     throw new Error("Invalid suite argument to devtools-node-test: " + suite);
   }
-  const artifactFilePath = args.artifact;
+
+  console.log("[devtools-node-test] Check `yarn` is available");
+  try {
+    // This will throw if yarn is unavailable
+    execFileSync(YARN_PROCESS, ["--version"]);
+  } catch (e) {
+    console.log(
+      "[devtools-node-test] ERROR: `yarn` is not installed. " +
+        "See https://yarnpkg.com/docs/install/ "
+    );
+    return false;
+  }
+
+  const artifactArg = process.argv.find(arg => arg.includes("artifact="));
+  const artifactFilePath = artifactArg && artifactArg.split("=")[1];
   const artifactErrors = {};
 
   const failedSuites = [];
@@ -229,31 +237,26 @@ function runTests() {
     console.log("[devtools-node-test] Running suite: " + suiteName);
 
     if (suiteData.dependencies) {
-      console.log("[devtools-node-test] Running `npm ci` for dependencies");
+      console.log("[devtools-node-test] Running `yarn` for dependencies");
       for (const dep of suiteData.dependencies) {
         const depPath = path.join(__dirname, dep);
         chdir(depPath);
 
-        console.log("[devtools-node-test] Run `npm ci` in " + depPath);
-        execOut(MACH_PROCESS, ["npm", "ci"]);
+        console.log("[devtools-node-test] Run `yarn` in " + depPath);
+        execOut(YARN_PROCESS);
       }
     }
 
     const testPath = path.join(__dirname, suiteData.path);
     chdir(testPath);
 
-    console.log("[devtools-node-test] Run `npm ci` in test folder");
-    execOut(MACH_PROCESS, ["npm", "ci"]);
+    console.log("[devtools-node-test] Run `yarn` in test folder");
+    execOut(YARN_PROCESS);
 
     console.log(`TEST START | ${suiteData.type} | ${suiteName}`);
 
-    console.log("[devtools-node-test] Run `npm run test-ci` in test folder");
-    const { out, err } = execOut(MACH_PROCESS, [
-      "npm",
-      "run",
-      "--silent",
-      "test-ci",
-    ]);
+    console.log("[devtools-node-test] Run `yarn test` in test folder");
+    const { out, err } = execOut(YARN_PROCESS, ["test-ci"]);
 
     if (err) {
       console.log("[devtools-node-test] Error log");

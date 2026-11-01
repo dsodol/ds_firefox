@@ -494,47 +494,6 @@ const AnchorPosReferenceData::Value* AnchorPosReferenceData::Lookup(
   return mMap.Lookup(aKey).DataPtrOrNull();
 }
 
-void AnchorPosReferenceData::RememberScrollOffset() {
-  if (mDefaultAnchorName) {
-    mRememberedScrollOffset = Some(RememberedScrollOffset{
-        mDefaultAnchorName, mAnchorTreeScope, AppliedScrollShift()});
-    mDefaultScrollShift = nsPoint();
-  }
-}
-
-void AnchorPosReferenceData::MaybeRememberScrollOffset() {
-  if (!mRememberedScrollOffset) {
-    RememberScrollOffset();
-  }
-}
-
-void AnchorPosReferenceData::
-    ForgetRememberedScrollOffsetIfDefaultAnchorChanged() {
-  if (mRememberedScrollOffset &&
-      (mRememberedScrollOffset->mAnchorName != mDefaultAnchorName ||
-       mRememberedScrollOffset->mAnchorTreeScope != mAnchorTreeScope)) {
-    // Per spec, "if abspos has a default anchor element, it always calculates a
-    // remembered scroll offset for it, even if abspos doesn't actually have an
-    // anchor reference to it." Even though changing the default anchor is not
-    // an anchor recalculation point, we clear the old remembered scroll offset
-    // so that we'll remember one for the new default anchor.
-    // https://drafts.csswg.org/css-anchor-position-1/#anchor-recalculation-point
-    mRememberedScrollOffset.reset();
-  }
-}
-
-nsPoint AnchorPosReferenceData::AppliedScrollShift() const {
-  return mRememberedScrollOffset
-             ? mRememberedScrollOffset->mOffset + mDefaultScrollShift
-             : mDefaultScrollShift;
-}
-
-void AnchorPosReferenceData::Reset() {
-  auto rememberedScrollOffset = std::move(mRememberedScrollOffset);
-  *this = AnchorPosReferenceData();
-  mRememberedScrollOffset = std::move(rememberedScrollOffset);
-}
-
 AnchorPosDefaultAnchorCache::AnchorPosDefaultAnchorCache(
     const nsIFrame* aAnchor, const nsIFrame* aScrollContainer)
     : mAnchor{aAnchor}, mScrollContainer{aScrollContainer} {
@@ -1018,7 +977,7 @@ bool AnchorPositioningUtils::FitsInContainingBlock(
   MOZ_ASSERT(aPositioned->FirstInFlow()->GetProperty(
                  nsIFrame::AnchorPosReferences()) == &aReferenceData);
 
-  const nsPoint scrollShift = aReferenceData.AppliedScrollShift();
+  const auto& scrollShift = aReferenceData.mDefaultScrollShift;
   const auto scrollCompensatedSides = aReferenceData.mScrollCompensatedSides;
   nsSize checkSize = [&]() {
     const auto& adjustedCB = aReferenceData.mAdjustedContainingBlock;
@@ -1174,7 +1133,7 @@ static ScrollShifts FindScrollCompensatedAnchorShift(
     const auto offset = AnchorPositioningUtils::GetScrollOffsetFor(
         compensatingForScroll, aPositioned,
         AffectedAnchor{defaultAnchor, scrollContainer});
-    return offset - aReferenceData.AppliedScrollShift();
+    return offset - aReferenceData.mDefaultScrollShift;
   }();
   return {scrollCompensatedDelta, chainedDelta};
 }
@@ -1190,7 +1149,6 @@ static void UpdateScrollShift(
                                        aAppliedShifts, aTopLayerIndexCache);
   auto delta = scrollShifts.Sum();
   if (delta == nsPoint()) {
-    aReferenceData.MaybeRememberScrollOffset();
     return;
   }
   aAppliedShifts.InsertOrUpdate(aPositioned, delta);
@@ -1204,7 +1162,6 @@ static void UpdateScrollShift(
   if (!aReferenceData.CompensatingForScrollAxes().isEmpty()) {
     aReferenceData.mDefaultScrollShift += scrollShifts.mScrollCompensatedDelta;
   }
-  aReferenceData.MaybeRememberScrollOffset();
 #ifdef ACCESSIBILITY
   if (nsAccessibilityService* accService = GetAccService()) {
     accService->NotifyAnchorPositionedScrollUpdate(aPresShell, aPositioned);
@@ -1221,7 +1178,6 @@ static void UpdateScrollShift(
 
 static bool TriggerFallbackReflow(PresShell* aPresShell, nsIFrame* aPositioned,
                                   AnchorPosReferenceData& aReferencedAnchors,
-                                  OverflowChangedTracker& aOct,
                                   bool aEvaluateAllFallbacksIfNeeded) {
   auto totalFallbacks =
       aPositioned->StylePosition()->mPositionTryFallbacks.value._0.Length();
@@ -1250,15 +1206,6 @@ static bool TriggerFallbackReflow(PresShell* aPresShell, nsIFrame* aPositioned,
   if (!needsRetry) {
     // Record our last successful fallback.
     if (lastSuccessfulPosition) {
-      if (lastSuccessfulPosition->mLastIndex !=
-          lastSuccessfulPosition->mRecordedIndex) {
-        // Changing position fallbacks is an anchor recalculation point, so
-        // remember the scroll offset for the new fallback, and update the
-        // parent's overflow areas.
-        aReferencedAnchors.RememberScrollOffset();
-        aOct.AddFrame(aPositioned->GetParent(),
-                      OverflowChangedTracker::CHILDREN_CHANGED);
-      }
       if (lastSuccessfulPosition->mLastIndex) {
         lastSuccessfulPosition->mRecordedIndex =
             lastSuccessfulPosition->mLastIndex;
@@ -1392,7 +1339,7 @@ bool AnchorPositioningUtils::TriggerLayoutOnOverflow(PresShell* aPresShell,
                         appliedShifts, topLayerCache);
     }
 
-    if (TriggerFallbackReflow(aPresShell, positioned, *referencedAnchors, oct,
+    if (TriggerFallbackReflow(aPresShell, positioned, *referencedAnchors,
                               aFirstIteration)) {
       didLayoutPositionedItems = true;
     }

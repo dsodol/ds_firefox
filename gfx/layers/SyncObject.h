@@ -19,7 +19,7 @@ typedef RefPtr<gfx::FileHandleWrapper> SyncHandle;
 typedef uintptr_t SyncHandle;
 #endif  // XP_WIN
 
-class SyncObjectHost : public external::AtomicRefCounted<SyncObjectHost> {
+class SyncObjectHost : public RefCounted<SyncObjectHost> {
  public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(SyncObjectHost)
   virtual ~SyncObjectHost() = default;

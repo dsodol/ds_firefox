@@ -105,10 +105,13 @@ egl::Error GetGLDescFromTex(ID3D11Texture2D *const tex,
 }  // namespace
 
 StreamProducerD3DTexture::StreamProducerD3DTexture(Renderer11 *renderer)
-    : mRenderer(renderer), mArraySlice(0), mPlaneOffset(0)
+    : mRenderer(renderer), mTexture(nullptr), mArraySlice(0), mPlaneOffset(0)
 {}
 
-StreamProducerD3DTexture::~StreamProducerD3DTexture() = default;
+StreamProducerD3DTexture::~StreamProducerD3DTexture()
+{
+    SafeRelease(mTexture);
+}
 
 egl::Error StreamProducerD3DTexture::validateD3DTexture(const void *pointer,
                                                         const egl::AttributeMap &attributes) const
@@ -134,7 +137,11 @@ void StreamProducerD3DTexture::postD3DTexture(void *pointer, const egl::Attribut
     ASSERT(pointer != nullptr);
     ID3D11Texture2D *textureD3D = static_cast<ID3D11Texture2D *>(pointer);
 
+    // Release the previous texture if there is one
+    SafeRelease(mTexture);
+
     mTexture = textureD3D;
+    mTexture->AddRef();
     mPlaneOffset = static_cast<UINT>(attributes.get(EGL_NATIVE_BUFFER_PLANE_OFFSET_IMG, 0));
     mArraySlice  = static_cast<UINT>(attributes.get(EGL_D3D_TEXTURE_SUBRESOURCE_ID_ANGLE, 0));
 }
@@ -143,13 +150,13 @@ egl::Stream::GLTextureDescription StreamProducerD3DTexture::getGLFrameDescriptio
 {
     const auto planeOffsetIndex = static_cast<UINT>(planeIndex + mPlaneOffset);
     egl::Stream::GLTextureDescription ret;
-    ANGLE_SWALLOW_ERR(GetGLDescFromTex(mTexture.Get(), planeOffsetIndex, &ret));
+    ANGLE_SWALLOW_ERR(GetGLDescFromTex(mTexture, planeOffsetIndex, &ret));
     return ret;
 }
 
 ID3D11Texture2D *StreamProducerD3DTexture::getD3DTexture()
 {
-    return mTexture.Get();
+    return mTexture;
 }
 
 UINT StreamProducerD3DTexture::getArraySlice()

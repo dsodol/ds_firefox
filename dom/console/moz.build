@@ -33,7 +33,7 @@ UNIFIED_SOURCES += [
     "ConsoleUtils.cpp",
 ]
 
-MOZ_SRC_FILES += [
+EXTRA_JS_MODULES += [
     "ConsoleAPIStorage.sys.mjs",
 ]
 
@@ -55,7 +55,3 @@ BROWSER_CHROME_MANIFESTS += ["tests/browser.toml"]
 include("/ipc/chromium/chromium-config.mozbuild")
 
 FINAL_LIBRARY = "xul"
-
-SOURCE_HEADERS += [
-    "ConsoleCommon.h",
-]

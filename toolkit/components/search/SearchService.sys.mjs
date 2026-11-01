@@ -62,9 +62,7 @@ const lazy = XPCOMUtils.declareLazy({
  * @import {SearchEngineSelector} from "./SearchEngineSelector.sys.mjs"
  * @import {
  *   RefinedSearchConfig,
- *   RefinedSearchConfigV3,
  *   SearchEngineDefinition,
- *   SearchEngineDefinitionV3,
  * } from "../uniffi-bindgen-gecko-js/components/generated/RustSearch.sys.mjs";
  * @import {UserSearchEngine, FormInfo} from "./UserSearchEngine.sys.mjs"
  */
@@ -96,9 +94,6 @@ const ENGINES_SEEN_FOR_PROMPT = 1;
  */
 export const SearchService = new (class SearchService {
   constructor() {
-    if (Services.appinfo.processType != Services.appinfo.PROCESS_TYPE_DEFAULT) {
-      throw new Error("Search Service should only run in the main process.");
-    }
     this._settings = new lazy.SearchSettings(this);
   }
 
@@ -1901,7 +1896,7 @@ export const SearchService = new (class SearchService {
    *
    * @param {object} settings
    *   An object representing the search engine settings.
-   * @param {RefinedSearchConfig|RefinedSearchConfigV3} refinedConfig
+   * @param {RefinedSearchConfig} refinedConfig
    *   The refined search configuration for this user.
    */
   async #loadEngines(settings, refinedConfig) {
@@ -1914,8 +1909,7 @@ export const SearchService = new (class SearchService {
     lazy.logConsole.debug("#loadEngines: start");
     this.#setDefaultFromSelector(refinedConfig);
 
-    let configEngines = this.#filterDeprecatedEngines(refinedConfig.engines);
-    this.#loadEnginesFromConfig(configEngines, settings);
+    this.#loadEnginesFromConfig(refinedConfig.engines, settings);
 
     await this.#loadStartupEngines(settings);
 
@@ -1926,7 +1920,7 @@ export const SearchService = new (class SearchService {
     // override, then we don't want to show the notification box.
     let skipDefaultChangedNotification = await this.#loadEnginesFromSettings(
       settings,
-      configEngines
+      refinedConfig.engines
     );
 
     // If #loadEnginesFromSettings changed the default engine, then we don't
@@ -2054,23 +2048,10 @@ export const SearchService = new (class SearchService {
   }
 
   /**
-   * Returns the engine configurations that are not deprecated.
-   *
-   * @param {(SearchEngineDefinition|SearchEngineDefinitionV3)[]} engineConfigs
-   *   An array of engines configurations based on the schema.
-   * @returns {(SearchEngineDefinition|SearchEngineDefinitionV3)[]}
-   */
-  #filterDeprecatedEngines(engineConfigs) {
-    return engineConfigs.filter(
-      config => !("deprecated" in config && config.deprecated)
-    );
-  }
-
-  /**
    * Loads engines as specified by the configuration. We only expect
    * configured engines here, user engines should not be listed.
    *
-   * @param {(SearchEngineDefinition|SearchEngineDefinitionV3)[]} engineConfigs
+   * @param {SearchEngineDefinition[]} engineConfigs
    *   An array of engines configurations based on the schema.
    * @param {object} [settings]
    *   The saved settings for the user.
@@ -2279,9 +2260,7 @@ export const SearchService = new (class SearchService {
 
     let refinedConfig = await this._fetchEngineSelectorEngines();
 
-    let availableConfigEngines = this.#filterDeprecatedEngines(
-      refinedConfig.engines
-    );
+    let availableConfigEngines = [...refinedConfig.engines];
     let oldEngineList = [...this._engines.values()];
 
     for (let engine of oldEngineList) {
@@ -2674,7 +2653,7 @@ export const SearchService = new (class SearchService {
    *
    * @param {object} [settings]
    *   The saved settings for the user.
-   * @param {(SearchEngineDefinition|SearchEngineDefinitionV3)[]} [engines]
+   * @param {SearchEngineDefinition[]} [engines]
    *   The saved settings for the user.
    * @returns {Promise<boolean>}
    *   Returns true if the default engine was changed.

@@ -27,10 +27,10 @@ SdpImpl::SdpImpl(const SdpImpl& aOrig,
 
 UniquePtr<Sdp> SdpImpl::Clone() const {
   UniquePtr<SdpImpl> sdp(new SdpImpl(
-      *this, std::make_unique<SdpAttributeListImpl>(*mAttributeList, nullptr)));
+      *this, MakeUnique<SdpAttributeListImpl>(*mAttributeList, nullptr)));
   for (const auto& msection : mMediaSections) {
     sdp->mMediaSections.emplace_back(new SdpMediaSectionImpl(
-        *msection, std::make_unique<SdpAttributeListImpl>(
+        *msection, MakeUnique<SdpAttributeListImpl>(
                        *msection->mAttributeList, sdp->mAttributeList.get())));
   }
   return sdp;
@@ -38,7 +38,7 @@ UniquePtr<Sdp> SdpImpl::Clone() const {
 
 UniquePtr<SdpMediaSectionImpl> SdpImpl::CreateMediaSection(const size_t level) {
   return UniquePtr<SdpMediaSectionImpl>(new SdpMediaSectionImpl(
-      level, std::make_unique<SdpAttributeListImpl>(mAttributeList.get())));
+      level, MakeUnique<SdpAttributeListImpl>(mAttributeList.get())));
 }
 
 const SdpOrigin& SdpImpl::GetOrigin() const { return mOrigin; }
@@ -72,19 +72,19 @@ SdpMediaSection& SdpImpl::GetMediaSection(const size_t level) {
 }
 
 SdpMediaSection& SdpImpl::AddMediaSection(
-    const SdpMediaSection::MediaTypeInfo mediaType,
+    const SdpMediaSection::MediaType mediaType,
     const SdpDirectionAttribute::Direction dir, const uint16_t port,
     const SdpMediaSection::Protocol protocol, const sdp::AddrType addrType,
     const std::string& addr) {
   UniquePtr<SdpMediaSectionImpl> media =
       CreateMediaSection(mMediaSections.size());
-  media->mMediaTypeInfo = mediaType;
+  media->mMediaType = mediaType;
   media->mPort = port;
   media->mPortCount = 0;
   media->mProtocol = protocol;
-  media->mConnection = std::make_unique<SdpConnection>(addrType, addr);
+  media->mConnection = MakeUnique<SdpConnection>(addrType, addr);
   media->GetAttributeList().SetAttribute(
-      std::make_unique<SdpDirectionAttribute>(dir));
+      MakeUnique<SdpDirectionAttribute>(dir));
   mMediaSections.emplace_back(std::move(media));
   return *mMediaSections.back();
 }

@@ -589,12 +589,6 @@ static void WebRenderUploadThresholdPrefChangeCallback(const char* aPrefName,
   gfxVars::SetWebRenderBatchedUploadThreshold(value);
 }
 
-static void WebRenderPathAaSamplesPrefChangeCallback(const char* aPrefName,
-                                                     void*) {
-  gfxVars::SetWebRenderPathAaSamples(
-      StaticPrefs::gfx_webrender_path_aa_samples());
-}
-
 static uint32_t GetSkiaGlyphCacheSize() {
   // Only increase font cache size on non-android to save memory.
 #if !defined(MOZ_WIDGET_ANDROID)
@@ -1907,14 +1901,16 @@ DeviceColor gfxPlatform::TransformPixel(const sRGBColor& in,
   return DeviceColor(in.r, in.g, in.b, in.a);
 }
 
-static nsTArray<uint8_t> ReadCMSProfileFile(const nsCString& aPath) {
-  if (aPath.IsEmpty()) {
+nsTArray<uint8_t> gfxPlatform::GetPrefCMSOutputProfileData() {
+  const auto mirror = StaticPrefs::gfx_color_management_display_profile();
+  const auto& fname = *mirror;
+  if (fname == "") {
     return nsTArray<uint8_t>();
   }
 
   void* mem = nullptr;
   size_t size = 0;
-  qcms_data_from_path(aPath.get(), &mem, &size);
+  qcms_data_from_path(fname.get(), &mem, &size);
 
   nsTArray<uint8_t> result;
 
@@ -1924,11 +1920,6 @@ static nsTArray<uint8_t> ReadCMSProfileFile(const nsCString& aPath) {
   }
 
   return result;
-}
-
-nsTArray<uint8_t> gfxPlatform::GetPrefCMSOutputProfileData() {
-  const auto mirror = StaticPrefs::gfx_color_management_display_profile();
-  return ReadCMSProfileFile(*mirror);
 }
 
 Maybe<nsTArray<uint8_t>>& gfxPlatform::GetCMSOutputProfileData() {
@@ -1961,23 +1952,13 @@ void gfxPlatform::InitializeCMS() {
   if (StaticPrefs::gfx_color_management_force_srgb() ||
       StaticPrefs::gfx_color_management_native_srgb()) {
     mCMSOutputProfile = mCMSsRGBProfile;
-    mCMSOutputProfileStatus = CMSOutputProfileStatus::ForcedSRGB;
   }
 
   if (!mCMSOutputProfile) {
-    {
-      const auto mirror = StaticPrefs::gfx_color_management_display_profile();
-      mCMSOutputProfilePrefAtStartup = *mirror;
-    }
     nsTArray<uint8_t> outputProfileData = GetPlatformCMSOutputProfileData();
-    if (outputProfileData.IsEmpty()) {
-      mCMSOutputProfileStatus = CMSOutputProfileStatus::NoProfileData;
-    } else {
+    if (!outputProfileData.IsEmpty()) {
       mCMSOutputProfile = qcms_profile_from_memory_curves_only(
           outputProfileData.Elements(), outputProfileData.Length());
-      mCMSOutputProfileStatus = mCMSOutputProfile
-                                    ? CMSOutputProfileStatus::Loaded
-                                    : CMSOutputProfileStatus::ParseFailed;
 
       /* Determine if the profile looks bogus. If so, close the profile
        * and use sRGB instead. See bug 460629, */
@@ -1986,7 +1967,6 @@ void gfxPlatform::InitializeCMS() {
         qcms_profile_release(mCMSOutputProfile);
         mCMSOutputProfile = nullptr;
         mCMSOutputProfileData.reset();
-        mCMSOutputProfileStatus = CMSOutputProfileStatus::Bogus;
       }
 
       // mCMSOutputProfileData is outputProfileData in the content process. In
@@ -2008,9 +1988,6 @@ void gfxPlatform::InitializeCMS() {
      bug 444661 for details. */
   qcms_profile_precache_output_transform(mCMSOutputProfile);
 
-  // Create the p3 profile
-  mCMSDisplayP3Profile = qcms_profile_displayP3();
-
   // Create the RGB transform.
   mCMSRGBTransform =
       qcms_transform_create(mCMSsRGBProfile, QCMS_DATA_RGB_8, mCMSOutputProfile,
@@ -2030,16 +2007,6 @@ void gfxPlatform::InitializeCMS() {
   mCMSBGRATransform = qcms_transform_create(mCMSsRGBProfile, QCMS_DATA_BGRA_8,
                                             mCMSOutputProfile, QCMS_DATA_BGRA_8,
                                             QCMS_INTENT_PERCEPTUAL);
-
-  // Create the RGB -> P3 transform
-  mCMSRGBP3Transform = qcms_transform_create(
-      mCMSsRGBProfile, QCMS_DATA_RGBA_8, mCMSDisplayP3Profile, QCMS_DATA_RGBA_8,
-      QCMS_INTENT_DEFAULT);
-
-  // Create the P3 -> RGB transform
-  mCMSP3RGBTransform = qcms_transform_create(
-      mCMSDisplayP3Profile, QCMS_DATA_RGBA_8, mCMSsRGBProfile, QCMS_DATA_RGBA_8,
-      QCMS_INTENT_DEFAULT);
 
   // FIXME: We only enable iccv4 after we create the platform profile, to
   // wallpaper over bug 1697787.
@@ -2092,14 +2059,6 @@ void gfxPlatform::ShutdownCMS() {
     qcms_transform_release(mCMSBGRATransform);
     mCMSBGRATransform = nullptr;
   }
-  if (mCMSRGBP3Transform) {
-    qcms_transform_release(mCMSRGBP3Transform);
-    mCMSRGBP3Transform = nullptr;
-  }
-  if (mCMSP3RGBTransform) {
-    qcms_transform_release(mCMSP3RGBTransform);
-    mCMSP3RGBTransform = nullptr;
-  }
   if (mCMSOutputProfile) {
     // handle the aliased case
     if (mCMSsRGBProfile == mCMSOutputProfile) {
@@ -2112,10 +2071,6 @@ void gfxPlatform::ShutdownCMS() {
   if (mCMSsRGBProfile) {
     qcms_profile_release(mCMSsRGBProfile);
     mCMSsRGBProfile = nullptr;
-  }
-  if (mCMSDisplayP3Profile) {
-    qcms_profile_release(mCMSDisplayP3Profile);
-    mCMSDisplayP3Profile = nullptr;
   }
 
   // Reset the state variables
@@ -2559,11 +2514,6 @@ void gfxPlatform::InitWebRenderConfig() {
       nsDependentCString(
           StaticPrefs::GetPrefName_gfx_webrender_batched_upload_threshold()));
 
-  Preferences::RegisterCallbackAndCall(
-      WebRenderPathAaSamplesPrefChangeCallback,
-      nsDependentCString(
-          StaticPrefs::GetPrefName_gfx_webrender_path_aa_samples()));
-
   if (WebRenderResourcePathOverride()) {
     CrashReporter::RecordAnnotationBool(
         CrashReporter::Annotation::IsWebRenderResourcePathOverridden, true);
@@ -2578,10 +2528,8 @@ void gfxPlatform::InitWebRenderConfig() {
 #endif
 
 #ifdef MOZ_WIDGET_ANDROID
-  bool forceAImageReader =
-      gfx::gfxVars::UseWebRenderANGLE() ||
-      StaticPrefs::gfx_video_force_aimage_reader_android_AtStartup();
-  gfxVars::SetForceAImageReaderAndroid(forceAImageReader);
+  gfxVars::SetUseAImageReaderVideoGpuProcessAndroid(
+      StaticPrefs::gfx_video_aimage_reader_gpu_process_android_AtStartup());
 #endif
 
 #ifdef XP_WIN
@@ -2724,6 +2672,43 @@ void gfxPlatform::InitWebRenderConfig() {
         gfxConfig::GetFeature(Feature::HW_DECODED_VIDEO_ZERO_COPY);
     feature.EnableByDefault();
     gfxVars::SetHwDecodedVideoZeroCopy(true);
+  }
+
+  bool reuseDecoderDevice = false;
+  if (StaticPrefs::gfx_direct3d11_reuse_decoder_device_AtStartup()) {
+    reuseDecoderDevice = true;
+
+    if (reuseDecoderDevice &&
+        !StaticPrefs::
+            gfx_direct3d11_reuse_decoder_device_force_enabled_AtStartup()) {
+      nsCString failureId;
+      int32_t status;
+      const nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
+      if (NS_FAILED(gfxInfo->GetFeatureStatus(
+              nsIGfxInfo::FEATURE_REUSE_DECODER_DEVICE, failureId, &status))) {
+        FeatureState& feature =
+            gfxConfig::GetFeature(Feature::REUSE_DECODER_DEVICE);
+        feature.DisableByDefault(FeatureStatus::BlockedNoGfxInfo,
+                                 "gfxInfo is broken",
+                                 "FEATURE_FAILURE_WR_NO_GFX_INFO"_ns);
+        reuseDecoderDevice = false;
+      } else {
+        if (status != nsIGfxInfo::FEATURE_STATUS_OK) {
+          FeatureState& feature =
+              gfxConfig::GetFeature(Feature::REUSE_DECODER_DEVICE);
+          feature.DisableByDefault(FeatureStatus::Blocked,
+                                   "Blocklisted by gfxInfo", failureId);
+          reuseDecoderDevice = false;
+        }
+      }
+    }
+  }
+
+  if (reuseDecoderDevice) {
+    FeatureState& feature =
+        gfxConfig::GetFeature(Feature::REUSE_DECODER_DEVICE);
+    feature.EnableByDefault();
+    gfxVars::SetReuseDecoderDevice(true);
   }
 
   if (StaticPrefs::gfx_webrender_flip_sequential_AtStartup() &&
@@ -3665,90 +3650,11 @@ void gfxPlatform::GetFrameStats(mozilla::widget::InfoObject& aObj) {
 }
 
 void gfxPlatform::GetCMSSupportInfo(mozilla::widget::InfoObject& aObj) {
-  const char* inUse = [&] {
-    switch (mCMSOutputProfileStatus) {
-      case CMSOutputProfileStatus::Uninitialized:
-        return "not initialized";
-      case CMSOutputProfileStatus::ForcedSRGB:
-        return "sRGB (overridden by native_srgb/force_srgb)";
-      case CMSOutputProfileStatus::NoProfileData:
-        return "sRGB (no display profile)";
-      case CMSOutputProfileStatus::ParseFailed:
-        return "sRGB (display profile could not be parsed)";
-      case CMSOutputProfileStatus::Bogus:
-        return "sRGB (display profile rejected as bogus)";
-      case CMSOutputProfileStatus::Loaded:
-        return "display profile";
-    }
-    MOZ_ASSERT_UNREACHABLE("Unexpected CMSOutputProfileStatus");
-    return "unknown";
-  }();
-  aObj.DefineProperty("CMSOutputProfileInUse", inUse);
-
-  if (mCMSOutputProfileStatus != CMSOutputProfileStatus::Uninitialized &&
-      mCMSOutputProfileStatus != CMSOutputProfileStatus::ForcedSRGB) {
-    // The platform code uses the pref's file whenever it can be read, and falls
-    // back to the system profile otherwise. Only a loaded profile's data is
-    // kept, so that is the only case we can verify.
-    nsAutoCString source;
-    if (mCMSOutputProfilePrefAtStartup.IsEmpty()) {
-      source.AssignLiteral("system");
-    } else if (mCMSOutputProfileStatus ==
-               CMSOutputProfileStatus::NoProfileData) {
-      source.AssignLiteral(
-          "none (could not read gfx.color_management.display_profile or get "
-          "system profile)");
-    } else if (mCMSOutputProfileStatus == CMSOutputProfileStatus::ParseFailed ||
-               mCMSOutputProfileStatus == CMSOutputProfileStatus::Bogus) {
-      source.AssignLiteral(
-          "gfx.color_management.display_profile or system (unknown because "
-          "the profile was rejected)");
-    } else if (mCMSOutputProfileStatus == CMSOutputProfileStatus::Loaded) {
-      MOZ_ASSERT(mCMSOutputProfileData.isSome());
-      if (mCMSOutputProfileData.isSome() &&
-          ReadCMSProfileFile(mCMSOutputProfilePrefAtStartup) ==
-              *mCMSOutputProfileData) {
-        source.AssignLiteral("gfx.color_management.display_profile");
-      } else {
-        source.AssignLiteral(
-            "system, unless the gfx.color_management.display_profile file "
-            "changed since startup (it does not match the profile in use)");
-      }
-    }
-    bool prefChanged;
-    {
-      const auto mirror = StaticPrefs::gfx_color_management_display_profile();
-      prefChanged = mCMSOutputProfilePrefAtStartup != *mirror;
-    }
-    if (prefChanged) {
-      source.AppendLiteral(
-          " (gfx.color_management.display_profile pref changed since startup, "
-          "restart to apply)");
-    }
-    aObj.DefineProperty("CMSOutputProfileSource", source.get());
-  }
-
-  if (mCMSOutputProfileStatus == CMSOutputProfileStatus::Loaded) {
-    size_t descriptionLength = 0;
-    const char* description =
-        qcms_profile_get_description(mCMSOutputProfile, &descriptionLength);
-    if (description) {
-      aObj.DefineProperty(
-          "CMSOutputProfileDescription",
-          NS_ConvertUTF8toUTF16(Span(description, descriptionLength)));
-    }
-  }
-
-  qcms_CIE_xyYTRIPLE primaries;
-  qcms_CIE_xyY white;
-  if (mCMSOutputProfileStatus == CMSOutputProfileStatus::Loaded &&
-      qcms_profile_get_primaries(mCMSOutputProfile, &primaries, &white)) {
-    nsPrintfCString msg("r %.4f,%.4f g %.4f,%.4f b %.4f,%.4f w %.4f,%.4f",
-                        primaries.red.x, primaries.red.y, primaries.green.x,
-                        primaries.green.y, primaries.blue.x, primaries.blue.y,
-                        white.x, white.y);
-    aObj.DefineProperty("CMSOutputProfilePrimaries", msg.get());
-  }
+  const bool forcedSRGB = StaticPrefs::gfx_color_management_native_srgb() ||
+                          StaticPrefs::gfx_color_management_force_srgb();
+  aObj.DefineProperty("CMSOutputProfileInUse",
+                      forcedSRGB ? "sRGB (overridden by native_srgb/force_srgb)"
+                                 : "configured CMSOutputProfile");
 
   nsTArray<uint8_t> outputProfileData =
       gfxPlatform::GetPlatform()->GetPlatformCMSOutputProfileData();
@@ -3762,8 +3668,7 @@ void gfxPlatform::GetCMSSupportInfo(mozilla::widget::InfoObject& aObj) {
   // by default in about:support. For now, we only accept less than 8kiB.
   const size_t kMaxProfileSize = 8192;
   if (outputProfileData.Length() >= kMaxProfileSize) {
-    nsPrintfCString msg("%zu bytes, too large to display base64 encoded here",
-                        outputProfileData.Length());
+    nsPrintfCString msg("%zu bytes, too large", outputProfileData.Length());
     aObj.DefineProperty("CMSOutputProfile", msg.get());
     return;
   }

@@ -149,7 +149,7 @@ UtilityProcessTest::StartProcess(const nsTArray<nsCString>& aActorsToRegister,
               promise->MaybeReject(NS_ERROR_NOT_AVAILABLE);
             }
           },
-          [promise](LaunchError /*aError*/) {
+          [promise](LaunchError aError) {
             MOZ_ASSERT_UNREACHABLE(
                 "UtilityProcessTest; failure to get Utility process");
             promise->MaybeReject(NS_ERROR_FAILURE);
@@ -167,8 +167,7 @@ UtilityProcessTest::NoteIntentionalCrash(uint32_t aPid) {
 
 NS_IMETHODIMP
 UtilityProcessTest::UntilChildProcessDead(
-    [[maybe_unused]] uint32_t pid, [[maybe_unused]] JSContext* cx,
-    ::mozilla::dom::Promise** aOutPromise) {
+    uint32_t pid, JSContext* cx, ::mozilla::dom::Promise** aOutPromise) {
   NS_ENSURE_ARG(aOutPromise);
   *aOutPromise = nullptr;
 
@@ -190,23 +189,29 @@ UtilityProcessTest::UntilChildProcessDead(
 
   // Get a fresh handle to the child process with the specified PID.
   mozilla::UniqueFileHandle handle;
-  for (auto& proc : GeckoChildProcessHost::GetAll()) {
-    if (proc->GetChildProcessId() != pid) {
-      continue;
-    }
+  {
+    bool failed = false;
+    GeckoChildProcessHost::GetAll([&](GeckoChildProcessHost* aProc) {
+      if (handle || failed) {
+        return;
+      }
+      if (aProc->GetChildProcessId() != pid) {
+        return;
+      }
 
-    HANDLE handle_ = nullptr;
-    if (!::DuplicateHandle(::GetCurrentProcess(), proc->GetChildProcessHandle(),
-                           ::GetCurrentProcess(), &handle_, SYNCHRONIZE, FALSE,
-                           0)) {
+      HANDLE handle_ = nullptr;
+      if (!::DuplicateHandle(
+              ::GetCurrentProcess(), aProc->GetChildProcessHandle(),
+              ::GetCurrentProcess(), &handle_, SYNCHRONIZE, FALSE, 0)) {
+        failed = true;
+      } else {
+        handle.reset(handle_);
+      }
+    });
+
+    if (failed || !handle) {
       return NS_ERROR_FAILURE;
-    } else {
-      handle.reset(handle_);
-      break;
     }
-  }
-  if (!handle) {
-    return NS_ERROR_FAILURE;
   }
 
   // Create and attach the resolver for the promise, giving the handle over to

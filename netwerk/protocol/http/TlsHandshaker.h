@@ -58,7 +58,11 @@ class TlsHandshaker : public nsITlsHandshakeCallbackListener {
   }
   const nsCString& EarlyNegotiatedALPN() const { return mEarlyNegotiatedALPN; }
   void SetNPNComplete() { mNPNComplete = true; }
-  void NotifyClose();
+  void NotifyClose() {
+    mTlsHandshakeComplitionPending = false;
+    mNPNComplete = true;
+    mOwner = nullptr;
+  }
 
  private:
   virtual ~TlsHandshaker();

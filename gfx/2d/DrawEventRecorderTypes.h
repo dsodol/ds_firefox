@@ -5,7 +5,7 @@
 #ifndef MOZILLA_GFX_DRAWEVENTRECORDERTYPES_H_
 #define MOZILLA_GFX_DRAWEVENTRECORDERTYPES_H_
 
-#include <vector>
+#include <deque>
 
 #include "mozilla/RefPtr.h"
 
@@ -21,10 +21,8 @@ struct DrawEventRecorderPrivate_ExternalSurfaceEntry {
   int64_t mEventCount = -1;
 };
 
-// Most holders never get any entries, so use a container that doesn't
-// allocate when empty.
 using DrawEventRecorderPrivate_ExternalSurfacesHolder =
-    std::vector<DrawEventRecorderPrivate_ExternalSurfaceEntry>;
+    std::deque<DrawEventRecorderPrivate_ExternalSurfaceEntry>;
 
 }  // namespace gfx
 }  // namespace mozilla

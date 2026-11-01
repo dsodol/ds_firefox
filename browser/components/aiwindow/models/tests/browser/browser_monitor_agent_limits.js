@@ -26,21 +26,17 @@ async function resetMonitorAgentForTesting() {
 }
 
 add_task(async function test_limit_number_of_active_monitors() {
-  const ids = [];
   const watchUrls = Array.from(
     { length: 2 },
     (_, i) => `https://example.com/page${i}`
   );
-  const createMonitor = async () => {
-    const id = await MonitorAgent.createMonitor({
+  const createMonitor = () =>
+    MonitorAgent.createMonitor({
       prompt: "Check if any product price is below $300.",
       watchUrls,
       schedule: { type: "interval", hours: 1 },
       source: "test",
     });
-    ids.push(id);
-    return id;
-  };
   const activeCount = async () =>
     (await MonitorAgent.listMonitors()).filter(m => m.enabled).length;
   const limitError = error =>
@@ -50,8 +46,9 @@ add_task(async function test_limit_number_of_active_monitors() {
 
   try {
     await resetMonitorAgentForTesting();
+    const ids = [];
     for (let i = 0; i < TOTAL_NUM_MONITORS; i++) {
-      await createMonitor();
+      ids.push(await createMonitor());
     }
     await Assert.rejects(
       createMonitor(),
@@ -87,9 +84,6 @@ add_task(async function test_limit_number_of_active_monitors() {
     await MonitorAgent.pauseMonitor(ids[0], false);
     Assert.equal(await activeCount(), TOTAL_NUM_MONITORS);
   } finally {
-    await Promise.allSettled(
-      ids.map(id => MonitorAgent._waitForSnapshotForTesting(id))
-    );
     await resetMonitorAgentForTesting();
   }
 });

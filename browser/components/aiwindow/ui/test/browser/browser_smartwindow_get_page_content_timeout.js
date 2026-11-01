@@ -111,7 +111,7 @@ add_task(async function test_get_page_content_page_never_loads() {
       "The turn completes and the assistant answers from the failed read."
     );
   } finally {
-    await mockEngineManager.rejectAllRequests();
+    mockEngineManager.rejectAllRequests();
     mockEngineManager.cleanupMocks();
     await BrowserTestUtils.closeWindow(win);
     await stopServer();
@@ -204,7 +204,7 @@ add_task(async function test_get_page_content_page_redirected_to_challenge() {
       "The turn completes and the assistant answers from the blocked read."
     );
   } finally {
-    await mockEngineManager.rejectAllRequests();
+    mockEngineManager.rejectAllRequests();
     mockEngineManager.cleanupMocks();
     await BrowserTestUtils.closeWindow(win);
     await stopServer();

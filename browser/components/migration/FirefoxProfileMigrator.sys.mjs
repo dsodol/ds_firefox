@@ -311,63 +311,35 @@ export class FirefoxProfileMigrator extends MigratorBase {
         sourceProfileDir,
         "sessionstore.jsonlz4"
       );
-      let lockstoreKeys = this._getFileObject(
-        sourceProfileDir,
-        "lockstore.keys.sqlite"
-      );
-      let lockstoreKeysWal = this._getFileObject(
-        sourceProfileDir,
-        "lockstore.keys.sqlite-wal"
-      );
       if (sessionFile) {
         session = {
           type: types.SESSION,
-          migrate: async aCallback => {
-            try {
-              sessionCheckpoints.copyTo(
-                currentProfileDir,
-                "sessionCheckpoints.json"
-              );
-              // Copy encryption keys so SessionMigration can decrypt
-              // encrypted session files from the source profile.
-              if (lockstoreKeys) {
-                lockstoreKeys.copyTo(currentProfileDir, "");
-              }
-              if (lockstoreKeysWal) {
-                lockstoreKeysWal.copyTo(currentProfileDir, "");
-              }
-
-              let oldRawPrefs = await readOldPrefs();
-              let match =
-                /^user_pref\("browser\.sessionstore\.encryption\.enabled",\s*(true|false)\)/m.exec(
-                  oldRawPrefs
-                );
-              if (match) {
+          migrate(aCallback) {
+            sessionCheckpoints.copyTo(
+              currentProfileDir,
+              "sessionCheckpoints.json"
+            );
+            let newSessionFile = currentProfileDir.clone();
+            newSessionFile.append("sessionstore.jsonlz4");
+            let migrationPromise = lazy.SessionMigration.migrate(
+              sessionFile.path,
+              newSessionFile.path
+            );
+            migrationPromise.then(
+              function () {
+                // Force the browser to one-off resume the session that we give it:
                 Services.prefs.setBoolPref(
-                  "browser.sessionstore.encryption.enabled",
-                  match[1] === "true"
+                  "browser.sessionstore.resume_session_once",
+                  true
                 );
+                configureHomepage(true);
+                savePrefs();
+                aCallback(true);
+              },
+              function () {
+                aCallback(false);
               }
-
-              let newSessionFile = currentProfileDir.clone();
-              newSessionFile.append("sessionstore.jsonlz4");
-              await lazy.SessionMigration.migrate(
-                sessionFile.path,
-                newSessionFile.path
-              );
-              // Force the browser to one-off resume the session that we give it:
-              Services.prefs.setBoolPref(
-                "browser.sessionstore.resume_session_once",
-                true
-              );
-              configureHomepage(true);
-              savePrefs();
-            } catch (e) {
-              console.error(e);
-              aCallback(false);
-              return;
-            }
-            aCallback(true);
+            );
           },
         };
       }
@@ -479,22 +451,6 @@ export class FirefoxProfileMigrator extends MigratorBase {
               continue;
             }
             file.copyTo(dest, "");
-          }
-
-          // Preserve the Glean client ID.
-          let gleanDir = this._getFileObject(dataReportingDir, "glean");
-          if (gleanDir && gleanDir.isDirectory()) {
-            let clientIdTxt = this._getFileObject(gleanDir, "client_id.txt");
-            if (clientIdTxt && clientIdTxt.exists()) {
-              let destGlean = currentProfileDir.clone();
-              destGlean.append("datareporting");
-              destGlean.append("glean");
-              destGlean.create(
-                Ci.nsIFile.DIRECTORY_TYPE,
-                lazy.FileUtils.PERMS_DIRECTORY
-              );
-              clientIdTxt.copyTo(destGlean, "");
-            }
           }
         }
 

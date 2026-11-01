@@ -26,9 +26,6 @@ run-if = [
   "crashreporter",
 ]
 
-["browser_ext_subframes_process_isolation.js"]
-support-files = ["head_subframes_process_isolation.js"]
-
 ["browser_ext_test_mock.js"]
 
 ["browser_ext_themes_additional_backgrounds_alignment.js"]

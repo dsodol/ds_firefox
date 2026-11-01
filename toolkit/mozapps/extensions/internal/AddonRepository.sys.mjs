@@ -868,11 +868,9 @@ export var AddonRepository = {
           file.platform == Services.appinfo.OS.toLowerCase()
         ) {
           result.push({
-            id: entry.guid,
-            hash: file.hash,
             target_locale: entry.target_locale,
             url: file.url,
-            version: entry.current_compatible_version.version,
+            hash: file.hash,
           });
         }
       }

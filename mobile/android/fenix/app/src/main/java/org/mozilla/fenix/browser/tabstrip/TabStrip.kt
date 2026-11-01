@@ -34,6 +34,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -113,7 +114,7 @@ private val tabStripIconSize
  * @param tabsUseCases The [TabsUseCases] instance to perform tab actions.
  * @param hideWhenKeyboardShown Whether or not to hide the tabs strip when the keyboard is shown.
  * @param onAddTabClick Invoked when the add tab button is clicked.
- * @param onCloseTabClick Invoked when a tab other than the last remaining open tab is closed.
+ * @param onCloseTabClick Invoked when a tab is closed.
  * @param onLastTabClose Invoked when the last remaining open tab is closed.
  * @param onSelectedTabClick Invoked when a tab is selected.
  * @param onTabCounterClick Invoked when tab counter is clicked.
@@ -265,7 +266,7 @@ private fun TabStripContent(
             TabsList(
                 state = state,
                 modifier = Modifier.weight(1f, fill = false),
-                colors = colors,
+                tabItemBackgroundColors = colors.tabItemBackgroundColors,
                 onCloseTabClick = onCloseTabClick,
                 onSelectedTabClick = onSelectedTabClick,
                 onMove = onMove,
@@ -274,7 +275,7 @@ private fun TabStripContent(
             IconButton(onClick = onAddTabClick, contentDescription = stringResource(R.string.add_tab)) {
                 Icon(
                     painter = painterResource(iconsR.drawable.mozac_ic_plus_24),
-                    tint = colors.addTabButtonColor,
+                    tint = MaterialTheme.colorScheme.onSurface,
                     contentDescription = null,
                 )
             }
@@ -297,7 +298,7 @@ private fun TabStripContent(
 @Composable
 private fun TabsList(
     state: TabStripState,
-    colors: TabStripColors,
+    tabItemBackgroundColors: TabStripColors.TabColors,
     modifier: Modifier = Modifier,
     onCloseTabClick: (id: String, isPrivate: Boolean) -> Unit,
     onSelectedTabClick: (tabId: String, url: String) -> Unit,
@@ -344,7 +345,7 @@ private fun TabsList(
                         state = itemState,
                         onCloseTabClick = onCloseTabClick,
                         onSelectedTabClick = onSelectedTabClick,
-                        colors = colors,
+                        backgroundColors = tabItemBackgroundColors,
                         modifier =
                             Modifier.padding(end = spaceBetweenTabs)
                                 .animateItem()
@@ -404,11 +405,11 @@ private fun BoxWithConstraintsScope.calculateTabWidth(tabCount: Int): Dp {
 private fun TabItem(
     state: TabStripItem,
     modifier: Modifier = Modifier,
-    colors: TabStripColors,
+    backgroundColors: TabStripColors.TabColors,
     onCloseTabClick: (id: String, isPrivate: Boolean) -> Unit,
     onSelectedTabClick: (id: String, url: String) -> Unit,
 ) {
-    val backgroundColor = colors.tabItemBackgroundColors.get(state.isSelected)
+    val backgroundColor = backgroundColors.get(state.isSelected)
     val closeTabLabel = stringResource(R.string.close_tab)
 
     TabStripCard(
@@ -470,7 +471,7 @@ private fun TabItem(
                     Text(
                         text = state.title,
                         modifier = Modifier.align(Alignment.CenterStart),
-                        color = colors.tabItemContentColors.get(state.isSelected),
+                        color = MaterialTheme.colorScheme.onSurface,
                         softWrap = false,
                         maxLines = 1,
                         style = FirefoxTheme.typography.body2,
@@ -491,7 +492,12 @@ private fun TabItem(
                 ) {
                     Icon(
                         painter = painterResource(iconsR.drawable.mozac_ic_cross_20),
-                        tint = colors.closeButtonColors.get(state.isSelected),
+                        tint =
+                            if (state.isSelected) {
+                                MaterialTheme.colorScheme.onSurface
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                         contentDescription = null,
                     )
                 }
@@ -545,14 +551,11 @@ private fun closeTab(
     onLastTabClose: (isPrivate: Boolean) -> Unit,
     onCloseTabClick: (isPrivate: Boolean) -> Unit,
 ) {
-    val isLastTab = numberOfTabs == 1
-    if (isLastTab) {
+    if (numberOfTabs == 1) {
         onLastTabClose(isPrivate)
     }
     tabsUseCases.removeTab(tabId)
-    if (!isLastTab) {
-        onCloseTabClick(isPrivate)
-    }
+    onCloseTabClick(isPrivate)
     TabStripMetrics.closeTab.record()
 }
 

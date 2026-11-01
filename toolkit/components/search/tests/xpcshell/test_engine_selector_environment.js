@@ -249,35 +249,6 @@ const CONFIG_CHANNEL_APPLICATION = [
   },
 ];
 
-const CONFIG_CHANNEL_APPLICATION_V3 = [
-  {
-    recordType: "engine",
-    identifier: "engine-channel",
-    base: {},
-    variants: [
-      {
-        environment: {
-          allRegionsAndLocales: true,
-          channels: ["esr"],
-        },
-      },
-    ],
-  },
-  {
-    recordType: "engine",
-    identifier: "engine-application",
-    base: {},
-    variants: [
-      {
-        environment: {
-          allRegionsAndLocales: true,
-          applications: ["firefox-win"],
-        },
-      },
-    ],
-  },
-];
-
 const CONFIG_OPTIONAL = [
   {
     recordType: "engine",
@@ -287,6 +258,7 @@ const CONFIG_OPTIONAL = [
       {
         environment: {
           allRegionsAndLocales: true,
+          applications: ["firefox"],
         },
         optional: true,
       },
@@ -300,6 +272,7 @@ const CONFIG_OPTIONAL = [
       {
         environment: {
           allRegionsAndLocales: true,
+          applications: ["firefox"],
         },
         optional: false,
       },
@@ -313,6 +286,7 @@ const CONFIG_OPTIONAL = [
       {
         environment: {
           allRegionsAndLocales: true,
+          applications: ["firefox"],
         },
       },
     ],
@@ -709,38 +683,24 @@ add_task(async function test_selector_match_distribution() {
 });
 
 add_task(async function test_engine_selector_match_applications() {
-  let testConfig = SearchUtils.configV3FeatureGate
-    ? CONFIG_CHANNEL_APPLICATION_V3
-    : CONFIG_CHANNEL_APPLICATION;
-
   await assertActualEnginesEqualsExpected(
-    testConfig,
-    SearchUtils.configV3FeatureGate
-      ? {
-          locale: "en-CA",
-          region: "CA",
-          channel: "esr",
-          appName: "firefox",
-          platform: "android",
-        }
-      : {
-          locale: "en-CA",
-          region: "CA",
-          channel: "esr",
-          appName: "firefox-android",
-          platform: "android",
-        },
+    CONFIG_CHANNEL_APPLICATION,
+    {
+      locale: "en-CA",
+      region: "CA",
+      channel: "esr",
+      appName: "firefox-android",
+    },
     ["engine-channel"],
     "Should match engine for esr channel."
   );
 
   await assertActualEnginesEqualsExpected(
-    testConfig,
+    CONFIG_CHANNEL_APPLICATION,
     {
       locale: "en-CA",
       region: "CA",
       appName: "firefox",
-      platform: "win",
     },
     ["engine-application"],
     "Should match engine for application."
@@ -821,6 +781,7 @@ add_task(async function test_engine_selector_does_not_match_optional_engines() {
     {
       locale: "en-CA",
       region: "CA",
+      appName: "firefox",
     },
     ["engine-optional-false", "engine-optional-undefined"],
     "Should match engines where optional flag is false or undefined"

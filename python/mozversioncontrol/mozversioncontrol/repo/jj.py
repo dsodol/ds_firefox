@@ -4,13 +4,11 @@
 
 from __future__ import annotations
 
-import functools
 import json
 import re
 import string
 import subprocess
 import sys
-import threading
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -32,19 +30,6 @@ from mozversioncontrol.errors import (
 from mozversioncontrol.repo.base import Repository
 from mozversioncontrol.repo.git import GitRepository
 
-_git_root_lock = threading.Lock()
-
-
-@functools.cache
-def _git_root(jj: str, path: str) -> str:
-    return subprocess.run(
-        (jj, "--quiet", "git", "root"),
-        cwd=path,
-        encoding="utf-8",
-        capture_output=True,
-        check=True,
-    ).stdout
-
 
 class JjVersionError(Exception):
     """Raised when the installed jj version is too old."""
@@ -65,8 +50,7 @@ class JujutsuRepository(Repository):
         self._git = GitRepository(path, git=git)
 
         try:
-            with _git_root_lock:
-                git_dir = _git_root(str(self._tool), self.path)
+            git_dir = self._run("git", "root", stderr=subprocess.PIPE)
         except subprocess.CalledProcessError as e:
             stderr = e.stderr or ""
             if "working copy is stale" in stderr.lower():
@@ -137,10 +121,6 @@ class JujutsuRepository(Repository):
     @property
     def head_rev(self):
         return self._resolve_to_commit(self.HEAD_REVSET)
-
-    @property
-    def is_shallow(self):
-        return self._git.is_shallow
 
     def is_cinnabar_repo(self) -> bool:
         return self._git.is_cinnabar_repo()
@@ -352,11 +332,6 @@ class JujutsuRepository(Repository):
     def get_tracked_files_finder(self, path=None):
         files = [mozpath.normsep(p) for p in self._run("file", "list").splitlines()]
         return FileListFinder(files)
-
-    def _get_tracked_files(self, patterns):
-        fileset = " | ".join(f'root-glob:"{pattern}"' for pattern in patterns)
-        files = self._run("file", "list", fileset).splitlines()
-        return sorted(mozpath.normsep(p) for p in files)
 
     def get_ignored_files_finder(self):
         raise Exception("unimplemented")
@@ -687,18 +662,13 @@ class JujutsuRepository(Repository):
             return True
         return False
 
-    def configure(
-        self,
-        state_dir: Path,
-        update_only: bool = False,
-        no_system_changes: bool = False,
-    ):
+    def configure(self, state_dir: Path, update_only: bool = False):
         """Run the Jujutsu configuration steps."""
         print(
             "\nOur jj support currently relies on Git; checks will run for both jj and Git.\n"
         )
 
-        self._git.configure(state_dir, update_only, no_system_changes=no_system_changes)
+        self._git.configure(state_dir, update_only)
 
         topsrcdir = Path(self.path)
         if not update_only:

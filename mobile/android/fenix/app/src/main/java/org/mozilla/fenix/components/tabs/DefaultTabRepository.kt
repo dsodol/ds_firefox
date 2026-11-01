@@ -10,10 +10,8 @@ import kotlinx.coroutines.flow.map
 import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.browser.state.state.isActive
 import mozilla.components.browser.state.store.BrowserStore
-import mozilla.components.concept.engine.mediasession.MediaSession
 import mozilla.components.feature.tabdata.coordinator.data.Tab
 import mozilla.components.feature.tabdata.coordinator.repository.TabRepository
-import mozilla.components.feature.tabs.TabsUseCases
 import org.mozilla.fenix.ext.maxActiveTime
 import org.mozilla.fenix.tabstray.ext.toDisplayTitle
 
@@ -21,12 +19,8 @@ import org.mozilla.fenix.tabstray.ext.toDisplayTitle
  * Default implementation of [TabRepository], backed by the [BrowserStore].
  *
  * @param browserStore The [BrowserStore] holding the open tabs to observe.
- * @param tabsUseCases The [TabsUseCases] used to update the open tabs.
  */
-class DefaultTabRepository(
-    browserStore: BrowserStore,
-    private val tabsUseCases: TabsUseCases,
-) : TabRepository {
+class DefaultTabRepository(browserStore: BrowserStore) : TabRepository {
 
     override val tabFlow: Flow<TabRepository.Data> =
         browserStore.stateFlow
@@ -37,18 +31,6 @@ class DefaultTabRepository(
                 )
             }
             .distinctUntilChanged()
-
-    override fun moveTabs(tabIds: List<String>, targetTabId: String, placeAfter: Boolean) {
-        tabsUseCases.moveTabs.invoke(tabIds = tabIds, targetTabId = targetTabId, placeAfter = placeAfter)
-    }
-
-    override fun moveTab(sourceTabId: String, targetTabId: String, placeAfter: Boolean) {
-        tabsUseCases.moveTabs.invoke(sourceTabId = sourceTabId, targetTabId = targetTabId, placeAfter = placeAfter)
-    }
-
-    override fun removeTabs(tabIds: List<String>, excludedFallbackTabIds: Set<String>) {
-        tabsUseCases.removeTabs.invoke(ids = tabIds, excludedFallbackTabIds = excludedFallbackTabIds)
-    }
 }
 
 private fun TabSessionState.toTab(): Tab =
@@ -58,7 +40,4 @@ private fun TabSessionState.toTab(): Tab =
         title = toDisplayTitle(),
         private = content.private,
         inactive = !isActive(maxActiveTime = maxActiveTime),
-        icon = content.icon,
-        isMediaActive = mediaSessionState?.playbackState == MediaSession.PlaybackState.PLAYING,
-        lastAccess = lastAccess,
     )

@@ -18,8 +18,6 @@ const MAX_METADATA_LENGTH = 100;
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  getSmartPageName:
-    "chrome://browser/content/aiwindow/modules/TrustedInternalURLs.mjs",
   MemoriesManager:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs",
   renderPrompt: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
@@ -122,7 +120,7 @@ export function getLocalIsoTime() {
  *
  * @param {Array<ContextWebsite>} contextMentions
  *
- * @returns {Promise<{url: string, title: string, description: string, pageSlug: string}>}
+ * @returns {Promise<{url: string, title: string, description: string}>}
  */
 export async function getCurrentTabMetadata(contextMentions = []) {
   const currentTab = contextMentions.find(
@@ -130,21 +128,20 @@ export async function getCurrentTabMetadata(contextMentions = []) {
   );
 
   if (!currentTab) {
-    return { url: "", title: "", description: "", pageSlug: "" };
+    return { url: "", title: "", description: "" };
   }
 
   let description = "";
 
   const url = currentTab.url || "";
   const title = sanitizeUntrustedContent(currentTab.label || "");
-  const pageSlug = lazy.getSmartPageName(URL.parse(url)) ?? "";
 
   /**
    * TODO: BUG 2015574
    * Need to extract page description in PageExtractor
    */
 
-  return { url, title, description, pageSlug };
+  return { url, title, description };
 }
 
 /**
@@ -154,12 +151,12 @@ export async function getCurrentTabMetadata(contextMentions = []) {
  *
  * @param {Array<ContextWebsite>} contextMentions
  *
- * @returns {Promise<{url, pageSlug, title, description, locale, timezone, isoTimestamp, todayDate, hasTabInfo}>}
+ * @returns {Promise<{url, title, description, locale, timezone, isoTimestamp, todayDate, hasTabInfo}>}
  */
 export async function constructRealTimeInfoInjectionMessage(
   contextMentions = []
 ) {
-  const { url, pageSlug, title, description } =
+  const { url, title, description } =
     await getCurrentTabMetadata(contextMentions);
   const isoTimestamp = getLocalIsoTime();
   const datePart = isoTimestamp?.split("T")[0] ?? "";
@@ -169,7 +166,6 @@ export async function constructRealTimeInfoInjectionMessage(
 
   return {
     url,
-    pageSlug,
     title,
     description,
     locale,

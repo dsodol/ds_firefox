@@ -42,13 +42,6 @@ class HTMLTemplateElement final : public nsGenericHTMLElement {
   DocumentFragment* Content() { return mContent; }
   void SetContent(DocumentFragment* aContent) { mContent = aContent; }
 
-  void GetHtmlFor(nsAString& aHtmlFor) {
-    GetHTMLAttr(nsGkAtoms::_for, aHtmlFor);
-  }
-  void SetHtmlFor(const nsAString& aHtmlFor) {
-    SetHTMLAttr(nsGkAtoms::_for, aHtmlFor);
-  }
-
   void GetShadowRootMode(nsAString& aResult) const {
     GetEnumAttr(nsGkAtoms::shadowrootmode, nullptr, aResult);
   }

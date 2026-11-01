@@ -35,9 +35,6 @@
 #include "nsNetUtil.h"
 #include "nsPresContext.h"
 #include "nsUnicharUtils.h"
-#ifdef ACCESSIBILITY
-#  include "mozilla/a11y/PdfStructTreeBuilder.h"
-#endif
 
 using namespace mozilla;
 using namespace mozilla::gfx;
@@ -1551,10 +1548,9 @@ class nsDisplayMathMLCharForeground final : public nsPaintedDisplayItem {
  public:
   nsDisplayMathMLCharForeground(nsDisplayListBuilder* aBuilder,
                                 nsIFrame* aFrame, nsMathMLChar* aChar,
-                                const bool aIsArtifact, const bool aIsSelected)
+                                const bool aIsSelected)
       : nsPaintedDisplayItem(aBuilder, aFrame),
         mChar(aChar),
-        mIsArtifact(aIsArtifact),
         mIsSelected(aIsSelected) {
     MOZ_COUNT_CTOR(nsDisplayMathMLCharForeground);
   }
@@ -1578,14 +1574,6 @@ class nsDisplayMathMLCharForeground final : public nsPaintedDisplayItem {
 
   virtual void Paint(nsDisplayListBuilder* aBuilder,
                      gfxContext* aCtx) override {
-#ifdef ACCESSIBILITY
-    if (mIsArtifact) {
-      // This character is implicitly drawn due to the MathML element; e.g. a
-      // square root sign.
-      aCtx->GetDrawTarget()->AccessibleId(
-          0, a11y::PdfStructTreeBuilder::SpecialId::OtherArtifact);
-    }
-#endif
     imgDrawingParams imgParams(aBuilder->GetImageDecodeFlags());
     mChar->PaintForeground(mFrame, *aCtx, imgParams, ToReferenceFrame(),
                            mIsSelected);
@@ -1601,9 +1589,6 @@ class nsDisplayMathMLCharForeground final : public nsPaintedDisplayItem {
 
  private:
   nsMathMLChar* mChar;
-  // Whether mChar is drawn implicitly due to the MathML element. See
-  // nsMathMLChar::Display.
-  bool mIsArtifact;
   bool mIsSelected;
 };
 
@@ -1653,7 +1638,7 @@ void nsDisplayMathMLCharDebug::Paint(nsDisplayListBuilder* aBuilder,
 
 void nsMathMLChar::Display(nsDisplayListBuilder* aBuilder, nsIFrame* aForFrame,
                            const nsDisplayListSet& aLists, uint32_t aIndex,
-                           bool aIsArtifact, const nsRect* aSelectedRect) {
+                           const nsRect* aSelectedRect) {
   ComputedStyle* computedStyle = mComputedStyle;
   if (!computedStyle->StyleVisibility()->IsVisible()) {
     return;
@@ -1666,7 +1651,7 @@ void nsMathMLChar::Display(nsDisplayListBuilder* aBuilder, nsIFrame* aForFrame,
         aBuilder, aForFrame, *aSelectedRect);
   }
   aLists.Content()->AppendNewToTopWithIndex<nsDisplayMathMLCharForeground>(
-      aBuilder, aForFrame, aIndex, this, aIsArtifact, isSelected);
+      aBuilder, aForFrame, aIndex, this, isSelected);
 }
 
 void nsMathMLChar::ApplyTransforms(gfxContext* aThebesContext,

@@ -456,16 +456,16 @@ onboarding-checklist-remove-2 = Remove checklist
 tab-groups-onboarding-feature-callout-title = Try tab groups for less clutter, more focus
 tab-groups-onboarding-feature-callout-subtitle = Get organized by dragging one tab on top of another to create your first group.
 
-# The text "Search and Manage Tabs" refers to the string tabs-toolbar-list-all-tabs-2
-tab-groups-onboarding-create-group-title-4 = Find your tab groups in the “Search and manage tabs” menu anytime.
+# The text "list all tabs" refers to the string tabs-toolbar-list-all-tabs
+tab-groups-onboarding-create-group-title-3 = Find your tab groups in the List All Tabs menu anytime.
 tab-groups-onboarding-create-group-no-alltabs-button-title = Find your groups by searching for them in the address bar.
 
-# The text "Search and manage tabs" refers to the string tabs-toolbar-list-all-tabs-2
-tab-groups-onboarding-saved-groups-title-4 = When you close a tab group, reopen it from the “Search and manage tabs” menu anytime.
+# The text "list all tabs" refers to the string tabs-toolbar-list-all-tabs
+tab-groups-onboarding-saved-groups-title-3 = When you close a tab group, reopen it from the List All Tabs menu anytime.
 tab-groups-onboarding-saved-groups-no-alltabs-button-title-2 = Find your closed groups by searching for them in the address bar.
 
-# The text "Search and manage tabs" refers to the string tabs-toolbar-list-all-tabs-2
-tab-groups-onboarding-session-restore-title-3 = Reopen your tab groups from the “Search and manage tabs” menu anytime.
+# The text "list all tabs" refers to the string tabs-toolbar-list-all-tabs
+tab-groups-onboarding-session-restore-title-2 = Reopen your tab groups from the List All Tabs menu anytime.
 tab-groups-onboarding-dismiss = OK
 
 ## Multi Profiles feature onboarding messages
@@ -626,16 +626,12 @@ onboarding-refresh-data-collection-link = Manage data collection settings
 onboarding-refresh-primary-button = Continue
 
 onboarding-refresh-fro-import-header = Bring in your data
-# "It" in "It stays yours" means the browsing data the user is importing (bookmarks, passwords, history).
-# Refers to personal data, indicating that ownership of imported data remains with the user.
-onboarding-refresh-fro-import-subtitle = It stays yours. { -brand-product-name } never sells personal data.
 onboarding-refresh-fro-import-body = Your personal data stays personal. { -brand-product-name } will never sell it.
 onboarding-refresh-fro-skip-button = Skip
 
 onboarding-refresh-fro-theme-header = Play with your look
 
 onboarding-refresh-tab-layout-header = Try a different tab layout
-onboarding-refresh-fro-tab-layout-title = Choose a new tab layout
 onboarding-refresh-tab-layout-top = On top
 onboarding-refresh-tab-layout-side = On the side
 onboarding-refresh-tab-layout-minimal = Minimal

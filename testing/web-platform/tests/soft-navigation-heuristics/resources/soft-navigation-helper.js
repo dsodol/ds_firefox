@@ -50,46 +50,62 @@ function getBufferedEntries(type) {
   });
 }
 
+function getElementTiming(id) {
+  return new Promise(resolve => {
+    new PerformanceObserver((list, observer) => {
+      const entries = list.getEntries().filter(e => e.identifier === id);
+      if (entries.length > 0) {
+        observer.disconnect();
+        resolve(entries[0]);
+      }
+    }).observe({ type: 'element', buffered: true });
+  });
+}
+
 /**
  * Helpers somewhat specific to these test types, "exported" and used by tests.
  */
 
-function assignRandomId(el) {
+function assignRandomIdAndElementTiming(el) {
   el.id = `${el.nodeName}-${Math.random().toString(36).substr(2, 9)}`;
+  el.setAttribute('elementtiming', el.id);
 }
 
-function addImageToMain(url = DEFAULTIMG) {
+async function addImageToMain(url = DEFAULTIMG) {
   const main = document.getElementById('main');
   const img = new Image();
-  assignRandomId(img);
+  assignRandomIdAndElementTiming(img);
   img.src = url + '?' + img.id;
   main.appendChild(img);
+  await getElementTiming(img.id);
   return img;
 }
 
-function addTextParagraphToMain(text = 'Lorem Ipsum') {
+async function addTextParagraphToMain(text = 'Lorem Ipsum') {
   const main = document.getElementById('main');
   const p = document.createElement('p');
-  assignRandomId(p);
+  assignRandomIdAndElementTiming(p);
   const textNode = document.createTextNode(text);
   p.style = 'font-size: 3em';
   p.appendChild(textNode);
   main.appendChild(p);
+  await getElementTiming(p.id);
   return p;
 }
 
-function addTextToDivOnMain() {
+async function addTextToDivOnMain() {
   const main = document.getElementById('main');
   const prevDiv = document.getElementsByTagName('div')[0];
   if (prevDiv) {
     main.removeChild(prevDiv);
   }
   const div = document.createElement('div');
-  assignRandomId(div);
+  assignRandomIdAndElementTiming(div);
   const text = document.createTextNode('Lorem Ipsum');
   div.style = 'font-size: 3em';
   div.appendChild(text);
   main.appendChild(div);
+  await getElementTiming(div.id);
   return div;
 }
 

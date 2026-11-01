@@ -566,15 +566,14 @@ nsresult nsHtml5TreeOperation::AddAttributes(nsIContent* aNode,
       nsAtom* valAtom = val.MaybeAsAtom();
       if (valAtom) {
         node->SetAttr(kNameSpaceID_None, localName, nullptr, valAtom, nullptr,
-                      true, IsKnownNewAttr::Yes);
+                      true);
       } else {
         nsString value;  // Not Auto, because using it to hold nsStringBuffer*
         // Safety: OK to call, because val is a reference into the attribute
         // holder, so a call on `val` is a call on an owning instance of
         // `nsHtml5String`.
         val.MoveToString(value);
-        node->SetAttr(kNameSpaceID_None, localName, nullptr, value, true,
-                      IsKnownNewAttr::Yes);
+        node->SetAttr(kNameSpaceID_None, localName, nullptr, value, true);
       }
       // XXX what to do with nsresult?
     }
@@ -583,7 +582,7 @@ nsresult nsHtml5TreeOperation::AddAttributes(nsIContent* aNode,
 }
 
 void nsHtml5TreeOperation::SetHTMLElementAttributes(
-    Element* aElement, nsHtml5HtmlAttributes* aAttributes, bool aNotify) {
+    Element* aElement, nsHtml5HtmlAttributes* aAttributes) {
   int32_t len = aAttributes->getLength();
   if (!len) {
     return;
@@ -592,12 +591,10 @@ void nsHtml5TreeOperation::SetHTMLElementAttributes(
   if (aAttributes->getDuplicateAttributeError()) {
     aElement->SetParserHadDuplicateAttributeError();
   }
-  // Custom element constructors might have set our attributes already.
-  const bool hadAttrs = aElement->HasAttrs();
   for (nsHtml5AttributeEntry& entry : *aAttributes) {
     nsHtml5String& val = entry.ValueRef();
     nsAtom* localName = entry.NameHTML();
-    if (localName == nsGkAtoms::_class && !aNotify) {
+    if (localName == nsGkAtoms::_class) {
       nsAtom* klass = val.MaybeAsAtom();
       if (klass) {
         aElement->SetClassAttrFromParser(klass);
@@ -609,15 +606,14 @@ void nsHtml5TreeOperation::SetHTMLElementAttributes(
     nsAtom* valAtom = val.MaybeAsAtom();
     if (valAtom) {
       aElement->SetAttr(kNameSpaceID_None, localName, nullptr, valAtom, nullptr,
-                        aNotify, IsKnownNewAttr(!hadAttrs));
+                        false);
     } else {
       nsString value;  // Not Auto, because using it to hold nsStringBuffer*
       // Safety: OK to call, because val is a reference into the attribute
       // holder, so a call on `val` is a call on an owning instance of
       // `nsHtml5String`.
       val.MoveToString(value);
-      aElement->SetAttr(kNameSpaceID_None, localName, nullptr, value, aNotify,
-                        IsKnownNewAttr(!hadAttrs));
+      aElement->SetAttr(kNameSpaceID_None, localName, nullptr, value, false);
     }
   }
 #ifdef DEBUG
@@ -737,12 +733,9 @@ nsIContent* nsHtml5TreeOperation::CreateHTMLElement(
     // definition given registry, namespace, localName, and is."
     // https://html.spec.whatwg.org/#look-up-a-custom-element-definition
     // Step 1: "If registry is null, then return null."
-    RefPtr<CustomElementRegistry> registry =
-        customElementRegistry.isSome() ? customElementRegistry.value().get()
-                                       : document->GetCustomElementRegistry();
-    if (registry) {
-      customElementDefinition = registry->LookupCustomElementDefinition(
-          nodeInfo->NameAtom(), nodeInfo->NamespaceID(), typeAtom);
+    if (!(customElementRegistry.isSome() && !customElementRegistry.value())) {
+      customElementDefinition = nsContentUtils::LookupCustomElementDefinition(
+          document, nodeInfo->NameAtom(), nodeInfo->NamespaceID(), typeAtom);
     }
   }
 
@@ -799,7 +792,7 @@ nsIContent* nsHtml5TreeOperation::CreateHTMLElement(
     if (aCreator) {
       SetHTMLElementAttributesFast(element, aAttributes);
     } else {
-      SetHTMLElementAttributes(element, aAttributes, willExecuteScript);
+      SetHTMLElementAttributes(element, aAttributes);
     }
     return element;
   };
@@ -814,7 +807,7 @@ nsIContent* nsHtml5TreeOperation::CreateHTMLElement(
     // 9.2. If the JavaScript execution context stack is empty, then perform a
     // microtask checkpoint.
     {
-      nsAutoMicroTaskForDocument mt(document);
+      nsAutoMicroTask mt;
     }
     // 9.3. Push a new element queue onto document's relevant agent's custom
     // element reactions stack.
@@ -880,8 +873,6 @@ nsIContent* nsHtml5TreeOperation::CreateSVGElement(
     newContent->SetParserHadDuplicateAttributeError();
   }
 
-  // Tokenizer deduplication and foreign-name adjustment preserve unique names
-  // on this fresh element.
   for (nsHtml5AttributeEntry& entry : *aAttributes) {
     nsHtml5String& val = entry.ValueRef();
     auto triple = entry.NameSVG();
@@ -897,7 +888,7 @@ nsIContent* nsHtml5TreeOperation::CreateSVGElement(
     nsAtom* valAtom = val.MaybeAsAtom();
     if (valAtom) {
       newContent->SetAttr(triple.mNamespace, triple.mLocal, triple.mPrefix,
-                          valAtom, nullptr, false, IsKnownNewAttr::Yes);
+                          valAtom, nullptr, false);
     } else {
       nsString value;  // Not Auto, because using it to hold nsStringBuffer*
       // Safety: OK to call, because val is a reference into the attribute
@@ -905,7 +896,7 @@ nsIContent* nsHtml5TreeOperation::CreateSVGElement(
       // `nsHtml5String`.
       val.MoveToString(value);
       newContent->SetAttr(triple.mNamespace, triple.mLocal, triple.mPrefix,
-                          value, nullptr, false, IsKnownNewAttr::Yes);
+                          value, false);
     }
   }
 #ifdef DEBUG
@@ -953,8 +944,6 @@ nsIContent* nsHtml5TreeOperation::CreateMathMLElement(
     newContent->SetParserHadDuplicateAttributeError();
   }
 
-  // Tokenizer deduplication and foreign-name adjustment preserve unique names
-  // on this fresh element.
   for (nsHtml5AttributeEntry& entry : *aAttributes) {
     nsHtml5String& val = entry.ValueRef();
     auto triple = entry.NameMathML();
@@ -970,7 +959,7 @@ nsIContent* nsHtml5TreeOperation::CreateMathMLElement(
     nsAtom* valAtom = val.MaybeAsAtom();
     if (valAtom) {
       newContent->SetAttr(triple.mNamespace, triple.mLocal, triple.mPrefix,
-                          valAtom, nullptr, false, IsKnownNewAttr::Yes);
+                          valAtom, nullptr, false);
     } else {
       nsString value;  // Not Auto, because using it to hold nsStringBuffer*
       // Safety: OK to call, because val is a reference into the attribute
@@ -978,7 +967,7 @@ nsIContent* nsHtml5TreeOperation::CreateMathMLElement(
       // `nsHtml5String`.
       val.MoveToString(value);
       newContent->SetAttr(triple.mNamespace, triple.mLocal, triple.mPrefix,
-                          value, nullptr, false, IsKnownNewAttr::Yes);
+                          value, false);
     }
   }
 #ifdef DEBUG
@@ -1117,23 +1106,6 @@ void nsHtml5TreeOperation::PreventScriptExecution(nsIContent* aNode) {
 
 void nsHtml5TreeOperation::DoneAddingChildren(nsIContent* aNode) {
   aNode->DoneAddingChildren(aNode->HasParserNotified());
-
-  // https://html.spec.whatwg.org/#process-internal-resource-links
-  // The parser has popped aNode.
-  aNode->UnsetFlags(ELEMENT_ON_PARSER_STACK);
-  // Only an element with an id or a name can be a rel=expect target.
-  if (!StaticPrefs::dom_element_blocking_enabled() ||
-      (!aNode->HasID() && !aNode->HasName())) {
-    return;
-  }
-  // rel=expect blocks only while the document is loading, and data documents
-  // never render.
-  Document* doc = aNode->OwnerDoc();
-  if (doc->IsLoadedAsData() ||
-      doc->GetReadyStateEnum() > Document::READYSTATE_LOADING) {
-    return;
-  }
-  doc->MaybeProcessInternalResourceLinksForElement(*aNode->AsElement());
 }
 
 void nsHtml5TreeOperation::DoneCreatingElement(nsIContent* aNode) {
@@ -1152,14 +1124,6 @@ void nsHtml5TreeOperation::MarkMalformedIfScript(nsIContent* aNode) {
   if (sele) {
     // Make sure to serialize this script correctly, for nice round tripping.
     sele->SetIsMalformed();
-  }
-}
-
-// The document parser pushes the elements it creates on its stack of open
-// elements. DoneAddingChildren unsets the flag when the parser pops them.
-static void MarkOnParserStack(nsIContent* aElement) {
-  if (aElement && StaticPrefs::dom_element_blocking_enabled()) {
-    aElement->SetFlags(ELEMENT_ON_PARSER_STACK);
   }
 }
 
@@ -1237,7 +1201,6 @@ nsresult nsHtml5TreeOperation::Perform(nsHtml5TreeOpExecutor* aBuilder,
       *target = CreateHTMLElement(name, attributes, aOperation.mFromNetwork,
                                   nodeInfoManager, mBuilder, creator,
                                   intendedParent, mozilla::Nothing());
-      MarkOnParserStack(*target);
       return NS_OK;
     }
 
@@ -1257,7 +1220,6 @@ nsresult nsHtml5TreeOperation::Perform(nsHtml5TreeOpExecutor* aBuilder,
 
       *target = CreateSVGElement(name, attributes, aOperation.mFromNetwork,
                                  nodeInfoManager, mBuilder, creator);
-      MarkOnParserStack(*target);
       return NS_OK;
     }
 
@@ -1276,7 +1238,6 @@ nsresult nsHtml5TreeOperation::Perform(nsHtml5TreeOpExecutor* aBuilder,
 
       *target =
           CreateMathMLElement(name, attributes, nodeInfoManager, mBuilder);
-      MarkOnParserStack(*target);
       return NS_OK;
     }
 
@@ -1420,7 +1381,8 @@ nsresult nsHtml5TreeOperation::Perform(nsHtml5TreeOpExecutor* aBuilder,
     }
 
     nsresult operator()(const opDoneAddingChildren& aOperation) {
-      DoneAddingChildren(*(aOperation.mElement));
+      nsIContent* node = *(aOperation.mElement);
+      node->DoneAddingChildren(node->HasParserNotified());
       return NS_OK;
     }
 
@@ -1512,15 +1474,13 @@ nsresult nsHtml5TreeOperation::Perform(nsHtml5TreeOpExecutor* aBuilder,
       nsDependentString depStr(str);
       // See viewsource.css for the possible classes
       nsAutoString klass;
-      bool hasAttr = element->GetAttr(nsGkAtoms::_class, klass);
+      element->GetAttr(nsGkAtoms::_class, klass);
       if (!klass.IsEmpty()) {
         klass.Append(' ');
         klass.Append(depStr);
-        element->SetAttr(kNameSpaceID_None, nsGkAtoms::_class, klass, true,
-                         IsKnownNewAttr::No);
+        element->SetAttr(kNameSpaceID_None, nsGkAtoms::_class, klass, true);
       } else {
-        element->SetAttr(kNameSpaceID_None, nsGkAtoms::_class, depStr, true,
-                         IsKnownNewAttr(!hasAttr));
+        element->SetAttr(kNameSpaceID_None, nsGkAtoms::_class, depStr, true);
       }
       return NS_OK;
     }
@@ -1567,9 +1527,10 @@ nsresult nsHtml5TreeOperation::Perform(nsHtml5TreeOpExecutor* aBuilder,
 
       viewSourceUrl.Append(spec);
 
-      element->SetAttr(kNameSpaceID_None, nsGkAtoms::href,
-                       NS_ConvertUTF8toUTF16(viewSourceUrl), true,
-                       IsKnownNewAttr::No);
+      nsAutoString utf16;
+      CopyUTF8toUTF16(viewSourceUrl, utf16);
+
+      element->SetAttr(kNameSpaceID_None, nsGkAtoms::href, utf16, true);
       return NS_OK;
     }
 
@@ -1585,17 +1546,14 @@ nsresult nsHtml5TreeOperation::Perform(nsHtml5TreeOpExecutor* aBuilder,
       nsAtom* atom = aOperation.mName;
       nsAtom* otherAtom = aOperation.mOther;
       // See viewsource.css for the possible classes in addition to "error".
-      {
-        nsAutoString klass;
-        const bool hasAttr = element->GetAttr(nsGkAtoms::_class, klass);
-        if (!klass.IsEmpty()) {
-          klass.AppendLiteral(" error");
-          element->SetAttr(kNameSpaceID_None, nsGkAtoms::_class, klass, true,
-                           IsKnownNewAttr::No);
-        } else {
-          element->SetAttr(kNameSpaceID_None, nsGkAtoms::_class, u"error"_ns,
-                           true, IsKnownNewAttr(!hasAttr));
-        }
+      nsAutoString klass;
+      element->GetAttr(nsGkAtoms::_class, klass);
+      if (!klass.IsEmpty()) {
+        klass.AppendLiteral(" error");
+        element->SetAttr(kNameSpaceID_None, nsGkAtoms::_class, klass, true);
+      } else {
+        element->SetAttr(kNameSpaceID_None, nsGkAtoms::_class, u"error"_ns,
+                         true);
       }
 
       nsresult rv;
@@ -1617,15 +1575,13 @@ nsresult nsHtml5TreeOperation::Perform(nsHtml5TreeOpExecutor* aBuilder,
       }
 
       nsAutoString title;
-      const bool hasAttr = element->GetAttr(nsGkAtoms::title, title);
+      element->GetAttr(nsGkAtoms::title, title);
       if (!title.IsEmpty()) {
         title.Append('\n');
         title.Append(message);
-        element->SetAttr(kNameSpaceID_None, nsGkAtoms::title, title, true,
-                         IsKnownNewAttr::No);
+        element->SetAttr(kNameSpaceID_None, nsGkAtoms::title, title, true);
       } else {
-        element->SetAttr(kNameSpaceID_None, nsGkAtoms::title, message, true,
-                         IsKnownNewAttr(!hasAttr));
+        element->SetAttr(kNameSpaceID_None, nsGkAtoms::title, message, true);
       }
       return rv;
     }
@@ -1635,9 +1591,7 @@ nsresult nsHtml5TreeOperation::Perform(nsHtml5TreeOpExecutor* aBuilder,
       int32_t lineNumber = aOperation.mLineNumber;
       nsAutoString val(u"line"_ns);
       val.AppendInt(lineNumber);
-      // TODO(emilio): Probably could be IsKnownNewAttr::Yes
-      element->SetAttr(kNameSpaceID_None, nsGkAtoms::id, val, true,
-                       IsKnownNewAttr::No);
+      element->SetAttr(kNameSpaceID_None, nsGkAtoms::id, val, true);
       return NS_OK;
     }
 
@@ -1668,7 +1622,7 @@ nsresult nsHtml5TreeOperation::Perform(nsHtml5TreeOpExecutor* aBuilder,
 
     nsresult operator()(const opMicrotaskCheckpoint& aOperation) {
       nsHtml5AutoPauseUpdate autoPauseContentUpdate(mBuilder);
-      nsAutoMicroTaskForDocument mt(mBuilder->GetDocument());
+      nsAutoMicroTask mt;
       return NS_OK;
     }
 

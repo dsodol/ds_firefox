@@ -164,8 +164,8 @@ void CGSShutdownServerConnections();
 
 mozilla::ipc::IPCResult UtilityProcessChild::RecvInit(
     const Maybe<FileDescriptor>& aBrokerFd,
-    [[maybe_unused]] const bool& aCanRecordReleaseTelemetry,
-    [[maybe_unused]] const bool& aIsReadyForBackgroundProcessing) {
+    const bool& aCanRecordReleaseTelemetry,
+    const bool& aIsReadyForBackgroundProcessing) {
   // Do this now (before closing WindowServer on macOS) to avoid risking
   // blocking in GetCurrentProcess() called on that platform
   mozilla::ipc::SetThisProcessName("Utility Process");

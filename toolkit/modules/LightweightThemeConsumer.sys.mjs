@@ -4,59 +4,26 @@
 
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const lwtConsumers = new WeakMap();
-
-const lazy = XPCOMUtils.declareLazy({
+const lazy = {};
+// Get the theme variables from the app resource directory.
+// This allows per-app variables.
+ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ThemeContentPropertyList: "resource:///modules/ThemeVariableMap.sys.mjs",
   ThemeVariableMap: "resource:///modules/ThemeVariableMap.sys.mjs",
   BuiltInThemeConfig: "resource:///modules/BuiltInThemeConfig.sys.mjs",
   LightweightThemeManager:
     "resource://gre/modules/LightweightThemeManager.sys.mjs",
-  BROWSER_THEME_UNIFIED_COLOR_SCHEME: {
-    pref: "browser.theme.unified-color-scheme",
-    default: false,
-  },
-  FORCED_COLORS_OVERRIDE_ENABLED: {
-    pref: "browser.theme.forced-colors-override.enabled",
-    default: true,
-    onUpdate: () => updateAllConsumers(),
-  },
-  BROWSER_NOVA_ENABLED: {
-    pref: "browser.nova.enabled",
-    default: false,
-    onUpdate: () => updateAllConsumers(),
-  },
-  BROWSER_THEME_DARK_PRIVATE_WINDOWS: {
-    pref: "browser.theme.dark-private-windows",
-    default: true,
-    onUpdate: () => updateAllConsumers(),
-  },
 });
 
-Services.obs.addObserver(
-  {
-    observe(aSubject) {
-      let data = aSubject.wrappedJSObject;
-      let win = Services.wm.getOuterWindowWithId(data?.window);
-      if (win) {
-        let consumer = lwtConsumers.get(win);
-        consumer?._update(data);
-      } else {
-        updateAllConsumers(data);
-      }
-    },
-  },
-  "lightweight-theme-styling-update"
+// Whether the content and chrome areas should always use the same color
+// scheme (unless user-overridden). Thunderbird uses this.
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "BROWSER_THEME_UNIFIED_COLOR_SCHEME",
+  "browser.theme.unified-color-scheme",
+  false
 );
-
-function updateAllConsumers(data) {
-  for (let win of ChromeUtils.nondeterministicGetWeakMapKeys(lwtConsumers)) {
-    let consumer = lwtConsumers.get(win);
-    let themeData = data ?? consumer._lastData;
-    consumer?._update(themeData);
-  }
-}
 
 const DEFAULT_THEME_ID = "default-theme@mozilla.org";
 
@@ -263,7 +230,44 @@ export function LightweightThemeConsumer(aDocument) {
   this._isAIWindow = this._doc.documentElement.hasAttribute("ai-window");
   this._isPrivateWindow = lazy.PrivateBrowsingUtils.isWindowPrivate(this._win);
 
-  lwtConsumers.set(this._win, this);
+  XPCOMUtils.defineLazyPreferenceGetter(
+    this,
+    "FORCED_COLORS_OVERRIDE_ENABLED",
+    "browser.theme.forced-colors-override.enabled",
+    true,
+    () => this._update(this._lastData)
+  );
+
+  XPCOMUtils.defineLazyPreferenceGetter(
+    this,
+    "BROWSER_NOVA_ENABLED",
+    "browser.nova.enabled",
+    false,
+    () => this._update(this._lastData)
+  );
+
+  XPCOMUtils.defineLazyPreferenceGetter(
+    this,
+    "_toolbarTheme",
+    "browser.theme.toolbar-theme",
+    2,
+    () => {
+      if (this._isAIWindow) {
+        this._update(this._lastData);
+      }
+    }
+  );
+
+  // Whether we should switch to a dark theme variant in private windows
+  XPCOMUtils.defineLazyPreferenceGetter(
+    this,
+    "BROWSER_THEME_DARK_PRIVATE_WINDOWS",
+    "browser.theme.dark-private-windows",
+    true,
+    () => this._update(this._lastData)
+  );
+
+  Services.obs.addObserver(this, "lightweight-theme-styling-update");
 
   this.darkThemeMediaQuery = this._win.matchMedia("(-moz-system-dark-theme)");
   this.darkThemeMediaQuery.addListener(this);
@@ -286,6 +290,19 @@ export function LightweightThemeConsumer(aDocument) {
 LightweightThemeConsumer.prototype = {
   _lastData: null,
 
+  observe(aSubject, aTopic) {
+    if (aTopic != "lightweight-theme-styling-update") {
+      return;
+    }
+
+    let data = aSubject.wrappedJSObject;
+    if (data.window && data.window !== this._winId) {
+      return;
+    }
+
+    this._update(data);
+  },
+
   handleEvent(aEvent) {
     if (
       aEvent.target == this.darkThemeMediaQuery ||
@@ -297,7 +314,7 @@ LightweightThemeConsumer.prototype = {
 
     switch (aEvent.type) {
       case "unload":
-        lwtConsumers.delete(this._win);
+        Services.obs.removeObserver(this, "lightweight-theme-styling-update");
         Services.ppmm.sharedData.delete(`theme/${this._winId}`);
         this._aiWindowObserver?.disconnect();
         this._aiWindowObserver = null;
@@ -311,10 +328,6 @@ LightweightThemeConsumer.prototype = {
   },
 
   _update(themeData) {
-    // The pref observers can still call this after the window unloaded.
-    if (!this._doc) {
-      return;
-    }
     const manager = lazy.LightweightThemeManager;
 
     // Store user's theme before replacing with aiThemeData or privateThemeData.
@@ -324,7 +337,7 @@ LightweightThemeConsumer.prototype = {
     const shouldMakePrivateWindowDark =
       this._isPrivateWindow &&
       !lazy.PrivateBrowsingUtils.permanentPrivateBrowsing &&
-      lazy.BROWSER_THEME_DARK_PRIVATE_WINDOWS;
+      this.BROWSER_THEME_DARK_PRIVATE_WINDOWS;
     const themeId = themeData.theme?.id ?? DEFAULT_THEME_ID;
     // Used to set a `theme-in-app` attribute to allow rules to apply to default/in-app themes only
     let isDefaultOrInApp =
@@ -332,7 +345,7 @@ LightweightThemeConsumer.prototype = {
       !!lazy.BuiltInThemeConfig.get(themeId)?.inApp;
 
     if (this._isAIWindow) {
-      const useNova = lazy.BROWSER_NOVA_ENABLED;
+      const useNova = this.BROWSER_NOVA_ENABLED;
       const cachedData = useNova
         ? manager.aiNovaThemeData
         : manager.aiThemeData;
@@ -352,7 +365,7 @@ LightweightThemeConsumer.prototype = {
       }
     } else if (
       shouldMakePrivateWindowDark &&
-      lazy.BROWSER_NOVA_ENABLED &&
+      this.BROWSER_NOVA_ENABLED &&
       isDefaultOrInApp
     ) {
       // When in a private window, with nova enabled and any of the in-app themes active,
@@ -402,7 +415,7 @@ LightweightThemeConsumer.prototype = {
 
     let theme = useDarkTheme ? themeData.darkTheme : themeData.theme;
     let forcedColorsThemeOverride =
-      lazy.FORCED_COLORS_OVERRIDE_ENABLED &&
+      this.FORCED_COLORS_OVERRIDE_ENABLED &&
       this.forcedColorsMediaQuery?.matches;
     if (!theme || forcedColorsThemeOverride) {
       theme = { id: DEFAULT_THEME_ID };

@@ -5,7 +5,6 @@
 #ifndef jit_IonGenericCallStub_h
 #define jit_IonGenericCallStub_h
 
-#include "jit/Assembler.h"
 #include "jit/Registers.h"
 
 namespace js::jit {

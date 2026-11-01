@@ -842,8 +842,7 @@ NS_IMETHODIMP AboutThirdParty::UpdateBlocklist(const nsAString& aLeafName,
     mDynamicBlocklist.Remove(aLeafName);
   }
 
-  auto newTask =
-      std::make_unique<DynamicBlocklistWriter>(promise, mDynamicBlocklist);
+  auto newTask = MakeUnique<DynamicBlocklistWriter>(promise, mDynamicBlocklist);
   if (!newTask->IsReady()) {
     promise->MaybeReject(NS_ERROR_CANNOT_CONVERT_DATA);
     return NS_OK;

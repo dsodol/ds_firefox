@@ -40,7 +40,6 @@
 #include "vm/AsyncFunction.h"
 #include "vm/AsyncIteration.h"
 #include "vm/BigIntType.h"
-#include "vm/BoundFunctionObject.h"
 #include "vm/BytecodeUtil.h"  // JSDVG_SEARCH_STACK
 #include "vm/ConstantCompareOperand.h"
 #include "vm/EqualityOperations.h"  // js::StrictlyEqual
@@ -510,8 +509,7 @@ bool js::RunScript(JSContext* cx, RunState& state) {
 
 STATIC_PRECONDITION_ASSUME(ubound(args.argv_) >= argc)
 MOZ_ALWAYS_INLINE bool CallJSNative(JSContext* cx, Native native,
-                                    CallReason reason, const CallArgs& args,
-                                    bool switchToCalleeRealm = true) {
+                                    CallReason reason, const CallArgs& args) {
   AutoCheckRecursionLimit recursion(cx);
   if (!recursion.check(cx)) {
     return false;
@@ -528,14 +526,7 @@ MOZ_ALWAYS_INLINE bool CallJSNative(JSContext* cx, Native native,
   cx->check(args);
   MOZ_ASSERT(!args.callee().is<ProxyObject>());
 
-  // Switch to the callee's realm. Assert we don't do this for bound functions
-  // because they don't have an associated realm in the spec.
-  mozilla::Maybe<AutoRealm> ar;
-  if (switchToCalleeRealm) {
-    MOZ_ASSERT(!args.callee().is<BoundFunctionObject>());
-    ar.emplace(cx, &args.callee());
-  }
-
+  AutoRealm ar(cx, &args.callee());
   bool ok = native(cx, args.length(), args.base());
   if (ok) {
     cx->check(args.rval());
@@ -547,15 +538,14 @@ MOZ_ALWAYS_INLINE bool CallJSNative(JSContext* cx, Native native,
 }
 
 STATIC_PRECONDITION(ubound(args.argv_) >= argc)
-MOZ_ALWAYS_INLINE bool CallJSNativeConstructor(
-    JSContext* cx, Native native, const CallArgs& args,
-    bool switchToCalleeRealm = true) {
+MOZ_ALWAYS_INLINE bool CallJSNativeConstructor(JSContext* cx, Native native,
+                                               const CallArgs& args) {
 #ifdef DEBUG
   RootedObject callee(cx, &args.callee());
 #endif
 
   MOZ_ASSERT(args.thisv().isMagic());
-  if (!CallJSNative(cx, native, CallReason::Call, args, switchToCalleeRealm)) {
+  if (!CallJSNative(cx, native, CallReason::Call, args)) {
     return false;
   }
 
@@ -619,8 +609,7 @@ bool js::InternalCallOrConstruct(JSContext* cx, const CallArgs& args,
     JSNative call = args.callee().callHook();
     MOZ_ASSERT(call, "isCallable without a callHook?");
 
-    bool switchToCalleeRealm = (call != BoundFunctionObject::call);
-    return CallJSNative(cx, call, reason, args, switchToCalleeRealm);
+    return CallJSNative(cx, call, reason, args);
   }
 
   /* Invoke native functions. */
@@ -781,8 +770,7 @@ static bool InternalConstruct(JSContext* cx, const AnyConstructArgs& args,
   JSNative construct = callee.constructHook();
   MOZ_ASSERT(construct != nullptr, "IsConstructor without a construct hook?");
 
-  bool switchToCalleeRealm = (construct != BoundFunctionObject::construct);
-  return CallJSNativeConstructor(cx, construct, args, switchToCalleeRealm);
+  return CallJSNativeConstructor(cx, construct, args);
 }
 
 // Check that |callee|, the callee in a |new| expression, is a constructor.

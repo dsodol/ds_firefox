@@ -211,12 +211,10 @@ interface nsIDNSService : nsISupports
                                       in OriginAttributes  aOriginAttributes);
 
     /**
-     * Called to synchronously resolve a hostname. Deliberately not scriptable:
-     * callers wanting a hostname resolved should use asyncResolve.
+     * called to synchronously resolve a hostname.
      *
-     * Since this may block the calling thread for a long period of time it may
-     * not be used from the main thread, unless RESOLVE_OFFLINE is set, in which
-     * case only literals and cached entries are consulted and nothing blocks.
+     * Since this method may block the calling thread for a long period of
+     * time, it may not be accessed from the main thread.
      *
      * @param aHostName
      *        the hostname or IP-address-literal to resolve.
@@ -224,14 +222,18 @@ interface nsIDNSService : nsISupports
      *        a bitwise OR of the RESOLVE_ prefixed constants defined below.
      * @param aOriginAttributes
      *        the originAttribute for this resolving, the DNS cache will be
-     *        separated according to this originAttributes.
-     * @param aResult
-     *        DNS record corresponding to the given hostname.
+     *        separated according to this originAttributes. This attribute is
+     *        optional to avoid breaking add-ons.
      *
-     * @return NS_ERROR_UNKNOWN_HOST if the host could not be resolved, or
-     *         NS_ERROR_NOT_AVAILABLE when used from the main thread without
-     *         RESOLVE_OFFLINE.
+     * @return DNS record corresponding to the given hostname.
+     * @throws NS_ERROR_UNKNOWN_HOST if host could not be resolved.
+     * @throws NS_ERROR_NOT_AVAILABLE if accessed from the main thread.
      */
+    [implicit_jscontext, optional_argc]
+    nsIDNSRecord resolve(in AUTF8String   aHostName,
+                         in nsIDNSService_DNSFlags aFlags,
+              [optional] in jsval         aOriginAttributes);
+
     [notxpcom]
     nsresult resolveNative(in AUTF8String       aHostName,
                            in nsIDNSService_DNSFlags aFlags,
@@ -364,7 +366,7 @@ interface nsIDNSService : nsISupports
 
     /*************************************************************************
      * Listed below are the various flags that may be OR'd together to form
-     * the aFlags parameter passed to asyncResolve() and resolveNative().
+     * the aFlags parameter passed to asyncResolve() and resolve().
      */
 
 %{C++

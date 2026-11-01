@@ -37,7 +37,6 @@ import mozilla.components.concept.sync.DeviceConfig
 import mozilla.components.concept.sync.FxAEntryPoint
 import mozilla.components.concept.sync.OAuthAccount
 import mozilla.components.concept.sync.Profile
-import mozilla.components.concept.sync.ServiceResult
 import mozilla.components.concept.sync.SyncConfig
 import mozilla.components.concept.sync.SyncEngine
 import mozilla.components.service.fxa.AccountManagerException
@@ -99,7 +98,7 @@ const val MAX_NETWORK_RETRIES = 3
 @Suppress("TooManyFunctions", "LargeClass")
 open class FxaAccountManager(
     private val context: Context,
-    val serverConfig: ServerConfig,
+    @get:VisibleForTesting val serverConfig: ServerConfig,
     private val deviceConfig: DeviceConfig,
     private val syncConfig: SyncConfig?,
     private val applicationScopes: Set<String> = emptySet(),
@@ -352,9 +351,8 @@ open class FxaAccountManager(
      * @param pairingUrl Optional pairing URL in case a pairing flow is being initiated.
      * @param entrypoint an enum representing the feature entrypoint requesting the URL. the entrypoint is used in
      *   telemetry.
-     * @param authScopes The OAuth scopes being requested. When sync decoupling is enabled
-     *   ([SyncConfig.syncDecouplingEnabled], this parameter gets ignored. Otherwise, if none are provided we default to
-     *   the scopes provided when constructing [FxaAccountManager]
+     * @param authScopes The oAuth scopes being requested, if none are provided we default to the scopes provided when
+     *   constructing [FxaAccountManager]
      * @param service The name fo the service being enabled. This may change the UX shown by the FxA content servers.
      * @return An authentication url which is to be presented to the user.
      */
@@ -362,12 +360,9 @@ open class FxaAccountManager(
         pairingUrl: String? = null,
         entrypoint: FxAEntryPoint,
         authScopes: Set<String> = scopes,
-        service: String,
+        service: String = "",
     ): String? =
         withContext(coroutineContext) {
-            // When sync decoupling is enabled, we need to send empty scopes.
-            // see https://bugzilla.mozilla.org/show_bug.cgi?id=2066516#c4
-            val authScopes = authScopes.orEmptyIf { syncConfig?.syncDecouplingEnabled == true }
             val event =
                 if (pairingUrl != null) {
                     Event.Account.BeginPairingFlow(pairingUrl, service, entrypoint, authScopes)
@@ -463,10 +458,6 @@ open class FxaAccountManager(
         }
     }
 
-    /** @return an empty Set if [condition] evaluates to true */
-    private inline fun Set<String>.orEmptyIf(condition: () -> Boolean): Set<String> =
-        this.takeIf { !condition() }.orEmpty()
-
     /** Pumps the state machine until all events are processed and their side-effects resolve. */
     private suspend fun processQueue(event: Event) {
         logger.debug("processQueue: event: '$event'")
@@ -507,7 +498,7 @@ open class FxaAccountManager(
                     ASDeviceConfig(
                         name = deviceConfig.name,
                         deviceType = deviceConfig.type.into(),
-                        capabilities = deviceConfig.withSupportedCapabilities().capabilities.map { it.into() },
+                        capabilities = ArrayList(deviceConfig.capabilities.map { it.into() }),
                     )
                 )
             is Event.Account.BeginEmailFlow ->
@@ -536,6 +527,7 @@ open class FxaAccountManager(
                 FxaEvent.WebChannelPasswordChange(jsonPayload = event.jsonPayload)
             // This is the one ProgressEvent that's considered a "public event" in app-services
             is Event.Progress.AuthData -> FxaEvent.CompleteOAuthFlow(event.authData.code, event.authData.state)
+            else -> null
         }
 
     /**
@@ -575,7 +567,6 @@ open class FxaAccountManager(
                     is Event.Account.Start -> {
                         if (authenticationSideEffects()) {
                             notifyObservers { onAuthenticated(account, AuthType.Existing) }
-                            initializeDevice()
                             refreshProfile(ignoreCache = false)
                         } else {
                             throw AccountManagerException.AuthenticationSideEffectsFailed()
@@ -584,7 +575,6 @@ open class FxaAccountManager(
                     is Event.Progress.AuthData -> {
                         if (authenticationSideEffects()) {
                             notifyObservers { onAuthenticated(account, via.authData.authType) }
-                            finalizeDevice()
                             refreshProfile(ignoreCache = false)
                         } else {
                             throw AccountManagerException.AuthenticationSideEffectsFailed()
@@ -595,7 +585,6 @@ open class FxaAccountManager(
                         // Should we also call authenticationSideEffects here?
                         // (https://bugzilla.mozilla.org/show_bug.cgi?id=1865086)
                         notifyObservers { onAuthenticated(account, AuthType.Recovered) }
-                        finalizeDevice()
                         refreshProfile(ignoreCache = true)
                     }
                     else -> Unit
@@ -641,24 +630,13 @@ open class FxaAccountManager(
         }
     }
 
-    private suspend fun initializeDevice(): ServiceResult {
-        return account.deviceConstellation().initializeDevice(deviceConfig.withSupportedCapabilities())
-    }
-
-    private suspend fun finalizeDevice(): ServiceResult {
-        return account.deviceConstellation().finalizeDevice(deviceConfig.withSupportedCapabilities())
-    }
-
-    /**
-     * @return a [DeviceConfig] with the [DeviceConfig.capabilities] when the account has the sync scope. When the sync
-     *   scope is not present on the account, then the capabilities are empty.
-     *
-     * This is because the capabilities defined in [mozilla.appservices.fxaclient.DeviceCapability] require the sync
-     * scope to function.
-     */
-    private fun DeviceConfig.withSupportedCapabilities(): DeviceConfig {
-        return copy(capabilities = capabilities.takeIf { account.hasScope(SCOPE_SYNC) }.orEmpty())
-    }
+    private suspend fun finalizeDevice(authType: AuthType) =
+        account
+            .deviceConstellation()
+            .finalizeDevice(
+                authType,
+                deviceConfig,
+            )
 
     /**
      * Populates caches necessary for the sync worker (sync auth info and FxA device).

@@ -30,9 +30,6 @@ if CONFIG["MOZ_PHC"]:
         "FdPrintf.cpp",
         # PHC.cpp is #included in mozjemalloc.cpp
     ]
-    SOURCE_HEADERS += [
-        "FdPrintf.h",
-    ]
 
 if CONFIG["MOZ_MEMORY"]:
     UNIFIED_SOURCES += [
@@ -43,14 +40,6 @@ if CONFIG["MOZ_MEMORY"]:
         "mozmemory_wrap.cpp",
         "Mutex.cpp",
         "Utils.cpp",
-    ]
-    SOURCE_HEADERS += [
-        "BaseAlloc.h",
-        "Chunk.h",
-        "Globals.h",
-        "mozjemalloc.h",
-        "Mutex.h",
-        "Utils.h",
     ]
 else:
     UNIFIED_SOURCES += [
@@ -63,18 +52,6 @@ if CONFIG["OS_TARGET"] == "Darwin" and (
     SOURCES += [
         "Zone.c",
     ]
-
-SOURCE_HEADERS += [
-    "Arena.h",
-    "ArenaAvailRuns.h",
-    "BaseAllocInternals.h",
-    "BaseArray.h",
-    "Constants.h",
-    "Extent.h",
-    "RadixTree.h",
-    "RedBlackTree.h",
-    "Zero.h",
-]
 
 Library("memory")
 

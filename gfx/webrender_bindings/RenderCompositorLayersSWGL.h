@@ -37,6 +37,8 @@ class RenderCompositorLayersSWGL : public RenderCompositor {
   void CancelFrame() override;
   RenderedFrameId EndFrame(const nsTArray<DeviceIntRect>& aDirtyRects) override;
 
+  bool SurfaceOriginIsTopLeft() override { return true; }
+
   LayoutDeviceIntSize GetBufferSize() override;
 
   // Should we support this?

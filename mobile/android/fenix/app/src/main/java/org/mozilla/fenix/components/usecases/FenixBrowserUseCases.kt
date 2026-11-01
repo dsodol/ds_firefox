@@ -63,12 +63,10 @@ class FenixBrowserUseCases(
         // In situations where we want to perform a search but have no search engine (e.g. the user
         // has removed all of them, or we couldn't load any) we will pass searchTermOrURL to Gecko
         // and let it try to load whatever was entered.
-        val isNavigation = !forceSearch && searchTermOrURL.isUrl()
-        if (searchEngine == null || isNavigation) {
-            val url = if (isNavigation) searchTermOrURL.toNormalizedUrl() else searchTermOrURL
+        if (searchEngine == null || (!forceSearch && searchTermOrURL.isUrl())) {
             if (newTab) {
                 tabsUseCases.addTab.invoke(
-                    url = url,
+                    url = searchTermOrURL.toNormalizedUrl(),
                     flags = flags,
                     private = private,
                     historyMetadata = historyMetadata,
@@ -76,7 +74,7 @@ class FenixBrowserUseCases(
                 )
             } else {
                 loadUrlUseCase.invoke(
-                    url = url,
+                    url = searchTermOrURL.toNormalizedUrl(),
                     flags = flags,
                     originalInput = searchTermOrURL,
                 )

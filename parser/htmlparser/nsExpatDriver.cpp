@@ -405,7 +405,7 @@ class MOZ_STACK_CLASS AllocAttrs {
     if (size <= NUM_STACK_SLOTS) {
       return mInlineArr;
     }
-    mHeapPtr = std::make_unique<const char16_t*[]>(size);
+    mHeapPtr = mozilla::MakeUnique<const char16_t*[]>(size);
     return mHeapPtr.get();
   }
 
@@ -783,6 +783,12 @@ int nsExpatDriver::HandleExternalEntityRef(const char16_t* openEntityNames,
                                            const char16_t* base,
                                            const char16_t* systemId,
                                            const char16_t* publicId) {
+  if (mInInternalSubset && !mInExternalDTD && openEntityNames) {
+    mInternalSubset.Append(char16_t('%'));
+    mInternalSubset.Append(nsDependentString(openEntityNames));
+    mInternalSubset.Append(char16_t(';'));
+  }
+
   nsCOMPtr<nsIURI> baseURI = GetBaseURI(base);
   NS_ENSURE_TRUE(baseURI, 1);
 
@@ -1441,7 +1447,7 @@ nsresult nsExpatDriver::ResumeParse(nsScanner& aScanner, bool aIsFinalChunk) {
 mozilla::UniquePtr<mozilla::RLBoxSandboxDataBase>
 RLBoxExpatSandboxPool::CreateSandboxData(uint64_t aSize) {
   // Create expat sandbox
-  auto sandbox = std::make_unique<rlbox_sandbox_expat>();
+  auto sandbox = mozilla::MakeUnique<rlbox_sandbox_expat>();
 
 #ifdef MOZ_WASM_SANDBOXING_EXPAT
   const w2c_mem_capacity capacity =
@@ -1454,7 +1460,8 @@ RLBoxExpatSandboxPool::CreateSandboxData(uint64_t aSize) {
 
   NS_ENSURE_TRUE(create_ok, nullptr);
 
-  auto sbxData = std::make_unique<RLBoxExpatSandboxData>(aSize);
+  mozilla::UniquePtr<RLBoxExpatSandboxData> sbxData =
+      mozilla::MakeUnique<RLBoxExpatSandboxData>(aSize);
 
   // Register callbacks common to both system and non-system principals
   sbxData->mHandleXMLDeclaration =

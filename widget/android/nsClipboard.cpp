@@ -192,11 +192,12 @@ nsClipboard::SetNativeClipboardData(nsITransferable* aTransferable,
       java::Clipboard::AddPayload(sessionId,
                                   NS_ConvertUTF8toUTF16(payload.mMime), arr);
     }
-    if (!java::Clipboard::CommitWriteSession(sessionId, text, html,
-                                             isPrivate)) {
+    if (!java::Clipboard::CommitWriteSession(
+            java::GeckoAppShell::GetApplicationContext(), sessionId, text, html,
+            isPrivate)) {
+      java::Clipboard::CancelWriteSession(sessionId);
       return NS_ERROR_FAILURE;
     }
-
     return NS_OK;
   }
 

@@ -5,10 +5,8 @@
 package org.mozilla.fenix.browser
 
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -16,7 +14,6 @@ import mozilla.components.browser.state.state.SessionState
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.menu.data.MenuItem
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.store.MenuEvent
 import mozilla.components.compose.menu.ui.MenuItemIconRes
@@ -44,19 +41,15 @@ class ForwardMenuItemProvider(
     private val goForward: SessionUseCases.GoForwardUseCase,
     scope: CoroutineScope,
 ) : MenuItemProvider {
-    override val itemsFlow: StateFlow<List<MenuItem>> =
-        if (target == MenuTarget.CustomizeMenu) {
-            MutableStateFlow(listOf(DEFAULT_MENU_ITEM)).asStateFlow()
-        } else {
-            browserStore.stateFlow
-                .distinctUntilChangedBy { target.browserSessionFrom(it)?.content?.canGoForward }
-                .map { listOf(target.browserSessionFrom(it).forwardItem()) }
-                .stateIn(
-                    scope = scope,
-                    started = SharingStarted.Eagerly,
-                    initialValue = listOf(target.browserSessionFrom(browserStore.state).forwardItem()),
-                )
-        }
+    override val itemFlow: StateFlow<MenuItem?> =
+        browserStore.stateFlow
+            .distinctUntilChangedBy { target.browserSessionFrom(it)?.content?.canGoForward }
+            .map { target.browserSessionFrom(it).forwardItem() }
+            .stateIn(
+                scope = scope,
+                started = SharingStarted.Eagerly,
+                initialValue = target.browserSessionFrom(browserStore.state).forwardItem(),
+            )
 
     override fun handles(event: MenuEvent) = event is MenuAction.Navigate.Forward
 
@@ -65,33 +58,23 @@ class ForwardMenuItemProvider(
         val tabId = target.browserSessionFrom(browserStore.state)?.id ?: return
 
         if (event.viewHistory) {
-            menu.navigate(
-                NavGraphDirections.actionGlobalTabHistoryDialogFragment(
-                    activeSessionId = (target as? MenuTarget.CustomTab)?.customTabId
-                )
-            )
+            menu.navigate(NavGraphDirections.actionGlobalTabHistoryDialogFragment(activeSessionId = null))
         } else {
             menu.dismiss()
             goForward(tabId = tabId)
         }
     }
+}
 
-    private fun SessionState?.forwardItem(): MenuItem {
-        val canGoForward = this?.content?.canGoForward ?: false
-        val state = if (canGoForward) MenuItemState.DEFAULT else MenuItemState.DISABLED
+private fun SessionState?.forwardItem(): MenuItem {
+    val canGoForward = this?.content?.canGoForward ?: false
+    val state = if (canGoForward) MenuItemState.DEFAULT else MenuItemState.DISABLED
 
-        return DEFAULT_MENU_ITEM.copy(
-            onClickEvent = MenuAction.Navigate.Forward(viewHistory = false),
-            onLongClickEvent = MenuAction.Navigate.Forward(viewHistory = true),
-            state = state,
-        )
-    }
-
-    companion object {
-        private val DEFAULT_MENU_ITEM =
-            StandardMenuItem(
-                title = MenuItemTitle(Text.Resource(R.string.browser_menu_forward)),
-                icon = MenuItemIconRes(iconsR.drawable.mozac_ic_forward_24),
-            )
-    }
+    return StandardMenuItem(
+        title = Text.Resource(R.string.browser_menu_forward),
+        icon = MenuItemIconRes(iconsR.drawable.mozac_ic_forward_24),
+        onClickEvent = MenuAction.Navigate.Forward(viewHistory = false),
+        onLongClickEvent = MenuAction.Navigate.Forward(viewHistory = true),
+        state = state,
+    )
 }

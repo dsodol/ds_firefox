@@ -12,10 +12,9 @@
 #include "mozilla/ThreadLocal.h"
 #include "mozilla/layers/LayersTypes.h"
 
-class nsICanvasRenderingContextInternal;
-
 namespace mozilla {
 namespace dom {
+class CanvasRenderingContext2D;
 class StrongWorkerRef;
 class ThreadSafeWorkerRef;
 }  // namespace dom
@@ -29,8 +28,8 @@ class CanvasShutdownManager final {
   static void Shutdown();
 
   dom::ThreadSafeWorkerRef* GetWorkerRef() const { return mWorkerRef; }
-  void AddShutdownObserver(nsICanvasRenderingContextInternal* aCanvas);
-  void RemoveShutdownObserver(nsICanvasRenderingContextInternal* aCanvas);
+  void AddShutdownObserver(dom::CanvasRenderingContext2D* aCanvas);
+  void RemoveShutdownObserver(dom::CanvasRenderingContext2D* aCanvas);
 
   static void OnCompositorManagerRestored();
 
@@ -45,13 +44,12 @@ class CanvasShutdownManager final {
   ~CanvasShutdownManager();
   void Destroy();
 
-  std::vector<RefPtr<nsICanvasRenderingContextInternal>> RefActiveCanvas()
-      const;
+  std::vector<RefPtr<dom::CanvasRenderingContext2D>> RefActiveCanvas() const;
 
   static void MaybeRestoreRemoteCanvas();
 
   RefPtr<dom::ThreadSafeWorkerRef> mWorkerRef;
-  std::set<nsICanvasRenderingContextInternal*> mActiveCanvas;
+  std::set<dom::CanvasRenderingContext2D*> mActiveCanvas;
   static MOZ_THREAD_LOCAL(CanvasShutdownManager*) sLocalManager;
 
   static StaticMutex sManagersMutex;

@@ -245,22 +245,20 @@ def test_click_navigation(session, url, inline):
     wait.until(assert_page_loaded)
 
 
-@pytest.mark.parametrize("x, y, event_count", [
-    (0, 0, 0),
-    (1, 0, 1),
-    (0, 1, 1),
+@pytest.mark.parametrize("x, y", [
+    (0, 0),
+    (1, 0),
+    (0, 1),
 ], ids=["default value", "x", "y"])
-def test_move_to_position_in_viewport(
-    session, test_actions_page, mouse_chain, x, y, event_count
-):
+def test_move_to_position_in_viewport(session, test_actions_page, mouse_chain, x, y):
     mouse_chain.pointer_move(x, y).perform()
     events = get_events(session)
-    assert len(events) == event_count
+    assert len(events) == 1
 
     # Move again to check that no further mouse move event is emitted.
     mouse_chain.pointer_move(x, y).perform()
     events = get_events(session)
-    assert len(events) == event_count
+    assert len(events) == 1
 
 
 def test_move_to_fractional_position(session, inline, mouse_chain):

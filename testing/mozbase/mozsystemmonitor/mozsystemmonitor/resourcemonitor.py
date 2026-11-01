@@ -112,38 +112,6 @@ _HG_SOURCE_URL_RE = re.compile(
     r"^https?://(?P<host>hg\.mozilla\.org)/(?P<repo>.+?)/rev/(?P<rev>[0-9a-f]+)$"
 )
 
-# When set, monitors don't collect resource usage themselves, and instead
-# append their events, markers and phases as JSON lines to the file it points
-# to, for a monitor in a parent process (e.g. run-task) to merge into its own
-# profile.
-FORWARD_ENV = "MOZ_RESOURCE_MONITOR_FORWARD"
-
-
-def _open_for_append(path):
-    """Open path for writes that are each appended atomically, even when
-    several processes append to it concurrently."""
-    if sys.platform != "win32":
-        return os.open(path, os.O_WRONLY | os.O_APPEND)
-
-    import _winapi
-    import msvcrt
-
-    # O_APPEND seeks to the end before each write on Windows, which isn't
-    # atomic. Writes through a handle that may only append go to the end of
-    # the file atomically.
-    FILE_APPEND_DATA = 0x4
-    FILE_SHARE_READ_WRITE_DELETE = 0x7
-    handle = _winapi.CreateFile(
-        path,
-        FILE_APPEND_DATA,
-        FILE_SHARE_READ_WRITE_DELETE,
-        0,
-        _winapi.OPEN_EXISTING,
-        0,
-        0,
-    )
-    return msvcrt.open_osfhandle(handle, 0)
-
 
 def _parse_hg_source_url(source_url):
     """Return (prefix, rev) for an hg.mozilla.org sourceURL, or (None, None).
@@ -278,25 +246,6 @@ def _poll(pipe, poll_interval=0.1):
         return True
 
 
-def _process_sampling_interval(poll_interval):
-    """Return the minimum interval, in seconds, between samples of the running
-    processes, or None if they shouldn't be sampled.
-
-    MOZ_PROCESS_SAMPLING sets that interval. Sampling processes is expensive
-    when there are many of them, so a larger interval trades the precision of
-    their start and end times for less overhead. 0 disables process sampling,
-    and a value that isn't a number samples them along with everything else.
-    """
-    value = os.environ.get("MOZ_PROCESS_SAMPLING")
-    if not value:
-        return None
-    try:
-        interval = float(value)
-    except ValueError:
-        return poll_interval
-    return interval if interval > 0 else None
-
-
 def _collect(pipe, poll_interval):
     """Collects system metrics.
 
@@ -305,10 +254,7 @@ def _collect(pipe, poll_interval):
     """
 
     processes = []
-    process_sampling_interval = _process_sampling_interval(poll_interval)
-    known_processes = dict()
-    # Processes that were already running when monitoring started.
-    initial_processes = set()
+    sample_processes = "MOZ_PROCESS_SAMPLING" in os.environ
 
     try:
         # Establish initial values.
@@ -325,46 +271,20 @@ def _collect(pipe, poll_interval):
 
         sleep_interval = poll_interval
 
-        last_process_sample = None
+        known_processes = dict()
 
-        # On Linux, psutil's boot time comes from the btime field of
-        # /proc/stat, which is truncated to whole seconds. This shifts
-        # process creation times earlier by up to one second.
-        create_time_correction = 0
-        if process_sampling_interval is not None and sys.platform.startswith("linux"):
-            create_time_correction = min(
-                max(
-                    time.time()
-                    - time.clock_gettime(time.CLOCK_BOOTTIME)
-                    - psutil.boot_time(),
-                    0,
-                ),
-                1,
-            )
+        def update_known_processes():
+            nonlocal known_processes
 
-        def update_known_processes(force=False):
-            nonlocal known_processes, last_process_sample
-
-            if process_sampling_interval is None:
+            if not sample_processes:
                 return
-            now = time.monotonic()
-            # Polls are not evenly spaced, so allow for half a poll of slack
-            # to not skip polls when the interval is a multiple of it.
-            if (
-                not force
-                and last_process_sample is not None
-                and now - last_process_sample + poll_interval / 2
-                < process_sampling_interval
-            ):
-                return
-            last_process_sample = now
 
             updated_known_processes = dict()
             for p in psutil.process_iter():
                 pid = p.pid
                 try:
                     with p.oneshot():
-                        create_time = p.create_time() + create_time_correction
+                        create_time = p.create_time()
                         # Zombies have exited, they just haven't been waited
                         # for by their parent yet.
                         if p.status() == psutil.STATUS_ZOMBIE:
@@ -380,13 +300,6 @@ def _collect(pipe, poll_interval):
                     cmd = []
                     try:
                         cmd = p.cmdline()
-                    except psutil.AccessDenied:
-                        # e.g. processes from other users on Windows and
-                        # macOS, whose name is usually still available.
-                        try:
-                            cmd = [p.name()]
-                        except Exception as e:
-                            cmd = ["exception", str(e)]
                     except Exception as e:
                         cmd = ["exception", str(e)]
                     ppid = 0
@@ -402,9 +315,6 @@ def _collect(pipe, poll_interval):
             known_processes = updated_known_processes
 
         update_known_processes()
-        initial_processes = {
-            (pid, create_time) for pid, (create_time, _, _) in known_processes.items()
-        }
 
         while not _poll(pipe, poll_interval=sleep_interval):
             io = get_disk_io_counters()
@@ -457,21 +367,10 @@ def _collect(pipe, poll_interval):
             last_time = measured_end_time
             sleep_interval = max(poll_interval / 2, poll_interval - collection_overhead)
 
-        # Take a last sample so that processes started since the previous one
-        # are recorded as still running.
-        update_known_processes(force=True)
-
     except Exception as e:
-        warnings.warn(f"_collect failed: {e}")
+        warnings.warn("_collect failed: %s" % e)
 
     finally:
-        # Record the processes that started while monitoring and are still
-        # running.
-        stop_time = time.time()
-        for pid, (create_time, cmd, ppid) in known_processes.items():
-            if (pid, create_time) not in initial_processes:
-                processes.append((pid, create_time, stop_time, cmd, ppid))
-
         for pid, create_time, end_time, cmd, ppid in processes:
             if len(cmd) > 0:
                 cmd[0] = os.path.basename(cmd[0])
@@ -611,14 +510,11 @@ class SystemResourceMonitor:
     def _format_percent(value):
         return str(round(value, 1)) + "%"
 
-    def __init__(self, poll_interval=1.0, metadata=None, forward_to=None):
+    def __init__(self, poll_interval=1.0, metadata={}):
         """Instantiate a system resource monitor instance.
 
         The instance is configured with a poll interval. This is the interval
         between samples, in float seconds.
-
-        forward_to is the file to forward records to instead of collecting
-        resource usage, overriding FORWARD_ENV.
         """
         self.start_time = None
         self.end_time = None
@@ -691,29 +587,6 @@ class SystemResourceMonitor:
         self._drain_timer = None
         self._pipe_lock = threading.Lock()
 
-        # JSON lines file to forward records to, when a monitor in a parent
-        # process accepts them.
-        self._to_parent_path = forward_to or os.environ.get(FORWARD_ENV)
-        self._to_parent_fd = None
-        # JSON lines file into which monitors in child processes forward their
-        # records, set by accept_forwarded(), and how far it has been read.
-        self._from_children_path = None
-        self._from_children_offset = 0
-        self._from_children_lock = threading.Lock()
-        # Keys in self.phases of phases by (source, name), where source is
-        # None for phases recorded by this monitor, or the pid of the child
-        # process that forwarded them.
-        self._phase_keys = {}
-        # (name, extraOptions, start, end, upload_dir, source) tuples forwarded
-        # by forward_perfherder() in child processes, see perfherder_data().
-        self.perfherder_requests = []
-        # (upload_dir, timestamp, data) artifact events forwarded by child
-        # processes, added when this monitor stops unless its own scan of the
-        # upload directory finds the same file.
-        self._forwarded_artifacts = []
-
-        if metadata is None:
-            metadata = {}
         self.metadata = metadata
         # "hg:<host>/<repo>:" prefix and revision parsed once from the profile
         # metadata's sourceURL, used to wrap repo-relative frame paths into
@@ -721,12 +594,6 @@ class SystemResourceMonitor:
         self._frame_file_prefix, self._frame_file_rev = _parse_hg_source_url(
             metadata.get("sourceURL")
         )
-        self.poll_interval = poll_interval
-
-        if self._to_parent_path:
-            self.start_timestamp = time.time()
-            self.start_time = time.monotonic()
-            return
 
         if psutil is None:
             return
@@ -745,7 +612,7 @@ class SystemResourceMonitor:
             virt = psutil.virtual_memory()
             swap = psutil.swap_memory()
         except Exception as e:
-            warnings.warn(f"psutil failed to run: {e}")
+            warnings.warn("psutil failed to run: %s" % e)
             return
 
         self._cpu_cores = len(cpu_percent)
@@ -767,6 +634,7 @@ class SystemResourceMonitor:
         self._process = multiprocessing.Process(
             target=_collect, args=(child_pipe, poll_interval)
         )
+        self.poll_interval = poll_interval
 
     def __del__(self):
         if self._running:
@@ -795,18 +663,6 @@ class SystemResourceMonitor:
 
         You should only call this once per instance.
         """
-        if self._to_parent_path:
-            try:
-                self._to_parent_fd = _open_for_append(self._to_parent_path)
-            except OSError as e:
-                warnings.warn(f"failed to open {self._to_parent_path}: {e}")
-                return
-            self._running = True
-            self.start_time = time.monotonic()
-            SystemResourceMonitor.instance = self
-            atexit.register(self._atexit_stop)
-            return
-
         if not self._process:
             return
 
@@ -836,33 +692,32 @@ class SystemResourceMonitor:
             upload_dir: Optional path to upload directory for artifact markers.
         """
         atexit.unregister(self._atexit_stop)
-        if not self._process and self._to_parent_fd is None:
+        if not self._process:
             self._stopped = True
             return
 
         self.stop_time = time.monotonic()
         assert not self._stopped
 
-        if self._process:
-            try:
-                self._pipe.send(("terminate",))
-            except Exception:
-                pass
-
-            self._cancel_drain_timer()
-
-            # Drain remaining data from the child process, including the
-            # "done" sentinel and any process entries.
-            self._drain_pipe(until_done=True)
-
-            # We establish a timeout so we don't hang forever if the child
-            # process has crashed.
-            if self._running:
-                self._process.join(10)
-                if self._process.is_alive():
-                    self._process.terminate()
-                    self._process.join(10)
+        try:
+            self._pipe.send(("terminate",))
+        except Exception:
+            pass
         self._stopped = True
+
+        self._cancel_drain_timer()
+
+        # Drain remaining data from the child process, including the
+        # "done" sentinel and any process entries.
+        self._drain_pipe(until_done=True)
+
+        # We establish a timeout so we don't hang forever if the child
+        # process has crashed.
+        if self._running:
+            self._process.join(10)
+            if self._process.is_alive():
+                self._process.terminate()
+                self._process.join(10)
 
         self._running = False
         SystemResourceMonitor.instance = None
@@ -875,7 +730,6 @@ class SystemResourceMonitor:
             self._assertion_parser.flush()
         if self._ubsan_parser is not None:
             self._ubsan_parser.flush()
-        self._read_forwarded()
 
         if self._stream_file:
             self._stream_file.close()
@@ -886,13 +740,6 @@ class SystemResourceMonitor:
             upload_dir = os.environ.get("UPLOAD_DIR") or os.environ.get(
                 "MOZ_UPLOAD_DIR"
             )
-        if upload_dir:
-            upload_dir = os.path.realpath(upload_dir)
-        forwarded_artifacts = {
-            (child_upload_dir, marker_data["filename"]): (timestamp, marker_data)
-            for child_upload_dir, timestamp, marker_data in self._forwarded_artifacts
-        }
-        self._forwarded_artifacts = []
         if upload_dir and os.path.isdir(upload_dir):
             try:
                 for filename in os.listdir(upload_dir):
@@ -905,48 +752,13 @@ class SystemResourceMonitor:
                             "filename": filename,
                             "size": stat.st_size,
                         }
-                        if self._to_parent_path:
-                            self._forward([
-                                "artifact",
-                                upload_dir,
-                                timestamp,
-                                marker_data,
-                            ])
-                        else:
-                            self._add_event("artifact", timestamp, marker_data)
+                        self.events.append((timestamp, "artifact", marker_data))
 
-                        # Parse sccache.log if found, unless a child process
-                        # already did.
-                        if (
-                            filename == "sccache.log"
-                            and (upload_dir, filename) not in forwarded_artifacts
-                        ):
+                        # Parse sccache.log if found
+                        if filename == "sccache.log":
                             self._parse_sccache_log(filepath)
-                        # This monitor's own record of the file supersedes
-                        # one forwarded by a child process.
-                        forwarded_artifacts.pop((upload_dir, filename), None)
             except Exception as e:
                 warnings.warn(f"Failed to scan upload directory: {e}")
-        # Files a child process saw that this monitor didn't, because they
-        # are in another directory or were moved out of this one.
-        for timestamp, marker_data in forwarded_artifacts.values():
-            self._add_event("artifact", timestamp, marker_data)
-
-        if self._to_parent_fd is not None:
-            os.close(self._to_parent_fd)
-            self._to_parent_fd = None
-
-    @property
-    def forwarding(self):
-        """Whether this monitor forwards its events, markers and phases to a
-        monitor in a parent process rather than collecting resource usage."""
-        return bool(self._to_parent_path)
-
-    @property
-    def children_forward_path(self):
-        """The file monitors in child processes should forward their records
-        to for them to end up in the same profile as this monitor's, if any."""
-        return self._to_parent_path or self._from_children_path
 
     def start_streaming(self, path):
         """Start streaming profile data to a file as JSON lines.
@@ -955,8 +767,6 @@ class SystemResourceMonitor:
         then one line per marker. The file is meant to be replaced with
         the full serialized profile on normal shutdown.
         """
-        if self._to_parent_path:
-            return
         self._stream_file = open(path, "w", encoding="utf-8", newline="\n")
         meta = {"type": "meta"}
         meta.update(self._build_meta())
@@ -997,18 +807,7 @@ class SystemResourceMonitor:
 
     def _drain_pipe_locked(self, until_done):
         poll_interval = 0.1 if until_done else 0
-        deadline = time.monotonic() + 10
-        while True:
-            # The collector may take a while to send the remaining data, e.g.
-            # when it receives the termination request while enumerating
-            # processes, so keep waiting for it as long as it's alive.
-            alive = (
-                until_done and self._process.is_alive() and time.monotonic() < deadline
-            )
-            if not _poll(self._pipe, poll_interval=poll_interval):
-                if alive:
-                    continue
-                break
+        while _poll(self._pipe, poll_interval=poll_interval):
             try:
                 (
                     start_time,
@@ -1022,7 +821,7 @@ class SystemResourceMonitor:
                 ) = self._pipe.recv()
             except Exception as e:
                 if not self._stopped:
-                    warnings.warn(f"failed to receive data: {e}")
+                    warnings.warn("failed to receive data: %s" % e)
                 break
 
             if start_time == "process":
@@ -1051,7 +850,8 @@ class SystemResourceMonitor:
                 self._stream_measurement(m)
             except Exception:
                 warnings.warn(
-                    "failed to read the received data: {}".format((
+                    "failed to read the received data: %s"
+                    % str((
                         start_time,
                         end_time,
                         io_diff,
@@ -1086,72 +886,7 @@ class SystemResourceMonitor:
 
     def _on_drain_timer(self):
         self._drain_pipe()
-        self._read_forwarded()
         self._schedule_drain_timer()
-
-    def accept_forwarded(self, path):
-        """Merge the events, markers and phases that monitors in child
-        processes append to the given file, which should be exported to them
-        as FORWARD_ENV. Does nothing if this monitor isn't running."""
-        if not self._running:
-            return
-        self._from_children_path = path
-
-    def _forward(self, record):
-        if self._to_parent_fd is None:
-            if self._to_parent_path and self._stopped:
-                warnings.warn(f"failed to forward {record[0]}: monitor is stopped")
-            return
-        line = json.dumps(record, separators=(",", ":")) + "\n"
-        try:
-            os.write(self._to_parent_fd, line.encode("utf-8"))
-        except (OSError, TypeError, ValueError) as e:
-            warnings.warn(f"failed to forward {record[0]}: {e}")
-
-    def _read_forwarded(self):
-        if not self._from_children_path:
-            return
-        with self._from_children_lock:
-            try:
-                with open(self._from_children_path, "rb") as fh:
-                    fh.seek(self._from_children_offset)
-                    data = fh.read()
-            except OSError:
-                return
-            # Leave incomplete lines to the next read.
-            data = data[: data.rfind(b"\n") + 1]
-            self._from_children_offset += len(data)
-            for line in data.splitlines():
-                try:
-                    kind, *args = json.loads(line)
-                    if kind == "event":
-                        self._add_event(*args)
-                    elif kind == "marker":
-                        self._add_marker(*args)
-                    elif kind == "phase":
-                        self._add_phase(*args)
-                    elif kind == "perfherder":
-                        self.perfherder_requests.append(tuple(args))
-                    elif kind == "artifact":
-                        self._forwarded_artifacts.append(tuple(args))
-                except Exception as e:
-                    warnings.warn(f"failed to read forwarded record {line!r}: {e}")
-
-    def _add_phase(self, name, start, end, source=None):
-        key = name
-        n = 1
-        while key in self.phases or key in self._active_phases:
-            n += 1
-            key = f"{name} ({n})"
-        self.phases[key] = (start, end)
-        self._phase_keys[(source, name)] = key
-        self._stream_marker(
-            "Phase",
-            start,
-            end,
-            {"type": "Phase", "phase": key},
-            self.PHASE_CATEGORY,
-        )
 
     def _stream_marker(self, name, start, end, data, category=0):
         if not self._stream_file:
@@ -1268,13 +1003,13 @@ class SystemResourceMonitor:
                     if "write_time" in data:
                         marker_data["write_time"] = data["write_time"]
 
-                self._add_marker(
+                self.markers.append((
                     "sccache",
                     data["start_time"],
                     data["end_time"],
                     marker_data,
                     self.TASK_CATEGORY,
-                )
+                ))
 
         except Exception as e:
             warnings.warn(f"Failed to parse sccache.log: {e}")
@@ -1284,7 +1019,7 @@ class SystemResourceMonitor:
             num_markers = len(compilations)
             # Add as a duration marker
             if num_markers > 0:
-                self._add_marker(
+                self.markers.append((
                     "sccache parsing",
                     parse_start,
                     parse_end,
@@ -1293,14 +1028,11 @@ class SystemResourceMonitor:
                         "text": f"Parsed {num_markers} sccache entries from log",
                     },
                     self.TASK_CATEGORY,
-                )
+                ))
 
     # Methods to record events alongside the monitored data.
 
     def _add_event(self, name, timestamp, data=None):
-        if self._to_parent_path:
-            self._forward(["event", name, timestamp, data])
-            return
         if data:
             self.events.append((timestamp, name, data))
             self._stream_marker(name, timestamp, None, data)
@@ -1309,9 +1041,6 @@ class SystemResourceMonitor:
             self._stream_marker(name, timestamp, None, {"type": "Text", "text": name})
 
     def _add_marker(self, name, start, end, data, category=TASK_CATEGORY):
-        if self._to_parent_path:
-            self._forward(["marker", name, start, end, data, category])
-            return
         self.markers.append((name, start, end, data, category))
         markerData = (
             data if isinstance(data, dict) else {"type": "Text", "text": str(data)}
@@ -2284,86 +2013,21 @@ class SystemResourceMonitor:
 
         assert name in self._active_phases
 
-        start = self._active_phases.pop(name)
-        end = time.monotonic()
-        self._add_phase(name, start, end)
-        self._forward(["phase", name, start, end, os.getpid()])
+        phase = (self._active_phases[name], time.monotonic())
+        self.phases[name] = phase
+        del self._active_phases[name]
 
-        return end - start
+        self._stream_marker(
+            "Phase",
+            phase[0],
+            phase[1],
+            {"type": "Phase", "phase": name},
+            self.PHASE_CATEGORY,
+        )
 
-    def forward_perfherder(self, name, extra_options, upload_dir=None):
-        """Ask the parent monitor to report job_resource_usage Perfherder
-        data covering the time this monitor ran, see perfherder_data().
-        This must be called before stop().
-
-        The data is written to perfherder-data-resource-usage.json in
-        upload_dir if given."""
-        self._forward([
-            "perfherder",
-            name,
-            extra_options,
-            self.start_time,
-            time.monotonic(),
-            upload_dir,
-            os.getpid(),
-        ])
+        return phase[1] - phase[0]
 
     # Methods to query data.
-
-    def perfherder_data(self, name, extra_options, start=None, end=None, source=None):
-        """Build job_resource_usage Perfherder data for the given range, with
-        an overall suite, and a suite for each phase within that range that
-        was recorded by this monitor, or forwarded by the child process whose
-        pid is source."""
-        if start is None:
-            start = self.start_time
-        if end is None:
-            end = self.end_time
-
-        overall = []
-        cpu_percent = self.aggregate_cpu_percent(start, end, per_cpu=False)
-        if cpu_percent:
-            overall.append({"name": "cpu_percent", "value": cpu_percent})
-
-        io = self.aggregate_io(start, end)
-        overall.extend([
-            {"name": "io_write_bytes", "value": io.write_bytes},
-            {"name": "io.read_bytes", "value": io.read_bytes},
-            {"name": "io_write_time", "value": io.write_time},
-            {"name": "io_read_time", "value": io.read_time},
-        ])
-
-        suites = [
-            {
-                "name": f"{name}.overall",
-                "extraOptions": extra_options,
-                "subtests": overall,
-            }
-        ]
-
-        for (phase_source, phase), key in self._phase_keys.items():
-            if phase_source != source:
-                continue
-            phase_start, phase_end = self.phases[key]
-            if phase_start < start or phase_end > end:
-                continue
-            subtests = [{"name": "time", "value": phase_end - phase_start}]
-            cpu_percent = self.aggregate_cpu_percent(phase=key, per_cpu=False)
-            if cpu_percent is not None:
-                subtests.append({"name": "cpu_percent", "value": cpu_percent})
-
-            # We don't report I/O during each step because measured I/O
-            # is system I/O and that I/O can be delayed (e.g. writes will
-            # buffer before being flushed and recorded in our metrics).
-            suites.append({
-                "name": f"{name}.{phase}",
-                "subtests": subtests,
-            })
-
-        return {
-            "framework": {"name": "job_resource_usage"},
-            "suites": suites,
-        }
 
     def range_usage(self, start=None, end=None):
         """Obtain the usage data falling within the given time range.
@@ -2414,10 +2078,10 @@ class SystemResourceMonitor:
                 end_time = t
 
         if start_time is None:
-            raise Exception(f"Could not find start event: {start_event}")
+            raise Exception("Could not find start event: %s" % start_event)
 
         if end_time is None:
-            raise Exception(f"Could not find end event: {end_event}")
+            raise Exception("Could not find end event: %s" % end_event)
 
         return self.range_usage(start_time, end_time)
 
@@ -3841,22 +3505,3 @@ class SystemResourceMonitor:
         # or after that (hopefully, exit) is not going to be counted, but we
         # assume it's fast enough.
         return profile
-
-
-def _forget_monitor_after_fork():
-    # The process collecting resource usage, and the pipe to it, belong to the
-    # parent. Stopping the inherited monitor would stop the parent's collection,
-    # or deadlock on a lock held by one of the parent's threads, and keeping the
-    # pipe open would keep the collection going if the parent exits without
-    # stopping it.
-    monitor = SystemResourceMonitor.instance
-    if monitor is not None:
-        monitor._running = False
-        if monitor._process:
-            monitor._pipe.close()
-            monitor._process = None
-        SystemResourceMonitor.instance = None
-
-
-if hasattr(os, "register_at_fork"):
-    os.register_at_fork(after_in_child=_forget_monitor_after_fork)

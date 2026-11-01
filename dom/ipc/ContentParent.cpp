@@ -55,9 +55,6 @@
 #include "mozilla/PageloadEvent.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/PresShell.h"
-#ifdef MOZ_WIDGET_ANDROID
-#  include "mozilla/ProcInfoParent.h"
-#endif
 #include "mozilla/ProcessHangMonitor.h"
 #include "mozilla/ProcessHangMonitorIPC.h"
 #include "mozilla/ProfilerLabels.h"
@@ -157,9 +154,7 @@
 #ifndef ANDROID
 #  include "mozilla/hwinference/HWInferenceParent.h"
 #  include "mozilla/hwinference/HWInferenceProcess.h"
-#  ifdef MOZ_WEBSPEECH
-#    include "mozilla/hwinference/PSpeechRecognitionChild.h"
-#  endif
+#  include "mozilla/hwinference/PSpeechRecognitionChild.h"
 #endif  // !ANDROID
 #include "mozilla/intl/L10nRegistry.h"
 #include "mozilla/intl/LocaleService.h"
@@ -178,7 +173,6 @@
 #include "mozilla/ipc/UtilityProcessManager.h"
 #include "mozilla/layers/CompositorThread.h"
 #include "mozilla/layers/ImageBridgeParent.h"
-#include "mozilla/layers/LayerTreeLog.h"
 #include "mozilla/layers/LayerTreeOwnerTracker.h"
 #include "mozilla/layers/PAPZParent.h"
 #include "mozilla/loader/ScriptCacheActors.h"
@@ -218,7 +212,6 @@
 #include "nsHyphenationManager.h"
 #include "nsIAppShell.h"
 #include "nsIAppWindow.h"
-#include "nsIArray.h"
 #include "nsIAsyncInputStream.h"
 #include "nsIBidiKeyboard.h"
 #include "nsIBrowserDOMWindow.h"
@@ -1566,21 +1559,6 @@ void ContentParent::Init() {
 
   (void)SendInitProfiler(ProfilerParent::CreateForProcess(OtherPid()));
 
-#ifdef MOZ_WIDGET_ANDROID
-  // On Android content processes may be isolated, meaning we must create a
-  // ProcInfoParent to allow GetProcInfo() to query the process info remotely.
-  Endpoint<PProcInfoParent> procInfoParent;
-  Endpoint<PProcInfoChild> procInfoChild;
-  if (NS_SUCCEEDED(PProcInfo::CreateEndpoints(
-          mozilla::ipc::EndpointProcInfo::Current(), OtherEndpointProcInfo(),
-          &procInfoParent, &procInfoChild))) {
-    mProcInfoParent = ProcInfoParent::Create(std::move(procInfoParent));
-    if (mProcInfoParent) {
-      (void)SendInitProcInfo(std::move(procInfoChild));
-    }
-  }
-#endif
-
   RefPtr<GeckoMediaPluginServiceParent> gmps(
       GeckoMediaPluginServiceParent::GetSingleton());
   if (gmps) {
@@ -1905,13 +1883,6 @@ void ContentParent::ActorDestroy(ActorDestroyReason why) {
     mHangMonitorActor = nullptr;
   }
 
-#ifdef MOZ_WIDGET_ANDROID
-  if (mProcInfoParent) {
-    mProcInfoParent->Shutdown();
-    mProcInfoParent = nullptr;
-  }
-#endif
-
   RefPtr<FileSystemSecurity> fss = FileSystemSecurity::Get();
   if (fss) {
     fss->Forget(ChildID());
@@ -2033,7 +2004,7 @@ void ContentParent::ActorDestroy(ActorDestroyReason why) {
   MOZ_LOG(ContentParent::GetLog(), LogLevel::Verbose,
           ("destroying Subprocess in ActorDestroy: ContentParent id=%p "
            "mSubprocess id=%p handle %" PRIuPTR,
-           this, mSubprocess.get(),
+           this, mSubprocess,
            mSubprocess ? (uintptr_t)mSubprocess->GetChildProcessHandle() : -1));
   // FIXME (bug 1520997): does this really need an additional dispatch?
   if (GetCurrentSerialEventTarget()) {
@@ -2043,9 +2014,10 @@ void ContentParent::ActorDestroy(ActorDestroyReason why) {
               ContentParent::GetLog(), LogLevel::Debug,
               ("destroyed Subprocess in ActorDestroy: Subprocess id=%p handle "
                "%" PRIuPTR,
-               subprocess.get(),
+               subprocess,
                subprocess ? (uintptr_t)subprocess->GetChildProcessHandle()
                           : -1));
+          subprocess->Destroy();
         }));
   }
   mSubprocess = nullptr;
@@ -2424,8 +2396,7 @@ bool ContentParent::BeginSubprocessLaunch(ProcessPriority aPriority) {
 
   // Instantiate the pref serializer. It will be cleaned up in
   // `LaunchSubprocessReject`/`LaunchSubprocessResolve`.
-  mPrefSerializer =
-      std::make_unique<mozilla::ipc::SharedPreferenceSerializer>();
+  mPrefSerializer = MakeUnique<mozilla::ipc::SharedPreferenceSerializer>();
   if (!mPrefSerializer->SerializeToSharedMemory(GeckoProcessType_Content,
                                                 GetRemoteType())) {
     NS_WARNING("SharedPreferenceSerializer::SerializeToSharedMemory failed");
@@ -2639,7 +2610,7 @@ ContentParent::ContentParent(const RemoteType& aRemoteType)
 
   MOZ_LOG(ContentParent::GetLog(), LogLevel::Verbose,
           ("CreateSubprocess: ContentParent id=%p mSubprocess id=%p childID=%d",
-           this, mSubprocess.get(), mSubprocess->GetChildID()));
+           this, mSubprocess, mSubprocess->GetChildID()));
 }
 
 ContentParent::~ContentParent() {
@@ -2675,9 +2646,9 @@ ContentParent::~ContentParent() {
         ("DestroySubprocess: ContentParent id=%p childID=%" PRIu64
          " mSubprocess id=%p handle "
          "%" PRIuPTR,
-         this, (uint64_t)this->ChildID(), mSubprocess.get(),
+         this, (uint64_t)this->ChildID(), mSubprocess,
          mSubprocess ? (uintptr_t)mSubprocess->GetChildProcessHandle() : -1));
-    mSubprocess = nullptr;
+    mSubprocess->Destroy();
   }
 }
 
@@ -3164,8 +3135,6 @@ void ContentParent::OnCompositorUnexpectedShutdown() {
 }
 
 void ContentParent::OnCompositorDeviceReset() {
-  LAYERTREE_LOG("Device reset, reinitializing rendering for content {}",
-                ChildID());
   (void)SendReinitRenderingForDeviceReset();
 }
 
@@ -4503,7 +4472,7 @@ void ContentParent::KillHard(const char* aReason) {
         ("KillHard Subprocess(%s): ContentParent id=%p mSubprocess id=%p "
          "handle "
          "%" PRIuPTR,
-         aReason, this, mSubprocess.get(),
+         aReason, this, mSubprocess,
          mSubprocess ? (uintptr_t)mSubprocess->GetChildProcessHandle() : -1));
     mSubprocess->SetAlreadyDead();
   }
@@ -4535,8 +4504,8 @@ void ContentParent::FriendlyName(nsAString& aName, bool aAnonymize) {
 
 mozilla::ipc::IPCResult ContentParent::RecvInitCrashReporter(
     const CrashReporter::CrashReporterInitArgs& aInitArgs) {
-  mCrashReporter = std::make_unique<CrashReporterHost>(
-      GeckoProcessType_Content, OtherChildID(), aInitArgs);
+  mCrashReporter = MakeUnique<CrashReporterHost>(GeckoProcessType_Content,
+                                                 OtherChildID(), aInitArgs);
   return IPC_OK();
 }
 
@@ -4564,7 +4533,7 @@ bool ContentParent::SendRequestMemoryReport(
     const uint32_t& aGeneration, const bool& aAnonymize,
     const bool& aMinimizeMemoryUsage, const Maybe<FileDescriptor>& aDMDFile) {
   // This automatically cancels the previous request.
-  mMemoryReportRequest = std::make_unique<MemoryReportRequestHost>(aGeneration);
+  mMemoryReportRequest = MakeUnique<MemoryReportRequestHost>(aGeneration);
   RefPtr<ContentParent> self(this);
   PContentParent::SendRequestMemoryReport(aGeneration, aAnonymize,
                                           aMinimizeMemoryUsage, aDMDFile)
@@ -4643,6 +4612,16 @@ mozilla::ipc::IPCResult ContentParent::RecvInitStreamFilter(
             aResolver(mozilla::ipc::Endpoint<PStreamFilterChild>());
           });
 
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvAddSecurityState(
+    const MaybeDiscarded<WindowContext>& aContext, uint32_t aStateFlags) {
+  if (aContext.IsNullOrDiscarded()) {
+    return IPC_OK();
+  }
+
+  aContext.get()->AddSecurityState(aStateFlags);
   return IPC_OK();
 }
 
@@ -4868,7 +4847,7 @@ static int32_t AddGeolocationListener(
     nsIDOMGeoPositionErrorCallback* errorCallBack, bool highAccuracy) {
   RefPtr<Geolocation> geo = Geolocation::NonWindowSingleton();
 
-  auto options = std::make_unique<PositionOptions>();
+  UniquePtr<PositionOptions> options = MakeUnique<PositionOptions>();
   options->mTimeout = 0;
   options->mMaximumAge = 0;
   options->mEnableHighAccuracy = highAccuracy;
@@ -5228,7 +5207,6 @@ mozilla::ipc::IPCResult ContentParent::RecvAcquireHWInferenceProcess() {
   return IPC_OK();
 }
 
-#  ifdef MOZ_WEBSPEECH
 mozilla::ipc::IPCResult ContentParent::RecvCreateSpeechRecognition(
     Endpoint<hwinference::PSpeechRecognitionParent>&& aEndpoint) {
   if (!mHWInferenceConnections) {
@@ -5248,7 +5226,6 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateSpeechRecognition(
       ->StartContentSpeechRecognition(std::move(aEndpoint), mChildID);
   return IPC_OK();
 }
-#  endif  // MOZ_WEBSPEECH
 
 mozilla::ipc::IPCResult ContentParent::RecvReleaseHWInferenceConnection() {
   if (mHWInferenceConnections == 0) {
@@ -5806,13 +5783,13 @@ mozilla::ipc::IPCResult ContentParent::RecvBeginDriverCrashGuard(
   UniquePtr<gfx::DriverCrashGuard> guard;
   switch (aGuardType) {
     case gfx::CrashGuardType::D3D11Layers:
-      guard = std::make_unique<gfx::D3D11LayersCrashGuard>(this);
+      guard = MakeUnique<gfx::D3D11LayersCrashGuard>(this);
       break;
     case gfx::CrashGuardType::GLContext:
-      guard = std::make_unique<gfx::GLContextCrashGuard>(this);
+      guard = MakeUnique<gfx::GLContextCrashGuard>(this);
       break;
     case gfx::CrashGuardType::WMFVPXVideo:
-      guard = std::make_unique<gfx::WMFVPXVideoCrashGuard>(this);
+      guard = MakeUnique<gfx::WMFVPXVideoCrashGuard>(this);
       break;
     default:
       return IPC_FAIL(this, "unknown crash guard type");
@@ -5914,10 +5891,8 @@ mozilla::ipc::IPCResult ContentParent::RecvStoreAndBroadcastBlobURLRegistration(
     return IPC_FAIL(this, "Blob deserialization failed.");
   }
 
-  if (NS_FAILED(BlobURLProtocolHandler::AddDataEntryParent(
-          aURI, aPrincipal, aPartitionKey, blobImpl, ChildID()))) {
-    return IPC_FAIL(this, "Conflicting Blob URL principal");
-  }
+  BlobURLProtocolHandler::AddDataEntryParent(aURI, aPrincipal, aPartitionKey,
+                                             blobImpl, ChildID());
   BroadcastBlobURLRegistration(aURI, blobImpl, aPrincipal, aPartitionKey, this);
 
   return IPC_OK();
@@ -6986,10 +6961,6 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateBrowsingContext(
     if (!opener) {
       return IPC_FAIL(this, "Opener doesn't exist in parent process");
     }
-  }
-
-  if (opener && !opener->Group()->IsKnownForChildID(ChildID())) {
-    return IPC_FAIL(this, "Should be subscribed to the opener's group");
   }
 
   RefPtr<BrowsingContext> child = BrowsingContext::Get(aInit.mId);

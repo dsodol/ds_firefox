@@ -261,6 +261,11 @@ void JSRuntime::destroyRuntime() {
 
   gc.finish();
 
+  for (auto [f, data] : cleanupClosures.ref()) {
+    f(data);
+  }
+  cleanupClosures.ref().clear();
+
   js_delete(jitRuntime_.ref());
 
 #ifdef DEBUG
@@ -843,21 +848,21 @@ void JSRuntime::startRecordingAllocations(
 
   // Go through all of the existing realms, and turn on allocation tracking.
   for (RealmsIter realm(this); !realm.done(); realm.next()) {
-    realm->enableAllocationMetadataBuilder();
+    realm->setAllocationMetadataBuilder(&SavedStacks::metadataBuilder);
     realm->chooseAllocationSamplingProbability();
   }
 }
 
 void JSRuntime::stopRecordingAllocations() {
   recordAllocationCallback = nullptr;
-  // Go through all of the existing realms, and turn off allocation tracking.
+  // Go through all of the existing realms, and turn on allocation tracking.
   for (RealmsIter realm(this); !realm.done(); realm.next()) {
     js::GlobalObject* global = realm->maybeGlobal();
     if (!realm->isDebuggee() || !global ||
         !DebugAPI::isObservedByDebuggerTrackingAllocations(*global)) {
-      // Only disable the allocation metadata builder if no Debuggers are
+      // Only remove the allocation metadata builder if no Debuggers are
       // tracking allocations.
-      realm->disableAllocationMetadataBuilder();
+      realm->forgetAllocationMetadataBuilder();
     }
   }
 }
@@ -867,7 +872,11 @@ void JSRuntime::stopRecordingAllocations() {
 void JSRuntime::ensureRealmIsRecordingAllocations(
     Handle<GlobalObject*> global) {
   if (recordAllocationCallback) {
-    global->realm()->enableAllocationMetadataBuilder();
+    if (!global->realm()->isRecordingAllocations()) {
+      // This is a new realm, turn on allocations for it.
+      global->realm()->setAllocationMetadataBuilder(
+          &SavedStacks::metadataBuilder);
+    }
     // Ensure the probability is up to date with the current combination of
     // debuggers and runtime profiling.
     global->realm()->chooseAllocationSamplingProbability();

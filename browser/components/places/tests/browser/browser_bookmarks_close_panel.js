@@ -21,13 +21,13 @@ registerCleanupFunction(async () => {
 
 add_task(async function test_close_bookmarks_panel() {
   let sidebarBox = document.getElementById("sidebar-box");
+  let sidebar = document.getElementById("sidebar");
   ok(sidebarBox.hidden, "The sidebar should be hidden");
 
   await SidebarTestUtils.showPanel(window, "viewBookmarksSidebar");
   ok(!sidebarBox.hidden, "The sidebar is shown");
 
-  SidebarController.panelHeader.closeButton.click();
-  await SidebarController.waitUntilStable();
+  sidebar.contentDocument.getElementById("sidebar-panel-close").click();
   ok(sidebarBox.hidden, "The sidebar should be hidden");
 });
 
@@ -43,22 +43,21 @@ add_task(async function test_switch_from_legacy_bookmarks_panel() {
   });
 
   await SidebarTestUtils.showPanel(window, "viewBookmarksSidebar");
-  const switcher = await TestUtils.waitForCondition(
-    () =>
-      BrowserTestUtils.isVisible(SidebarController.panelHeader.switcher) &&
-      SidebarController.panelHeader.switcher,
-    "The panel switcher is visible."
-  );
+  const { contentDocument, contentWindow } = SidebarController.browser;
+  await contentWindow.gDeferredSwitcherLoad.promise;
+  const switcher = contentDocument.querySelector("sidebar-panel-switcher");
   await BrowserTestUtils.waitForMutationCondition(
     switcher.shadowRoot,
     { characterData: true, childList: true, subtree: true },
     () => switcher.label,
     { msg: "The switcher is labelled." }
   );
+  Assert.ok(BrowserTestUtils.isVisible(switcher), "Panel switcher is visible");
 
   const listShown = BrowserTestUtils.waitForEvent(switcher.panelList, "shown");
-  EventUtils.synthesizeMouseAtCenter(switcher.button, {}, window);
+  EventUtils.synthesizeMouseAtCenter(switcher.button, {}, contentWindow);
   await listShown;
+  await switcher.updateComplete;
 
   const { label } = (await SidebarController.getRevampSwitcherItems()).find(
     ({ view }) => view === "viewHistorySidebar"
@@ -68,7 +67,7 @@ add_task(async function test_switch_from_legacy_bookmarks_panel() {
   );
   Assert.ok(historyItem, "History is available in the switcher");
   const sidebarShown = BrowserTestUtils.waitForEvent(window, "SidebarShown");
-  EventUtils.synthesizeMouseAtCenter(historyItem, {}, window);
+  EventUtils.synthesizeMouseAtCenter(historyItem, {}, contentWindow);
   await sidebarShown;
   Assert.equal(
     SidebarController.currentID,

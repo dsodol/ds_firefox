@@ -90,7 +90,7 @@ class Wrapper {
   LockNSPR handleMapMutex;
 
  public:
-  Wrapper() = default;
+  Wrapper() {}
 
   typename T::Ptr wrap(typename T::Handle handle) {
     AutoLockNSPR lock(handleMapMutex);

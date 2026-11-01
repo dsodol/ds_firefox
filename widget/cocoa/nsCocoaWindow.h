@@ -487,7 +487,7 @@ class nsCocoaWindow final : public nsIWidget {
   NSWindow* GetCocoaWindow() { return [[mWindow retain] autorelease]; }
 
   void SetMenuBar(RefPtr<nsMenuBarX>&& aMenuBar);
-  already_AddRefed<nsMenuBarX> GetMenuBar();
+  nsMenuBarX* GetMenuBar();
 
   void SetInputContext(const InputContext& aContext,
                        const InputContextAction& aAction) override;
@@ -670,7 +670,6 @@ class nsCocoaWindow final : public nsIWidget {
   // period, we presume the window is visible, which prevents us from sending
   // unnecessary OcclusionStateChanged events.
   bool mHasStartedNativeFullscreen;
-  bool mIsWaitingForFullscreenVisibility = false;
 
   bool mModal = false;
   bool mIsAnimationSuppressed = false;

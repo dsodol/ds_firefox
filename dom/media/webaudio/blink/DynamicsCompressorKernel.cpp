@@ -36,6 +36,7 @@
 #include "mozilla/FloatingPoint.h"
 
 using namespace mozilla::dom;  // for WebAudioUtils
+using mozilla::MakeUnique;
 using mozilla::PositiveInfinity;
 
 namespace WebCore {
@@ -86,8 +87,7 @@ void DynamicsCompressorKernel::setNumberOfChannels(unsigned numberOfChannels) {
 
   m_preDelayBuffers.Clear();
   for (unsigned i = 0; i < numberOfChannels; ++i)
-    m_preDelayBuffers.AppendElement(
-        std::make_unique<float[]>(MaxPreDelayFrames));
+    m_preDelayBuffers.AppendElement(MakeUnique<float[]>(MaxPreDelayFrames));
 }
 
 void DynamicsCompressorKernel::setPreDelayTime(float preDelayTime) {

@@ -570,7 +570,7 @@ nsISerialEventTarget* GetCurrentSerialEventTarget() {
     return nullptr;
   }
 
-  return thread.get();
+  return thread;
 }
 
 nsISerialEventTarget* GetMainThreadSerialEventTarget() {

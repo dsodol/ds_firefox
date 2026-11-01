@@ -148,7 +148,7 @@ class EMEDecryptor final : public MediaDataDecoder,
     }
 
     const auto& decrypt = mDecrypts.InsertOrUpdate(
-        aSample, std::make_unique<DecryptPromiseRequestHolder>());
+        aSample, MakeUnique<DecryptPromiseRequestHolder>());
     mProxy->Decrypt(aSample)
         ->Then(mThread, __func__, this, &EMEDecryptor::Decrypted,
                &EMEDecryptor::Decrypted)
@@ -404,10 +404,11 @@ EMEDecoderModule::AsyncCreateDecoder(const CreateDecoderParams& aParams) {
   if (aParams.mConfig.IsVideo()) {
     if (StaticPrefs::media_eme_video_blank()) {
       EME_LOG(
-          "EMEDecoderModule::AsyncCreateDecoder() creating a blank video "
-          "decoder.");
+          "EMEDecoderModule::CreateVideoDecoder() creating a blank decoder.");
       RefPtr<PlatformDecoderModule> m(BlankDecoderModule::Create());
-      return m->AsyncCreateDecoder(aParams);
+      RefPtr<MediaDataDecoder> decoder = m->CreateVideoDecoder(aParams);
+      return EMEDecoderModule::CreateDecoderPromise::CreateAndResolve(decoder,
+                                                                      __func__);
     }
 
     const bool gmpSupported =
@@ -463,18 +464,18 @@ EMEDecoderModule::AsyncCreateDecoder(const CreateDecoderParams& aParams) {
   MOZ_ASSERT(mPDM);
 
   if (StaticPrefs::media_eme_audio_blank()) {
-    EME_LOG(
-        "EMEDecoderModule::AsyncCreateDecoder() creating a blank audio "
-        "decoder.");
+    EME_LOG("EMEDecoderModule::CreateAudioDecoder() creating a blank decoder.");
     RefPtr<PlatformDecoderModule> m(BlankDecoderModule::Create());
-    return m->AsyncCreateDecoder(aParams);
+    RefPtr<MediaDataDecoder> decoder = m->CreateAudioDecoder(aParams);
+    return EMEDecoderModule::CreateDecoderPromise::CreateAndResolve(decoder,
+                                                                    __func__);
   }
 
   UniquePtr<ADTSSampleConverter> converter = nullptr;
   if (MP4Decoder::IsAAC(aParams.mConfig.mMimeType)) {
     // The CDM expects encrypted AAC to be in ADTS format.
     // See bug 1433344.
-    converter = std::make_unique<ADTSSampleConverter>(aParams.AudioConfig());
+    converter = MakeUnique<ADTSSampleConverter>(aParams.AudioConfig());
   }
 
   RefPtr<EMEDecoderModule::CreateDecoderPromise> p =

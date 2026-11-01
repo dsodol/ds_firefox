@@ -33,11 +33,10 @@ FINAL_LIBRARY = "xul"
 
 XPCSHELL_TESTS_MANIFESTS += ["tests/xpcshell/xpcshell.toml"]
 BROWSER_CHROME_MANIFESTS += ["tests/browser/browser.toml"]
-MOCHITEST_MANIFESTS += ["tests/mochitest/mochitest.toml"]
 
 # Platform-specific implementations of `ProcInfo`.
 toolkit = CONFIG["MOZ_WIDGET_TOOLKIT"]
-if toolkit == "gtk":
+if toolkit == "gtk" or toolkit == "android":
     if CONFIG["OS_TARGET"] in ("FreeBSD", "OpenBSD"):
         UNIFIED_SOURCES += ["ProcInfo_bsd.cpp"]
     elif CONFIG["OS_TARGET"] == "SunOS":
@@ -55,19 +54,5 @@ elif toolkit == "windows":
     ]
 elif toolkit in ("cocoa", "uikit"):
     UNIFIED_SOURCES += ["ProcInfo.mm"]
-elif toolkit == "android":
-    EXPORTS.mozilla += [
-        "ProcInfoChild.h",
-        "ProcInfoIPCUtils.h",
-        "ProcInfoParent.h",
-    ]
-
-    UNIFIED_SOURCES += [
-        "ProcInfo_linux.cpp",
-        "ProcInfoChild.cpp",
-        "ProcInfoParent.cpp",
-    ]
-
-    IPDL_SOURCES += ["PProcInfo.ipdl"]
 
 include("/ipc/chromium/chromium-config.mozbuild")

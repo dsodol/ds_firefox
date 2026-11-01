@@ -25,12 +25,11 @@ void LSWriteOptimizer<T, U>::InsertItem(const nsAString& aKey, const T& aValue,
       // deletion followed by an insertion. We use the UpdateWithMove flag for
       // this.
 
-      entry.Update(
-          std::make_unique<UpdateItemInfo>(NextSerialNumber(), aKey, aValue,
-                                           /* aUpdateWithMove */ true));
+      entry.Update(MakeUnique<UpdateItemInfo>(NextSerialNumber(), aKey, aValue,
+                                              /* aUpdateWithMove */ true));
     } else {
       entry.InsertOrUpdate(
-          std::make_unique<InsertItemInfo>(NextSerialNumber(), aKey, aValue));
+          MakeUnique<InsertItemInfo>(NextSerialNumber(), aKey, aValue));
     }
   });
 
@@ -45,11 +44,11 @@ void LSWriteOptimizer<T, U>::UpdateItem(const nsAString& aKey, const T& aValue,
   mWriteInfos.WithEntryHandle(aKey, [&](auto&& entry) {
     if (entry && entry.Data()->GetType() == WriteInfo::InsertItem) {
       entry.Update(
-          std::make_unique<InsertItemInfo>(NextSerialNumber(), aKey, aValue));
+          MakeUnique<InsertItemInfo>(NextSerialNumber(), aKey, aValue));
     } else {
       entry.InsertOrUpdate(
-          std::make_unique<UpdateItemInfo>(NextSerialNumber(), aKey, aValue,
-                                           /* aUpdateWithMove */ false));
+          MakeUnique<UpdateItemInfo>(NextSerialNumber(), aKey, aValue,
+                                     /* aUpdateWithMove */ false));
     }
   });
 

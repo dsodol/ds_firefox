@@ -82,7 +82,7 @@ function formatInstallDate(sec) {
 }
 
 add_task(async function () {
-  await openPreferencesViaOpenPreferencesAPI("about", { leaveOpen: true });
+  await openPreferencesViaOpenPreferencesAPI("general", { leaveOpen: true });
   let doc = gBrowser.selectedBrowser.contentDocument;
 
   let showBtn = doc.getElementById("showUpdateHistory");

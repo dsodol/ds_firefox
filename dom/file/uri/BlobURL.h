@@ -20,12 +20,11 @@
 class NS_NO_VTABLE nsIBlobURLMutator : public nsISupports {
  public:
   NS_INLINE_DECL_STATIC_IID(NS_IBLOBURLMUTATOR_IID)
-  NS_IMETHOD CacheProtocolState() = 0;
+  NS_IMETHOD SetRevoked(bool aRevoked) = 0;
+  NS_IMETHOD MaybeSetNullPrincipal(nsIPrincipal* aPrincipal) = 0;
 };
 
 namespace mozilla::dom {
-
-class BlobURLNullOriginEntry;
 
 /**
  * These URIs refer to host objects with "blob" scheme.
@@ -45,7 +44,12 @@ class BlobURL final : public mozilla::net::nsSimpleURI {
   virtual void Serialize(mozilla::ipc::URIParams& aParams) override;
 
   // Override StartClone to hand back a BlobURL with mRevoked set.
-  already_AddRefed<mozilla::net::nsSimpleURI> StartClone() override;
+  already_AddRefed<mozilla::net::nsSimpleURI> StartClone() override {
+    RefPtr<BlobURL> url = new BlobURL();
+    url->mRevoked = mRevoked;
+    url->mNullPrincipal = mNullPrincipal;
+    return url.forget();
+  }
 
   // Extract the origin part from this BlobURL. In a valid URL, this will be the
   // web-exposed origin serialization of the underlying Blob.
@@ -60,21 +64,21 @@ class BlobURL final : public mozilla::net::nsSimpleURI {
   // Get the principal used by this BlobURL.
   // Only ever set if OriginPart() == "null".
   // NOTE: This will be null for all MediaStream URLs.
-  nsIPrincipal* GetNullOriginPrincipal();
+  nsIPrincipal* GetNullPrincipal() const { return mNullPrincipal; }
 
   bool Revoked() const { return mRevoked; }
 
   NS_IMETHOD Mutate(nsIURIMutator** _retval) override;
 
  private:
-  ~BlobURL() override;
+  ~BlobURL() override = default;
 
   nsresult SetScheme(const nsACString& aProtocol) override;
   bool Deserialize(const mozilla::ipc::URIParams&);
   nsresult ReadPrivate(nsIObjectInputStream* stream);
 
   bool mRevoked;
-  RefPtr<BlobURLNullOriginEntry> mNullOriginEntry;
+  nsCOMPtr<nsIPrincipal> mNullPrincipal;
 
  public:
   class Mutator final : public nsIURIMutator,
@@ -94,9 +98,17 @@ class BlobURL final : public mozilla::net::nsSimpleURI {
       return InitFromInputStream(aStream);
     }
 
-    // Gets the `blob:` URI state from the BlobURLProtocolHandler, and caches it
-    // on this BlobURL.
-    NS_IMETHOD CacheProtocolState() override;
+    NS_IMETHOD SetRevoked(bool aRevoked) override {
+      mURI->mRevoked = aRevoked;
+      return NS_OK;
+    }
+
+    NS_IMETHOD MaybeSetNullPrincipal(nsIPrincipal* aPrincipal) override {
+      // Only record the principal if the origin part is "null".
+      mURI->mNullPrincipal =
+          mURI->OriginPart() == "null"_ns ? aPrincipal : nullptr;
+      return NS_OK;
+    }
 
     Mutator() = default;
 

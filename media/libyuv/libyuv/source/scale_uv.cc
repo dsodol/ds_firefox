@@ -51,6 +51,10 @@ extern "C" {
 #define HAS_SCALEPLANEVERTICAL 1
 #endif
 
+static __inline int Abs(int v) {
+  return v >= 0 ? v : -v;
+}
+
 #define MIN1(x) ((x) < 1 ? 1 : (x))
 
 // ScaleUV, 1/2
@@ -557,14 +561,6 @@ static int ScaleUVBilinearDown(int src_width,
     InterpolateRow = InterpolateRow_RVV;
   }
 #endif
-#if defined(HAS_INTERPOLATEROW_WASMSIMD)
-  if (TestCpuFlag(kCpuHasWASMSIMD)) {
-    InterpolateRow = InterpolateRow_Any_WASMSIMD;
-    if (IS_ALIGNED(clip_src_width, 16)) {
-      InterpolateRow = InterpolateRow_WASMSIMD;
-    }
-  }
-#endif
 #if defined(HAS_SCALEUVFILTERCOLS_SSSE3)
   if (TestCpuFlag(kCpuHasSSSE3) && src_width < 32768) {
     ScaleUVFilterCols = ScaleUVFilterCols_SSSE3;
@@ -681,14 +677,6 @@ static int ScaleUVBilinearUp(int src_width,
 #if defined(HAS_INTERPOLATEROW_RVV)
   if (TestCpuFlag(kCpuHasRVV)) {
     InterpolateRow = InterpolateRow_RVV;
-  }
-#endif
-#if defined(HAS_INTERPOLATEROW_WASMSIMD)
-  if (TestCpuFlag(kCpuHasWASMSIMD)) {
-    InterpolateRow = InterpolateRow_Any_WASMSIMD;
-    if (IS_ALIGNED(dst_width, 8)) {
-      InterpolateRow = InterpolateRow_WASMSIMD;
-    }
   }
 #endif
   if (src_width >= 32768) {
@@ -1150,6 +1138,7 @@ static int ScaleUV(const uint8_t* src,
   }
   ScaleSlope(src_width, src_height, dst_width, dst_height, filtering, &x, &y,
              &dx, &dy);
+  src_width = Abs(src_width);
   if (clip_x) {
     int64_t clipf = (int64_t)(clip_x)*dx;
     x += (clipf & 0xffff);
@@ -1307,6 +1296,7 @@ int UVScale_16(const uint16_t* src_uv,
     src_uv = src_uv + (src_height - 1) * (ptrdiff_t)src_stride_uv;
     src_stride_uv = -src_stride_uv;
   }
+  src_width = Abs(src_width);
 
 #ifdef HAS_UVCOPY
   if (!filtering && src_width == dst_width && (src_height % dst_height == 0)) {

@@ -162,7 +162,6 @@ class NATSocketServer : public SocketServer, public NATInternalSocketFactory {
   void SetMessageQueue(Thread* queue) override;
   bool Wait(TimeDelta max_wait_duration, bool process_io) override;
   void WakeUp() override;
-  bool CanCreateSockets() const override { return server_->CanCreateSockets(); }
 
   // NATInternalSocketFactory implementation
   Socket* CreateInternalSocket(int family,

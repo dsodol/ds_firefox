@@ -174,9 +174,7 @@ open class DefaultComponents(private val applicationContext: Context) {
         )
     }
 
-    val permissionStorage by lazy {
-        OnDiskSitePermissionsStorage(applicationContext, coroutineScope = applicationScope)
-    }
+    val permissionStorage by lazy { OnDiskSitePermissionsStorage(applicationContext) }
 
     val thumbnailStorage by lazy { ThumbnailStorage(applicationContext) }
 
@@ -266,7 +264,7 @@ open class DefaultComponents(private val applicationContext: Context) {
     val appLinksInterceptor by lazy {
         AppLinksInterceptor(
             context = applicationContext,
-            launchInApp = { _ ->
+            launchInApp = {
                 applicationContext.components.preferences.getBoolean(PREF_LAUNCH_EXTERNAL_APP, false)
             },
             launchFromInterceptor = true,

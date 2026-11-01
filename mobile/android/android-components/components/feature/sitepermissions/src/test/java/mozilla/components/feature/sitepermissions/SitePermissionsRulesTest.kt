@@ -6,7 +6,6 @@ package mozilla.components.feature.sitepermissions
 
 import android.view.View
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import kotlinx.coroutines.test.TestScope
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.engine.permission.Permission
 import mozilla.components.concept.engine.permission.Permission.ContentAudioCapture
@@ -54,7 +53,6 @@ class SitePermissionsRulesTest {
                 fragmentManager = mock(),
                 onShouldShowRequestPermissionRationale = mock(),
                 store = BrowserStore(),
-                coroutineScope = TestScope(),
             )
     }
 

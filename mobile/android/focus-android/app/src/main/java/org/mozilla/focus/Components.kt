@@ -44,7 +44,6 @@ import mozilla.components.feature.search.middleware.AdsTelemetryMiddleware
 import mozilla.components.feature.search.middleware.SearchMiddleware
 import mozilla.components.feature.search.region.RegionMiddleware
 import mozilla.components.feature.search.storage.SearchEngineSelectorConfig
-import mozilla.components.feature.search.telemetry.SerpTelemetryRepository
 import mozilla.components.feature.search.telemetry.ads.AdsTelemetry
 import mozilla.components.feature.search.telemetry.incontent.InContentTelemetry
 import mozilla.components.feature.session.SessionUseCases
@@ -144,18 +143,6 @@ class Components(
 
     val fileUploadsDirCleaner: FileUploadsDirCleaner by lazy {
         FileUploadsDirCleaner(applicationScope) { context.cacheDir }
-    }
-
-    /**
-     * Retained so that its [mozilla.appservices.remotesettings.RemoteSettingsClient] stays reachable for the lifetime
-     * of the process. application-services only holds a weak reference to each client and skips collections whose
-     * client has been collected, so a short-lived repository would opt `search-telemetry-v2` out of syncing entirely.
-     */
-    val serpTelemetryRepository by lazy {
-        SerpTelemetryRepository(
-            collectionName = GleanMetricsService.COLLECTION_NAME,
-            remoteSettingsService = remoteSettingsService,
-        )
     }
 
     val remoteSettingsSyncScheduler by lazy {
@@ -320,7 +307,7 @@ class Components(
     val appLinksInterceptor by lazy {
         AppLinksInterceptor(
             context,
-            launchInApp = { _ ->
+            launchInApp = {
                 context.settings.openLinksInExternalApp
             },
         )

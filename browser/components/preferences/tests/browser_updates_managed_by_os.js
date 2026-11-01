@@ -3,7 +3,7 @@
 
 "use strict";
 
-const UPDATES_PANE = "paneAbout";
+const UPDATES_PANE = SRD_PREF_VALUE ? "paneAbout" : "paneGeneral";
 
 add_task(async function test_updates_managed_by_os_message_bar() {
   await openPreferencesViaOpenPreferencesAPI(UPDATES_PANE, { leaveOpen: true });

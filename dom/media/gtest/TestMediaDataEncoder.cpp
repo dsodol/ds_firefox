@@ -124,12 +124,11 @@ class MediaDataEncoderTest : public testing::Test {
       mYUV.mYStride = aSize.width;
       mYUV.mCbCrStride = (aSize.width + 1) / 2;
       mYUV.mChromaSubsampling = gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
-      const auto sizes = mYUV.GetPlaneSizes();
-      const auto& ySize = sizes->mY;
-      const auto& cbcrSize = sizes->mCbCr;
+      auto ySize = mYUV.YDataSize();
+      auto cbcrSize = mYUV.CbCrDataSize();
       size_t bufferSize =
           mYUV.mYStride * ySize.height + 2 * mYUV.mCbCrStride * cbcrSize.height;
-      mBuffer = std::make_unique<uint8_t[]>(bufferSize);
+      mBuffer = MakeUnique<uint8_t[]>(bufferSize);
       std::fill_n(mBuffer.get(), bufferSize, 0x7F);
       mYUV.mYChannel = mBuffer.get();
       mYUV.mCbChannel = mYUV.mYChannel + mYUV.mYStride * ySize.height;
@@ -194,7 +193,8 @@ class MediaDataEncoderTest : public testing::Test {
     }
 
     void Draw(const size_t aIndex) {
-      DrawChessboard(mYUV.mYChannel, mSize.width, mSize.height, aIndex << 1);
+      auto ySize = mYUV.YDataSize();
+      DrawChessboard(mYUV.mYChannel, ySize.width, ySize.height, aIndex << 1);
       int16_t color = AssertedCast<int16_t>(mYUV.mCbChannel[0] + mColorStep);
       if (color > 255 || color < 0) {
         mColorStep = AssertedCast<int16_t>(-mColorStep);
@@ -832,13 +832,12 @@ static already_AddRefed<MediaData> CreateNV12Frame(const gfx::IntSize& aSize) {
   data.mChromaSubsampling = gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
   data.mCbSkip = 1;
   data.mCrSkip = 1;
-  const auto sizes = data.GetPlaneSizes();
-  const auto& ySize = sizes->mY;
-  const auto& cbcrSize = sizes->mCbCr;
+  const auto ySize = data.YDataSize();
+  const auto cbcrSize = data.CbCrDataSize();
   const size_t yBytes = static_cast<size_t>(data.mYStride) * ySize.height;
   const size_t cbcrBytes =
       static_cast<size_t>(data.mCbCrStride) * cbcrSize.height;
-  auto buffer = std::make_unique<uint8_t[]>(yBytes + cbcrBytes);
+  auto buffer = MakeUnique<uint8_t[]>(yBytes + cbcrBytes);
   std::fill_n(buffer.get(), yBytes, static_cast<uint8_t>(235));
   std::fill_n(buffer.get() + yBytes, cbcrBytes, static_cast<uint8_t>(128));
   data.mYChannel = buffer.get();

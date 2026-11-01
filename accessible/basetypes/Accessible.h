@@ -655,8 +655,6 @@ class Accessible {
 
   bool IsHTMLListItem() const { return mType == eHTMLLiType; }
 
-  bool IsHTMLListBullet() const { return mType == eHTMLListBulletType; }
-
   bool IsHTMLLink() const { return mType == eHTMLLinkType; }
 
   bool IsHTMLOptGroup() const { return mType == eHTMLOptGroupType; }

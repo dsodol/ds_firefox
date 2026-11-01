@@ -10,7 +10,12 @@ add_task(async function test_close_panel() {
   ok(sidebar, "Sidebar is shown.");
   await sidebar.updateComplete;
   await SidebarTestUtils.showPanel(win, "viewCustomizeSidebar");
-  const sidebarPanelHeader = win.SidebarController.panelHeader;
+  let customizeDocument = win.SidebarController.browser.contentDocument;
+  const customizeComponent =
+    customizeDocument.querySelector("sidebar-customize");
+  const sidebarPanelHeader = customizeComponent.shadowRoot.querySelector(
+    "sidebar-panel-header"
+  );
   let closeButton = sidebarPanelHeader.closeButton;
   closeButton.click();
   ok(

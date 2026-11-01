@@ -12,8 +12,36 @@
  * - that data is used very seldom by SessionStore;
  * - caching private data in addition to public data is memory consuming.
  */
-export class TabStateCache {
-  static #data = new WeakMap();
+export var TabStateCache = Object.freeze({
+  /**
+   * Retrieves cached data for a given |tab| or associated |browser|.
+   *
+   * @param permanentKey (object)
+   *        The tab or browser to retrieve cached data for.
+   * @return (object)
+   *         The cached data stored for the given |tab|
+   *         or associated |browser|.
+   */
+  get(permanentKey) {
+    return TabStateCacheInternal.get(permanentKey);
+  },
+
+  /**
+   * Updates cached data for a given |tab| or associated |browser|.
+   *
+   * @param permanentKey (object)
+   *        The tab or browser belonging to the given tab data.
+   * @param newData (object)
+   *        The new data to be stored for the given |tab|
+   *        or associated |browser|.
+   */
+  update(permanentKey, newData) {
+    TabStateCacheInternal.update(permanentKey, newData);
+  },
+});
+
+var TabStateCacheInternal = {
+  _data: new WeakMap(),
 
   /**
    * Retrieves cached data for a given |tab| or associated |browser|.
@@ -24,9 +52,9 @@ export class TabStateCache {
    *         The cached data stored for the given |tab|
    *         or associated |browser|.
    */
-  static get(permanentKey) {
-    return TabStateCache.#data.get(permanentKey);
-  }
+  get(permanentKey) {
+    return this._data.get(permanentKey);
+  },
 
   /**
    * Helper function used by update (see below). For message size
@@ -38,7 +66,7 @@ export class TabStateCache {
    * @param change (object)
    *        The actual changed values per domain.
    */
-  static #updatePartialStorageChange(data, change) {
+  updatePartialStorageChange(data, change) {
     if (!data.storage) {
       data.storage = {};
     }
@@ -65,7 +93,7 @@ export class TabStateCache {
         }
       }
     }
-  }
+  },
 
   /**
    * Helper function used by update (see below). For message size
@@ -79,7 +107,7 @@ export class TabStateCache {
    *        Object containing the tail of the history array, and
    *        some additional metadata.
    */
-  static #updatePartialHistoryChange(data, change) {
+  updatePartialHistoryChange(data, change) {
     const kLastIndex = Number.MAX_SAFE_INTEGER - 1;
 
     if (!data.history) {
@@ -97,7 +125,7 @@ export class TabStateCache {
         history[key] = change[key];
       }
     }
-  }
+  },
 
   /**
    * Updates cached data for a given |tab| or associated |browser|.
@@ -107,17 +135,17 @@ export class TabStateCache {
    * @param newData (object)
    *        The new data to be stored for the given permanent key.
    */
-  static update(permanentKey, newData) {
-    let data = TabStateCache.#data.get(permanentKey) || {};
+  update(permanentKey, newData) {
+    let data = this._data.get(permanentKey) || {};
 
     for (let key of Object.keys(newData)) {
       if (key == "storagechange") {
-        TabStateCache.#updatePartialStorageChange(data, newData.storagechange);
+        this.updatePartialStorageChange(data, newData.storagechange);
         continue;
       }
 
       if (key == "historychange") {
-        TabStateCache.#updatePartialHistoryChange(data, newData.historychange);
+        this.updatePartialHistoryChange(data, newData.historychange);
         continue;
       }
 
@@ -129,6 +157,6 @@ export class TabStateCache {
       }
     }
 
-    TabStateCache.#data.set(permanentKey, data);
-  }
-}
+    this._data.set(permanentKey, data);
+  },
+};

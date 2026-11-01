@@ -29,7 +29,6 @@
 
 #include <limits.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "dav1d/common.h"
 
@@ -821,8 +820,9 @@ static void save_tmvs_c(refmvs_temporal_block *rp, const ptrdiff_t stride,
                 for (int n = 0; n < bw8; n++, x++)
                     rp[x] = tmv;
             } else {
-                memset(&rp[x], 0, bw8 * sizeof(*rp));
-                x += bw8;
+                const refmvs_temporal_block tmv = { .mv = { .n = 0 }, .ref = 0 };
+                for (int n = 0; n < bw8; n++, x++)
+                    rp[x] = tmv;
             }
         }
         rp += stride;

@@ -31,7 +31,7 @@ UniquePtr<RenderCompositor> RenderCompositorOGL::Create(
                     << gfx::hexa(gl.get());
     return nullptr;
   }
-  return std::make_unique<RenderCompositorOGL>(std::move(gl), aWidget);
+  return MakeUnique<RenderCompositorOGL>(std::move(gl), aWidget);
 }
 
 RenderCompositorOGL::RenderCompositorOGL(

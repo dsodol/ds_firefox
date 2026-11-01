@@ -145,7 +145,7 @@ system pixman.
 
 #### Windows GDI font backend
 
-- Microsoft Windows Vista or newer
+- Microsoft Windows 2000 or newer
 
 #### Windows DirectWrite font backend
 

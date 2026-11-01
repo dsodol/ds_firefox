@@ -93,7 +93,6 @@ void VRChild::ActorDestroy(ActorDestroyReason aWhy) {
   }
   gfxVars::RemoveReceiver(this);
   mHost->OnChannelClosed();
-  mHost = nullptr;
 }
 
 void VRChild::Init() {
@@ -165,7 +164,7 @@ bool VRChild::SendRequestMemoryReport(const uint32_t& aGeneration,
                                       const bool& aAnonymize,
                                       const bool& aMinimizeMemoryUsage,
                                       const Maybe<FileDescriptor>& aDMDFile) {
-  mMemoryReportRequest = std::make_unique<MemoryReportRequestHost>(aGeneration);
+  mMemoryReportRequest = MakeUnique<MemoryReportRequestHost>(aGeneration);
 
   PVRChild::SendRequestMemoryReport(aGeneration, aAnonymize,
                                     aMinimizeMemoryUsage, aDMDFile)

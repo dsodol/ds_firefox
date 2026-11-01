@@ -386,20 +386,8 @@ nsresult WMFDecoderModule::Startup() {
                                                            : NS_ERROR_FAILURE;
 }
 
-RefPtr<PlatformDecoderModule::CreateDecoderPromise>
-WMFDecoderModule::AsyncCreateDecoder(const CreateDecoderParams& aParams) {
-  RefPtr<MediaDataDecoder> decoder;
-  MediaResult result = NS_OK;
-  if (aParams.IsAudio()) {
-    decoder = CreateAudioDecoder(aParams);
-  } else if (aParams.IsVideo()) {
-    decoder = CreateVideoDecoder(aParams, &result);
-  }
-  return CreateDecoderPromiseFrom(decoder.forget(), aParams, result);
-}
-
 already_AddRefed<MediaDataDecoder> WMFDecoderModule::CreateVideoDecoder(
-    const CreateDecoderParams& aParams, MediaResult* aError) {
+    const CreateDecoderParams& aParams) {
   // In GPU process, only support decoding if an accelerated compositor is
   // known.
   if (XRE_IsGPUProcess() &&
@@ -414,7 +402,9 @@ already_AddRefed<MediaDataDecoder> WMFDecoderModule::CreateVideoDecoder(
 
   MediaResult result = manager->Init();
   if (NS_FAILED(result)) {
-    *aError = result;
+    if (aParams.mError) {
+      *aParams.mError = result;
+    }
     WmfDecoderModuleMarkerAndLog(
         "WMFVDecoderCreation Failure",
         "WMFDecoderModule::CreateVideoDecoder failed for manager with "

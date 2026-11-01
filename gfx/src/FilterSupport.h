@@ -196,7 +196,7 @@ struct OffsetAttributes {
 };
 
 struct DisplacementMapAttributes {
-  Size mScale;
+  float mScale;
   SVGChannel mXChannel;
   SVGChannel mYChannel;
 

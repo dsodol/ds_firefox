@@ -90,8 +90,7 @@ struct WeakMapTracer {
   // Weak map tracer callback, called once for every binding of every
   // weak map that was live at the time of the last garbage collection.
   //
-  // |m| will be nullptr if the weak map is not contained in a JS Object.
-  // |value| will be nullptr if the binding's value is not a GC thing.
+  // m will be nullptr if the weak map is not contained in a JS Object.
   //
   // The callback should not GC (and will assert in a debug build if it does
   // so.)

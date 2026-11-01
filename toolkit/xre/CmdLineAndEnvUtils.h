@@ -502,7 +502,7 @@ inline UniquePtr<wchar_t[]> MakeCommandLine(
     len = 1;
   }
 
-  auto s = std::make_unique<wchar_t[]>(len);
+  auto s = MakeUnique<wchar_t[]>(len);
 
   int totalArgc = argc + aArgcExtra;
 

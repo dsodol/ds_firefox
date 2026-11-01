@@ -10,7 +10,6 @@ import mozilla.components.compose.menu.data.BannerMenuItem
 import mozilla.components.compose.menu.data.ExpandableMenuItem
 import mozilla.components.compose.menu.data.MenuItemActionButton
 import mozilla.components.compose.menu.data.MenuItemSummary
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.store.MenuEvent
 import mozilla.components.compose.menu.ui.MenuItemIconRes
@@ -21,7 +20,7 @@ class MenuItemEventsTest {
     fun `WHEN getting the events of an item THEN include all the events the item and action buttons can dispatch`() {
         val item =
             StandardMenuItem(
-                title = MenuItemTitle(Text.String("Item")),
+                title = Text.String("Item"),
                 onClickEvent = TestEvent("click"),
                 onShownEvent = TestEvent("shown"),
                 onLongClickEvent = TestEvent("long click"),
@@ -43,13 +42,10 @@ class MenuItemEventsTest {
     fun `WHEN getting the events of an item expanding to others THEN include the events of those items`() {
         val item =
             ExpandableMenuItem(
-                title = MenuItemTitle(Text.String("More")),
+                title = Text.String("More"),
                 onClickEvent = TestEvent("expand"),
                 onLongClickEvent = TestEvent("long click"),
-                subMenuItems =
-                    listOf(
-                        StandardMenuItem(title = MenuItemTitle(Text.String("Item")), onClickEvent = TestEvent("click"))
-                    ),
+                subMenuItems = listOf(StandardMenuItem(title = Text.String("Item"), onClickEvent = TestEvent("click"))),
             )
 
         assertEquals(
@@ -62,7 +58,7 @@ class MenuItemEventsTest {
     fun `WHEN getting the events of a banner THEN include clicking and dismissing it`() {
         val item =
             BannerMenuItem(
-                title = MenuItemTitle(Text.String("Banner")),
+                title = Text.String("Banner"),
                 summary = MenuItemSummary(Text.String("Subtitle")),
                 icon = MenuItemIconRes(0),
                 onClickEvent = TestEvent("click"),
@@ -74,7 +70,7 @@ class MenuItemEventsTest {
 
     @Test
     fun `GIVEN an item dispatching only when clicked WHEN getting its events THEN include only that one`() {
-        val item = StandardMenuItem(title = MenuItemTitle(Text.String("Item")), onClickEvent = TestEvent("click"))
+        val item = StandardMenuItem(title = Text.String("Item"), onClickEvent = TestEvent("click"))
 
         assertEquals(listOf<MenuEvent>(TestEvent("click")), item.reachableEvents())
     }

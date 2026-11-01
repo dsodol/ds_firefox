@@ -1651,7 +1651,7 @@ void CodeGenerator::visitModPowTwoI(LModPowTwoI* ins) {
     // an answer of 0 means the correct result is actually -0. Bail out.
     if (!mir->isTruncated()) {
       MOZ_ASSERT(mir->fallible());
-      bailoutCmp32(Assembler::Zero, out, out, ins->snapshot());
+      bailoutCmp32(Assembler::Equal, out, zero, ins->snapshot());
     }
     masm.bind(&done);
   }
@@ -3729,51 +3729,13 @@ void CodeGenerator::visitWasmReplaceLaneSimd128(LWasmReplaceLaneSimd128* ins) {
 #endif
 }
 
-void CodeGenerator::visitWasmMoveLaneSimd128(LWasmMoveLaneSimd128* ins) {
-#ifdef ENABLE_JIT_SIMD
-  MOZ_ASSERT(ToFloatRegister(ins->lhs()) == ToFloatRegister(ins->output()));
-  const FloatRegister lhsDest = ToFloatRegister(ins->lhs());
-  const FloatRegister src = ToFloatRegister(ins->rhs());
-  const uint32_t laneIndex = ins->mir()->laneIndex();
-  const uint32_t srcLaneIndex = ins->mir()->srcLaneIndex();
-
-  // High ui4: dest lane selection. Low ui4: src lane selection.
-  // <https://jia.je/unofficial-loongarch-intrinsics-guide/lsx/misc/#__m128i-__lsx_vextrins_d-__m128i-a-__m128i-b-imm0_255-imm>
-  const uint32_t imm = (laneIndex << 4) | srcLaneIndex;
-
-  switch (ins->mir()->simdOp()) {
-    case wasm::SimdOp::I8x16ReplaceLane:
-      masm.as_vextrins_b(lhsDest, src, imm);
-      break;
-    case wasm::SimdOp::I16x8ReplaceLane:
-      masm.as_vextrins_h(lhsDest, src, imm);
-      break;
-    case wasm::SimdOp::I32x4ReplaceLane:
-      masm.as_vextrins_w(lhsDest, src, imm);
-      break;
-    case wasm::SimdOp::I64x2ReplaceLane:
-      masm.as_vextrins_d(lhsDest, src, imm);
-      break;
-    default:
-      MOZ_CRASH("MoveLane SimdOp not implemented");
-  }
-#else
-  MOZ_CRASH("No SIMD");
-#endif
-}
-
 void CodeGenerator::visitWasmReplaceInt64LaneSimd128(
     LWasmReplaceInt64LaneSimd128* ins) {
 #ifdef ENABLE_JIT_SIMD
   MOZ_RELEASE_ASSERT(ins->mir()->simdOp() == wasm::SimdOp::I64x2ReplaceLane);
   MOZ_ASSERT(ToFloatRegister(ins->lhs()) == ToFloatRegister(ins->output()));
-  const FloatRegister lhsDest = ToFloatRegister(ins->lhs());
-  const uint32_t lane = ins->mir()->laneIndex();
-  if (ins->rhs().value().isBogus()) {
-    masm.replaceLaneInt64x2(lane, Register64(zero), lhsDest);
-  } else {
-    masm.replaceLaneInt64x2(lane, ToRegister64(ins->rhs()), lhsDest);
-  }
+  masm.replaceLaneInt64x2(ins->mir()->laneIndex(), ToRegister64(ins->rhs()),
+                          ToFloatRegister(ins->lhs()));
 #else
   MOZ_CRASH("No SIMD");
 #endif
@@ -4093,54 +4055,35 @@ void CodeGenerator::visitWasmReduceAndBranchSimd128(
 #ifdef ENABLE_JIT_SIMD
   FloatRegister src = ToFloatRegister(ins->src());
 
+  UseScratchRegisterScope temps(&masm);
+  Register test = temps.Acquire();
+
   switch (ins->simdOp()) {
     case wasm::SimdOp::V128AnyTrue:
-      masm.as_vsetnez_v(Assembler::FCC0, src);
+      masm.anyTrueSimd128(src, test);
       break;
     case wasm::SimdOp::I8x16AllTrue:
-      masm.as_vsetallnez_b(Assembler::FCC0, src);
+      masm.allTrueInt8x16(src, test);
       break;
     case wasm::SimdOp::I16x8AllTrue:
-      masm.as_vsetallnez_h(Assembler::FCC0, src);
+      masm.allTrueInt16x8(src, test);
       break;
     case wasm::SimdOp::I32x4AllTrue:
-      masm.as_vsetallnez_w(Assembler::FCC0, src);
+      masm.allTrueInt32x4(src, test);
       break;
     case wasm::SimdOp::I64x2AllTrue:
-      masm.as_vsetallnez_d(Assembler::FCC0, src);
+      masm.allTrueInt64x2(src, test);
       break;
-    case wasm::SimdOp::I16x8Bitmask: {
-      UseScratchRegisterScope temps(&masm);
-      const Register test = temps.Acquire();
+    case wasm::SimdOp::I16x8Bitmask:
       masm.bitmaskInt16x8(src, test);
-      if (isNextBlock(ins->ifFalse()->lir())) {
-        masm.branch32(Assembler::NotEqual, test, Imm32(0),
-                      getJumpLabelForBranch(ins->ifTrue()));
-      } else if (isNextBlock(ins->ifTrue()->lir())) {
-        masm.branch32(Assembler::Equal, test, Imm32(0),
-                      getJumpLabelForBranch(ins->ifFalse()));
-      } else {
-        masm.branch32(Assembler::Equal, test, Imm32(0),
-                      getJumpLabelForBranch(ins->ifFalse()));
-        jumpToBlock(ins->ifTrue());
-      }
-      return;
-    }
+      break;
     default:
       MOZ_CRASH("Reduce-and-branch SimdOp not implemented");
   }
 
-  if (isNextBlock(ins->ifFalse()->lir())) {
-    masm.branchWithCode(masm.getBranchCode(Assembler::FCC0, Assembler::NonZero),
-                        getJumpLabelForBranch(ins->ifTrue()), LongJump);
-  } else if (isNextBlock(ins->ifTrue()->lir())) {
-    masm.branchWithCode(masm.getBranchCode(Assembler::FCC0, Assembler::Zero),
-                        getJumpLabelForBranch(ins->ifFalse()), LongJump);
-  } else {
-    masm.branchWithCode(masm.getBranchCode(Assembler::FCC0, Assembler::NonZero),
-                        getJumpLabelForBranch(ins->ifTrue()), LongJump);
-    jumpToBlock(ins->ifFalse());
-  }
+  masm.branch32(Assembler::Equal, test, Imm32(0),
+                getJumpLabelForBranch(ins->ifFalse()));
+  jumpToBlock(ins->ifTrue());
 #else
   MOZ_CRASH("No SIMD");
 #endif
@@ -4227,38 +4170,46 @@ void CodeGenerator::visitWasmLoadLaneSimd128(LWasmLoadLaneSimd128* ins) {
 
 void CodeGenerator::visitWasmStoreLaneSimd128(LWasmStoreLaneSimd128* ins) {
 #ifdef ENABLE_JIT_SIMD
+  // Forward storing to wasmStore for the result of extractLane.
   const MWasmStoreLaneSimd128* mir = ins->mir();
   Register memoryBase = ToRegister(ins->memoryBase());
   FloatRegister src = ToFloatRegister(ins->src());
-  Register ptr = ToRegister(ins->ptr());
 
   UseScratchRegisterScope temps(&masm);
+  Register temp = temps.Acquire();
   Register scratch = temps.Acquire();
+  Register ptr = ToRegister(ins->ptr());
+  Register ptrScratch = InvalidReg;
+  if (mir->access().offset32()) {
+    ptrScratch = scratch;
+  }
   if (mir->base()->type() == MIRType::Int32) {
     masm.move32To64ZeroExtend(ptr, Register64(scratch));
     ptr = scratch;
+  } else if (ptrScratch != InvalidReg) {
+    masm.movePtr(ptr, scratch);
   }
 
   switch (mir->laneSize()) {
     case 1:
-      masm.wasmStoreLane(DeriveMemoryAccessDesc(mir->access(), Scalar::Int8),
-                         src, memoryBase, ptr, mir->laneSize(),
-                         mir->laneIndex());
+      masm.extractLaneInt8x16(mir->laneIndex(), src, temp);
+      masm.wasmStore(DeriveMemoryAccessDesc(mir->access(), Scalar::Int8),
+                     AnyRegister(temp), memoryBase, ptr, ptrScratch);
       break;
     case 2:
-      masm.wasmStoreLane(DeriveMemoryAccessDesc(mir->access(), Scalar::Int16),
-                         src, memoryBase, ptr, mir->laneSize(),
-                         mir->laneIndex());
+      masm.extractLaneInt16x8(mir->laneIndex(), src, temp);
+      masm.wasmStore(DeriveMemoryAccessDesc(mir->access(), Scalar::Int16),
+                     AnyRegister(temp), memoryBase, ptr, ptrScratch);
       break;
     case 4:
-      masm.wasmStoreLane(DeriveMemoryAccessDesc(mir->access(), Scalar::Int32),
-                         src, memoryBase, ptr, mir->laneSize(),
-                         mir->laneIndex());
+      masm.extractLaneInt32x4(mir->laneIndex(), src, temp);
+      masm.wasmStore(DeriveMemoryAccessDesc(mir->access(), Scalar::Int32),
+                     AnyRegister(temp), memoryBase, ptr, ptrScratch);
       break;
     case 8:
-      masm.wasmStoreLane(DeriveMemoryAccessDesc(mir->access(), Scalar::Int64),
-                         src, memoryBase, ptr, mir->laneSize(),
-                         mir->laneIndex());
+      masm.extractLaneInt64x2(mir->laneIndex(), src, Register64(temp));
+      masm.wasmStoreI64(DeriveMemoryAccessDesc(mir->access(), Scalar::Int64),
+                        Register64(temp), memoryBase, ptr, ptrScratch);
       break;
     default:
       MOZ_CRASH("Unsupported store lane size");

@@ -38,7 +38,7 @@ pub type SuggestApiResult<T> = std::result::Result<T, SuggestApiError>;
 
 uniffi::setup_scaffolding!();
 
-pub use serde_json::Value as JsonValue;
+use serde_json::Value as JsonValue;
 
 uniffi::custom_type!(JsonValue, String, {
     remote,

@@ -27,7 +27,7 @@ export class AISmartBarChild extends JSWindowActorChild {
         detail: {
           action: "chat",
           contextMentions,
-          contextPageUrl: URL.parse(contextPageUrl),
+          contextPageUrl,
           detectedIntent,
           location,
           submitType,

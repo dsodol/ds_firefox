@@ -419,7 +419,13 @@ struct Dav1dTaskContext {
             };
         };
         struct {
-            uint8_t levels[32 * 34];
+            union {
+                uint8_t levels[32 * 34];
+                struct {
+                    uint8_t pal_order[64][8];
+                    uint8_t pal_ctx[64];
+                };
+            };
             union {
                 int16_t ac[32 * 32]; // intra-only
                 uint8_t txtp_map[32 * 32]; // inter-only

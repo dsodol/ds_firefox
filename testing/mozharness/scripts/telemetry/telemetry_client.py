@@ -90,8 +90,6 @@ telemetry_tests_config_options = (
 
 
 class TelemetryTests(TestingMixin, VCSToolsScript, CodeCoverageMixin):
-    python_constraints = "requirements-marionette.txt"
-
     def __init__(
         self,
         config_options=None,

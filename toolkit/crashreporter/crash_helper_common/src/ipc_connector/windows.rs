@@ -14,7 +14,7 @@ use crate::{
 
 use bytes::{BufMut, BytesMut};
 use std::{
-    ffi::{CStr, OsStr, OsString},
+    ffi::{CStr, OsString},
     os::windows::io::{
         AsHandle, AsRawHandle, FromRawHandle, IntoRawHandle, OwnedHandle, RawHandle,
     },
@@ -219,10 +219,10 @@ impl IPCConnector {
     }
 
     /// Deserialize a connector from an argument passed on the command-line.
-    pub fn deserialize(string: &OsStr) -> Result<IPCConnector, IPCError> {
+    pub fn deserialize(string: &CStr) -> Result<IPCConnector, IPCError> {
         let string = string
             .to_str()
-            .ok_or(IPCError::Deserialize(PlatformError::ParseHandle))?;
+            .map_err(|_e| IPCError::Deserialize(PlatformError::ParseHandle))?;
         let handle = usize::from_str(string)
             .map_err(|_e| IPCError::Deserialize(PlatformError::ParseHandle))?;
 

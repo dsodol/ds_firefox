@@ -595,7 +595,7 @@ del:lang(zh),
 strike:lang(ja),
 strike:lang(ko),
 strike:lang(zh) {
-  /* stylelint-disable-next-line property-no-unknown */
+  /* stylelint-disable-next-line */
   text-decoration-inset: auto;
 }
 
@@ -712,13 +712,9 @@ hr[size="1"] {
  * broken. But non-broken images/inputs will have a replaced box, and thus we
  * won't we don't generate the pseudo-element anyways. This prevents
  * unnecessary reframing when images become broken / non-broken. */
+input[type="image"]::before,
 img::before {
-  content: attr(alt, "") !important;
-  unicode-bidi: isolate;
-}
-
-input[type="image"]::before {
-  content: attr(alt, attr(value, env(-moz-submit-string))) !important;
+  content: -moz-alt-content !important;
   unicode-bidi: isolate;
 }
 

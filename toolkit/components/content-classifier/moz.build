@@ -48,8 +48,3 @@ BROWSER_CHROME_MANIFESTS += [
 FINAL_LIBRARY = "xul"
 
 include("/ipc/chromium/chromium-config.mozbuild")
-
-SOURCE_HEADERS += [
-    "ContentClassifierFeatureUtils.h",
-    "ContentClassifierPrefMirror.h",
-]

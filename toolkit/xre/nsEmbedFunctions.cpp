@@ -505,8 +505,8 @@ nsresult XRE_InitChildProcess(int aArgc, char* aArgv[],
 
         case GeckoProcessType_Content:
           ioInterposerGuard.Init();
-          process = std::make_unique<ContentProcess>(
-              std::move(*clientChannel), *parentPID, messageChannelId);
+          process = MakeUnique<ContentProcess>(std::move(*clientChannel),
+                                               *parentPID, messageChannelId);
           break;
 
         case GeckoProcessType_IPDLUnitTest:
@@ -517,33 +517,33 @@ nsresult XRE_InitChildProcess(int aArgc, char* aArgv[],
           break;
 
         case GeckoProcessType_GMPlugin:
-          process = std::make_unique<gmp::GMPProcessChild>(
+          process = MakeUnique<gmp::GMPProcessChild>(
               std::move(*clientChannel), *parentPID, messageChannelId);
           break;
 
         case GeckoProcessType_GPU:
-          process = std::make_unique<gfx::GPUProcessImpl>(
+          process = MakeUnique<gfx::GPUProcessImpl>(
               std::move(*clientChannel), *parentPID, messageChannelId);
           break;
 
         case GeckoProcessType_VR:
-          process = std::make_unique<gfx::VRProcessChild>(
+          process = MakeUnique<gfx::VRProcessChild>(
               std::move(*clientChannel), *parentPID, messageChannelId);
           break;
 
         case GeckoProcessType_RDD:
-          process = std::make_unique<RDDProcessImpl>(
-              std::move(*clientChannel), *parentPID, messageChannelId);
+          process = MakeUnique<RDDProcessImpl>(std::move(*clientChannel),
+                                               *parentPID, messageChannelId);
           break;
 
         case GeckoProcessType_Socket:
           ioInterposerGuard.Init();
-          process = std::make_unique<net::SocketProcessImpl>(
+          process = MakeUnique<net::SocketProcessImpl>(
               std::move(*clientChannel), *parentPID, messageChannelId);
           break;
 
         case GeckoProcessType_Utility:
-          process = std::make_unique<ipc::UtilityProcessImpl>(
+          process = MakeUnique<ipc::UtilityProcessImpl>(
               std::move(*clientChannel), *parentPID, messageChannelId);
           break;
 

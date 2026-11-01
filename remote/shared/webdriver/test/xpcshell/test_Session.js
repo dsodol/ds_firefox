@@ -7,13 +7,10 @@
 const { Timeouts } = ChromeUtils.importESModule(
   "chrome://remote/content/shared/webdriver/Capabilities.sys.mjs"
 );
-const {
-  getWebDriverSessionByInternalSessionId,
-  hasActiveWebDriverSession,
-  WebDriverSession,
-} = ChromeUtils.importESModule(
-  "chrome://remote/content/shared/webdriver/Session.sys.mjs"
-);
+const { getWebDriverSessionById, hasActiveWebDriverSession, WebDriverSession } =
+  ChromeUtils.importESModule(
+    "chrome://remote/content/shared/webdriver/Session.sys.mjs"
+  );
 
 function createSession(options = {}) {
   const { capabilities = {}, connection, isBidi = false } = options;
@@ -174,32 +171,18 @@ add_task(function test_WebDriverSession_userContext() {
   );
 });
 
-add_task(function test_getWebDriverSessionByInternalSessionId() {
+add_task(function test_getWebDriverSessionById() {
   const session1 = createSession();
   const session2 = createSession();
 
-  const internalSessionId1 = session1.messageHandler.internalSessionId;
-  const internalSessionId2 = session2.messageHandler.internalSessionId;
-
-  notEqual(
-    internalSessionId1,
-    session1.id,
-    "Internal session id does not leak the session id"
-  );
-  notEqual(
-    internalSessionId1,
-    internalSessionId2,
-    "Each session has its own internal session id"
-  );
-
-  equal(getWebDriverSessionByInternalSessionId(internalSessionId1), session1);
-  equal(getWebDriverSessionByInternalSessionId(internalSessionId2), session2);
-  equal(getWebDriverSessionByInternalSessionId(session1.id), undefined);
+  equal(getWebDriverSessionById(session1.id), session1);
+  equal(getWebDriverSessionById(session2.id), session2);
 
   session1.destroy();
-  equal(getWebDriverSessionByInternalSessionId(internalSessionId1), undefined);
-  equal(getWebDriverSessionByInternalSessionId(internalSessionId2), session2);
+  equal(getWebDriverSessionById(session1.id), undefined);
+  equal(getWebDriverSessionById(session2.id), session2);
 
   session2.destroy();
-  equal(getWebDriverSessionByInternalSessionId(internalSessionId2), undefined);
+  equal(getWebDriverSessionById(session1.id), undefined);
+  equal(getWebDriverSessionById(session2.id), undefined);
 });

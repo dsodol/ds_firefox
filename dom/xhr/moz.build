@@ -35,7 +35,3 @@ BROWSER_CHROME_MANIFESTS += ["tests/browser.toml"]
 include("/ipc/chromium/chromium-config.mozbuild")
 
 FINAL_LIBRARY = "xul"
-
-SOURCE_HEADERS += [
-    "XMLHttpRequestWorker.h",
-]

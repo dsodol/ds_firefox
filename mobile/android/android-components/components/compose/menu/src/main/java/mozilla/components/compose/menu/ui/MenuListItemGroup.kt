@@ -10,7 +10,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.CollectionInfo
 import androidx.compose.ui.semantics.collectionInfo
 import androidx.compose.ui.semantics.isTraversalGroup
@@ -47,14 +46,12 @@ internal fun ListMenuItemsGroup(
         verticalArrangement = Arrangement.spacedBy(AcornTheme.layout.space.static25),
     ) {
         items.forEachIndexed { index, it ->
-            val shape = getListItemShape(itemIndex = index, totalItems = items.size)
-            val itemModifier = Modifier.clip(shape)
             when (it) {
                 is StandardMenuItem ->
                     MenuListItem(
                         title = it.title,
                         contentDescription = it.contentDescription,
-                        modifier = itemModifier,
+                        modifier = Modifier,
                         index = index,
                         role = it.role,
                         summary = it.summary,
@@ -62,7 +59,6 @@ internal fun ListMenuItemsGroup(
                         showNewIndicator = it.showNewIndicator,
                         badge = it.badge,
                         actionButton = it.actionButton,
-                        trailingIcon = it.trailingIcon,
                         state = it.state,
                         onClickEvent = it.onClickEvent,
                         onInteraction = onClick,
@@ -73,7 +69,7 @@ internal fun ListMenuItemsGroup(
                         title = it.title,
                         contentDescription = it.contentDescription,
                         subMenuItems = it.subMenuItems,
-                        modifier = itemModifier,
+                        modifier = Modifier,
                         hideOnExpand = it.hideOnExpand,
                         onClickEvent = it.onClickEvent,
                         onInteraction = onClick,
@@ -88,40 +84,14 @@ internal fun ListMenuItemsGroup(
 
                 is BannerMenuItem ->
                     MenuBanner(
-                        title = it.title.text,
+                        title = it.title,
                         summary = it.summary,
                         icon = it.icon,
                         onDismiss = { onClick(it.onDismissEvent) },
                         onClick = { onClick(it.onClickEvent) },
-                        modifier = itemModifier,
                     )
             }
         }
-    }
-}
-
-@Composable
-private fun getListItemShape(
-    itemIndex: Int,
-    totalItems: Int,
-): Shape {
-    if (totalItems == 1) {
-        return MaterialTheme.shapes.extraLarge
-    }
-    return when (itemIndex) {
-        0 ->
-            MaterialTheme.shapes.extraLarge.copy(
-                bottomStart = MaterialTheme.shapes.extraSmall.bottomStart,
-                bottomEnd = MaterialTheme.shapes.extraSmall.bottomEnd,
-            )
-
-        totalItems - 1 ->
-            MaterialTheme.shapes.extraLarge.copy(
-                topStart = MaterialTheme.shapes.extraSmall.topStart,
-                topEnd = MaterialTheme.shapes.extraSmall.topEnd,
-            )
-
-        else -> MaterialTheme.shapes.extraSmall
     }
 }
 

@@ -104,7 +104,8 @@ enum class SearchType {
 };
 
 struct EventRadiusPrefs {
-  bool mEnabled;  // other fields are valid iff this field is true
+  bool mEnabled;            // other fields are valid iff this field is true
+  uint32_t mVisitedWeight;  // in percent, i.e. default is 100
   uint32_t mRadiusTopmm;
   uint32_t mRadiusRightmm;
   uint32_t mRadiusBottommm;
@@ -116,6 +117,7 @@ struct EventRadiusPrefs {
   explicit EventRadiusPrefs(WidgetGUIEvent* aMouseOrTouchEvent) {
     if (aMouseOrTouchEvent->mClass == eTouchEventClass) {
       mEnabled = StaticPrefs::ui_touch_radius_enabled();
+      mVisitedWeight = StaticPrefs::ui_touch_radius_visitedWeight();
       mRadiusTopmm = StaticPrefs::ui_touch_radius_topmm();
       mRadiusRightmm = StaticPrefs::ui_touch_radius_rightmm();
       mRadiusBottommm = StaticPrefs::ui_touch_radius_bottommm();
@@ -136,6 +138,7 @@ struct EventRadiusPrefs {
 
     } else if (aMouseOrTouchEvent->mClass == eMouseEventClass) {
       mEnabled = StaticPrefs::ui_mouse_radius_enabled();
+      mVisitedWeight = StaticPrefs::ui_mouse_radius_visitedWeight();
       mRadiusTopmm = StaticPrefs::ui_mouse_radius_topmm();
       mRadiusRightmm = StaticPrefs::ui_mouse_radius_rightmm();
       mRadiusBottommm = StaticPrefs::ui_mouse_radius_bottommm();
@@ -146,6 +149,7 @@ struct EventRadiusPrefs {
 
     } else {
       mEnabled = false;
+      mVisitedWeight = 0;
       mRadiusTopmm = 0;
       mRadiusRightmm = 0;
       mRadiusBottommm = 0;
@@ -693,6 +697,17 @@ static nsIFrame* GetClosest(RelativeTo aRoot,
     // distance is in appunit
     double distance =
         ComputeDistanceFromRegion(aPointRelativeToRootFrame, region);
+    nsIContent* content = f->GetContent();
+    // XXX Well, some users may want to tap unvisited link, however, some other
+    // users may not.  For example, click a link, and go back, then, want to go
+    // forward, but click the visited link instead. This scenario may occur if
+    // clicking the link is easier to do "go forward" and I think it's true for
+    // the most users. So, it might be better to do this.
+    if (content && content->IsElement() &&
+        content->AsElement()->State().HasState(
+            ElementState(ElementState::VISITED))) {
+      distance *= aPrefs.mVisitedWeight / 100.0;
+    }
     // XXX When we look for a touchable or clickable target, should we give
     // lower weight for clickable target?
     if (distance < bestDistance) {

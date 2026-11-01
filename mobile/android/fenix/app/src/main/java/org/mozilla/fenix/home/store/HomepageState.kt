@@ -36,9 +36,6 @@ internal sealed class HomepageState {
     /** Data related to the header of the homepage. */
     abstract val headerState: HeaderState
 
-    /** State of the middle search bar on the homepage. */
-    abstract val middleSearchState: MiddleSearchState
-
     /** Flag indicating whether the first frame of the homescreen has been drawn. */
     abstract val firstFrameDrawn: Boolean
 
@@ -49,13 +46,11 @@ internal sealed class HomepageState {
      * State type corresponding with private browsing mode.
      *
      * @property headerState State related to the header of the homepage.
-     * @property middleSearchState State of the middle search bar on the homepage.
      * @property firstFrameDrawn Flag indicating whether the first frame of the homescreen has been drawn.
      * @property isSearchInProgress Whether search is currently active on the homepage.
      */
     internal data class Private(
         override val headerState: HeaderState,
-        override val middleSearchState: MiddleSearchState = MiddleSearchState(),
         override val firstFrameDrawn: Boolean = false,
         override val isSearchInProgress: Boolean,
     ) : HomepageState()
@@ -99,7 +94,7 @@ internal sealed class HomepageState {
         val showLongfoxAnimation: Boolean,
         val trackersBlockedCount: Int,
         override val headerState: HeaderState,
-        override val middleSearchState: MiddleSearchState = MiddleSearchState(),
+        val middleSearchState: MiddleSearchState = MiddleSearchState(),
         override val firstFrameDrawn: Boolean = false,
         val setupChecklistState: SetupChecklistState?,
         override val isSearchInProgress: Boolean,
@@ -112,6 +107,20 @@ internal sealed class HomepageState {
                 is Normal -> BrowsingMode.Normal
                 is Private -> BrowsingMode.Private
             }
+
+    /**
+     * Returns whether the homepage is in the "Minimal Layout" state, where only the shortcuts and stories are visible
+     * (but both or either can be hidden). This is for the purpose of adding a weighted spacer in between so the stories
+     * are anchored to the bottom.
+     */
+    internal fun isMinimalLayout(): Boolean {
+        return (this as? Normal)?.run {
+            recentTabs == null &&
+                recentSyncedTabSectionState is RecentSyncedTabSectionState.Gone &&
+                bookmarks == null &&
+                recentlyVisited == null
+        } ?: false
+    }
 
     companion object {
         private const val BOTTOM_PADDING_TOP_TOOLBAR = 68
@@ -165,7 +174,6 @@ internal sealed class HomepageState {
                     headerState = buildPrivateHeaderState(settings = settings),
                     firstFrameDrawn = firstFrameDrawn,
                     isSearchInProgress = searchState.isSearchActive,
-                    middleSearchState = buildMiddleSearchState(appState = appState, settings = settings),
                 )
             }
 
@@ -211,7 +219,14 @@ internal sealed class HomepageState {
                     showLongfoxAnimation = settings.longfoxEnabled && longfoxEntryPointReady,
                     trackersBlockedCount = blockedTrackersState.trackersBlockedCount,
                     headerState = buildHeaderState(settings = settings),
-                    middleSearchState = buildMiddleSearchState(appState = appState, settings = settings),
+                    middleSearchState =
+                        MiddleSearchState(
+                            searchBarVisible = shouldShowSearchBar(appState = appState),
+                            searchBarEnabled =
+                                settings.enableHomepageSearchBar &&
+                                    settings.toolbarPosition == ToolbarPosition.TOP &&
+                                    LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT,
+                        ),
                     firstFrameDrawn = firstFrameDrawn,
                     setupChecklistState = setupChecklistState,
                     isSearchInProgress = searchState.isSearchActive,
@@ -240,31 +255,15 @@ private fun buildHeaderState(settings: Settings): HeaderState {
             showStoriesButton = settings.showPocketRecommendationsFeature,
         )
     } else {
-        HeaderState.Normal(
-            showStoriesButton = settings.showPocketRecommendationsFeature,
-            showButtons = !settings.isHomepageMiddleSearchEnabled,
-        )
+        HeaderState.Normal(showStoriesButton = settings.showPocketRecommendationsFeature)
     }
 }
-
-@Composable
-private fun buildMiddleSearchState(appState: AppState, settings: Settings) =
-    MiddleSearchState(
-        searchBarVisible = shouldShowSearchBar(appState = appState),
-        searchBarEnabled =
-            settings.enableHomepageSearchBar &&
-                settings.toolbarPosition == ToolbarPosition.TOP &&
-                LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT,
-    )
 
 private fun buildPrivateHeaderState(settings: Settings): HeaderState {
     return if (settings.privateModeAndStoriesEntryPointEnabled) {
         HeaderState.Experimental.Private
     } else {
-        HeaderState.Normal(
-            showStoriesButton = false,
-            showButtons = !settings.isHomepageMiddleSearchEnabled,
-        )
+        HeaderState.Normal(showStoriesButton = false)
     }
 }
 
@@ -276,12 +275,8 @@ internal sealed class HeaderState {
      * from the wallpaper at render time (see `HomepageHeader`), so no colors are held here.
      *
      * @property showStoriesButton Whether to show the stories button.
-     * @property showButtons Whether to show the stories and private browsing buttons.
      */
-    data class Normal(
-        val showStoriesButton: Boolean,
-        val showButtons: Boolean = true,
-    ) : HeaderState()
+    data class Normal(val showStoriesButton: Boolean) : HeaderState()
 
     /** Represents the experimental states for the entry points experiment. */
     sealed class Experimental : HeaderState() {

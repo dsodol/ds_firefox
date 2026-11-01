@@ -11,10 +11,9 @@ use crash_helper_common::{
 use mozannotation_server::{AnnotationData, CAnnotation};
 use std::{
     convert::TryInto,
-    env,
     fs::{create_dir_all, File},
     mem::{size_of, zeroed},
-    os::windows::io::AsRawHandle,
+    os::windows::io::{AsHandle, AsRawHandle, BorrowedHandle},
     path::PathBuf,
     ptr::{null, null_mut},
 };
@@ -24,17 +23,16 @@ use windows_sys::Win32::{
     Foundation::{FALSE, HANDLE},
     System::{
         Diagnostics::Debug::{
-            MiniDumpWithFullMemory, MiniDumpWithFullMemoryInfo, MiniDumpWithHandleData,
-            MiniDumpWithIndirectlyReferencedMemory, MiniDumpWithProcessThreadData,
-            MiniDumpWithUnloadedModules, MiniDumpWriteDump, EXCEPTION_POINTERS, EXCEPTION_RECORD,
-            MINIDUMP_EXCEPTION_INFORMATION, MINIDUMP_TYPE,
+            MiniDumpWithFullMemoryInfo, MiniDumpWithIndirectlyReferencedMemory,
+            MiniDumpWithProcessThreadData, MiniDumpWithUnloadedModules, MiniDumpWriteDump,
+            EXCEPTION_POINTERS, EXCEPTION_RECORD, MINIDUMP_EXCEPTION_INFORMATION, MINIDUMP_TYPE,
         },
         SystemInformation::{
             VerSetConditionMask, VerifyVersionInfoW, OSVERSIONINFOEXW, VER_MAJORVERSION,
             VER_MINORVERSION, VER_SERVICEPACKMAJOR, VER_SERVICEPACKMINOR,
         },
         SystemServices::VER_GREATER_EQUAL,
-        Threading::{OpenProcess, PROCESS_ALL_ACCESS},
+        Threading::{GetProcessId, GetThreadId},
     },
 };
 
@@ -50,19 +48,18 @@ impl CrashGenerator {
         let mut exception_records = message.exception_records;
         let exception_records_ptr = link_exception_records(&mut exception_records);
 
-        let pid = message.process_id;
+        let handle = message.process.as_raw_handle() as HANDLE;
+        let pid = get_process_id(message.process.as_handle())?;
         let mut exception_pointers = EXCEPTION_POINTERS {
             ExceptionRecord: exception_records_ptr,
             ContextRecord: &mut context as *mut _,
         };
 
         let exception = MINIDUMP_EXCEPTION_INFORMATION {
-            ThreadId: message.thread_id,
+            ThreadId: get_thread_id(message.thread.as_handle())?,
             ExceptionPointers: &mut exception_pointers,
             ClientPointers: FALSE,
         };
-
-        let handle = get_process_handle(pid)?;
 
         // SAFETY: `handle` is guaranteed to be a valid handle and so is
         // `minidump_file`. The remaining pointers going into this function are
@@ -89,25 +86,19 @@ impl CrashGenerator {
                 }],
             };
 
-            let error = self.finalize_crash_report(
-                handle,
+            self.finalize_crash_report(
+                process_id.get_native(),
                 Some(&extra_data),
                 &path,
                 super::ProcessType::Child,
             );
-            self.insert_crash_report(&process_id, &path, error);
         }
 
         Ok(())
     }
 
     fn get_minidump_type(&self) -> MINIDUMP_TYPE {
-        if env::var("MOZ_CRASHREPORTER_FULLDUMP").is_ok_and(|v| !v.is_empty()) {
-            return MiniDumpWithFullMemory;
-        }
-
-        let mut minidump_type =
-            MiniDumpWithFullMemoryInfo | MiniDumpWithUnloadedModules | MiniDumpWithHandleData;
+        let mut minidump_type = MiniDumpWithFullMemoryInfo | MiniDumpWithUnloadedModules;
         if mozbuild::config::NIGHTLY_BUILD {
             // This is Nightly only because this doubles the size of minidumps based
             // on the experimental data.
@@ -179,16 +170,19 @@ fn is_windows8_or_later() -> bool {
     }
 }
 
-fn get_process_handle(pid: u32) -> Result<HANDLE, ()> {
+fn get_process_id(handle: BorrowedHandle) -> Result<u32, ()> {
     // SAFETY: No pointers involved, worst case we get an error
-    let handle = unsafe {
-        OpenProcess(PROCESS_ALL_ACCESS, /* bInheritHandle */ FALSE, pid)
-    };
+    match unsafe { GetProcessId(handle.as_raw_handle() as HANDLE) } {
+        0 => Err(()),
+        pid => Ok(pid),
+    }
+}
 
-    if handle.is_null() {
-        Err(())
-    } else {
-        Ok(handle)
+fn get_thread_id(handle: BorrowedHandle) -> Result<u32, ()> {
+    // SAFETY: No pointers involved, worst case we get an error
+    match unsafe { GetThreadId(handle.as_raw_handle() as HANDLE) } {
+        0 => Err(()),
+        tid => Ok(tid),
     }
 }
 

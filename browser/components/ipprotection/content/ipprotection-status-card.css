@@ -13,6 +13,11 @@
   gap: var(--space-medium);
   width: 100%;
 
+  moz-badge {
+    grid-column: 1;
+    justify-self: start;
+  }
+
   span {
     grid-column: 2;
     text-align: center;

@@ -447,9 +447,6 @@ void DcSctpSocket::RestoreFromState(const DcSctpSocketHandoverState& state) {
       tcb_->RestoreFromState(now, state);
 
       SetState(State::kEstablished, "restored from handover state");
-      // Outstanding data was restored and marked for retransmission. Send it
-      // right away instead of waiting for the T3-RTX timer to expire.
-      tcb_->SendBufferedPackets(now);
       callbacks_.OnConnected();
     }
   }
@@ -1607,7 +1604,7 @@ void DcSctpSocket::HandleSack(const CommonHeader& /* header */,
       // DATA chunks in a single packet.  When a Fast Retransmit is being
       // performed, the sender SHOULD ignore the value of cwnd and SHOULD NOT
       // delay retransmission for this single packet."
-      tcb_->MaybeSendFastRetransmit(now);
+      tcb_->MaybeSendFastRetransmit();
 
       // Receiving an ACK will decrease outstanding bytes (maybe now below
       // cwnd?) or indicate packet loss that may result in sending FORWARD-TSN.

@@ -31,6 +31,9 @@ child:
   async TerminateScript();
   async RequestContentJSInterrupt();
 
+  async BeginStartingDebugger();
+  async EndStartingDebugger();
+
   async PaintWhileInterruptingJS(TabId tabId);
   async UnloadLayersWhileInterruptingJS(TabId tabId);
 

@@ -28,8 +28,6 @@ interface CSSRule {
   attribute UTF8String cssText;
   [BinaryName="parentRuleForBindings"] readonly attribute CSSRule? parentRule;
   readonly attribute CSSStyleSheet? parentStyleSheet;
-  [ChromeOnly]
-  boolean supportsDeclarations();
 };
 
 // https://drafts.csswg.org/css-animations/#interface-cssrule

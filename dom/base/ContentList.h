@@ -119,21 +119,8 @@ class SimpleContentList : public BaseContentList {
 class HTMLCollection : public BaseContentList {
  public:
   Element* Item(uint32_t aIndex) override = 0;
-  // Non-virtual getter for populated mElements, otherwise falls back to Item()
-  Element* FastItem(uint32_t aIndex) {
-    if (aIndex < mElements.Length()) {
-      nsIContent* content = mElements[aIndex];
-      MOZ_ASSERT(content->IsElement(),
-                 "HTMLCollection can only contain elements");
-      MOZ_ASSERT(Item(aIndex) == content,
-                 "Subclasses should keep mElements consistent");
-      return content->AsElement();
-    } else {
-      return Item(aIndex);
-    }
-  }
   Element* IndexedGetter(uint32_t aIndex, bool& aFound) {
-    Element* item = FastItem(aIndex);
+    Element* item = Item(aIndex);
     aFound = !!item;
     return item;
   }
@@ -243,7 +230,6 @@ class ContentList : public HTMLCollection, public nsStubMultiMutationObserver {
 
  public:
   NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(ContentList, HTMLCollection)
 
   /**
    * @param aRootNode The node under which to limit our search.
@@ -320,6 +306,7 @@ class ContentList : public HTMLCollection, public nsStubMultiMutationObserver {
   NS_DECL_NSIMUTATIONOBSERVER_CONTENTAPPENDED
   NS_DECL_NSIMUTATIONOBSERVER_CONTENTINSERTED
   NS_DECL_NSIMUTATIONOBSERVER_CONTENTREMOVED
+  NS_DECL_NSIMUTATIONOBSERVER_NODEWILLBEDESTROYED
 
   bool MatchesKey(const ContentListKey& aKey) const {
     // The root node is most commonly the same: the document.  And the
@@ -350,11 +337,6 @@ class ContentList : public HTMLCollection, public nsStubMultiMutationObserver {
   class HashEntry;
 
  protected:
-  /**
-   * Stop observing the root nodes and release mRootNode.
-   */
-  virtual void DisconnectFromRoot();
-
   // A cache from name to the first named item in mElements. Only possibly
   // non-null when mState is State::UpToDate. Elements are kept alive by our
   // mElements array.
@@ -451,7 +433,7 @@ class ContentList : public HTMLCollection, public nsStubMultiMutationObserver {
     }
   }
 
-  RefPtr<nsINode> mRootNode;
+  nsINode* mRootNode;  // Weak ref
   int32_t mMatchNameSpaceId;
   RefPtr<nsAtom> mHTMLMatchAtom;
   RefPtr<nsAtom> mXMLMatchAtom;
@@ -646,10 +628,10 @@ class LabelsNodeList final : public ContentList {
    */
   void ResetRoots();
 
+  void LastRelease() override;
+
  protected:
   virtual ~LabelsNodeList();
-
-  void DisconnectFromRoot() override;
 
   nsINode* GetNextNode(nsINode* aCurrent) override;
 

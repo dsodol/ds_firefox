@@ -299,10 +299,7 @@ impl crate::Queue for Context {
 impl crate::Device for Context {
     type A = Api;
 
-    unsafe fn create_buffer(
-        &self,
-        desc: &crate::BufferDescriptor,
-    ) -> DeviceResult<(Buffer, wgt::BufferAddress)> {
+    unsafe fn create_buffer(&self, desc: &crate::BufferDescriptor) -> DeviceResult<Buffer> {
         Buffer::new(desc)
     }
 

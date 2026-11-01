@@ -15,7 +15,6 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import mozilla.components.feature.qr.QrFeature
-import mozilla.components.service.fxa.FxaService
 import mozilla.components.service.fxa.manager.SCOPE_PROFILE
 import mozilla.components.service.fxa.manager.SCOPE_SESSION
 import mozilla.components.service.fxa.manager.SCOPE_SYNC
@@ -47,17 +46,19 @@ class PairFragment : Fragment(R.layout.fragment_pair), UserInteractionHandler, S
                 onScanResult = { pairingUrl ->
                     // By the time we get a scan result, we may not be attached to the context anymore.
                     // See https://github.com/mozilla-mobile/fenix/issues/15812
-                    // The scanner returns an empty result when the user navigates back.
-                    if (context == null || pairingUrl.isBlank()) {
-                        exitPairing()
+                    if (context == null) {
+                        findNavController()
+                            .popBackStack(
+                                R.id.turnOnSyncFragment,
+                                false,
+                            )
                         return@QrFeature
                     }
                     requireComponents.services.accountsAuthFeature.beginPairingAuthentication(
-                        context = requireContext(),
-                        pairingUrl = pairingUrl,
-                        entrypoint = args.entrypoint,
-                        service = FxaService.Sync.identifier,
-                        scopes = setOf(SCOPE_SYNC, SCOPE_PROFILE, SCOPE_SESSION),
+                        requireContext(),
+                        pairingUrl,
+                        args.entrypoint,
+                        setOf(SCOPE_SYNC, SCOPE_PROFILE, SCOPE_SESSION),
                     )
                     val vibrator = requireContext().getSystemService<Vibrator>()!!
                     vibrator.vibrate(
@@ -66,7 +67,11 @@ class PairFragment : Fragment(R.layout.fragment_pair), UserInteractionHandler, S
                             VibrationEffect.DEFAULT_AMPLITUDE,
                         )
                     )
-                    exitPairing()
+                    findNavController()
+                        .popBackStack(
+                            R.id.turnOnSyncFragment,
+                            false,
+                        )
                 },
                 scanMessage = R.string.pair_instructions_2,
             ),
@@ -87,7 +92,7 @@ class PairFragment : Fragment(R.layout.fragment_pair), UserInteractionHandler, S
 
     override fun onBackPressed(): Boolean {
         qrFeature.onBackPressed()
-        exitPairing()
+        findNavController().popBackStack(R.id.turnOnSyncFragment, false)
         return true
     }
 
@@ -114,13 +119,9 @@ class PairFragment : Fragment(R.layout.fragment_pair), UserInteractionHandler, S
                         it.onPermissionsResult(permissions, grantResults)
                     }
                 } else {
-                    exitPairing()
+                    findNavController().popBackStack(R.id.turnOnSyncFragment, false)
                 }
             }
         }
-    }
-
-    private fun exitPairing() {
-        findNavController().popBackStack(R.id.pairFragment, true)
     }
 }

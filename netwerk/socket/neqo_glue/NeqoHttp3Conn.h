@@ -196,13 +196,10 @@ class NeqoHttp3Conn final {
 
   nsresult WebTransportSendDatagram(uint64_t aSessionId,
                                     nsTArray<uint8_t>& aData,
-                                    uint64_t aTrackingId,
-                                    bool* aBelowHighWaterMark,
-                                    uint64_t aSendGroupId, int64_t aSendOrder,
-                                    uint64_t aAgeUs) {
+                                    uint64_t aTrackingId, uint64_t aSendGroupId,
+                                    int64_t aSendOrder) {
     return neqo_http3conn_webtransport_send_datagram(
-        this, aSessionId, &aData, aTrackingId, aBelowHighWaterMark,
-        aSendGroupId, aSendOrder, aAgeUs);
+        this, aSessionId, &aData, aTrackingId, aSendGroupId, aSendOrder);
   }
 
   nsresult ConnectUdpSendDatagram(uint64_t aSessionId, nsTArray<uint8_t>& aData,
@@ -215,17 +212,6 @@ class NeqoHttp3Conn final {
   nsresult WebTransportMaxDatagramSize(uint64_t aSessionId, uint64_t* aResult) {
     return neqo_http3conn_webtransport_max_datagram_size(this, aSessionId,
                                                          aResult);
-  }
-
-  nsresult WebTransportSetDatagramMaxBufferedDatagrams(
-      uint64_t aSessionId, uint32_t aMaxBufferedDatagrams) {
-    return neqo_http3conn_webtransport_set_datagram_max_buffered_datagrams(
-        this, aSessionId, aMaxBufferedDatagrams);
-  }
-
-  nsresult WebTransportSetDatagramMaxAge(uint64_t aSessionId, double aMaxAge) {
-    return neqo_http3conn_webtransport_set_datagram_max_age(this, aSessionId,
-                                                            aMaxAge);
   }
 
   bool GetWebTransportSessionStats(
@@ -273,13 +259,13 @@ class NeqoHttp3Conn final {
 
   nsresult ExportWebTransportKeyingMaterial(
       uint64_t aSessionId, const nsTArray<uint8_t>& aLabel,
-      const nsTArray<uint8_t>& aContext, uint32_t aOutputLength,
-      nsTArray<uint8_t>& aKeyingMaterial) {
-    aKeyingMaterial.SetLength(aOutputLength);
+      const nsTArray<uint8_t>& aContext, nsTArray<uint8_t>& aKeyingMaterial) {
+    constexpr uint32_t kKeyingMaterialLength = 32;
+    aKeyingMaterial.SetLength(kKeyingMaterialLength);
     return neqo_http3conn_export_keying_material(
         this, aSessionId, aLabel.Elements(), aLabel.Length(),
         aContext.Elements(), aContext.Length(), aKeyingMaterial.Elements(),
-        aOutputLength);
+        kKeyingMaterialLength);
   }
 
  private:

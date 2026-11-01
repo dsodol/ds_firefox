@@ -16,6 +16,7 @@ var { setTimeout } = ChromeUtils.importESModule(
 );
 
 let h2Port;
+let h3NoResponsePort;
 let h3ReverseProxyPort;
 
 add_setup(async function setup() {
@@ -34,6 +35,7 @@ add_setup(async function setup() {
   let server = new HTTP3Server();
   await server.start(h3ServerPath, h3DBPath);
 
+  h3NoResponsePort = server.no_response_port();
   h3ReverseProxyPort = server.reverse_proxy_port();
 
   Services.prefs.setBoolPref("network.dns.preferIPv6", true);
@@ -130,7 +132,7 @@ add_task(async function test_doh_http3_first_fallback_http2() {
   let host = "alt1.example.com";
 
   let trrServer = new TRRServer();
-  await trrServer.startWithNoResponseUdpPort();
+  await trrServer.start(h3NoResponsePort);
 
   await trrServer.registerDoHAnswers("example.net", "A", {
     answers: [

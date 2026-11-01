@@ -549,7 +549,7 @@ nsDocumentEncoder::nsDocumentEncoder(
 }
 
 nsDocumentEncoder::nsDocumentEncoder()
-    : nsDocumentEncoder(std::make_unique<RangeNodeContext>()) {}
+    : nsDocumentEncoder(MakeUnique<RangeNodeContext>()) {}
 
 void nsDocumentEncoder::Initialize(
     bool aClearCachedSerializer,
@@ -1722,8 +1722,7 @@ class nsHTMLCopyEncoder final : public nsDocumentEncoder {
 };
 
 nsHTMLCopyEncoder::nsHTMLCopyEncoder()
-    : nsDocumentEncoder{
-          std::make_unique<nsHTMLCopyEncoder::RangeNodeContext>()} {}
+    : nsDocumentEncoder{MakeUnique<nsHTMLCopyEncoder::RangeNodeContext>()} {}
 
 nsHTMLCopyEncoder::~nsHTMLCopyEncoder() = default;
 

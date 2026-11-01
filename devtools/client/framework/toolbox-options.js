@@ -348,7 +348,7 @@ class OptionsPanel extends EventEmitter {
 
     // Populating the default tools lists
     const toggleableTools = gDevTools.getDefaultTools().filter(tool => {
-      return tool.visibilityswitch;
+      return tool.visibilityswitch && !tool.hiddenInOptions;
     });
 
     const fragment = this.panelDoc.createDocumentFragment();

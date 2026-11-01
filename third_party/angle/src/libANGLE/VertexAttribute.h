@@ -124,7 +124,6 @@ struct VertexAttribCurrentValueData
 
 bool operator==(const VertexAttribCurrentValueData &a, const VertexAttribCurrentValueData &b);
 bool operator!=(const VertexAttribCurrentValueData &a, const VertexAttribCurrentValueData &b);
-std::ostream &operator<<(std::ostream &os, const VertexAttribCurrentValueData &data);
 
 }  // namespace gl
 

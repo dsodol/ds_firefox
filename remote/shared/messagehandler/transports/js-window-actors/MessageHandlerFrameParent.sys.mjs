@@ -73,13 +73,13 @@ export class MessageHandlerFrameParent extends JSWindowActorParent {
    *
    * @param {Command} command
    *     The command to forward. See type definition in MessageHandler.js
-   * @param {string} internalSessionId
-   *     ID of the MessageHandler network that sent the command.
+   * @param {string} sessionId
+   *     ID of the session that sent the command.
    * @returns {Promise}
    *     Promise that will resolve with the result of query sent to the
    *     MessageHandlerFrameChild actor.
    */
-  async sendCommand(command, internalSessionId) {
+  async sendCommand(command, sessionId) {
     const timer = lazy.setTimeout(
       () => this.#sendPing(command),
       lazy.commandDelay
@@ -89,7 +89,7 @@ export class MessageHandlerFrameParent extends JSWindowActorParent {
       "MessageHandlerFrameParent:sendCommand",
       {
         command,
-        internalSessionId,
+        sessionId,
       }
     );
 
@@ -108,18 +108,16 @@ export class MessageHandlerFrameParent extends JSWindowActorParent {
   }
 
   async #handleMessageHandlerEventMessage(messageData) {
-    const { data, name, relatedContexts, internalSessionId } = messageData;
+    const { data, name, relatedContexts, sessionId } = messageData;
     const [moduleName] = name.split(".");
 
     // Re-emit the event on the RootMessageHandler.
     const messageHandler =
-      lazy.RootMessageHandlerRegistry.getExistingMessageHandler(
-        internalSessionId
-      );
+      lazy.RootMessageHandlerRegistry.getExistingMessageHandler(sessionId);
 
     if (!messageHandler) {
-      // If there is no message handler for the provided internal session id,
-      // this is a late event for an already destroyed session, bail out.
+      // If there is no message handler for the provided session id, this is a
+      // late event for an already destroyed session, bail out.
       // Bug 1730913: A trace could be added here once Bug 1730913 is resolved.
       // Until that, this would lead to too much log pollution, because content
       // process modules will not be destroyed until the corresponding window
@@ -156,15 +154,13 @@ export class MessageHandlerFrameParent extends JSWindowActorParent {
   }
 
   async #handleSendCommandMessage(messageData) {
-    const { internalSessionId, command } = messageData;
+    const { sessionId, command } = messageData;
 
     // Flag the command as coming from windowglobal modules / content processes.
     command.fromContentProcess = true;
 
     const messageHandler =
-      lazy.RootMessageHandlerRegistry.getExistingMessageHandler(
-        internalSessionId
-      );
+      lazy.RootMessageHandlerRegistry.getExistingMessageHandler(sessionId);
     try {
       return await messageHandler.handleCommand(command);
     } catch (e) {

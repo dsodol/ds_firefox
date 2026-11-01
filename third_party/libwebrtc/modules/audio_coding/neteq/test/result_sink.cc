@@ -14,7 +14,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <string>
-#include <vector>
 
 #include "absl/strings/string_view.h"
 #include "api/neteq/neteq.h"
@@ -93,9 +92,10 @@ void ResultSink::AddResult(const NetEqNetworkStatistics& stats_raw) {
 }
 
 void ResultSink::VerifyChecksum(absl::string_view checksum) {
-  std::vector<uint8_t> buffer(digest_->Size());
+  std::string buffer;
+  buffer.resize(digest_->Size());
   digest_->Finish(buffer.data(), buffer.size());
-  const std::string result = HexEncode(buffer);
+  const std::string result = hex_encode(buffer);
   if (checksum.size() == result.size()) {
     EXPECT_EQ(checksum, result);
   } else {

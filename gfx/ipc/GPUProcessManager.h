@@ -202,11 +202,6 @@ class GPUProcessManager final : public GPUProcessHost::Listener {
   // as well as for tests and diagnostics.
   void KillProcess(bool aGenerateMinidump = false);
 
-  // Kills the GPU process for tests. This exercises the same recovery path as
-  // an unexpected shutdown, but does not count towards disabling the GPU
-  // process or any of its features.
-  void KillProcessForTesting();
-
   // Invoked when we know we will shutdown (but before shutdown begins), to
   // avoid races with other shutdown observers.
   void StopBatteryObserving();
@@ -389,6 +384,8 @@ class GPUProcessManager final : public GPUProcessHost::Listener {
   mozilla::ipc::TaskFactory<GPUProcessManager> mTaskFactory;
   RefPtr<VsyncIOThreadHolder> mVsyncIOThread;
   uint32_t mNextNamespace;
+  uint32_t mIdNamespace;
+  uint32_t mResourceId;
 
   uint32_t mUnstableProcessAttempts;
   uint32_t mTotalProcessAttempts;
@@ -406,7 +403,7 @@ class GPUProcessManager final : public GPUProcessHost::Listener {
   bool mAppInForeground;
 
   // Fields that are associated with the current GPU process.
-  RefPtr<GPUProcessHost> mProcess;
+  GPUProcessHost* mProcess;
   uint64_t mProcessToken;
   bool mProcessStable = false;
   bool mProcessStableOnce = false;

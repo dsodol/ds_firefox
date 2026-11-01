@@ -9,11 +9,6 @@
 
 namespace mozilla::dom::quota {
 
-QuotaRequestBase::QuotaRequestBase(
-    MovingNotNull<RefPtr<QuotaManager>> aQuotaManager, const char* aName)
-    : NormalOriginOperationBase(std::move(aQuotaManager), aName),
-      mActorDestroyed(false) {}
-
 QuotaRequestBase::~QuotaRequestBase() {
   AssertIsOnOwningThread();
   MOZ_ASSERT(mActorDestroyed);

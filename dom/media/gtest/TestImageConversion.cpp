@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include <iterator>
-#include <memory>
 
 #include "ImageContainer.h"
 #include "ImageConversion.h"
@@ -11,6 +10,7 @@
 #include "gtest/gtest.h"
 #include "mozilla/CheckedInt.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/UniquePtr.h"
 #include "mozilla/dom/ImageBitmapBinding.h"
 #include "mozilla/dom/ImageUtils.h"
 
@@ -20,6 +20,7 @@ using mozilla::ConvertToNV12;
 using mozilla::ConvertToRGBA;
 using mozilla::MakeAndAddRef;
 using mozilla::MakeRefPtr;
+using mozilla::MakeUnique;
 using mozilla::Maybe;
 using mozilla::Nothing;
 using mozilla::Some;
@@ -476,10 +477,10 @@ TEST(MediaImageConversion, UndersizedSourceSurface)
       static_cast<size_t>(reportedSize.width) * reportedSize.height;
 
   // Destination buffers, reused across both cases.
-  auto destY = std::make_unique<uint8_t[]>(planeSize);
-  auto destUV = std::make_unique<uint8_t[]>(planeSize);
-  auto destU = std::make_unique<uint8_t[]>(planeSize);
-  auto destV = std::make_unique<uint8_t[]>(planeSize);
+  auto destY = MakeUnique<uint8_t[]>(planeSize);
+  auto destUV = MakeUnique<uint8_t[]>(planeSize);
+  auto destU = MakeUnique<uint8_t[]>(planeSize);
+  auto destV = MakeUnique<uint8_t[]>(planeSize);
 
   {
     // Undersized surface: it does not cover the reported image size, so every

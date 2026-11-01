@@ -305,6 +305,7 @@ static int nr_stun_client_send_request(nr_stun_client_ctx *ctx)
             if ((r=nr_stun_build_keepalive(&ctx->params.stun_keepalive, &ctx->request)))
                 ABORT(r);
             break;
+#ifdef USE_ICE
         case NR_ICE_CLIENT_MODE_USE_CANDIDATE:
             if ((r=nr_stun_build_use_candidate(&ctx->params.ice_binding_request, &ctx->request)))
                 ABORT(r);
@@ -313,7 +314,9 @@ static int nr_stun_client_send_request(nr_stun_client_ctx *ctx)
             if ((r=nr_stun_build_req_ice(&ctx->params.ice_binding_request, &ctx->request)))
                 ABORT(r);
             break;
+#endif /* USE_ICE */
 
+#ifdef USE_TURN
         case NR_TURN_CLIENT_MODE_ALLOCATE_REQUEST:
             if ((r=nr_stun_build_allocate_request(&ctx->auth_params, &ctx->params.allocate_request, &ctx->request)))
                 ABORT(r);
@@ -330,6 +333,7 @@ static int nr_stun_client_send_request(nr_stun_client_ctx *ctx)
             if ((r=nr_stun_build_send_indication(&ctx->params.send_indication, &ctx->request)))
                 ABORT(r);
             break;
+#endif /* USE_TURN */
 
         default:
             assert(0);
@@ -464,6 +468,7 @@ int nr_stun_client_process_response(nr_stun_client_ctx *ctx, UCHAR *msg, int len
       fail_on_error = 1;
       break;
 
+#ifdef USE_ICE
     case NR_ICE_CLIENT_MODE_BINDING_REQUEST:
       /* We do not set fail_on_error here. The error might be transient, and
        * retrying isn't going to cause a slowdown. */
@@ -474,7 +479,9 @@ int nr_stun_client_process_response(nr_stun_client_ctx *ctx, UCHAR *msg, int len
        * retrying isn't going to cause a slowdown. */
       password = &ctx->params.ice_binding_request.password;
       break;
+#endif /* USE_ICE */
 
+#ifdef USE_TURN
     case NR_TURN_CLIENT_MODE_ALLOCATE_REQUEST:
       fail_on_error = 1;
       compute_lt_key = 1;
@@ -501,6 +508,7 @@ int nr_stun_client_process_response(nr_stun_client_ctx *ctx, UCHAR *msg, int len
     case NR_TURN_CLIENT_MODE_SEND_INDICATION:
       /* do nothing -- we just got our DATA-INDICATION */
       break;
+#endif /* USE_TURN */
 
     default:
       assert(0);
@@ -644,6 +652,7 @@ int nr_stun_client_process_response(nr_stun_client_ctx *ctx, UCHAR *msg, int len
         mapped_addr = &ctx->results.stun_binding_response.mapped_addr;
         break;
 
+#ifdef USE_ICE
     case NR_ICE_CLIENT_MODE_BINDING_REQUEST:
         if (! nr_stun_message_has_attribute(ctx->response, NR_STUN_ATTR_XOR_MAPPED_ADDRESS, 0)) {
             r_log(NR_LOG_STUN,LOG_WARNING,"STUN-CLIENT(%s): No XOR-MAPPED-ADDRESS",ctx->label);
@@ -668,7 +677,9 @@ int nr_stun_client_process_response(nr_stun_client_ctx *ctx, UCHAR *msg, int len
 
         mapped_addr = &ctx->results.stun_binding_response.mapped_addr;
         break;
+#endif /* USE_ICE */
 
+#ifdef USE_TURN
     case NR_TURN_CLIENT_MODE_ALLOCATE_REQUEST:
         if (! nr_stun_message_has_attribute(ctx->response, NR_STUN_ATTR_XOR_MAPPED_ADDRESS, 0)) {
             r_log(NR_LOG_STUN,LOG_WARNING,"STUN-CLIENT(%s): No XOR-MAPPED-ADDRESS",ctx->label);
@@ -725,6 +736,7 @@ int nr_stun_client_process_response(nr_stun_client_ctx *ctx, UCHAR *msg, int len
             ABORT(R_BAD_DATA);
         }
         break;
+#endif /* USE_TURN */
 
     default:
         assert(0);

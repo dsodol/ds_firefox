@@ -60,7 +60,7 @@ bool GetTaskDescription(mozilla::UniquePtr<wchar_t[]>& description) {
     return false;
   }
   NS_ConvertUTF8toUTF16 daTaskDescW(daTaskDesc);
-  description = std::make_unique<wchar_t[]>(daTaskDescW.Length() + 1);
+  description = mozilla::MakeUnique<wchar_t[]>(daTaskDescW.Length() + 1);
   wcsncpy(description.get(), daTaskDescW.get(), daTaskDescW.Length() + 1);
   return true;
 }
@@ -206,7 +206,8 @@ HRESULT RegisterTask(const wchar_t* uniqueToken,
       return hr;
     }
 
-    auto timeStr = std::make_unique<wchar_t[]>(kTimeStrMaxLen + 1);
+    mozilla::UniquePtr<wchar_t[]> timeStr =
+        mozilla::MakeUnique<wchar_t[]>(kTimeStrMaxLen + 1);
 
     if (wcsftime(timeStr.get(), kTimeStrMaxLen + 1, kTimeFormat, &now_tm) ==
         0) {

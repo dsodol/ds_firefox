@@ -17,7 +17,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import mozilla.components.support.test.robolectric.testContext
 import mozilla.components.support.utils.ext.packageManagerWrapper
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -85,11 +84,6 @@ internal class InstallReferrerHandlingServiceTest {
         InstallReferrerHandlingService.response = null
         testContext.components.settings.shouldShowMarketingOnboarding = true
         FxNimbus.features.marketingOnboardingCard.withCachedValue(MarketingOnboardingCard(enabled = true))
-    }
-
-    @After
-    fun tearDown() {
-        FxNimbus.features.pairingSigninPrompt.withCachedValue(null)
     }
 
     @Test

@@ -146,8 +146,7 @@ static std::unique_ptr<DesktopCapturer> CreateTabCapturer(
   std::unique_ptr<DesktopCapturer> capturer =
       TabCapturerWebrtc::Create(aSourceId, std::move(aCaptureThread));
   if (capturer && options.detect_updated_region()) {
-    capturer =
-        std::make_unique<DesktopCapturerDifferWrapper>(std::move(capturer));
+    capturer.reset(new DesktopCapturerDifferWrapper(std::move(capturer)));
   }
 
   return capturer;

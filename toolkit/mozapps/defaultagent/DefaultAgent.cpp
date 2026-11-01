@@ -150,7 +150,8 @@ static void RemoveAllRegistryEntries() {
   // The length that RegQueryInfoKeyW returns is without a terminator.
   maxValueNameLen += 1;
 
-  auto valueName = std::make_unique<wchar_t[]>(maxValueNameLen);
+  mozilla::UniquePtr<wchar_t[]> valueName =
+      mozilla::MakeUnique<wchar_t[]>(maxValueNameLen);
 
   DWORD valueIndex = 0;
   // Set this to true if we encounter values in this key that are prefixed with
@@ -328,13 +329,13 @@ DefaultAgent::GetDefaultPdfHandler(nsAString& aDefaultPdfHandler) {
 }
 
 NS_IMETHODIMP
-DefaultAgent::SendPing(
-    const nsAString& aDefaultBrowser, const nsAString& aPreviousDefaultBrowser,
-    const nsAString& aDefaultPdfHandler, const nsAString& aNotificationShown,
-    const nsAString& aNotificationAction, uint32_t daysSinceLastAppLaunch,
-    const nsAString& aIsTaskbarPinned, bool aHasWinPackageId,
-    const nsAString& aWinPackageFamilyName, const nsAString& aInstallerType,
-    bool aInstallerFromMsi, bool aInstallerSilent) {
+DefaultAgent::SendPing(const nsAString& aDefaultBrowser,
+                       const nsAString& aPreviousDefaultBrowser,
+                       const nsAString& aDefaultPdfHandler,
+                       const nsAString& aNotificationShown,
+                       const nsAString& aNotificationAction,
+                       uint32_t daysSinceLastAppLaunch,
+                       const nsAString& aIsTaskbarPinned) {
   DefaultBrowserInfo browserInfo = {
       GetBrowserFromString(std::string(NS_ConvertUTF16toUTF8(aDefaultBrowser))),
       GetBrowserFromString(
@@ -352,14 +353,8 @@ DefaultAgent::SendPing(
                                                 shown, action};
 
   std::string isTaskbarPinned{NS_ConvertUTF16toUTF8(aIsTaskbarPinned).get()};
-  InstallInfo installInfo = {
-      aHasWinPackageId,
-      std::string(NS_ConvertUTF16toUTF8(aWinPackageFamilyName).get()),
-      std::string(NS_ConvertUTF16toUTF8(aInstallerType).get()),
-      aInstallerFromMsi, aInstallerSilent};
   HRESULT hr = SendDefaultAgentPing(browserInfo, pdfInfo, activitiesPerformed,
-                                    daysSinceLastAppLaunch, isTaskbarPinned,
-                                    installInfo);
+                                    daysSinceLastAppLaunch, isTaskbarPinned);
   return SUCCEEDED(hr) ? NS_OK : NS_ERROR_FAILURE;
 }
 

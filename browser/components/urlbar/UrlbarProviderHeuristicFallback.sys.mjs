@@ -12,9 +12,10 @@ import {
   UrlbarProvider,
   UrlbarUtils,
 } from "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs";
-import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const lazy = XPCOMUtils.declareLazy({
+const lazy = {};
+
+ChromeUtils.defineESModuleGetters(lazy, {
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
   UrlbarSearchUtils:
     "moz-src:///browser/components/urlbar/UrlbarSearchUtils.sys.mjs",
@@ -74,28 +75,23 @@ export class UrlbarProviderHeuristicFallback extends UrlbarProvider {
         addCallback(this, result);
         // Since we can't tell if this is a real URL and whether the user wants
         // to visit or search for it, we provide an alternative searchengine
-        // match if the string looks like an alphanumeric origin or an e-mail,
-        // or always when in search mode.
+        // match if the string looks like an alphanumeric origin or an e-mail.
         let str = queryContext.searchString;
-        let inSearchMode = !!queryContext.searchMode;
-        if (
-          inSearchMode ||
-          (!URL.canParse(str) &&
+        if (!URL.canParse(str)) {
+          if (
             queryContext.keywordEnabled &&
             (lazy.UrlUtils.looksLikeOrigin(str, {
               noIp: true,
               noPort: true,
             }) ||
-              lazy.UrlUtils.REGEXP_COMMON_EMAIL.test(str)))
-        ) {
-          let searchResult = await this._engineSearchResult({
-            queryContext,
-            suggestedIndex: inSearchMode ? 1 : undefined,
-          });
-          if (instance != this.queryInstance) {
-            return;
+              lazy.UrlUtils.REGEXP_COMMON_EMAIL.test(str))
+          ) {
+            let searchResult = await this._engineSearchResult({ queryContext });
+            if (instance != this.queryInstance) {
+              return;
+            }
+            addCallback(this, searchResult);
           }
-          addCallback(this, searchResult);
         }
         return;
       }
@@ -306,7 +302,6 @@ export class UrlbarProviderHeuristicFallback extends UrlbarProvider {
     queryContext,
     keyword = null,
     heuristic = false,
-    suggestedIndex = undefined,
   }) {
     let engine;
     if (queryContext.searchMode?.engineName) {
@@ -340,7 +335,6 @@ export class UrlbarProviderHeuristicFallback extends UrlbarProvider {
       type: lazy.UrlbarShared.RESULT_TYPE.SEARCH,
       source: lazy.UrlbarShared.RESULT_SOURCE.SEARCH,
       heuristic,
-      suggestedIndex,
       payload: {
         engine: engine.name,
         icon: lazy.UrlbarShared.ICON.SEARCH_GLASS,

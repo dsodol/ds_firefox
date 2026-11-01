@@ -27,6 +27,7 @@ not-for-build-platforms:
     - android-aarch64-shippable/opt
 
 task-defaults:
+    run-on-repo-type: [hg]
     task-context:
         from-parameters:
             project: project

@@ -35,12 +35,7 @@ export const AutocompleteRemoveRecord = {
     return { message, caption };
   },
 
-  /**
-   * @param {ChromeWindow} chromeWindow
-   * @param {string} recordType
-   * @param {string} [flowId] The flow id of the dropdown the removal came from.
-   */
-  async confirmRemoval(chromeWindow, recordType, flowId = "") {
+  async confirmRemoval(chromeWindow, recordType) {
     const [title, message, confirmButton] = await lazy.l10n.formatValues([
       { id: TITLE_L10N_IDS[recordType] },
       { id: "autocomplete-remove-record-message" },
@@ -65,14 +60,8 @@ export const AutocompleteRemoveRecord = {
       {}
     );
 
-    const confirmed =
-      result.QueryInterface(Ci.nsIPropertyBag2).get("buttonNumClicked") == 0;
-    Glean.autocomplete.recordDialogInteraction.record({
-      record_type: recordType,
-      interaction_type: confirmed ? "confirm" : "cancel",
-      update_type: "delete",
-      flow_id: flowId,
-    });
-    return confirmed;
+    return (
+      result.QueryInterface(Ci.nsIPropertyBag2).get("buttonNumClicked") == 0
+    );
   },
 };

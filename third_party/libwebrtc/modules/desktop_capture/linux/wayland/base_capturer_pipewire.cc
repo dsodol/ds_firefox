@@ -101,11 +101,12 @@ void BaseCapturerPipeWire::OnScreenCastRequestResult(RequestResponse result,
     RTC_LOG(LS_ERROR) << "ScreenCastPortal failed: "
                       << static_cast<uint>(result);
   } else if (ScreenCastPortal* screencast_portal = GetScreenCastPortal()) {
-    const SourceId token_id =
-        selected_source_id_ ? selected_source_id_ : source_id_;
-    RestoreTokenManager::GetInstance().AddToken(
-        token_id, screencast_portal->RestoreToken(),
-        screencast_portal->persist_mode());
+    if (!screencast_portal->RestoreToken().empty()) {
+      const SourceId token_id =
+          selected_source_id_ ? selected_source_id_ : source_id_;
+      RestoreTokenManager::GetInstance().AddToken(
+          token_id, screencast_portal->RestoreToken());
+    }
   }
 
   if (!delegated_source_list_observer_)
@@ -155,12 +156,12 @@ void BaseCapturerPipeWire::Start(Callback* callback) {
   callback_ = callback;
 
   if (ScreenCastPortal* screencast_portal = GetScreenCastPortal()) {
-    RestoreTokenManager::Entry entry;
+    screencast_portal->SetPersistMode(
+        ScreenCastPortal::PersistMode::kTransient);
     if (selected_source_id_) {
-      entry = RestoreTokenManager::GetInstance().GetEntry(selected_source_id_);
+      screencast_portal->SetRestoreToken(
+          RestoreTokenManager::GetInstance().GetToken(selected_source_id_));
     }
-    screencast_portal->SetPersistMode(entry.persist_mode);
-    screencast_portal->SetRestoreToken(entry.token);
   }
 
   is_portal_open_ = true;

@@ -2287,7 +2287,6 @@ nsStyleDisplay::nsStyleDisplay()
           StyleBlockEllipsis::Ellipsis(),
           false},
       mShapeMargin(LengthPercentage::Zero()),
-      mFitTolerance(StyleFitTolerance::Normal()),
       mShapeOutside(StyleShapeOutside::None()) {
   MOZ_COUNT_CTOR(nsStyleDisplay);
 }
@@ -2347,7 +2346,6 @@ nsStyleDisplay::nsStyleDisplay(const nsStyleDisplay& aSource)
       mWebkitLineClamp(aSource.mWebkitLineClamp),
       mShapeImageThreshold(aSource.mShapeImageThreshold),
       mShapeMargin(aSource.mShapeMargin),
-      mFitTolerance(aSource.mFitTolerance),
       mShapeOutside(aSource.mShapeOutside),
       mAnchorName(aSource.mAnchorName),
       mAnchorScope(aSource.mAnchorScope) {
@@ -2611,10 +2609,6 @@ nsChangeHint nsStyleDisplay::CalcDifference(
     // XXX Can this just be AllReflowHints + RepaintFrame, and be included in
     // the block below?
     hint |= NS_STYLE_HINT_REFLOW;
-  }
-
-  if (mFitTolerance != aNewData.mFitTolerance) {
-    hint |= nsChangeHint_AllReflowHints;
   }
 
   // XXX the following is conservative, for now: changing float breaking

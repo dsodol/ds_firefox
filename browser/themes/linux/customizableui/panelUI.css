@@ -5,8 +5,7 @@
 @import "chrome://browser/skin/customizableui/panelUI-shared.css";
 
 menupopup::part(drop-indicator) {
-  /* Accounts for the shadow margin + border of the panel. No design token equivalent. */
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  /* To account for the shadow margin + border of the panel */
   margin-inline-start: 5px;
 }
 

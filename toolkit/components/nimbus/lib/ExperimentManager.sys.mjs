@@ -5,8 +5,7 @@
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = XPCOMUtils.declareLazy({
-  ClientEnvironmentBase:
-    "resource://gre/modules/components-utils/ClientEnvironment.sys.mjs",
+  ClientEnvironment: "resource://normandy/lib/ClientEnvironment.sys.mjs",
   ClientID: "resource://gre/modules/ClientID.sys.mjs",
   ExperimentAPI: "resource://nimbus/ExperimentAPI.sys.mjs",
   ExperimentStore: "resource://nimbus/lib/ExperimentStore.sys.mjs",
@@ -352,7 +351,7 @@ export class ExperimentManager {
 
     if (
       lazy.ExperimentAPI.labsEnabled &&
-      lazy.NimbusEnrollments.persistenceEnabled
+      lazy.NimbusEnrollments.readFromDatabaseEnabled
     ) {
       // If labs are disabled, we will immediately clear the list of opt-in
       // recipes after initialization.
@@ -502,7 +501,7 @@ export class ExperimentManager {
   async getUserId(bucketConfig) {
     let id;
     if (bucketConfig.randomizationUnit === "normandy_id") {
-      id = lazy.ClientEnvironmentBase.legacyRandomizationId;
+      id = lazy.ClientEnvironment.userId;
     } else if (bucketConfig.randomizationUnit === "group_id") {
       id = await lazy.ClientID.getProfileGroupID();
     } else {
@@ -1455,11 +1454,7 @@ export class ExperimentManager {
    * @param {string} userId
    * @returns {Promise<Branch>}
    */
-  async chooseBranch(
-    slug,
-    branches,
-    userId = lazy.ClientEnvironmentBase.legacyRandomizationId
-  ) {
+  async chooseBranch(slug, branches, userId = lazy.ClientEnvironment.userId) {
     const ratios = branches.map(({ ratio = 1 }) => ratio);
 
     // It's important that the input be:

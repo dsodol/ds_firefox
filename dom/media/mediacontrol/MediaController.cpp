@@ -148,7 +148,7 @@ void MediaController::PauseWithReason(AudioFocusLossReason aReason) {
     case AudioFocusLossReason::System_permanent:
       InterruptAudioSession(AudioSessionInterruptKind::Permanent);
       UpdateMediaSessionInterruptToContentMediaIfNeeded(
-          AudioFocusInterruptAction::SuspendPermanently);
+          AudioFocusInterruptAction::Suspend);
       return;
     default:
       MOZ_ASSERT_UNREACHABLE("Unknown AudioFocusLossReason");

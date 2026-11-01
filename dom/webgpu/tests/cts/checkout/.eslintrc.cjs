@@ -14,7 +14,6 @@ const kKnownWGSLLanguageFeatures = [
   'immediate_address_space',
   'fragment_depth',
   'buffer_view',
-  'unrestricted_aliasing',
   // IMPORTANT: Always add features to capability_info.ts before adding them here.
   // This ensures that they're tested properly.
 ];

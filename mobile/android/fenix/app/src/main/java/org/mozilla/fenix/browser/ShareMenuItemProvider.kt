@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.StateFlow
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.menu.data.MenuItem
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.store.MenuEvent
 import mozilla.components.compose.menu.ui.MenuItemIconRes
@@ -38,12 +37,14 @@ class ShareMenuItemProvider(
     private val target: MenuTarget,
     private val shareUseCases: ShareUseCases,
 ) : MenuItemProvider {
-    override val itemsFlow: StateFlow<List<MenuItem>> =
-        if (target == MenuTarget.CustomizeMenu) {
-            MutableStateFlow(listOf(DEFAULT_MENU_ITEM))
-        } else {
-            MutableStateFlow(listOf(DEFAULT_MENU_ITEM.copy(onClickEvent = MenuAction.Navigate.Share)))
-        }
+    override val itemFlow: StateFlow<MenuItem?> =
+        MutableStateFlow(
+            StandardMenuItem(
+                title = Text.Resource(R.string.browser_menu_share),
+                icon = MenuItemIconRes(iconsR.drawable.mozac_ic_share_android_24),
+                onClickEvent = MenuAction.Navigate.Share,
+            )
+        )
 
     override fun handles(event: MenuEvent) = event == MenuAction.Navigate.Share
 
@@ -56,17 +57,13 @@ class ShareMenuItemProvider(
         val url = tab.getTabUrl()
         val shareData = ShareData(title = tab.content.title, url = url, private = tab.content.private)
 
-        val isCustomTab = target is MenuTarget.CustomTab
-        val source = if (isCustomTab) ShareSource.CUSTOM_TAB_MENU else ShareSource.BROWSER_MENU
-
         var shareScreen: NavDirections? = null
         shareUseCases.shareUrl(
             id = tab.id,
             url = url,
             title = tab.content.title,
-            source = source,
+            source = ShareSource.BROWSER_MENU,
             isPrivate = tab.content.private,
-            isCustomTab = isCustomTab,
             navigateToShareFragment = {
                 shareScreen =
                     NavGraphDirections.actionGlobalShareFragment(
@@ -78,13 +75,5 @@ class ShareMenuItemProvider(
         )
 
         shareScreen?.let { menu.navigate(it) } ?: menu.dismiss()
-    }
-
-    companion object {
-        private val DEFAULT_MENU_ITEM =
-            StandardMenuItem(
-                title = MenuItemTitle(Text.Resource(R.string.browser_menu_share)),
-                icon = MenuItemIconRes(iconsR.drawable.mozac_ic_share_android_24),
-            )
     }
 }

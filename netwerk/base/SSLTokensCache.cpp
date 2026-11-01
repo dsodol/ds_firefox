@@ -951,7 +951,7 @@ nsresult SSLTokensCache::Put(const nsACString& aKey, const uint8_t* aToken,
     }
 
     auto makeRecord = [&]() MOZ_REQUIRES(sLock) {
-      auto rec = std::make_unique<TokenCacheRecord>();
+      auto rec = MakeUnique<TokenCacheRecord>();
       rec->mKey = aKey;
       rec->mExpirationTime = aExpirationTime;
       rec->mOverridableError = static_cast<uint8_t>(overridableErrorCategory);
@@ -1435,7 +1435,7 @@ void SSLTokensCache::OnLoadCompleteNotify(uint32_t aCount) {
 UniquePtr<SSLTokensCache::TokenCacheRecord> SSLTokensCache::MakeRecord(
     const nsACString& aKey, PRTime aExpirationTime, uint8_t aOverridableError,
     bool aRestored, nsTArray<uint8_t>&& aCompressedPayload) {
-  auto rec = std::make_unique<TokenCacheRecord>();
+  auto rec = MakeUnique<TokenCacheRecord>();
   rec->mKey = aKey;
   rec->mExpirationTime = aExpirationTime;
   rec->mOverridableError = aOverridableError;

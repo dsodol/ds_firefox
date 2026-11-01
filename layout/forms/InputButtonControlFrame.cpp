@@ -175,5 +175,6 @@ nsresult InputButtonControlFrame::AttributeChanged(int32_t aNameSpaceID,
 
 nsIFrame* NS_NewInputButtonControlFrame(PresShell* aPresShell,
                                         ComputedStyle* aStyle) {
-  return new InputButtonControlFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      InputButtonControlFrame(aStyle, aPresShell->GetPresContext());
 }

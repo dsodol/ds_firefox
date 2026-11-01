@@ -21,15 +21,11 @@
       await new Promise(r => t.step_timeout(r, 0));
 
       // First paint (small).
-      let icp_promise = getNextEntry('interaction-contentful-paint');
-      const small = addTextParagraphToMain("Small element");
-      await icp_promise;
+      const small = await addTextParagraphToMain("Small element");
 
       // Second paint (large).
-      icp_promise = getNextEntry('interaction-contentful-paint');
-      const large = addTextParagraphToMain("Much larger element that should be the largest interaction contentful paint in this interaction context");
+      const large = await addTextParagraphToMain("Much larger element that should be the largest interaction contentful paint in this interaction context");
       largeId = large.id;
-      await icp_promise;
 
       // URL change.
       history.pushState({}, '', `foobar.html?${counter++}`);

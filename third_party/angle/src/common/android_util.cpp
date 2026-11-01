@@ -242,6 +242,7 @@ void GetANativeWindowBufferProperties(const ANativeWindowBuffer *buffer,
     *width       = buffer->width;
     *height      = buffer->height;
     *depth       = static_cast<int>(buffer->layerCount);
+    *height      = buffer->height;
     *pixelFormat = buffer->format;
     *usage       = buffer->usage;
 }

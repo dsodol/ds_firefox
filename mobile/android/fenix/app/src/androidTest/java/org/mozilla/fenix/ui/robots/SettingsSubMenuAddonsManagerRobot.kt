@@ -9,11 +9,14 @@ package org.mozilla.fenix.ui.robots
 import android.util.Log
 import android.widget.RelativeLayout
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.espresso.Espresso.onView
@@ -38,6 +41,8 @@ import androidx.test.uiautomator.Until
 import mozilla.components.feature.addons.R as addonsR
 import org.hamcrest.CoreMatchers.allOf
 import org.mozilla.fenix.R
+import org.mozilla.fenix.components.menu.MenuDialogTestTag.EXTENSIONS_OPTION_CHEVRON
+import org.mozilla.fenix.components.menu.MenuDialogTestTag.WEB_EXTENSION_ITEM
 import org.mozilla.fenix.helpers.Constants.RETRY_COUNT
 import org.mozilla.fenix.helpers.Constants.TAG
 import org.mozilla.fenix.helpers.Constants.recommendedAddons
@@ -48,6 +53,7 @@ import org.mozilla.fenix.helpers.MatcherHelper.assertUIObjectIsGone
 import org.mozilla.fenix.helpers.MatcherHelper.itemContainingText
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithDescription
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithResId
+import org.mozilla.fenix.helpers.MatcherHelper.itemWithResIdAndDescription
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithResIdContainingText
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithText
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
@@ -448,7 +454,7 @@ class SettingsSubMenuAddonsManagerRobot(private val composeTestRule: ComposeTest
     }
 
     fun verifyExtensionsButtonWithInstalledExtension(extensionTitle: String) {
-        composeTestRule.onNode(extensionsItem().and(hasText(extensionTitle, substring = true))).assertExists()
+        assertUIObjectExists(itemWithResIdAndDescription("mainMenu.extensions", extensionTitle))
     }
 
     fun clickManageExtensionsButtonFromRedesignedMainMenu(composeTestRule: ComposeTestRule) {
@@ -493,7 +499,10 @@ class SettingsSubMenuAddonsManagerRobot(private val composeTestRule: ComposeTest
 
     fun verifyInstalledExtension(composeTestRule: ComposeTestRule, extensionTitle: String) {
         Log.i(TAG, "verifyInstalledExtension: Trying to verify that extension: $extensionTitle is displayed")
-        composeTestRule.onNode(hasText(extensionTitle, substring = true).and(!extensionsItem())).assertIsDisplayed()
+        composeTestRule
+            .onNode(hasTestTag(WEB_EXTENSION_ITEM))
+            .assert(hasContentDescription(extensionTitle, substring = true))
+            .assertIsDisplayed()
         Log.i(TAG, "verifyInstalledExtension: Verified that extension: $extensionTitle is displayed")
     }
 
@@ -619,7 +628,7 @@ class SettingsSubMenuAddonsManagerRobot(private val composeTestRule: ComposeTest
             TAG,
             "clickExtensionsChevronFromMainMenu: Trying to click the \"Extensions chevron\" button from the new main menu design.",
         )
-        composeTestRule.onNode(extensionsItem()).performClick()
+        composeTestRule.extensionsChevronButton().performClick()
         Log.i(
             TAG,
             "clickExtensionsChevronFromMainMenu: Clicked the \"Extensions chevron\" button from the new main menu design.",
@@ -696,4 +705,4 @@ private fun addonItem(addonName: String) =
 
 private fun addonsList() = UiScrollable(UiSelector().resourceId("$packageName:id/add_ons_list")).setAsVerticalList()
 
-private fun extensionsItem() = hasText(getStringResource(R.string.browser_menu_extensions))
+private fun ComposeTestRule.extensionsChevronButton() = onNodeWithTag(EXTENSIONS_OPTION_CHEVRON, useUnmergedTree = true)

@@ -114,7 +114,6 @@ pub mod style_resolver;
 pub mod stylesheet_set;
 pub mod stylesheets;
 pub mod stylist;
-pub mod substitution;
 pub mod thread_state;
 pub mod traversal;
 pub mod traversal_flags;

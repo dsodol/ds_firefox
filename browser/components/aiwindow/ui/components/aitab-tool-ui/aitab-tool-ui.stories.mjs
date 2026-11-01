@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { html } from "chrome://global/content/vendor/lit.all.mjs";
-import { STATES, STATE_CHOOSE, STATE_COMPLETE } from "./aitab-tool-ui.mjs";
+import "./aitab-tool-ui.mjs";
 
 export default {
   title: "Domain-specific UI Widgets/AI Window/AI Tab Tool UI",
@@ -11,7 +11,7 @@ export default {
   argTypes: {
     state: {
       control: "select",
-      options: STATES,
+      options: ["creating", "choose", "complete"],
     },
     title: { control: "text" },
     viewerURL: { control: "text" },
@@ -22,6 +22,7 @@ export default {
       handles: ["aitab-open-request"],
     },
     fluent: `
+smartwindow-aitab-creating = Creating a page…
 smartwindow-aitab-open-current =
     .label = Open here
 smartwindow-aitab-open-new =
@@ -42,9 +43,17 @@ const Template = ({ state, title, viewerURL, completeStateOpen }) => html`
   </div>
 `;
 
+export const Creating = Template.bind({});
+Creating.args = {
+  state: "creating",
+  title: "",
+  viewerURL: "",
+  completeStateOpen: true,
+};
+
 export const Choose = Template.bind({});
 Choose.args = {
-  state: STATE_CHOOSE,
+  state: "choose",
   title: "Weekend trip to Portland",
   viewerURL: "about:smartpage",
   completeStateOpen: true,
@@ -53,7 +62,7 @@ Choose.args = {
 export const CompleteExpanded = Template.bind({});
 CompleteExpanded.args = {
   ...Choose.args,
-  state: STATE_COMPLETE,
+  state: "complete",
 };
 
 export const CompleteCollapsed = Template.bind({});

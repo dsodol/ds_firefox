@@ -132,7 +132,6 @@ class HostIPCAllocator : public ISurfaceAllocator {
   }
 
   bool IsAboutToSendAsyncMessages() { return mAboutToSendAsyncMessages; }
-  void ClearAboutToSendAsyncMessages() { mAboutToSendAsyncMessages = false; }
 
  protected:
   nsTArray<AsyncParentMessageData> mPendingAsyncMessage;
@@ -199,7 +198,7 @@ class GfxMemoryImageReporter final : public nsIMemoryReporter {
     // There must be only one instance of this class, due to |sAmount|
     // being static.
     static bool hasRun = false;
-    MOZ_RELEASE_ASSERT(!hasRun);
+    MOZ_ASSERT(!hasRun);
     hasRun = true;
 #endif
   }

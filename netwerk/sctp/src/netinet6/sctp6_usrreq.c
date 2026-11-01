@@ -665,9 +665,11 @@ sctp6_getcred(SYSCTL_HANDLER_ARGS)
 
 	vrf_id = SCTP_DEFAULT_VRFID;
 
-	if (req->newptr == NULL)
-		return (EINVAL);
+#if defined(__FreeBSD__) && !defined(__Userspace__)
 	error = priv_check(req->td, PRIV_NETINET_GETCRED);
+#else
+	error = suser(req->p);
+#endif
 	if (error)
 		return (error);
 

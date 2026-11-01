@@ -101,7 +101,7 @@ export class LinkHandlerParent extends JSWindowActorParent {
           return;
         }
 
-        if (aMsg.data.isTabIcon) {
+        if (!aMsg.data.isRichIcon) {
           let tab = gBrowser.getTabForBrowser(browser);
           if (tab.hasAttribute("busy")) {
             tab.setAttribute("pendingicon", "true");
@@ -132,7 +132,7 @@ export class LinkHandlerParent extends JSWindowActorParent {
           return;
         }
 
-        if (aMsg.data.isTabIcon) {
+        if (!aMsg.data.isRichIcon) {
           this.clearPendingIcon(gBrowser, browser);
         }
 
@@ -177,7 +177,6 @@ export class LinkHandlerParent extends JSWindowActorParent {
       canStoreIcon,
       beforePageShow,
       isRichIcon,
-      isTabIcon,
     }
   ) {
     let tab = gBrowser.getTabForBrowser(browser);
@@ -214,7 +213,7 @@ export class LinkHandlerParent extends JSWindowActorParent {
       return;
     }
 
-    if (isTabIcon) {
+    if (!isRichIcon) {
       this.clearPendingIcon(gBrowser, browser);
     }
 
@@ -265,7 +264,7 @@ export class LinkHandlerParent extends JSWindowActorParent {
       }
     }
 
-    if (isTabIcon) {
+    if (!isRichIcon) {
       gBrowser.setIcon(tab, iconURL, originalURL, beforePageShow);
     }
   }

@@ -4,26 +4,17 @@
 
 /* https://w3c.github.io/webtransport/#web-transport-error-interface */
 
-[Exposed=(Window,Worker), Serializable, SecureContext,
- Pref="network.webtransport.enabled"]
+[Exposed=(Window,Worker), SecureContext, Pref="network.webtransport.enabled"]
 interface WebTransportError : DOMException {
-  // WebTransportErrorInit is the older constructor signature, still used by
-  // upstream WPTs.
-  constructor(optional (DOMString or WebTransportErrorInit) message = "",
-              optional WebTransportErrorOptions options = {});
+  constructor(optional WebTransportErrorInit init = {});
 
   readonly attribute WebTransportErrorSource source;
-  readonly attribute unsigned long? streamErrorCode;
-};
-
-dictionary WebTransportErrorOptions {
-  WebTransportErrorSource source = "stream";
-  [Clamp] unsigned long? streamErrorCode = null;
+  readonly attribute octet? streamErrorCode;
 };
 
 dictionary WebTransportErrorInit {
-  [Clamp] unsigned long streamErrorCode;
-  DOMString message = "";
+  [Clamp] octet streamErrorCode;
+  DOMString message;
 };
 
 enum WebTransportErrorSource {

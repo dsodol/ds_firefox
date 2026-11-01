@@ -1294,9 +1294,8 @@ enum class DeviceResetDetectPlace {
   WIDGET,
   CANVAS_TRANSLATOR,
   WR_BEFORE_READBACK,
-  WR_CREATE_COMPOSITOR,
   _First = WR_BEGIN_FRAME,
-  _Last = WR_CREATE_COMPOSITOR,
+  _Last = WR_BEFORE_READBACK,
 };
 
 enum class ForcedDeviceResetReason {

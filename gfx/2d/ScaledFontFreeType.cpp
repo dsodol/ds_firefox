@@ -70,7 +70,8 @@ bool ScaledFontFreeType::GetFontInstanceData(FontInstanceDataOutput aCb,
                                              void* aBaton) {
   std::vector<wr::FontVariation> variations;
   if (HasVariationSettings()) {
-    UnscaledFontFreeType::GetVariationSettingsFromFace(&variations, mFace);
+    UnscaledFontFreeType::GetVariationSettingsFromFace(&variations,
+                                                       mFace->GetFace());
   }
 
   InstanceData instance(this);
@@ -110,7 +111,8 @@ bool ScaledFontFreeType::GetWRFontInstanceOptions(
   *aOutPlatformOptions = Some(platformOptions);
 
   if (HasVariationSettings()) {
-    UnscaledFontFreeType::GetVariationSettingsFromFace(aOutVariations, mFace);
+    UnscaledFontFreeType::GetVariationSettingsFromFace(aOutVariations,
+                                                       mFace->GetFace());
   }
 
   return true;

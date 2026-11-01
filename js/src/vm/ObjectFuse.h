@@ -280,7 +280,11 @@ class ObjectFuseMap {
 #endif
 
  public:
-  explicit ObjectFuseMap(JS::Zone* zone);
+  explicit ObjectFuseMap(JS::Zone* zone) : objectFuses_(zone) {
+#ifdef DEBUG
+    zone_ = zone;
+#endif
+  }
 
   ObjectFuse* getOrCreate(JSContext* cx, NativeObject* obj);
   ObjectFuse* get(NativeObject* obj);

@@ -17,14 +17,10 @@
 //!   uninstrumented, no-overhead wrappers around the standard lock
 //!   types.
 //!
-//! If the `wgpu_validate_locks` config is set (either directly, i.e. with
-//! `RUSTFLAGS='--cfg wgpu_validate_locks'`, or via the
-//! `wgpu_validate_locks_debug` `cfg` alias in `build.rs` that conditionally
-//! enables it when debug assertions are also enabled), `wgpu-core` uses the
-//! [`ranked`] module's locks. `.config/cargo.toml` in the `wgpu` tree specifies
-//! `wgpu_validate_locks_debug`, so lock validation is active by default in
-//! `wgpu` CI and `wgpu` development trees, but not in `wgpu`-using applications
-//! unless specifically requested.
+//! If the `wgpu_validate_locks` config is set (for example, with
+//! `RUSTFLAGS='--cfg wgpu_validate_locks'`), `wgpu-core` uses the
+//! [`ranked`] module's locks. We hope to make this the default for
+//! debug builds soon.
 //!
 //! If the `observe_locks` feature is enabled, `wgpu-core` uses the
 //! [`observing`] module's locks.
@@ -42,7 +38,6 @@ pub mod rank;
 mod ranked;
 
 #[cfg(feature = "observe_locks")]
-#[cfg_attr(wgpu_validate_locks, allow(dead_code))]
 mod observing;
 
 #[cfg_attr(any(wgpu_validate_locks, feature = "observe_locks"), allow(dead_code))]
@@ -51,7 +46,7 @@ mod vanilla;
 #[cfg(wgpu_validate_locks)]
 use ranked as chosen;
 
-#[cfg(all(not(wgpu_validate_locks), feature = "observe_locks"))]
+#[cfg(feature = "observe_locks")]
 use observing as chosen;
 
 #[cfg(not(any(wgpu_validate_locks, feature = "observe_locks")))]

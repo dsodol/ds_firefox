@@ -27,10 +27,6 @@ EXPORTS += [
     "WindowRenderer.h",
 ]
 
-EXPORTS.mozilla += [
-    "DisplayListArenaObjectId.h",
-]
-
 UNIFIED_SOURCES += [
     "ActiveLayerTracker.cpp",
     "DashedCornerFinder.cpp",
@@ -66,10 +62,3 @@ LOCAL_INCLUDES += [
 LOCAL_INCLUDES += CONFIG["SKIA_INCLUDES"]
 
 FINAL_LIBRARY = "xul"
-
-SOURCE_HEADERS += [
-    "BorderCache.h",
-    "BorderConsts.h",
-    "DashedCornerFinder.h",
-    "DottedCornerFinder.h",
-]

@@ -297,16 +297,21 @@ static bool ToTemporalDateTime(JSContext* cx, Handle<JSObject*> item,
   }
 
   // Step 2.b.
-  if (auto* zdtObj = item->maybeUnwrapIf<ZonedDateTimeObject>()) {
-    Rooted<ZonedDateTime> zonedDateTime(cx, ZonedDateTime{zdtObj});
+  if (auto* zonedDateTime = item->maybeUnwrapIf<ZonedDateTimeObject>()) {
+    auto epochNs = zonedDateTime->epochNanoseconds();
+    Rooted<TimeZoneValue> timeZone(cx, zonedDateTime->timeZone());
+    Rooted<CalendarValue> calendar(cx, zonedDateTime->calendar());
 
-    if (!zonedDateTime.wrap(cx)) {
+    if (!timeZone.wrap(cx)) {
+      return false;
+    }
+    if (!calendar.wrap(cx)) {
       return false;
     }
 
     // Step 2.b.i.
     ISODateTime dateTime;
-    if (!GetISODateTimeFor(cx, zonedDateTime, &dateTime)) {
+    if (!GetISODateTimeFor(cx, timeZone, epochNs, &dateTime)) {
       return false;
     }
 
@@ -317,7 +322,7 @@ static bool ToTemporalDateTime(JSContext* cx, Handle<JSObject*> item,
     }
 
     // Step 2.b.iv.
-    result.set(PlainDateTime{dateTime, zonedDateTime.calendar()});
+    result.set(PlainDateTime{dateTime, calendar});
     return true;
   }
 

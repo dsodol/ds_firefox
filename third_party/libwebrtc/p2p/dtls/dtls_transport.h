@@ -159,6 +159,7 @@ class DtlsTransportInternalImpl : public DtlsTransportInternal {
       SSLProtocolVersion max_version = SSL_PROTOCOL_DTLS_12,
       SslStreamFactory ssl_stream_factory = nullptr);
 
+
   ~DtlsTransportInternalImpl() override;
 
   DtlsTransportInternalImpl(const DtlsTransportInternalImpl&) = delete;
@@ -230,8 +231,6 @@ class DtlsTransportInternalImpl : public DtlsTransportInternal {
       ZeroOnFreeBuffer<uint8_t>& keying_material) override;
   bool AppendSrtpKeyingMaterial(
       ZeroOnFreeBuffer<uint8_t>& keying_material) override;
-
-  void MaybeStartDtlsInStun() override;
 
   IceTransportInternal* ice_transport() override;
 
@@ -345,10 +344,10 @@ class DtlsTransportInternalImpl : public DtlsTransportInternal {
   // of the stack.
   bool ice_has_been_writable_ = false;
 
-  // Whether SPED was configured locally.
-  bool dtls_in_stun_configured_ = false;
-  // Whether the remote negotiated or used SPED.
-  bool dtls_in_stun_negotiated_ = false;
+  // Initialized in constructor based on WebRTC-IceHandshakeDtls,
+  // (so that we return PIGGYBACK_ACK to client if we get STUN_BINDING_REQUEST
+  // directly). Maybe disabled in SetupDtls has been called.
+  bool dtls_in_stun_ = false;
   // Has DtlsInStun Complete been run?
   // This variable is used to prevent reinitializing after dtls-restart.
   bool dtls_in_stun_complete_ = false;
@@ -366,5 +365,6 @@ class DtlsTransportInternalImpl : public DtlsTransportInternal {
 };
 
 }  // namespace webrtc
+
 
 #endif  // P2P_DTLS_DTLS_TRANSPORT_H_

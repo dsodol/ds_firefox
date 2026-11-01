@@ -144,8 +144,9 @@ class nsUrlClassifierDBService::FeatureHolder final {
       }
 
       for (const nsCString& table : tables) {
-        RefPtr<TableData> tableData = holder->GetOrCreateTableData(table);
+        TableData* tableData = holder->GetOrCreateTableData(table);
         MOZ_ASSERT(tableData);
+
         featureData->mTables.AppendElement(tableData);
       }
     }
@@ -209,7 +210,7 @@ class nsUrlClassifierDBService::FeatureHolder final {
 
   mozilla::UniquePtr<LookupResultArray> GetTableResults() const {
     mozilla::UniquePtr<LookupResultArray> results =
-        std::make_unique<LookupResultArray>();
+        mozilla::MakeUnique<LookupResultArray>();
     if (NS_WARN_IF(!results)) {
       return nullptr;
     }
@@ -275,15 +276,16 @@ class nsUrlClassifierDBService::FeatureHolder final {
     NS_DispatchToMainThread(runnable.forget());
   }
 
-  already_AddRefed<TableData> GetOrCreateTableData(const nsACString& aTable) {
+  TableData* GetOrCreateTableData(const nsACString& aTable) {
     for (TableData* tableData : mTableData) {
       if (tableData->mTable == aTable) {
-        return do_AddRef(tableData);
+        return tableData;
       }
     }
 
-    mTableData.AppendElement(new TableData(aTable));
-    return do_AddRef(mTableData.LastElement());
+    RefPtr<TableData> tableData = new TableData(aTable);
+    mTableData.AppendElement(tableData);
+    return tableData;
   }
 
   nsCOMPtr<nsIURI> mURI;
@@ -1069,16 +1071,11 @@ nsresult nsUrlClassifierDBServiceWorker::CacheCompletions(
     }
     if (activeTable) {
       UniquePtr<ProtocolParser> pParse;
-      // ~ProtocolParserProtobuf() is private and required for
-      // std::make_unique<ProtocolParserProtobuf>(...)
-      // see https://github.com/llvm/llvm-project/pull/229802
-      // NOLINTBEGIN(modernize-make-unique)
       if (result->Ver() == CacheResult::V2) {
         pParse.reset(new ProtocolParserV2());
       } else {
         pParse.reset(new ProtocolParserProtobuf());
       }
-      // NOLINTEND(modernize-make-unique)
 
       RefPtr<TableUpdate> tu = pParse->GetTableUpdate(result->table);
 

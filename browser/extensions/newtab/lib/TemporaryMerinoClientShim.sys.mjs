@@ -134,10 +134,8 @@ export class TemporaryMerinoClientShim {
     this.#sessionTimeoutMs = value;
   }
 
-  /**
-   * @returns {?string}
-   *   The current session ID. Null when there is no active session.
-   */
+  // Note: Cannot be JSDoc due to https://github.com/pyodide/sphinx-js/issues/242
+  // The current session ID. Null when there is no active session.
   get sessionID() {
     return this.#sessionID;
   }
@@ -151,11 +149,9 @@ export class TemporaryMerinoClientShim {
     return this.#sequenceNumber;
   }
 
-  /**
-   * @returns {string}
-   *   A string that indicates the status of the last fetch. Possible values:
-   *   success, timeout, network_error, http_error
-   */
+  // Note: Cannot be JSDoc due to https://github.com/pyodide/sphinx-js/issues/242
+  // A string that indicates the status of the last fetch. Possible values:
+  // success, timeout, network_error, http_error
   get lastFetchStatus() {
     return this.#lastFetchStatus;
   }
@@ -493,8 +489,6 @@ export class TemporaryMerinoClientShim {
    *   Timeout in milliseconds. This method will return once the timeout
    *   elapses, a response is received, or an error occurs, whichever happens
    *   first.
-   * @param {string=} options.endpointUrl
-   *   Overrides the Merino endpoint URL from the merinoEndpointURL pref.
    * @returns {Promise<MerinoClientSuggestion>}
    *   The Merino suggestions or null if there's an error or unexpected
    *   response.
@@ -579,8 +573,6 @@ export class TemporaryMerinoClientShim {
    *   region codes.
    * @param {string=} options.city
    *   The city that should be a city name.
-   * @param {string=} options.endpointUrl
-   *   The hourly forecasts endpoint. Without it, null is returned.
    * @returns {Promise<Array<{date_time: string, epoch_date_time: number, icon_id: number, temperature: {c: number, f: number}, url: string}>|null>}
    *   Array of hourly forecast slots, or null if the endpoint is not
    *   configured or an error occurs.
@@ -839,7 +831,7 @@ export class TemporaryMerinoClientShim {
   }
 
   // State related to the current session.
-  /** @type {?string} */
+  /** @type {string} */
   #sessionID = null;
   #sequenceNumber = 0;
   /** @type {SkippableTimer} */
@@ -851,7 +843,7 @@ export class TemporaryMerinoClientShim {
   #timeoutTimer = null;
   /** @type {AbortController} */
   #fetchController = null;
-  /** @type {?string} */
+  /** @type {string} */
   #lastFetchStatus = null;
   /** @type {PromiseWithResolvers<?Response|?OHTTPResponse>} */
   #nextResponseDeferred = null;

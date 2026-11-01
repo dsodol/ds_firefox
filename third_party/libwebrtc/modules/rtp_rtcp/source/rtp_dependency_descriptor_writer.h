@@ -22,18 +22,15 @@
 namespace webrtc {
 class RtpDependencyDescriptorWriter {
  public:
-  // Assumes `structure` is valid and `descriptor` matches the `structure`.
-  // Rejects `descriptor` if its frame diffs or chain diffs are outside of the
-  // range that the dependency descriptor can represent, in which case
-  // `ValueSizeBits()` returns 0 and `Write()` returns false.
+  // Assumes `structure` and `descriptor` are valid and
+  // `descriptor` matches the `structure`.
   RtpDependencyDescriptorWriter(std::span<uint8_t> data,
                                 const FrameDependencyStructure& structure,
                                 std::bitset<32> active_chains,
                                 const DependencyDescriptor& descriptor);
 
   // Serializes DependencyDescriptor rtp header extension.
-  // Returns false if `data` is too small to serialize the `descriptor` or if
-  // the `descriptor` can't be serialized.
+  // Returns false if `data` is too small to serialize the `descriptor`.
   bool Write();
 
   // Returns minimum number of bits needed to serialize descriptor with respect
@@ -54,9 +51,6 @@ class RtpDependencyDescriptorWriter {
   };
   int StructureSizeBits() const;
   TemplateMatch CalculateMatch(TemplateIterator frame_template) const;
-  // Returns false if any frame diff or chain diff of an active chain in
-  // `descriptor_` is outside of the range that can be serialized.
-  bool HasSerializableDiffs() const;
   void FindBestTemplate();
   bool ShouldWriteActiveDecodeTargetsBitmask() const;
   bool HasExtendedFields() const;

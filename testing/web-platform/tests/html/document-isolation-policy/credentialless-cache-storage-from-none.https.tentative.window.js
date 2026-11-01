@@ -98,7 +98,7 @@ cacheStorageTest(`[${environment}] none => isolate-and-require-corp (omit)`,
   dip_none,
   dip_require_corp,
   "",
-  "omit",
+  "include",
   "error");
 cacheStorageTest(`[${environment}] none => isolate-and-require-corp + CORP`,
   dip_none,

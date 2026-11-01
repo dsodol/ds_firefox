@@ -20,15 +20,13 @@ class XULTextElement final : public nsXULElement {
   }
   void GetValue(DOMString& aValue) const { GetAttr(nsGkAtoms::value, aValue); }
   MOZ_CAN_RUN_SCRIPT void SetValue(const nsAString& aValue) {
-    SetAttr(kNameSpaceID_None, nsGkAtoms::value, aValue, true,
-            IsKnownNewAttr::No);
+    SetAttr(kNameSpaceID_None, nsGkAtoms::value, aValue, true);
   }
   void GetAccessKey(DOMString& aValue) const {
     GetAttr(nsGkAtoms::accesskey, aValue);
   }
   MOZ_CAN_RUN_SCRIPT void SetAccessKey(const nsAString& aValue) {
-    SetAttr(kNameSpaceID_None, nsGkAtoms::accesskey, aValue, true,
-            IsKnownNewAttr::No);
+    SetAttr(kNameSpaceID_None, nsGkAtoms::accesskey, aValue, true);
   }
 
   nsChangeHint GetAttributeChangeHint(const nsAtom* aAttribute,

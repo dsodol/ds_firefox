@@ -26,8 +26,15 @@ XPCOMUtils.defineLazyScriptGetter(
 );
 /* End Shared Places Import */
 var gCumulativeSearches = 0;
+var gDeferredSwitcherLoad = Promise.withResolvers();
 
 window.addEventListener("load", () => {
+  // Wait for initialization to finish before loading the switcher.
+  import("chrome://browser/content/sidebar/sidebar-panel-switcher.mjs").then(
+    gDeferredSwitcherLoad.resolve,
+    console.error
+  );
+
   let uidensity = window.top.document.documentElement.getAttribute("uidensity");
   if (uidensity) {
     document.documentElement.setAttribute("uidensity", uidensity);
@@ -60,6 +67,10 @@ window.addEventListener("load", () => {
   bhTooltip.addEventListener("popuphiding", () =>
     bhTooltip.removeAttribute("position")
   );
+
+  document
+    .getElementById("sidebar-panel-close")
+    .addEventListener("click", closeSidebarPanel);
 
   document
     .getElementById("placesCommands")
@@ -176,6 +187,14 @@ window.addEventListener("unload", () => {
     PlacesUIUtils.lastContextMenuCommand = null;
   }
 });
+
+function closeSidebarPanel(e) {
+  e.preventDefault();
+  let view = e.target.getAttribute("view");
+  window.browsingContext.embedderWindowGlobal.browsingContext.window.SidebarController.toggle(
+    view
+  );
+}
 
 window.addEventListener("SidebarFocused", () =>
   document.getElementById("search-box").focus()

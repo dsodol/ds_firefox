@@ -2349,23 +2349,6 @@ struct MOZ_STACK_CLASS BRElementPositionTest final {
   const bool mIsSignificant;
   const bool mIsEmptyBlockPadding;
 
-  bool IsFollowedByBlockBoundary() const {
-    return mExpectedPosition.contains(
-               LineBreakIs::FollowedByCurrentBlockBoundary) ||
-           mExpectedPosition.contains(
-               LineBreakIs::FollowedByOtherBlockBoundary);
-  }
-  bool IsFollowingLineBoundary() const {
-    return mExpectedPosition.contains(LineBreakIs::FollowingLineBreak) ||
-           mExpectedPosition.contains(
-               LineBreakIs::FollowingCurrentBlockBoundary) ||
-           mExpectedPosition.contains(LineBreakIs::FollowingOtherBlockBoundary);
-  }
-  bool IsLineBreakForEmptyLineBeforeBlockBoundary() const {
-    return !mIsEmptyBlockPadding && IsFollowedByBlockBoundary() &&
-           IsFollowingLineBoundary();
-  }
-
   friend std::ostream& operator<<(std::ostream& aStream,
                                   const BRElementPositionTest& aTest) {
     return aStream << "<br> of \"" << aTest.mBRSelector << "\" in \""
@@ -2406,12 +2389,6 @@ TEST(HTMLEditUtilsTest, BRElementPosition)
            BRElementPositionTest{u"<div><div></div><br></div>",
                                  "div > div + br",
                                  {LineBreakIs::FollowedByCurrentBlockBoundary,
-                                  LineBreakIs::FollowingOtherBlockBoundary},
-                                 true,
-                                 false},
-           BRElementPositionTest{u"<div><div></div><br><div></div></div>",
-                                 "div > div + br",
-                                 {LineBreakIs::FollowedByOtherBlockBoundary,
                                   LineBreakIs::FollowingOtherBlockBoundary},
                                  true,
                                  false},
@@ -2498,35 +2475,25 @@ TEST(HTMLEditUtilsTest, BRElementPosition)
         testData.mExpectedPosition.contains(LineBreakIs::FollowingLineBreak))
         << "IsBRElementFollowingLineBoundary: " << testData;
     EXPECT_EQ(HTMLEditUtils::IsUnnecessaryBRElement(
-                  *brElement, {LineBreakFor::PaddingForEmptyBlock}),
+                  *brElement, PaddingForEmptyBlock::Unnecessary),
               !testData.mIsSignificant || testData.mIsEmptyBlockPadding)
-        << "IsUnnecessaryBRElement({LineBreakFor::PaddingForEmptyBlock}): "
+        << "IsUnnecessaryBRElement(PaddingForEmptyBlock::Unnecessary): "
         << testData;
     EXPECT_EQ(HTMLEditUtils::IsUnnecessaryBRElement(
-                  *brElement, {LineBreakFor::EmptyLineBeforeBlockBoundary}),
-              !testData.mIsSignificant ||
-                  testData.IsLineBreakForEmptyLineBeforeBlockBoundary())
-        << "IsUnnecessaryBRElement({LineBreakFor::EmptyLineBeforeBlockBoundary}"
-           "): "
-        << testData;
-    EXPECT_EQ(HTMLEditUtils::IsUnnecessaryBRElement(*brElement, {}),
+                  *brElement, PaddingForEmptyBlock::Significant),
               !testData.mIsSignificant)
-        << "IsUnnecessaryBRElement({}): " << testData;
+        << "IsUnnecessaryBRElement(PaddingForEmptyBlock::Significant): "
+        << testData;
     EXPECT_EQ(HTMLEditUtils::IsSignificantBRElement(
-                  *brElement, {LineBreakFor::PaddingForEmptyBlock}),
+                  *brElement, PaddingForEmptyBlock::Unnecessary),
               testData.mIsSignificant && !testData.mIsEmptyBlockPadding)
-        << "IsSignificantBRElement({LineBreakFor::PaddingForEmptyBlock}): "
+        << "IsSignificantBRElement(PaddingForEmptyBlock::Unnecessary): "
         << testData;
     EXPECT_EQ(HTMLEditUtils::IsSignificantBRElement(
-                  *brElement, {LineBreakFor::EmptyLineBeforeBlockBoundary}),
-              testData.mIsSignificant &&
-                  !testData.IsLineBreakForEmptyLineBeforeBlockBoundary())
-        << "IsSignificantBRElement({LineBreakFor::EmptyLineBeforeBlockBoundary}"
-           "): "
-        << testData;
-    EXPECT_EQ(HTMLEditUtils::IsSignificantBRElement(*brElement, {}),
+                  *brElement, PaddingForEmptyBlock::Significant),
               testData.mIsSignificant)
-        << "IsSignificantBRElement({}): " << testData;
+        << "IsSignificantBRElement(PaddingForEmptyBlock::Significant): "
+        << testData;
   }
 }
 
@@ -2541,7 +2508,6 @@ struct MOZ_STACK_CLASS ScanVisibleThingTest final {
   };
   const ExpectedData mExpectedIfPaddingForEmptyBlockSignificant;
   const ExpectedData mExpectedIfPaddingForEmptyBlockUnnecessary;
-  const ExpectedData mExpectedIfEmptyLineBeforeBlockBoundaryUnnecessary;
 
   friend std::ostream& operator<<(std::ostream& aStream,
                                   const ScanVisibleThingTest& aTest) {
@@ -2566,20 +2532,17 @@ TEST(HTMLEditUtilsTest, ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak)
                                 "div",
                                 0u,
                                 {nullptr, "div > br"},
-                                {"div", "div > br"},
-                                {nullptr, "div > br"}},
+                                {"div", "div > br"}},
            ScanVisibleThingTest{u"<div><br></div>",
                                 Nothing{},
                                 "div",
                                 1u,
                                 {"div", nullptr},
-                                {"div", nullptr},
                                 {"div", nullptr}},
            ScanVisibleThingTest{u"<div>ABC</div>",
                                 Some(0u),
                                 "div",
                                 0u,
-                                {nullptr, nullptr},
                                 {nullptr, nullptr},
                                 {nullptr, nullptr}},
            ScanVisibleThingTest{u"<div>ABC</div>",
@@ -2587,27 +2550,23 @@ TEST(HTMLEditUtilsTest, ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak)
                                 "div",
                                 3u,
                                 {"div", nullptr},
-                                {"div", nullptr},
                                 {"div", nullptr}},
            ScanVisibleThingTest{u"<div>ABC<br></div>",
                                 Some(0u),
                                 "div",
                                 0u,
                                 {nullptr, nullptr},
-                                {nullptr, nullptr},
                                 {nullptr, nullptr}},
            ScanVisibleThingTest{u"<div>ABC<br></div>",
                                 Some(0u),
                                 "div",
                                 0u,
-                                {nullptr, nullptr},
                                 {nullptr, nullptr},
                                 {nullptr, nullptr}},
            ScanVisibleThingTest{u"<div>ABC<br>DEF</div>",
                                 Some(0u),
                                 "div",
                                 3u,
-                                {nullptr, "div > br"},
                                 {nullptr, "div > br"},
                                 {nullptr, "div > br"}},
            ScanVisibleThingTest{u"<div>ABC<br>DEF</div>",
@@ -2615,27 +2574,23 @@ TEST(HTMLEditUtilsTest, ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak)
                                 "div",
                                 1u,
                                 {nullptr, "div > br"},
-                                {nullptr, "div > br"},
                                 {nullptr, "div > br"}},
            ScanVisibleThingTest{u"<div><br><p><br></p></div>",
                                 Nothing{},
                                 "div",
                                 0u,
                                 {nullptr, "div > br"},
-                                {nullptr, "div > br"},
-                                {"div > p", "div > br"}},
+                                {nullptr, "div > br"}},
            ScanVisibleThingTest{u"<div><br><p><br></p></div>",
                                 Nothing{},
                                 "p",
                                 0u,
                                 {nullptr, "p > br"},
-                                {"p", "p > br"},
-                                {nullptr, "p > br"}},
+                                {"p", "p > br"}},
            ScanVisibleThingTest{u"<div><br><p><br></p></div>",
                                 Nothing{},
                                 "p",
                                 1u,
-                                {"p", nullptr},
                                 {"p", nullptr},
                                 {"p", nullptr}},
            ScanVisibleThingTest{u"<div><br><br></div>",
@@ -2643,29 +2598,25 @@ TEST(HTMLEditUtilsTest, ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak)
                                 "div",
                                 0u,
                                 {nullptr, "div > br"},
-                                {nullptr, "div > br"},
                                 {nullptr, "div > br"}},
            ScanVisibleThingTest{u"<div><br><br></div>",
                                 Nothing{},
                                 "div",
                                 1u,
                                 {nullptr, "div > br + br"},
-                                {nullptr, "div > br + br"},
-                                {"div", "div > br + br"}},
+                                {nullptr, "div > br + br"}},
            ScanVisibleThingTest{u"<div><span></span><!-- comment "
                                 u"--><br><span></span><!-- comment --></div>",
                                 Nothing{},
                                 "div",
                                 0u,
                                 {nullptr, "div > br"},
-                                {"div", "div > br"},
-                                {nullptr, "div > br"}},
+                                {"div", "div > br"}},
            ScanVisibleThingTest{u"<div><span></span><!-- comment "
                                 u"--><br><span></span><!-- comment --></div>",
                                 Nothing{},
                                 "div",
                                 3u,
-                                {"div", nullptr},
                                 {"div", nullptr},
                                 {"div", nullptr}},
            ScanVisibleThingTest{
@@ -2674,14 +2625,12 @@ TEST(HTMLEditUtilsTest, ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak)
                "div",
                3u,
                {"div", "div > br"},
-               {"div", "div > br"},
                {"div", "div > br"}},
            ScanVisibleThingTest{
                u"<div>AB <br><span></span><!-- comment --></div>",
                Some(0u),
                "div",
                3u,
-               {"div", "div > br"},
                {"div", "div > br"},
                {"div", "div > br"}},
        }) {
@@ -2698,28 +2647,19 @@ TEST(HTMLEditUtilsTest, ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak)
     MOZ_ASSERT(container);
     EditorRawDOMPoint scanStart(container, testData.mOffsetInContainer);
     MOZ_ASSERT(scanStart.IsSetAndValid());
-    for (const auto& unnecessaryLineBreaks :
-         {TreatAsUnnecessaryLineBreak{},
-          TreatAsUnnecessaryLineBreak{LineBreakFor::PaddingForEmptyBlock},
-          TreatAsUnnecessaryLineBreak{
-              LineBreakFor::EmptyLineBeforeBlockBoundary}}) {
+    for (const auto paddingForEmptyBlock :
+         {PaddingForEmptyBlock::Significant,
+          PaddingForEmptyBlock::Unnecessary}) {
       const WSScanResult nextThing =
           HTMLEditUtils::ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak(
-              scanStart, unnecessaryLineBreaks, *body);
-      const ScanVisibleThingTest::ExpectedData& expectedData = [&]() {
-        if (unnecessaryLineBreaks.contains(
-                LineBreakFor::EmptyLineBeforeBlockBoundary)) {
-          return testData.mExpectedIfEmptyLineBeforeBlockBoundaryUnnecessary;
-        }
-        if (unnecessaryLineBreaks.contains(
-                LineBreakFor::PaddingForEmptyBlock)) {
-          return testData.mExpectedIfPaddingForEmptyBlockUnnecessary;
-        }
-        return testData.mExpectedIfPaddingForEmptyBlockSignificant;
-      }();
+              scanStart, paddingForEmptyBlock, *body);
+      const ScanVisibleThingTest::ExpectedData& expectedData =
+          paddingForEmptyBlock == PaddingForEmptyBlock::Significant
+              ? testData.mExpectedIfPaddingForEmptyBlockSignificant
+              : testData.mExpectedIfPaddingForEmptyBlockUnnecessary;
       if (expectedData.mBlockElement) {
         EXPECT_EQ(nextThing.ReachedBlockBoundary(), true)
-            << "ReachedBlockBoundary(" << unnecessaryLineBreaks
+            << "ReachedBlockBoundary(" << paddingForEmptyBlock
             << "): " << testData;
         if (!nextThing.ReachedBlockBoundary()) {
           continue;
@@ -2728,10 +2668,10 @@ TEST(HTMLEditUtilsTest, ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak)
             nsDependentCString(expectedData.mBlockElement), IgnoreErrors());
         MOZ_ASSERT(expectedBlock);
         EXPECT_EQ(nextThing.ElementPtr(), expectedBlock)
-            << "BlockElement(" << unnecessaryLineBreaks << "): " << testData;
+            << "BlockElement(" << paddingForEmptyBlock << "): " << testData;
         EXPECT_EQ(nextThing.MaybeIgnoredLineBreak().isSome(),
                   !!expectedData.mBRElement)
-            << "Is <br> skipped? (" << unnecessaryLineBreaks
+            << "Is <br> skipped? (" << paddingForEmptyBlock
             << "): " << testData;
         if (!expectedData.mBRElement) {
           continue;
@@ -2740,31 +2680,30 @@ TEST(HTMLEditUtilsTest, ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak)
             nsDependentCString(expectedData.mBRElement), IgnoreErrors());
         MOZ_ASSERT(expectedBR);
         EXPECT_EQ(nextThing.MaybeIgnoredLineBreak()->GetBRElement(), expectedBR)
-            << "Skipped <br> (" << unnecessaryLineBreaks << "): " << testData;
+            << "Skipped <br> (" << paddingForEmptyBlock << "): " << testData;
         continue;
       }
       if (expectedData.mBRElement) {
         EXPECT_EQ(nextThing.ReachedBRElement(), true)
-            << "ReachedBRElement(" << unnecessaryLineBreaks
-            << "): " << testData;
+            << "ReachedBRElement(" << paddingForEmptyBlock << "): " << testData;
         if (!nextThing.ReachedBRElement()) {
           continue;
         }
         EXPECT_EQ(nextThing.MaybeIgnoredLineBreak().isNothing(), true)
-            << "Is <br> skipped? (" << unnecessaryLineBreaks
+            << "Is <br> skipped? (" << paddingForEmptyBlock
             << "): " << testData;
         const Element* const expectedBR = body->QuerySelector(
             nsDependentCString(expectedData.mBRElement), IgnoreErrors());
         MOZ_ASSERT(expectedBR);
         EXPECT_EQ(nextThing.BRElementPtr(), expectedBR)
-            << "Skipped <br> (" << unnecessaryLineBreaks << "): " << testData;
+            << "Skipped <br> (" << paddingForEmptyBlock << "): " << testData;
         continue;
       }
       EXPECT_EQ(nextThing.ReachedBlockBoundary(), false)
-          << "ReachedBlockBoundary(" << unnecessaryLineBreaks
+          << "ReachedBlockBoundary(" << paddingForEmptyBlock
           << "): " << testData;
       EXPECT_EQ(nextThing.ReachedBRElement(), false)
-          << "ReachedBRElement(" << unnecessaryLineBreaks << "): " << testData;
+          << "ReachedBRElement(" << paddingForEmptyBlock << "): " << testData;
     }
   }
 }

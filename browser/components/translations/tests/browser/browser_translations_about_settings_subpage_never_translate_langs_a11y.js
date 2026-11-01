@@ -9,7 +9,10 @@
 add_task(async function test_never_translate_languages_keyboard_activation() {
   const { cleanup, translationsSettingsTestUtils } =
     await setupAboutPreferences(LANGUAGE_PAIRS, {
-      prefs: [[NEVER_TRANSLATE_LANGS_PREF, "es,fr,uk"]],
+      prefs: [
+        ["browser.settings-redesign.enabled", true],
+        [NEVER_TRANSLATE_LANGS_PREF, "es,fr,uk"],
+      ],
     });
 
   const document = gBrowser.selectedBrowser.contentDocument;
@@ -95,7 +98,10 @@ add_task(async function test_never_translate_languages_keyboard_activation() {
 add_task(async function test_never_translate_languages_accessibility() {
   const { cleanup, translationsSettingsTestUtils } =
     await setupAboutPreferences(LANGUAGE_PAIRS, {
-      prefs: [[NEVER_TRANSLATE_LANGS_PREF, "es,fr"]],
+      prefs: [
+        ["browser.settings-redesign.enabled", true],
+        [NEVER_TRANSLATE_LANGS_PREF, "es,fr"],
+      ],
     });
 
   const document = gBrowser.selectedBrowser.contentDocument;

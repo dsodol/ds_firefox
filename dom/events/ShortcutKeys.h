@@ -5,7 +5,6 @@
 #ifndef mozilla_ShortcutKeys_h
 #define mozilla_ShortcutKeys_h
 
-#include "mozilla/RefPtr.h"
 #include "nsIObserver.h"
 
 class nsAtom;
@@ -60,10 +59,10 @@ class ShortcutKeys : public nsIObserver {
   static ShortcutKeyData sTextAreaHandlers[];
 
   // Cached event handlers generated from the above data.
-  RefPtr<KeyEventHandler> mBrowserHandlers;
-  RefPtr<KeyEventHandler> mEditorHandlers;
-  RefPtr<KeyEventHandler> mInputHandlers;
-  RefPtr<KeyEventHandler> mTextAreaHandlers;
+  KeyEventHandler* mBrowserHandlers;
+  KeyEventHandler* mEditorHandlers;
+  KeyEventHandler* mInputHandlers;
+  KeyEventHandler* mTextAreaHandlers;
 };
 
 }  // namespace mozilla

@@ -10,7 +10,7 @@
 
 use euclid::approxeq::ApproxEq;
 use euclid::vec2;
-use api::{AlphaMode, ExtendMode, GradientStop};
+use api::{ExtendMode, GradientStop};
 use api::units::*;
 use crate::pattern::gradient::linear_gradient_pattern;
 use crate::pattern::{Pattern, PatternBuilder, PatternBuilderState};
@@ -37,7 +37,6 @@ impl InternDebug for LinearGradientKey {}
 pub struct LinearGradientTemplate {
     pub common: PrimTemplateCommonData,
     pub extend_mode: ExtendMode,
-    pub alpha_mode: AlphaMode,
     // Relative to the primitive's pattern rect.
     pub start_point: LayoutVector2D,
     pub end_point: LayoutVector2D,
@@ -70,7 +69,6 @@ impl PatternBuilder for LinearGradientTemplate {
             pattern_rect.min + start,
             pattern_rect.min + end,
             self.extend_mode,
-            self.alpha_mode,
             &self.stops,
             state.frame_gpu_data,
         )
@@ -336,7 +334,6 @@ impl From<LinearGradientKey> for LinearGradientTemplate {
         LinearGradientTemplate {
             common,
             extend_mode: item.extend_mode,
-            alpha_mode: item.alpha_mode,
             start_point,
             end_point,
             stretch_ratio,

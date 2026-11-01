@@ -35,8 +35,8 @@
 #define _IP_VHL
 #include <netinet/sctp_os.h>
 #include <netinet/sctp_pcb.h>
-#if defined(__FreeBSD__) && defined(__Userspace__)
 #ifdef INET6
+#if defined(__FreeBSD__) && defined(__Userspace__)
 #include <netinet6/sctp6_var.h>
 #endif
 #endif

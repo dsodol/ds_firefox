@@ -35,12 +35,9 @@ namespace net {
 
 extern const char kProxyType_SOCKS[];
 
-// https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-15#section-4.4
+// https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3/#section-4.3
 constexpr uint64_t kWebTransportErrorCodeStart = 0x52e4a40fa8db;
-// Covers the full unsigned long (0..2^32-1) streamErrorCode range: start +
-// 0xffffffff + floor(0xffffffff / 0x1e), per draft-ietf-webtrans-http3
-// section 4.4's error-code mapping.
-constexpr uint64_t kWebTransportErrorCodeEnd = 0x52e5ac983162;
+constexpr uint64_t kWebTransportErrorCodeEnd = 0x52e4a40fa9e2;
 
 // find out how many atoms we have
 #define HTTP_ATOM(_name, _value) Unused_##_name,
@@ -561,7 +558,7 @@ void localEnsureBuffer(UniquePtr<T[]>& buf, uint32_t newSize, uint32_t preserve,
   objSize = (newSize + 2048 + 4095) & ~4095;
 
   static_assert(sizeof(T) == 1, "sizeof(T) must be 1");
-  auto tmp = std::make_unique<T[]>(objSize);
+  auto tmp = MakeUnique<T[]>(objSize);
   if (preserve) {
     memcpy(tmp.get(), buf.get(), preserve);
   }
@@ -1081,22 +1078,25 @@ uint8_t GetWebTransportErrorFromNSResult(nsresult aResult) {
                               (uint32_t)NS_ERROR_WEBTRANSPORT_CODE_BASE);
 }
 
-uint64_t WebTransportErrorToHttp3Error(uint32_t aErrorCode) {
-  return kWebTransportErrorCodeStart + aErrorCode +
-         static_cast<uint64_t>(aErrorCode) / 0x1e;
+uint64_t WebTransportErrorToHttp3Error(uint8_t aErrorCode) {
+  return kWebTransportErrorCodeStart + aErrorCode + aErrorCode / 0x1e;
 }
 
-Maybe<uint32_t> Http3ErrorToWebTransportError(uint64_t aErrorCode) {
-  // Outside the range reserved for WT_APPLICATION_ERROR, or one of the
-  // reserved (GREASE) codepoints inside it: not an application error code.
+uint8_t Http3ErrorToWebTransportError(uint64_t aErrorCode) {
+  // Ensure the code is within the valid range.
   if (aErrorCode < kWebTransportErrorCodeStart ||
-      aErrorCode > kWebTransportErrorCodeEnd ||
-      (aErrorCode - 0x21) % 0x1f == 0) {
-    return Nothing();
+      aErrorCode > kWebTransportErrorCodeEnd) {
+    return 0;
   }
 
   uint64_t shifted = aErrorCode - kWebTransportErrorCodeStart;
-  return Some(static_cast<uint32_t>(shifted - shifted / 0x1f));
+  uint64_t result = shifted - shifted / 0x1f;
+
+  if (result <= std::numeric_limits<uint8_t>::max()) {
+    return (uint8_t)result;
+  }
+
+  return 0;
 }
 
 ConnectionCloseReason ToCloseReason(nsresult aErrorCode) {

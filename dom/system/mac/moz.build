@@ -17,7 +17,3 @@ FINAL_LIBRARY = "xul"
 LOCAL_INCLUDES += [
     "/dom/geolocation",
 ]
-
-SOURCE_HEADERS += [
-    "CoreLocationLocationProvider.h",
-]

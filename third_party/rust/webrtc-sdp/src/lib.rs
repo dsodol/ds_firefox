@@ -737,7 +737,6 @@ fn sanity_check_sdp_session(session: &SdpSession) -> Result<(), SdpParserError> 
                         ));
                     }
                 }
-                SdpFormatList::Unknown(_) => {} // Unknown formats are unparsed
             }
         }
 

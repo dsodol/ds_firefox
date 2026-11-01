@@ -16,14 +16,13 @@
 #include "nsThreadUtils.h"
 #include "nsUnicharUtils.h"
 
-NS_IMPL_NS_NEW_HTML_ELEMENT_CHECK_PARSER(Style)
+NS_IMPL_NS_NEW_HTML_ELEMENT(Style)
 
 namespace mozilla::dom {
 
 HTMLStyleElement::HTMLStyleElement(
-    already_AddRefed<mozilla::dom::NodeInfo> aNodeInfo, FromParser aFromParser)
-    : nsGenericHTMLElement(std::move(aNodeInfo)),
-      mCreatedByParser(aFromParser) {
+    already_AddRefed<mozilla::dom::NodeInfo> aNodeInfo)
+    : nsGenericHTMLElement(std::move(aNodeInfo)) {
   AddMutationObserver(this);
 }
 
@@ -47,7 +46,7 @@ NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED(HTMLStyleElement,
                                              nsGenericHTMLElement,
                                              nsIMutationObserver)
 
-NS_IMPL_ELEMENT_CLONE(HTMLStyleElement, mozilla::dom::NOT_FROM_PARSER)
+NS_IMPL_ELEMENT_CLONE(HTMLStyleElement)
 
 bool HTMLStyleElement::Disabled() const {
   StyleSheet* ss = GetSheet();
@@ -105,8 +104,6 @@ nsresult HTMLStyleElement::BindToTree(BindContext& aContext, nsINode& aParent) {
 }
 
 void HTMLStyleElement::UnbindFromTree(UnbindContext& aContext) {
-  RenderBlockingElementUnbindFromTree(aContext);
-
   RefPtr<Document> oldDoc = GetUncomposedDoc();
   ShadowRoot* oldShadow = GetContainingShadow();
 
@@ -138,9 +135,6 @@ void HTMLStyleElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
     if (aName == nsGkAtoms::title || aName == nsGkAtoms::media ||
         aName == nsGkAtoms::type) {
       (void)UpdateStyleSheetInternal(nullptr, nullptr, ForceUpdate::Yes);
-    }
-    if (aName == nsGkAtoms::blocking) {
-      UnblockRenderingIfNotPotentiallyRenderBlocking();
     }
   }
 
@@ -233,14 +227,12 @@ nsDOMTokenList* HTMLStyleElement::Blocking() {
 }
 
 bool HTMLStyleElement::IsPotentiallyRenderBlocking() {
-  if (BlockingContainsRender()) {
-    return true;
-  }
+  return BlockingContainsRender();
 
+  // TODO: handle implicitly potentially render blocking
   // https://html.spec.whatwg.org/#implicitly-potentially-render-blocking
   // A style element is implicitly potentially render-blocking if the element
   // was created by its node document's parser.
-  return IsFromDocumentParser(mCreatedByParser);
 }
 
 nsresult HTMLStyleElement::CopyInnerTo(HTMLStyleElement* aDest) {

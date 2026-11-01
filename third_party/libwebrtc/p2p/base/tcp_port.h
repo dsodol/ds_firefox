@@ -24,7 +24,6 @@
 #include "api/sequence_checker.h"
 #include "api/task_queue/pending_task_safety_flag.h"
 #include "api/transport/stun.h"
-#include "api/units/time_delta.h"
 #include "p2p/base/connection.h"
 #include "p2p/base/port.h"
 #include "p2p/base/port_interface.h"
@@ -140,9 +139,10 @@ class TCPConnection : public Connection {
 
   AsyncPacketSocket* socket() { return socket_.get(); }
 
-  TimeDelta reconnection_timeout() const { return reconnection_timeout_; }
-  void SetReconnectionTimeoutForTesting(TimeDelta timeout) {
-    reconnection_timeout_ = timeout;
+  // Allow test cases to overwrite the default timeout period.
+  int reconnection_timeout() const { return reconnection_timeout_; }
+  void set_reconnection_timeout(int timeout_in_ms) {
+    reconnection_timeout_ = timeout_in_ms;
   }
 
  protected:
@@ -194,7 +194,8 @@ class TCPConnection : public Connection {
   // will terminate the newly created connection.
   bool pretending_to_be_writable_;
 
-  TimeDelta reconnection_timeout_;
+  // Allow test case to overwrite the default timeout period.
+  int reconnection_timeout_;
 
   ScopedTaskSafety network_safety_;
 };

@@ -853,10 +853,6 @@ already_AddRefed<JS::Stencil> OffThreadJob::stealStencil(JSContext* cx) {
 struct ShellCompartmentPrivate {
   HeapPtr<ArrayObject*> blackRoot;
   HeapPtr<ArrayObject*> grayRoot;
-
-  // If true, objects from other compartments are wrapped with security
-  // wrappers.
-  bool useSecurityWrappers = false;
 };
 
 struct MOZ_STACK_CLASS EnvironmentPreparer
@@ -921,11 +917,10 @@ enum class ShellGlobalKind {
 
 static void SetStandardRealmOptions(JSContext* cx, JS::RealmOptions& options);
 static JSObject* NewStringInterruptCallbackGlobal(JSContext* cx);
-static JSObject* NewGlobalObject(JSContext* cx, JS::RealmOptions& options,
-                                 JSPrincipals* principals, ShellGlobalKind kind,
-                                 bool immutablePrototype,
-                                 JS::HandleObject existingWindowProxy = nullptr,
-                                 bool securityWrappers = false);
+static JSObject* NewGlobalObject(
+    JSContext* cx, JS::RealmOptions& options, JSPrincipals* principals,
+    ShellGlobalKind kind, bool immutablePrototype,
+    JS::HandleObject existingWindowProxy = nullptr);
 
 /*
  * A toy WindowProxy class for the shell. This is intended for testing code
@@ -953,8 +948,6 @@ JSObject* NewShellWindowProxy(JSContext* cx, JS::HandleObject global) {
   return obj;
 }
 
-static const js::CrossCompartmentSecurityWrapper ShellSecurityWrapper(0);
-
 // A wrap callback that matches the behavior of the browser which reuses an
 // existing wrapper object via Wrapper::Renew when one is supplied. This allows
 // exercising Wrapper::Renew.
@@ -962,15 +955,11 @@ static JSObject* ShellWrapObjectCallback(JSContext* cx,
                                          JS::HandleObject existing,
                                          JS::HandleObject obj) {
   MOZ_ASSERT(!obj->is<js::WrapperObject>() || js::IsWindowProxy(obj));
-  auto* priv = static_cast<ShellCompartmentPrivate*>(
-      JS_GetCompartmentPrivate(cx->compartment()));
-  const js::Wrapper* handler = (priv && priv->useSecurityWrappers)
-                                   ? &ShellSecurityWrapper
-                                   : &js::CrossCompartmentWrapper::singleton;
   if (existing) {
-    return js::Wrapper::Renew(existing, obj, handler);
+    return js::Wrapper::Renew(existing, obj,
+                              &js::CrossCompartmentWrapper::singleton);
   }
-  return js::Wrapper::New(cx, obj, handler);
+  return js::Wrapper::New(cx, obj, &js::CrossCompartmentWrapper::singleton);
 }
 
 static const JSWrapObjectCallbacks ShellWrapObjectCallbacks = {
@@ -7493,7 +7482,6 @@ static bool NewGlobal(JSContext* cx, unsigned argc, Value* vp) {
   JS::RealmBehaviors& behaviors = options.behaviors();
   ShellGlobalKind kind = ShellGlobalKind::WindowProxy;
   bool immutablePrototype = true;
-  bool securityWrappers = false;
 
   SetStandardRealmOptions(cx, options);
 
@@ -7589,13 +7577,6 @@ static bool NewGlobal(JSContext* cx, unsigned argc, Value* vp) {
       immutablePrototype = v.toBoolean();
     }
 
-    if (!JS_GetProperty(cx, opts, "securityWrappers", &v)) {
-      return false;
-    }
-    if (v.isBoolean()) {
-      securityWrappers = v.toBoolean();
-    }
-
     if (!JS_GetProperty(cx, opts, "systemPrincipal", &v)) {
       return false;
     }
@@ -7684,20 +7665,13 @@ static bool NewGlobal(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  if (securityWrappers && creationOptions.compartmentSpecifier() ==
-                              JS::CompartmentSpecifier::ExistingCompartment) {
-    JS_ReportErrorASCII(cx, "securityWrappers requires a new compartment");
-    return false;
-  }
-
   if (!CheckRealmOptions(cx, options, principals.get())) {
     return false;
   }
 
-  RootedObject global(
-      cx,
-      NewGlobalObject(cx, options, principals.get(), kind, immutablePrototype,
-                      existingWindowProxy, securityWrappers));
+  RootedObject global(cx,
+                      NewGlobalObject(cx, options, principals.get(), kind,
+                                      immutablePrototype, existingWindowProxy));
   if (!global) {
     return false;
   }
@@ -7959,8 +7933,9 @@ static bool WithSourceHook(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  auto hook = std::make_unique<ShellSourceHook>(
-      cx, args[0].toObject().as<JSFunction>());
+  mozilla::UniquePtr<ShellSourceHook> hook =
+      mozilla::MakeUnique<ShellSourceHook>(cx,
+                                           args[0].toObject().as<JSFunction>());
   if (!hook) {
     return false;
   }
@@ -10537,9 +10512,6 @@ static const JSFunctionSpecWithHelp shell_functions[] = {
 "          their prototypes will be sealed. These constructors will be defined on the\n"
 "          global as non-configurable and non-writable.\n"
 "      immutablePrototype: whether the global's prototype is immutable.\n"
-"      securityWrappers: If true, objects from other compartments will be\n"
-"         wrapped in the new global's compartment with security wrappers.\n"
-"         Requires a new compartment.\n"
 "      principal: if present, its value converted to a number must be an\n"
 "         integer that fits in 32 bits; use that as the new realm's\n"
 "         principal. Shell principals are toys, meant only for testing; one\n"
@@ -12056,8 +12028,7 @@ static JSObject* NewStringInterruptCallbackGlobal(JSContext* cx) {
 static JSObject* NewGlobalObject(JSContext* cx, JS::RealmOptions& options,
                                  JSPrincipals* principals, ShellGlobalKind kind,
                                  bool immutablePrototype,
-                                 JS::HandleObject existingWindowProxy,
-                                 bool securityWrappers) {
+                                 JS::HandleObject existingWindowProxy) {
   RootedObject glob(cx,
                     JS_NewGlobalObject(cx, &global_class, principals,
                                        JS::DontFireOnNewGlobalHook, options));
@@ -12074,14 +12045,6 @@ static JSObject* NewGlobalObject(JSContext* cx, JS::RealmOptions& options,
 
   {
     JSAutoRealm ar(cx, glob);
-
-    if (securityWrappers) {
-      ShellCompartmentPrivate* priv = EnsureShellCompartmentPrivate(cx);
-      if (!priv) {
-        return nullptr;
-      }
-      priv->useSecurityWrappers = true;
-    }
 
     if (kind == ShellGlobalKind::WindowProxy) {
       RootedObject proxy(cx, NewShellWindowProxy(cx, glob));

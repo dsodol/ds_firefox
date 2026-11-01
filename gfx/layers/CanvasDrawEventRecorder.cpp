@@ -222,7 +222,7 @@ gfx::ContiguousBuffer& CanvasDrawEventRecorder::GetContiguousBuffer(
         mCurrentBuffer =
             CanvasBuffer(std::move(mRecycledBuffers.front().shmem));
         mRecycledBuffers.pop();
-        mDropBufferOnZero = mDropBufferLimit;
+        mDropBufferOnZero = 1;
       }
     } else {
       mDropBufferOnZero = mDropBufferLimit;
@@ -449,25 +449,22 @@ void CanvasDrawEventRecorder::StoreImageRecording(
   ClearProcessedExternalImages();
 }
 
-template <typename Holder>
-static void ClearProcessedEntries(Holder& aEntries, int64_t aProcessedCount) {
-  // Find the first entry that has not been processed.
-  auto it = aEntries.begin();
-  while (it != aEntries.end() && it->mEventCount <= aProcessedCount) {
-    ++it;
-  }
-  // Erase any processed entries up to the unprocessed entry.
-  if (it != aEntries.begin()) {
-    aEntries.erase(aEntries.begin(), it);
-  }
-}
-
 void CanvasDrawEventRecorder::ClearProcessedExternalSurfaces() {
-  ClearProcessedEntries(mExternalSurfaces, mHeader->processedCount);
+  while (!mExternalSurfaces.empty()) {
+    if (mExternalSurfaces.front().mEventCount > mHeader->processedCount) {
+      break;
+    }
+    mExternalSurfaces.pop_front();
+  }
 }
 
 void CanvasDrawEventRecorder::ClearProcessedExternalImages() {
-  ClearProcessedEntries(mExternalImages, mHeader->processedCount);
+  while (!mExternalImages.empty()) {
+    if (mExternalImages.front().mEventCount > mHeader->processedCount) {
+      break;
+    }
+    mExternalImages.pop_front();
+  }
 }
 
 }  // namespace layers

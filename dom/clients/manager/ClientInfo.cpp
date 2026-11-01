@@ -17,18 +17,18 @@ ClientInfo::ClientInfo(const nsID& aId, const Maybe<nsID>& aAgentClusterId,
                        const mozilla::ipc::PrincipalInfo& aPrincipalInfo,
                        const TimeStamp& aCreationTime, const nsCString& aURL,
                        mozilla::dom::FrameType aFrameType)
-    : mData(std::make_unique<IPCClientInfo>(
+    : mData(MakeUnique<IPCClientInfo>(
           aId, aAgentClusterId, aType, aPrincipalInfo, aCreationTime, aURL,
           aFrameType, mozilla::Nothing(), mozilla::Nothing())) {}
 
 ClientInfo::ClientInfo(const IPCClientInfo& aData)
-    : mData(std::make_unique<IPCClientInfo>(aData)) {}
+    : mData(MakeUnique<IPCClientInfo>(aData)) {}
 
 ClientInfo::ClientInfo(const ClientInfo& aRight) { operator=(aRight); }
 
 ClientInfo& ClientInfo::operator=(const ClientInfo& aRight) {
   mData.reset();
-  mData = std::make_unique<IPCClientInfo>(*aRight.mData);
+  mData = MakeUnique<IPCClientInfo>(*aRight.mData);
   return *this;
 }
 

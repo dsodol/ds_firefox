@@ -139,7 +139,7 @@ nsresult CacheIOThread::Init() {
     MonitorAutoLock lock(mMonitor);
     // Yeah, there is not a thread yet, but we want to make sure
     // the sequencing is correct.
-    mNativeThreadHandle = std::make_unique<detail::NativeThreadHandle>();
+    mNativeThreadHandle = MakeUnique<detail::NativeThreadHandle>();
   }
 
   // Increase the reference count while spawning a new thread.
@@ -330,7 +330,7 @@ void CacheIOThread::ThreadFunc() {
     mNativeThreadHandle->InitThread();
 
     auto queue =
-        MakeRefPtr<ThreadEventQueue>(std::make_unique<mozilla::EventQueue>());
+        MakeRefPtr<ThreadEventQueue>(MakeUnique<mozilla::EventQueue>());
     nsCOMPtr<nsIThread> xpcomThread =
         nsThreadManager::get().CreateCurrentThread(queue);
 

@@ -110,10 +110,6 @@ impl SharedArgs {
 }
 
 #[derive(Clone, Debug, Parser)]
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "A config struct is not a good use of that lint."
-)]
 pub struct QuicParameters {
     #[arg(
         short = 'Q',
@@ -169,10 +165,6 @@ pub struct QuicParameters {
     /// Whether to slice the SNI.
     pub no_sni_slicing: bool,
 
-    #[arg(long)]
-    /// Whether to disable Alternative Backoff with ECN (RFC 8511).
-    pub no_abe: bool,
-
     #[arg(name = "preferred-address-v4", long)]
     /// An IPv4 address for the server preferred address.
     pub preferred_address_v4: Option<String>,
@@ -199,7 +191,6 @@ impl Default for QuicParameters {
             preferred_address_v4: None,
             preferred_address_v6: None,
             no_sni_slicing: false,
-            no_abe: false,
         }
     }
 }
@@ -275,8 +266,7 @@ impl QuicParameters {
             .slow_start(self.slow_start)
             .pacing(!self.no_pacing)
             .pmtud(!self.no_pmtud)
-            .sni_slicing(!self.no_sni_slicing)
-            .abe(!self.no_abe);
+            .sni_slicing(!self.no_sni_slicing);
         params = if let Some(pa) = self.preferred_address() {
             params.preferred_address(pa)
         } else {

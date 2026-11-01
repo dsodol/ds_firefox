@@ -377,7 +377,7 @@ class MediaTransportImplNicer final : public MediaTransportImpl,
 class MediaTransportHandlerLocal final : public MediaTransportHandler {
  public:
   MediaTransportHandlerLocal()
-      : mImpl(std::make_unique<MediaTransportImplNicer>(mEvents)),
+      : mImpl(MakeUnique<MediaTransportImplNicer>(mEvents)),
         mTarget(mImpl->Init()) {}
 
   RefPtr<IceLogPromise> GetIceLog(const nsCString& aPattern) override {
@@ -517,8 +517,8 @@ class MediaTransportHandlerLocal final : public MediaTransportHandler {
     // MediaTransportImpl::Init; the impl must become safe to destroy on any
     // thread if the event target will stop accepting runnables.
     (void)mTarget->Dispatch(
-        NS_NewRunnableFunction(__func__,
-                               [impl = std::move(mImpl)]() mutable {}),
+        NS_NewRunnableFunction(
+            __func__, [impl = std::move(mImpl)]() mutable {}),
         NS_DISPATCH_FALLIBLE);
   }
 
@@ -578,8 +578,7 @@ class STSShutdownHandler final : public nsISTSShutdownObserver {
     return instance;
   }
 
-  explicit STSShutdownHandler(nsCOMPtr<nsISocketTransportService> aSts)
-      : mSts(aSts) {
+  explicit STSShutdownHandler(nsCOMPtr<nsISocketTransportService> aSts) : mSts(aSts) {
     CSFLogDebug(LOGTAG, "%s", __func__);
     aSts->AddShutdownObserver(this);
     mStsThread = do_QueryInterface(aSts);
@@ -1340,10 +1339,12 @@ void MediaTransportEvents::OnPacketReceived(std::string&& aTransportId,
       break;
     case MediaPacket::RTP:
     case MediaPacket::RTCP:
-      mRtpPacketReceived.Notify(std::move(aTransportId), std::move(aPacket));
+      mRtpPacketReceived.Notify(std::forward<std::string>(aTransportId),
+                                std::forward<MediaPacket>(aPacket));
       break;
     case MediaPacket::SCTP:
-      mSctpPacketReceived.Notify(std::move(aTransportId), std::move(aPacket));
+      mSctpPacketReceived.Notify(std::forward<std::string>(aTransportId),
+                                 std::forward<MediaPacket>(aPacket));
       break;
   }
 }
@@ -1441,7 +1442,7 @@ static nsString BuildCertificateStats(const nsTArray<uint8_t>& aDerCert,
 RefPtr<dom::RTCStatsPromise> MediaTransportImplNicer::GetIceStats(
     const std::string& aTransportId, DOMHighResTimeStamp aNow) {
   MOZ_ASSERT(mStsThread->IsOnCurrentThread());
-  auto stats = std::make_unique<dom::RTCStatsCollection>();
+  auto stats = MakeUnique<dom::RTCStatsCollection>();
   if (mIceCtx) {
     dom::RTCIceRole iceRole =
         mIceCtx->GetControlling() == NrIceCtx::ICE_CONTROLLING
@@ -1943,9 +1944,9 @@ RefPtr<TransportFlow> MediaTransportImplNicer::CreateTransportFlow(
   RefPtr flow = MakeRefPtr<TransportFlow>(aTransportId);
 
   // The media streams are made on STS so we need to defer setup.
-  auto ice = std::make_unique<TransportLayerIce>();
-  auto dtls = std::make_unique<TransportLayerDtls>();
-  auto srtp = std::make_unique<TransportLayerSrtp>(*dtls);
+  auto ice = MakeUnique<TransportLayerIce>();
+  auto dtls = MakeUnique<TransportLayerDtls>();
+  auto srtp = MakeUnique<TransportLayerSrtp>(*dtls);
   dtls->SetRole(aDtlsClient ? TransportLayerDtls::CLIENT
                             : TransportLayerDtls::SERVER);
 

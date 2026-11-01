@@ -4,8 +4,6 @@
 
 #include "TRR.h"
 
-#include <memory>
-
 #include "DNS.h"
 #include "DNSUtils.h"
 #include "ObliviousHttpChannel.h"
@@ -19,6 +17,7 @@
 #include "mozilla/StaticPrefs_network.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/Tokenizer.h"
+#include "mozilla/UniquePtr.h"
 #include "mozilla/glean/NetwerkDnsMetrics.h"
 #include "nsCharSeparatedTokenizer.h"
 #include "nsContentUtils.h"
@@ -149,7 +148,7 @@ TRR::Run() {
 
 DNSPacket* TRR::GetOrCreateDNSPacket() {
   if (!mPacket) {
-    mPacket = std::make_unique<DNSPacket>();
+    mPacket = MakeUnique<DNSPacket>();
   }
 
   return mPacket.get();

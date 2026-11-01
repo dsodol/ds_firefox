@@ -14,7 +14,7 @@ pub struct OwnedRawImage {
     // Safety invariant: all the accessible bytes of `self.data` are initialized, and
     // belongs to a single allocation that lives until `self` is dropped.
     // The data referenced by self.data was allocated by RawImageBuffer::try_allocate.
-    // `data.buf` and `data.bytes_between_rows` are multiples of `MAX_IMAGE_ALIGN`.
+    // `data.is_aligned(CACHE_LINE_BYTE_SIZE)` is true.
     pub(super) data: RawImageBuffer,
 }
 

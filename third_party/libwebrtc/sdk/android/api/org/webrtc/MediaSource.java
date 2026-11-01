@@ -25,25 +25,29 @@ public class MediaSource {
     }
   }
 
-  final NativeLifecycleLock lifecycleLock;
   private final RefCountDelegate refCountDelegate;
+  private long nativeSource;
 
   public MediaSource(long nativeSource) {
     refCountDelegate = new RefCountDelegate(() -> JniCommon.nativeReleaseRef(nativeSource));
-    this.lifecycleLock = new NativeLifecycleLock("MediaSource", nativeSource);
+    this.nativeSource = nativeSource;
   }
 
   public State state() {
-    return lifecycleLock.call(nativeSource -> nativeGetState(nativeSource));
+    checkMediaSourceExists();
+    return nativeGetState(nativeSource);
   }
 
   public void dispose() {
-    lifecycleLock.dispose(nativeSource -> refCountDelegate.release());
+    checkMediaSourceExists();
+    refCountDelegate.release();
+    nativeSource = 0;
   }
 
   /** Returns a pointer to webrtc::MediaSourceInterface. */
   protected long getNativeMediaSource() {
-    return lifecycleLock.getNativePointer();
+    checkMediaSourceExists();
+    return nativeSource;
   }
 
   /**
@@ -57,6 +61,12 @@ public class MediaSource {
       } finally {
         refCountDelegate.release();
       }
+    }
+  }
+
+  private void checkMediaSourceExists() {
+    if (nativeSource == 0) {
+      throw new IllegalStateException("MediaSource has been disposed.");
     }
   }
 

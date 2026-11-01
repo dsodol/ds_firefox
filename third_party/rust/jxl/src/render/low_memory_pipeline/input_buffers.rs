@@ -143,7 +143,10 @@ impl InputBuffers {
         // Clear border buffers that will not be used again.
         // This is certainly the case if *all* the groups in the 3x3 group area around
         // the current group are complete.
-        if all_finalized {
+        if shared.group_chan_complete[group]
+            .iter()
+            .all(|x| x.load(Ordering::Relaxed))
+        {
             for g in [
                 gym1 * gw + gxm1,
                 gym1 * gw + gx,

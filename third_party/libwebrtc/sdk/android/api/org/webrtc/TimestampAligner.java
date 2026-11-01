@@ -29,7 +29,7 @@ public class TimestampAligner {
     return Environment.builder().build().getCurrentTimeNanos();
   }
 
-  private final NativeLifecycleLock lifecycleLock;
+  private volatile long nativeTimestampAligner;
 
   @Deprecated
   public TimestampAligner() {
@@ -37,9 +37,7 @@ public class TimestampAligner {
   }
 
   public TimestampAligner(Environment webrtcEnv) {
-    this.lifecycleLock =
-        new NativeLifecycleLock(
-            "TimestampAligner", nativeCreateTimestampAligner(webrtcEnv.ref()));
+    nativeTimestampAligner = nativeCreateTimestampAligner(webrtcEnv.ref());
   }
 
   /**
@@ -48,16 +46,21 @@ public class TimestampAligner {
    * the translated timestamp.
    */
   public long translateTimestamp(long cameraTimeNs) {
-    return lifecycleLock.call(
-        nativeTimestampAligner ->
-            nativeTranslateTimestamp(nativeTimestampAligner, cameraTimeNs));
+    checkNativeAlignerExists();
+    return nativeTranslateTimestamp(nativeTimestampAligner, cameraTimeNs);
   }
 
   /** Dispose native timestamp aligner. */
   public void dispose() {
-    lifecycleLock.dispose(
-        nativeTimestampAligner ->
-            nativeReleaseTimestampAligner(nativeTimestampAligner));
+    checkNativeAlignerExists();
+    nativeReleaseTimestampAligner(nativeTimestampAligner);
+    nativeTimestampAligner = 0;
+  }
+
+  private void checkNativeAlignerExists() {
+    if (nativeTimestampAligner == 0) {
+      throw new IllegalStateException("TimestampAligner has been disposed.");
+    }
   }
 
   private static native long nativeCreateTimestampAligner(long webrtcEnvRef);

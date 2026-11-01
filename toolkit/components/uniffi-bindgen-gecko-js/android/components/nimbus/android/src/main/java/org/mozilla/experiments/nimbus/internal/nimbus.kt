@@ -684,12 +684,6 @@ internal interface UniffiCallbackInterfaceMetricsHandlerMethod5 : com.sun.jna.Ca
 internal interface UniffiCallbackInterfaceMetricsHandlerMethod6 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
-internal interface UniffiCallbackInterfaceMetricsHandlerMethod7 : com.sun.jna.Callback {
-    fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
-}
-internal interface UniffiCallbackInterfaceMetricsHandlerMethod8 : com.sun.jna.Callback {
-    fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
-}
 internal interface UniffiCallbackInterfaceRecordedContextMethod0 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
 }
@@ -727,7 +721,7 @@ internal open class UniffiVTableCallbackInterfaceGeckoPrefHandler(
     }
 
 }
-@Structure.FieldOrder("uniffiFree", "uniffiClone", "recordDatabaseLoad", "recordDatabaseMigration", "recordEnrollmentStatuses", "recordFeatureActivation", "recordFeatureExposure", "recordMalformedFeatureConfig", "recordRolloutsOptOut", "recordStudiesOptOut", "submitTargetingContext")
+@Structure.FieldOrder("uniffiFree", "uniffiClone", "recordDatabaseLoad", "recordDatabaseMigration", "recordEnrollmentStatuses", "recordFeatureActivation", "recordFeatureExposure", "recordMalformedFeatureConfig", "submitTargetingContext")
 internal open class UniffiVTableCallbackInterfaceMetricsHandler(
     @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
     @JvmField internal var `uniffiClone`: UniffiCallbackInterfaceClone? = null,
@@ -737,9 +731,7 @@ internal open class UniffiVTableCallbackInterfaceMetricsHandler(
     @JvmField internal var `recordFeatureActivation`: UniffiCallbackInterfaceMetricsHandlerMethod3? = null,
     @JvmField internal var `recordFeatureExposure`: UniffiCallbackInterfaceMetricsHandlerMethod4? = null,
     @JvmField internal var `recordMalformedFeatureConfig`: UniffiCallbackInterfaceMetricsHandlerMethod5? = null,
-    @JvmField internal var `recordRolloutsOptOut`: UniffiCallbackInterfaceMetricsHandlerMethod6? = null,
-    @JvmField internal var `recordStudiesOptOut`: UniffiCallbackInterfaceMetricsHandlerMethod7? = null,
-    @JvmField internal var `submitTargetingContext`: UniffiCallbackInterfaceMetricsHandlerMethod8? = null,
+    @JvmField internal var `submitTargetingContext`: UniffiCallbackInterfaceMetricsHandlerMethod6? = null,
 ) : Structure() {
     class UniffiByValue(
         `uniffiFree`: UniffiCallbackInterfaceFree? = null,
@@ -750,10 +742,8 @@ internal open class UniffiVTableCallbackInterfaceMetricsHandler(
         `recordFeatureActivation`: UniffiCallbackInterfaceMetricsHandlerMethod3? = null,
         `recordFeatureExposure`: UniffiCallbackInterfaceMetricsHandlerMethod4? = null,
         `recordMalformedFeatureConfig`: UniffiCallbackInterfaceMetricsHandlerMethod5? = null,
-        `recordRolloutsOptOut`: UniffiCallbackInterfaceMetricsHandlerMethod6? = null,
-        `recordStudiesOptOut`: UniffiCallbackInterfaceMetricsHandlerMethod7? = null,
-        `submitTargetingContext`: UniffiCallbackInterfaceMetricsHandlerMethod8? = null,
-    ): UniffiVTableCallbackInterfaceMetricsHandler(`uniffiFree`,`uniffiClone`,`recordDatabaseLoad`,`recordDatabaseMigration`,`recordEnrollmentStatuses`,`recordFeatureActivation`,`recordFeatureExposure`,`recordMalformedFeatureConfig`,`recordRolloutsOptOut`,`recordStudiesOptOut`,`submitTargetingContext`,), Structure.ByValue
+        `submitTargetingContext`: UniffiCallbackInterfaceMetricsHandlerMethod6? = null,
+    ): UniffiVTableCallbackInterfaceMetricsHandler(`uniffiFree`,`uniffiClone`,`recordDatabaseLoad`,`recordDatabaseMigration`,`recordEnrollmentStatuses`,`recordFeatureActivation`,`recordFeatureExposure`,`recordMalformedFeatureConfig`,`submitTargetingContext`,), Structure.ByValue
 
    internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceMetricsHandler) {
         `uniffiFree` = other.`uniffiFree`
@@ -764,8 +754,6 @@ internal open class UniffiVTableCallbackInterfaceMetricsHandler(
         `recordFeatureActivation` = other.`recordFeatureActivation`
         `recordFeatureExposure` = other.`recordFeatureExposure`
         `recordMalformedFeatureConfig` = other.`recordMalformedFeatureConfig`
-        `recordRolloutsOptOut` = other.`recordRolloutsOptOut`
-        `recordStudiesOptOut` = other.`recordStudiesOptOut`
         `submitTargetingContext` = other.`submitTargetingContext`
     }
 
@@ -845,10 +833,6 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_nimbus_checksum_method_metricshandler_record_feature_exposure(
     ): Int
     external fun uniffi_nimbus_checksum_method_metricshandler_record_malformed_feature_config(
-    ): Int
-    external fun uniffi_nimbus_checksum_method_metricshandler_record_rollouts_opt_out(
-    ): Int
-    external fun uniffi_nimbus_checksum_method_metricshandler_record_studies_opt_out(
     ): Int
     external fun uniffi_nimbus_checksum_method_metricshandler_submit_targeting_context(
     ): Int
@@ -993,10 +977,6 @@ internal object UniffiLib {
     external fun uniffi_nimbus_fn_method_metricshandler_record_feature_exposure(`ptr`: Long,`event`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     external fun uniffi_nimbus_fn_method_metricshandler_record_malformed_feature_config(`ptr`: Long,`event`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    external fun uniffi_nimbus_fn_method_metricshandler_record_rollouts_opt_out(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    external fun uniffi_nimbus_fn_method_metricshandler_record_studies_opt_out(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     external fun uniffi_nimbus_fn_method_metricshandler_submit_targeting_context(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
@@ -2072,10 +2052,6 @@ public interface MetricsHandler {
     
     fun `recordMalformedFeatureConfig`(`event`: MalformedFeatureConfigExtraDef)
     
-    fun `recordRolloutsOptOut`()
-    
-    fun `recordStudiesOptOut`()
-    
     fun `submitTargetingContext`()
     
     companion object
@@ -2264,30 +2240,6 @@ open class MetricsHandlerImpl: Disposable, AutoCloseable, MetricsHandler
     
     
 
-    override fun `recordRolloutsOptOut`()
-        = 
-    callWithHandle {
-    uniffiRustCall() { _status ->
-    UniffiLib.uniffi_nimbus_fn_method_metricshandler_record_rollouts_opt_out(
-        it,
-        _status)
-}
-    }
-    
-    
-
-    override fun `recordStudiesOptOut`()
-        = 
-    callWithHandle {
-    uniffiRustCall() { _status ->
-    UniffiLib.uniffi_nimbus_fn_method_metricshandler_record_studies_opt_out(
-        it,
-        _status)
-}
-    }
-    
-    
-
     override fun `submitTargetingContext`()
         = 
     callWithHandle {
@@ -2390,29 +2342,7 @@ internal object uniffiCallbackInterfaceMetricsHandler {
             uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
         }
     }
-    internal object `recordRolloutsOptOut`: UniffiCallbackInterfaceMetricsHandlerMethod6 {
-        override fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
-            val uniffiObj = FfiConverterTypeMetricsHandler.handleMap.get(uniffiHandle)
-            val makeCall = { ->
-                uniffiObj.`recordRolloutsOptOut`(
-                )
-            }
-            val writeReturn = { _: Unit -> Unit }
-            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
-        }
-    }
-    internal object `recordStudiesOptOut`: UniffiCallbackInterfaceMetricsHandlerMethod7 {
-        override fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
-            val uniffiObj = FfiConverterTypeMetricsHandler.handleMap.get(uniffiHandle)
-            val makeCall = { ->
-                uniffiObj.`recordStudiesOptOut`(
-                )
-            }
-            val writeReturn = { _: Unit -> Unit }
-            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
-        }
-    }
-    internal object `submitTargetingContext`: UniffiCallbackInterfaceMetricsHandlerMethod8 {
+    internal object `submitTargetingContext`: UniffiCallbackInterfaceMetricsHandlerMethod6 {
         override fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
             val uniffiObj = FfiConverterTypeMetricsHandler.handleMap.get(uniffiHandle)
             val makeCall = { ->
@@ -2445,8 +2375,6 @@ internal object uniffiCallbackInterfaceMetricsHandler {
         `recordFeatureActivation`,
         `recordFeatureExposure`,
         `recordMalformedFeatureConfig`,
-        `recordRolloutsOptOut`,
-        `recordStudiesOptOut`,
         `submitTargetingContext`,
     )
 

@@ -64,7 +64,6 @@ class HTMLEditUtils final {
  public:
   static constexpr char16_t kNewLine = '\n';
   static constexpr char16_t kCarriageReturn = '\r';
-  static constexpr char16_t kFormFeed = '\f';
   static constexpr char16_t kTab = '\t';
   static constexpr char16_t kSpace = ' ';
   static constexpr char16_t kNBSP = 0x00A0;
@@ -1001,14 +1000,13 @@ class HTMLEditUtils final {
    *                            follows aContent without add-ref.
    */
   [[nodiscard]] static bool IsUnnecessaryBRElement(
-      const nsIContent& aContent,
-      TreatAsUnnecessaryLineBreak aTreatAsUnnecessaryLineBreak,
+      const nsIContent& aContent, PaddingForEmptyBlock aPaddingForEmptyBlock,
       const Element* aAncestorLimiter = nullptr,
       Element** aFollowingBlockBoundaryElement = nullptr) {
     const auto* const brElement = dom::HTMLBRElement::FromNode(aContent);
     return brElement && IsUnnecessaryBRElement(
-                            *brElement, aTreatAsUnnecessaryLineBreak,
-                            aAncestorLimiter, aFollowingBlockBoundaryElement);
+                            *brElement, aPaddingForEmptyBlock, aAncestorLimiter,
+                            aFollowingBlockBoundaryElement);
   }
 
   /**
@@ -1025,7 +1023,8 @@ class HTMLEditUtils final {
    *                            boundary follows aBRElement without add-ref.
    */
   [[nodiscard]] static bool IsUnnecessaryBRElement(
-      const dom::HTMLBRElement& aBRElement, TreatAsUnnecessaryLineBreak,
+      const dom::HTMLBRElement& aBRElement,
+      PaddingForEmptyBlock aPaddingForEmptyBlock,
       const Element* aAncestorLimiter = nullptr,
       Element** aFollowingBlockBoundaryElement = nullptr);
 
@@ -1034,14 +1033,13 @@ class HTMLEditUtils final {
    * break, i.e., if it's visible.
    */
   [[nodiscard]] static bool IsSignificantBRElement(
-      const nsIContent& aContent,
-      TreatAsUnnecessaryLineBreak aTreatAsUnnecessaryLineBreak,
+      const nsIContent& aContent, PaddingForEmptyBlock aPaddingForEmptyBlock,
       const Element* aAncestorLimiter = nullptr,
       Element** aFollowingBlockBoundaryElement = nullptr) {
     const auto* const brElement = dom::HTMLBRElement::FromNode(aContent);
     return brElement && !IsUnnecessaryBRElement(
-                            *brElement, aTreatAsUnnecessaryLineBreak,
-                            aAncestorLimiter, aFollowingBlockBoundaryElement);
+                            *brElement, aPaddingForEmptyBlock, aAncestorLimiter,
+                            aFollowingBlockBoundaryElement);
   }
 
   /**
@@ -1050,10 +1048,10 @@ class HTMLEditUtils final {
    */
   [[nodiscard]] static bool IsSignificantBRElement(
       const dom::HTMLBRElement& aBRElement,
-      TreatAsUnnecessaryLineBreak aTreatAsUnnecessaryLineBreak,
+      PaddingForEmptyBlock aPaddingForEmptyBlock,
       const Element* aAncestorLimiter = nullptr,
       Element** aFollowingBlockBoundaryElement = nullptr) {
-    return !IsUnnecessaryBRElement(aBRElement, aTreatAsUnnecessaryLineBreak,
+    return !IsUnnecessaryBRElement(aBRElement, aPaddingForEmptyBlock,
                                    aAncestorLimiter,
                                    aFollowingBlockBoundaryElement);
   }
@@ -1222,7 +1220,8 @@ class HTMLEditUtils final {
    */
   template <typename EditorDOMPointType>
   [[nodiscard]] static bool IsUnnecessaryPreformattedLineBreak(
-      const EditorDOMPointType& aPoint, TreatAsUnnecessaryLineBreak,
+      const EditorDOMPointType& aPoint,
+      PaddingForEmptyBlock aPaddingForEmptyBlock,
       SkipWhiteSpaceStyleCheck aSkipWhiteSpaceStyleCheck =
           SkipWhiteSpaceStyleCheck::No,
       const Element* aAncestorLimiter = nullptr,
@@ -1234,7 +1233,8 @@ class HTMLEditUtils final {
    */
   template <typename EditorDOMPointType>
   [[nodiscard]] static bool IsSignificantPreformattedLineBreak(
-      const EditorDOMPointType& aPoint, TreatAsUnnecessaryLineBreak,
+      const EditorDOMPointType& aPoint,
+      PaddingForEmptyBlock aPaddingForEmptyBlock,
       SkipWhiteSpaceStyleCheck aSkipWhiteSpaceStyleCheck =
           SkipWhiteSpaceStyleCheck::No,
       const Element* aAncestorLimiter = nullptr,
@@ -1258,8 +1258,8 @@ class HTMLEditUtils final {
   [[nodiscard]] static WSScanResult
   ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak(
       const EditorDOMPointType& aPoint,
-      TreatAsUnnecessaryLineBreak aTreatAsUnnecessaryLineBreaks,
-      const Element& aEditingHost, const Element* aAncestorLimiter = nullptr);
+      PaddingForEmptyBlock aPaddingForEmptyBlock, const Element& aEditingHost,
+      const Element* aAncestorLimiter = nullptr);
 
   enum class IgnoreInvisibleLineBreak { No, Yes };
 

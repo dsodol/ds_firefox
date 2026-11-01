@@ -146,25 +146,9 @@ void ContainerTimingHelpers::MaybeProcessPaintForContainer(
   Element* paintedElement = Element::FromNode(aPaintedContent);
   if (!paintedElement) {
     paintedElement = aPaintedContent->GetParentElement();
-
-    if (!paintedElement) {
-      return;
-    }
   }
-
-  if (!paintedElement->IsInUncomposedDoc()) {
+  if (!paintedElement) {
     return;
-  }
-
-  // Native-anonymous content is attributed to its originating element, whose
-  // cached root is kept up to date.
-  if (paintedElement->IsInNativeAnonymousSubtree()) {
-    paintedElement = Element::FromNodeOrNull(
-        paintedElement->FindFirstNonChromeOnlyAccessContent());
-
-    if (!paintedElement) {
-      return;
-    }
   }
 
   Element* nearestRoot = paintedElement->GetContainerTimingRoot();

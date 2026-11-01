@@ -35,7 +35,7 @@ ElementAnimationData::GetOrCreatePseudoData(
   MOZ_ASSERT(AnimationUtils::IsSupportedPseudoForAnimations(aRequest.mType));
 
   UniquePtr<PerElementOrPseudoData>& data = mPseudoData.LookupOrInsertWith(
-      aRequest, [&] { return std::make_unique<PerElementOrPseudoData>(); });
+      aRequest, [&] { return MakeUnique<PerElementOrPseudoData>(); });
   MOZ_ASSERT(data);
   return *data;
 }
@@ -193,7 +193,7 @@ void ElementAnimationData::PerElementOrPseudoData::Traverse(
 
 EffectSet& ElementAnimationData::PerElementOrPseudoData::DoEnsureEffectSet() {
   MOZ_ASSERT(!mEffectSet);
-  mEffectSet = std::make_unique<EffectSet>();
+  mEffectSet = MakeUnique<EffectSet>();
   return *mEffectSet;
 }
 
@@ -201,7 +201,7 @@ CSSTransitionCollection&
 ElementAnimationData::PerElementOrPseudoData::DoEnsureTransitions(
     dom::Element& aOwner, const PseudoStyleRequest& aRequest) {
   MOZ_ASSERT(!mTransitions);
-  mTransitions = std::make_unique<CSSTransitionCollection>(aOwner, aRequest);
+  mTransitions = MakeUnique<CSSTransitionCollection>(aOwner, aRequest);
   return *mTransitions;
 }
 
@@ -209,7 +209,7 @@ CSSAnimationCollection&
 ElementAnimationData::PerElementOrPseudoData::DoEnsureAnimations(
     dom::Element& aOwner, const PseudoStyleRequest& aRequest) {
   MOZ_ASSERT(!mAnimations);
-  mAnimations = std::make_unique<CSSAnimationCollection>(aOwner, aRequest);
+  mAnimations = MakeUnique<CSSAnimationCollection>(aOwner, aRequest);
   return *mAnimations;
 }
 
@@ -217,8 +217,7 @@ ScrollTimelineCollection&
 ElementAnimationData::PerElementOrPseudoData::DoEnsureScrollTimelines(
     dom::Element& aOwner, const PseudoStyleRequest& aRequest) {
   MOZ_ASSERT(!mScrollTimelines);
-  mScrollTimelines =
-      std::make_unique<ScrollTimelineCollection>(aOwner, aRequest);
+  mScrollTimelines = MakeUnique<ScrollTimelineCollection>(aOwner, aRequest);
   return *mScrollTimelines;
 }
 
@@ -226,7 +225,7 @@ ViewTimelineCollection&
 ElementAnimationData::PerElementOrPseudoData::DoEnsureViewTimelines(
     dom::Element& aOwner, const PseudoStyleRequest& aRequest) {
   MOZ_ASSERT(!mViewTimelines);
-  mViewTimelines = std::make_unique<ViewTimelineCollection>(aOwner, aRequest);
+  mViewTimelines = MakeUnique<ViewTimelineCollection>(aOwner, aRequest);
   return *mViewTimelines;
 }
 

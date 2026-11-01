@@ -4,10 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #import <ApplicationServices/ApplicationServices.h>
-#import <Cocoa/Cocoa.h>
 
-#include "AppleUtils.h"
-#include "nsCocoaUtils.h"
 #include "nsComponentManagerUtils.h"
 #include "nsObjCExceptions.h"
 #include "nsMIMEInfoMac.h"
@@ -54,9 +51,10 @@ nsMIMEInfoMac::LaunchWithFile(nsIFile* aFile) {
     rv = localHandlerApp->GetExecutable(getter_AddRefs(application));
     NS_ENSURE_SUCCESS(rv, rv);
 
-  } else if (mPreferredAction != useSystemDefault) {
+  } else if (mPreferredAction == useSystemDefault) {
+    application = GetDefaultApplication();
+  } else
     return NS_ERROR_INVALID_ARG;
-  }
 
   // if we've already got an app, just QI so we have the launchWithDoc method
   nsCOMPtr<nsILocalFileMac> app;
@@ -64,20 +62,20 @@ nsMIMEInfoMac::LaunchWithFile(nsIFile* aFile) {
     app = do_QueryInterface(application, &rv);
     if (NS_FAILED(rv)) return rv;
   } else {
-    nsAutoreleasePool localPool;
-
-    // Resolve the actual file's default application, as Finder would.
+    // otherwise ask LaunchServices for an app directly
     nsCOMPtr<nsILocalFileMac> tempFile = do_QueryInterface(aFile, &rv);
-    NS_ENSURE_SUCCESS(rv, rv);
+    if (NS_FAILED(rv)) return rv;
 
-    mozilla::AutoCFTypeRef<CFURLRef> fileURL;
-    MOZ_TRY(tempFile->GetCFURL(fileURL.Receive()));
-    NSURL* appURL = [[NSWorkspace sharedWorkspace]
-        URLForApplicationToOpenURL:(NSURL*)fileURL.Ref()];
-    if (!appURL) {
+    FSRef tempFileRef;
+    tempFile->GetFSRef(&tempFileRef);
+
+    FSRef appFSRef;
+    if (::LSGetApplicationForItem(&tempFileRef, kLSRolesAll, &appFSRef,
+                                  nullptr) == noErr) {
+      MOZ_TRY(NS_NewLocalFileWithFSRef(&appFSRef, getter_AddRefs(app)));
+    } else {
       return NS_ERROR_FAILURE;
     }
-    MOZ_TRY(NS_NewLocalFileWithCFURL((CFURLRef)appURL, getter_AddRefs(app)));
   }
   return app->LaunchWithDoc(aFile, false);
 

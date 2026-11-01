@@ -50,11 +50,8 @@ constexpr ImmutableString kDriverUniformsVarName    = ImmutableString("ANGLEUnif
 class DriverUniform
 {
   public:
-    DriverUniform(DriverUniformMode mode, ShShaderOutput outputType)
-        : mMode(mode),
-          mDriverUniforms(nullptr),
-          mEmulatedDepthRangeType(nullptr),
-          mOutputType(outputType)
+    DriverUniform(DriverUniformMode mode)
+        : mMode(mode), mDriverUniforms(nullptr), mEmulatedDepthRangeType(nullptr)
     {}
     virtual ~DriverUniform() = default;
 
@@ -76,7 +73,6 @@ class DriverUniform
     TIntermTyped *getTransformDepth() const;
     TIntermTyped *getAlphaToCoverage() const;
     TIntermTyped *getLayeredFramebuffer() const;
-    TIntermTyped *getTransformXY() const;
 
     virtual TIntermTyped *getViewport() const { return nullptr; }
     virtual TIntermTyped *getXfbBufferOffsets() const { return nullptr; }
@@ -92,15 +88,12 @@ class DriverUniform
     const DriverUniformMode mMode;
     const TVariable *mDriverUniforms;
     TType *mEmulatedDepthRangeType;
-    const ShShaderOutput mOutputType;
 };
 
 class DriverUniformExtended : public DriverUniform
 {
   public:
-    DriverUniformExtended(DriverUniformMode mode, ShShaderOutput outputType)
-        : DriverUniform(mode, outputType)
-    {}
+    DriverUniformExtended(DriverUniformMode mode) : DriverUniform(mode) {}
     ~DriverUniformExtended() override {}
 
     TIntermTyped *getXfbBufferOffsets() const override;

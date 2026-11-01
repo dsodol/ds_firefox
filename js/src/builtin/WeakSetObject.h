@@ -43,11 +43,6 @@ class WeakSetObject : public WeakCollectionObject {
                                                        const CallArgs& args);
 };
 
-// For testing purposes:
-JSObject* NewWeakSetObject(JSContext* cx);
-bool AddWeakSetEntry(JSContext* cx, JS::HandleObject setObj,
-                     JS::HandleValue key);
-
 }  // namespace js
 
 template <>

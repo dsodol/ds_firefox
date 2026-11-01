@@ -63,8 +63,6 @@ const lazy = XPCOMUtils.declareLazy({
   SponsorProtection:
     "moz-src:///browser/components/newtab/SponsorProtection.sys.mjs",
   TabCrashHandler: "resource:///modules/ContentCrashHandlers.sys.mjs",
-  TabGroupsToolbarButton:
-    "moz-src:///browser/components/tabbrowser/TabGroupsToolbarButton.sys.mjs",
   tabLocalization: () =>
     new Localization(
       [
@@ -263,7 +261,6 @@ export class Tabbrowser {
     this.documentGlobal.addEventListener("deactivate", this);
     this.documentGlobal.addEventListener("TabGroupCollapse", this);
     this.documentGlobal.addEventListener("TabGroupCreateByUser", this);
-    this.documentGlobal.addEventListener("TabGroupCreateDone", this);
     this.documentGlobal.addEventListener("TabGrouped", this);
     this.documentGlobal.addEventListener("TabUngrouped", this);
     this.documentGlobal.addEventListener("TabSplitViewActivate", this);
@@ -463,6 +460,7 @@ export class Tabbrowser {
     "stopScroll",
     "startScroll",
     "userTypedValue",
+    "userTypedClear",
     "didStartLoadSinceLastUserTyping",
     "audioMuted",
   ];
@@ -667,7 +665,6 @@ export class Tabbrowser {
 
   #selectedTab = null;
 
-  /** @type {MozBrowser} */
   #selectedBrowser = null;
 
   set selectedTab(val) {
@@ -2146,8 +2143,6 @@ export class Tabbrowser {
     // that might rely upon the other changes suppressed.
     // Focus is suppressed in the event that the main browser window is minimized - focusing a tab would restore the window
     if (!this.#previewMode) {
-      TabProgressListener.onTabSelect(newTab);
-
       // We've selected the new tab, so go ahead and notify listeners.
       let event = new this.documentGlobal.CustomEvent("TabSelect", {
         bubbles: true,
@@ -3346,6 +3341,7 @@ export class Tabbrowser {
           };
           break;
         case "userTypedValue":
+        case "userTypedClear":
           getter = () => lazy.SessionStore.getLazyTabValue(aTab, name);
           break;
         default:
@@ -3538,13 +3534,10 @@ export class Tabbrowser {
     await lazy.TabStateFlusher.flush(browser);
   }
 
-  discardBrowser(
-    aTab,
-    { forceDiscard = false, renderDiscarded = forceDiscard } = {}
-  ) {
+  discardBrowser(aTab, aForceDiscard) {
     let browser = aTab.linkedBrowser;
 
-    if (!this.#mayDiscardBrowser(aTab, forceDiscard)) {
+    if (!this.#mayDiscardBrowser(aTab, aForceDiscard)) {
       return false;
     }
 
@@ -3569,7 +3562,7 @@ export class Tabbrowser {
     // Indicate that this tab was explicitly unloaded (i.e. not
     // from a session restore) in case we want to style that
     // differently.
-    if (renderDiscarded) {
+    if (aForceDiscard) {
       aTab.toggleAttribute("discarded", true);
     }
 
@@ -5202,32 +5195,34 @@ export class Tabbrowser {
 
       tabs.push(tab);
 
-      // A tab whose group is not in the window's groups list is restored
-      // ungrouped: appending it to the top-level fragment is what gives it a
-      // position.
-      let tabGroup = tabGroupWorkingData.get(tabData.groupId);
-
       if (tabData.pinned) {
         this.pinTab(tab);
         // Then ensure all the tab open/pinning information is sent.
         this.#fireTabOpen(tab, {});
-      } else if (tabGroup) {
-        if (!splitView) {
-          tabGroup.containingTabsFragment.appendChild(tab);
-        } else if (splitView?.node) {
-          tabGroup.containingTabsFragment.appendChild(splitView.node);
-        }
+      } else if (tabData.groupId) {
+        let { groupId } = tabData;
+        const tabGroup = tabGroupWorkingData.get(groupId);
+        // if a tab refers to a tab group we don't know, skip any group
+        // processing
 
-        // if this is the first time encountering a tab group, create its
-        // DOM node once and place it in the tabs bar fragment
-        if (!tabGroup.node) {
-          tabGroup.node = this.#createTabGroup(
-            tabGroup.stateData.id,
-            tabGroup.stateData.color,
-            tabGroup.stateData.collapsed,
-            tabGroup.stateData.name
-          );
-          tabsFragment.appendChild(tabGroup.node);
+        if (tabGroup) {
+          if (!splitView) {
+            tabGroup.containingTabsFragment.appendChild(tab);
+          } else if (splitView?.node) {
+            tabGroup.containingTabsFragment.appendChild(splitView.node);
+          }
+
+          // if this is the first time encountering a tab group, create its
+          // DOM node once and place it in the tabs bar fragment
+          if (!tabGroup.node) {
+            tabGroup.node = this.#createTabGroup(
+              tabGroup.stateData.id,
+              tabGroup.stateData.color,
+              tabGroup.stateData.collapsed,
+              tabGroup.stateData.name
+            );
+            tabsFragment.appendChild(tabGroup.node);
+          }
         }
       } else {
         if (tab.hidden) {
@@ -7169,9 +7164,7 @@ export class Tabbrowser {
     await Promise.all(tabs.map(tab => this.prepareDiscardBrowser(tab)));
 
     for (let tab of tabs) {
-      numberOfTabsUnloaded += this.discardBrowser(tab, { forceDiscard: true })
-        ? 1
-        : 0;
+      numberOfTabsUnloaded += this.discardBrowser(tab, true) ? 1 : 0;
     }
     let timeElapsed = Math.floor(
       this.documentGlobal.performance.now() - timeBeforeUnload
@@ -9508,10 +9501,6 @@ export class Tabbrowser {
     this.tabGroupMenu.openCreateModal(aEvent.target);
   }
 
-  on_TabGroupCreateDone() {
-    lazy.TabGroupsToolbarButton.maybeAddTabGroupsButton();
-  }
-
   on_TabGrouped(aEvent) {
     let tab = aEvent.detail;
     let uri =
@@ -10401,17 +10390,6 @@ export class Tabbrowser {
  * A web progress listener object definition for a given tab.
  */
 class TabProgressListener {
-  // Keyed by tab, because a tab's listener is replaced when its browser
-  // changes remoteness mid-load.
-  static #tabsNotSelectedSinceLoad = new WeakSet();
-
-  /**
-   * @param {MozTabbrowserTab} tab
-   */
-  static onTabSelect(tab) {
-    TabProgressListener.#tabsNotSelectedSinceLoad.delete(tab);
-  }
-
   constructor(
     aTab,
     aBrowser,
@@ -10659,11 +10637,7 @@ class TabProgressListener {
         ) {
           this._tab.setAttribute("busy", "true");
           this.#tabbrowser._tabAttrModified(this._tab, ["busy"]);
-          if (this._tab.selected) {
-            TabProgressListener.#tabsNotSelectedSinceLoad.delete(this._tab);
-          } else {
-            TabProgressListener.#tabsNotSelectedSinceLoad.add(this._tab);
-          }
+          this._tab._notselectedsinceload = !this._tab.selected;
         }
 
         if (this._tab.selected) {
@@ -10689,10 +10663,11 @@ class TabProgressListener {
           !this.#tabbrowser.tabContainer.tabAnimationsInProgress &&
           !this.#documentGlobal.gReduceMotion
         ) {
-          this._tab.toggleAttribute(
-            "notselectedsinceload",
-            TabProgressListener.#tabsNotSelectedSinceLoad.has(this._tab)
-          );
+          if (this._tab._notselectedsinceload) {
+            this._tab.setAttribute("notselectedsinceload", "true");
+          } else {
+            this._tab.removeAttribute("notselectedsinceload");
+          }
 
           this._tab.setAttribute("bursting", "true");
         }

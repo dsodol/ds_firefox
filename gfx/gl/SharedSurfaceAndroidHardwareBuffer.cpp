@@ -46,7 +46,7 @@ SharedSurface_AndroidHardwareBuffer::Create(const SharedSurfaceDesc& desc) {
     return nullptr;
   }
 
-  auto tex = std::make_unique<Texture>(*desc.gl);
+  auto tex = MakeUnique<Texture>(*desc.gl);
   {
     ScopedBindTexture texture(gle, tex->name, LOCAL_GL_TEXTURE_2D);
     gle->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_MIN_FILTER,

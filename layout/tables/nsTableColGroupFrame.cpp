@@ -391,7 +391,8 @@ int32_t nsTableColGroupFrame::GetSpan() { return StyleTable()->mXSpan; }
 
 nsTableColGroupFrame* NS_NewTableColGroupFrame(PresShell* aPresShell,
                                                ComputedStyle* aStyle) {
-  return new nsTableColGroupFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      nsTableColGroupFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsTableColGroupFrame)

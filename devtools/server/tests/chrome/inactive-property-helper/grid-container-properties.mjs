@@ -8,7 +8,7 @@
 // and `justify-items`.
 let tests = [];
 
-const propList = [
+for (const { propertyName, propertyValue } of [
   { propertyName: "grid-auto-columns", propertyValue: "100px" },
   { propertyName: "grid-auto-flow", propertyValue: "columns" },
   { propertyName: "grid-auto-rows", propertyValue: "100px" },
@@ -17,9 +17,7 @@ const propList = [
   { propertyName: "grid-template-columns", propertyValue: "100px 1fr" },
   { propertyName: "grid-template-rows", propertyValue: "100px 1fr" },
   { propertyName: "justify-items", propertyValue: "center" },
-];
-
-for (const { propertyName, propertyValue } of propList) {
+]) {
   tests = tests.concat(createTestsForProp(propertyName, propertyValue));
 }
 
@@ -40,29 +38,6 @@ function createTestsForProp(propertyName, propertyValue) {
       isActive: false,
     },
   ];
-}
-
-for (const { propertyName, propertyValue } of propList) {
-  tests.push(
-    {
-      info: `${propertyName} is active on a grid-lanes container`,
-      property: propertyName,
-      tagName: "div",
-      rules: [
-        `div { display: grid-lanes; ${propertyName}: ${propertyValue}; }`,
-      ],
-      isActive: true,
-    },
-    {
-      info: `${propertyName} is active on an inline-grid-lanes container`,
-      property: propertyName,
-      tagName: "div",
-      rules: [
-        `div { display: inline-grid-lanes; ${propertyName}: ${propertyValue}; }`,
-      ],
-      isActive: true,
-    }
-  );
 }
 
 export default tests;

@@ -7,23 +7,16 @@ package org.mozilla.fenix.components.menu.fake
 import androidx.navigation.NavDirections
 import org.mozilla.fenix.components.menu.MenuHost
 
-/**
- * [MenuHost] remembering how it was used, failing if used more than once to close the menu or navigate away.
- *
- * @param previousScreens IDs of the screens opened before the menu, which it can navigate back to.
- */
-class FakeMenuHost(private val previousScreens: Set<Int> = emptySet()) : MenuHost {
+/** [MenuHost] remembering how it was used, failing if used more than once to close the menu or navigate away. */
+class FakeMenuHost : MenuHost {
     var isDismissed = false
         private set
 
     var directions: NavDirections? = null
         private set
 
-    var backDestinationId: Int? = null
-        private set
-
     val isUsed
-        get() = isDismissed || directions != null || backDestinationId != null
+        get() = isDismissed || directions != null
 
     override fun dismiss() {
         checkNotUsed()
@@ -33,14 +26,6 @@ class FakeMenuHost(private val previousScreens: Set<Int> = emptySet()) : MenuHos
     override fun navigate(directions: NavDirections) {
         checkNotUsed()
         this.directions = directions
-    }
-
-    override fun navigateBackTo(destinationId: Int): Boolean {
-        checkNotUsed()
-        if (destinationId in previousScreens) {
-            backDestinationId = destinationId
-        }
-        return backDestinationId != null
     }
 
     private fun checkNotUsed() = check(!isUsed) { "The menu was already closed or navigated away from" }

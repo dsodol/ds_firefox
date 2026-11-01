@@ -4,8 +4,6 @@
 
 #include "txPatternParser.h"
 
-#include <memory>
-
 #include "nsError.h"
 #include "nsGkAtoms.h"
 #include "txExprLexer.h"
@@ -250,7 +248,7 @@ nsresult txPatternParser::createStepPattern(txExprLexer& aLexer,
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
-  auto step = std::make_unique<txStepPattern>(nodeTest, isAttr);
+  UniquePtr<txStepPattern> step(new txStepPattern(nodeTest, isAttr));
   rv = parsePredicates(step.get(), aLexer, aContext);
   NS_ENSURE_SUCCESS(rv, rv);
 

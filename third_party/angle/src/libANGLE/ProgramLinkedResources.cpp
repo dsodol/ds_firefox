@@ -2372,10 +2372,6 @@ LinkMismatchError AreMatchingInterfaceBlocks(const sh::InterfaceBlock &interface
     {
         return LinkMismatchError::INSTANCE_NAME_MISMATCH;
     }
-    if (interfaceBlock1.isRowMajorLayout != interfaceBlock2.isRowMajorLayout)
-    {
-        return LinkMismatchError::MATRIX_PACKING_MISMATCH;
-    }
     const unsigned int numBlockMembers = static_cast<unsigned int>(interfaceBlock1.fields.size());
     for (unsigned int blockMemberIndex = 0; blockMemberIndex < numBlockMembers; blockMemberIndex++)
     {

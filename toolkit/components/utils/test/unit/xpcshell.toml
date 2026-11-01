@@ -10,6 +10,3 @@ skip-if = [
 ["test_JsonSchemaValidator.js"]
 
 ["test_Sampling.js"]
-
-["test_WindowsInstallsInfo.js"]
-run-if = ["os == 'win'"]

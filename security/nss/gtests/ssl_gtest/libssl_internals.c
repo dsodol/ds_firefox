@@ -255,8 +255,10 @@ PRBool SSLInt_CheckSecretsDestroyed(PRFileDesc* fd) {
 }
 
 PRBool sslint_DamageTrafficSecret(PRFileDesc* fd, size_t offset) {
+  unsigned char data[32] = {0};
   PK11SymKey** keyPtr;
   PK11SlotInfo* slot = PK11_GetInternalSlot();
+  SECItem key_item = {siBuffer, data, sizeof(data)};
   sslSocket* ss = ssl_FindSocket(fd);
   if (!ss) {
     return PR_FALSE;
@@ -269,9 +271,8 @@ PRBool sslint_DamageTrafficSecret(PRFileDesc* fd, size_t offset) {
     return PR_FALSE;
   }
   PK11_FreeSymKey(*keyPtr);
-  /* Any other key will do. Generate one: FIPS tokens refuse raw imports. */
-  *keyPtr = PK11_TokenKeyGenWithFlags(slot, CKM_GENERIC_SECRET_KEY_GEN, NULL,
-                                      32, NULL, CKF_DERIVE, 0, NULL);
+  *keyPtr = PK11_ImportSymKey(slot, CKM_NSS_HKDF_SHA256, PK11_OriginUnwrap,
+                              CKA_DERIVE, &key_item, NULL);
   PK11_FreeSlot(slot);
   if (!*keyPtr) {
     return PR_FALSE;

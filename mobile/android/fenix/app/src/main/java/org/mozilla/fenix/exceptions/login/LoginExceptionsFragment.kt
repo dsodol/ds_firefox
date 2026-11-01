@@ -11,6 +11,8 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.asLiveData
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.plus
 import mozilla.components.lib.state.ext.consumeFrom
 import mozilla.components.lib.state.helpers.StoreProvider.Companion.fragmentStore
 import org.mozilla.fenix.R
@@ -48,7 +50,7 @@ class LoginExceptionsFragment : Fragment(), SystemInsetsPaddedFragment {
                 .value
         exceptionsInteractor =
             DefaultLoginExceptionsInteractor(
-                scope = viewLifecycleOwner.lifecycleScope,
+                ioScope = viewLifecycleOwner.lifecycleScope + Dispatchers.IO,
                 loginExceptionStorage = requireComponents.core.loginExceptionStorage,
             )
         exceptionsView =

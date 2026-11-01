@@ -34,7 +34,7 @@ void PostTraversalTask::Run() {
           ->DispatchLoadingEventAndReplaceReadyPromise();
       break;
     case Type::LoadFontEntry:
-      static_cast<gfxUserFontEntry*>(mTarget)->ScheduleContinueLoad();
+      static_cast<gfxUserFontEntry*>(mTarget)->ContinueLoad();
       break;
   }
 }

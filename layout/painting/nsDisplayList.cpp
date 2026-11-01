@@ -13,7 +13,6 @@
 #include <stdint.h>
 
 #include <algorithm>
-#include <cmath>
 #include <limits>
 
 #include "ActiveLayerTracker.h"
@@ -65,7 +64,6 @@
 #include "mozilla/dom/PerformanceMainThread.h"
 #include "mozilla/dom/RemoteBrowser.h"
 #include "mozilla/dom/SVGElement.h"
-#include "mozilla/dom/SVGPathData.h"
 #include "mozilla/dom/Selection.h"
 #include "mozilla/dom/ServiceWorkerRegistrar.h"
 #include "mozilla/dom/ServiceWorkerRegistration.h"
@@ -835,11 +833,6 @@ nsDisplayListBuilder::Linkifier::Linkifier(nsDisplayListBuilder* aBuilder,
     return;
   }
 
-  nsPoint offset;
-  aBuilder->mLinkReferenceFrame =
-      aBuilder->FindReferenceFrameFor(aFrame, &offset);
-  aBuilder->mLinkBounds = nsRect(offset, aFrame->GetSize());
-
   // Record that we need to reset the builder's state on destruction.
   mBuilderToReset = aBuilder;
 }
@@ -849,25 +842,12 @@ void nsDisplayListBuilder::Linkifier::MaybeAppendLink(
   // Note that we may generate a link here even if the constructor bailed out
   // without updating aBuilder->mLinkURI/Dest, because it may have been set by
   // an ancestor that was associated with a link element.
-  if (aBuilder->mLinkURI.IsEmpty() && aBuilder->mLinkDest.IsEmpty()) {
-    return;
+  if (!aBuilder->mLinkURI.IsEmpty() || !aBuilder->mLinkDest.IsEmpty()) {
+    auto* link = MakeDisplayItem<nsDisplayLink>(
+        aBuilder, aFrame, aBuilder->mLinkDest.get(), aBuilder->mLinkURI.get(),
+        aFrame->GetRect());
+    mList->AppendToTop(link);
   }
-  if (!mBuilderToReset) {
-    // mBuilderToReset is only set for the link element's frame, so this is a
-    // descendant of that frame. If it is entirely covered by that frame, a link
-    // for it would be redundant.
-    nsPoint offset;
-    const nsIFrame* referenceFrame =
-        aBuilder->FindReferenceFrameFor(aFrame, &offset);
-    if (referenceFrame == aBuilder->mLinkReferenceFrame &&
-        aBuilder->mLinkBounds.Contains(nsRect(offset, aFrame->GetSize()))) {
-      return;
-    }
-  }
-  auto* link = MakeDisplayItem<nsDisplayLink>(
-      aBuilder, aFrame, aBuilder->mLinkDest.get(), aBuilder->mLinkURI.get(),
-      aFrame->GetRect());
-  mList->AppendToTop(link);
 }
 
 uint32_t nsDisplayListBuilder::sPaintSequenceNumber(1);
@@ -925,7 +905,8 @@ nsDisplayListBuilder::nsDisplayListBuilder(nsIFrame* aReferenceFrame,
       mBuildAsyncZoomContainer(false),
       mIsRelativeToLayoutViewport(false),
       mUseOverlayScrollbars(false),
-      mAlwaysLayerizeScrollbars(false) {
+      mAlwaysLayerizeScrollbars(false),
+      mIsDestroying(false) {
   MOZ_COUNT_CTOR(nsDisplayListBuilder);
 
   ShouldRebuildDisplayListDueToPrefChange();
@@ -1179,7 +1160,6 @@ nsDisplayListBuilder::~nsDisplayListBuilder() {
   while (c) {
     DisplayItemClipChain* next = c->mNextClipChainToDestroy;
     c->DisplayItemClipChain::~DisplayItemClipChain();
-    DisplayListArena::Free(DisplayListArenaObjectId::CLIPCHAIN, c);
     c = next;
   }
 
@@ -1464,7 +1444,7 @@ void nsDisplayListBuilder::FreeClipChains() {
 
       mClipDeduplicator.erase(*indirect);
       (*indirect)->DisplayItemClipChain::~DisplayItemClipChain();
-      DisplayListArena::Free(DisplayListArenaObjectId::CLIPCHAIN, *indirect);
+      Destroy(DisplayListArenaObjectId::CLIPCHAIN, *indirect);
 
       *indirect = next;
     } else {
@@ -1640,8 +1620,8 @@ const DisplayItemClipChain* nsDisplayListBuilder::AllocateDisplayItemClipChain(
     const DisplayItemClip& aClip, const ActiveScrolledRoot* aASR,
     const DisplayItemClipChain* aParent) {
   MOZ_DIAGNOSTIC_ASSERT(!(aParent && aParent->mOnStack));
-  void* p = DisplayListArena::Allocate(DisplayListArenaObjectId::CLIPCHAIN,
-                                       sizeof(DisplayItemClipChain));
+  void* p = Allocate(sizeof(DisplayItemClipChain),
+                     DisplayListArenaObjectId::CLIPCHAIN);
   DisplayItemClipChain* c = new (KnownNotNull, p)
       DisplayItemClipChain(aClip, aASR, aParent, mFirstClipChainToDestroy);
 #if defined(DEBUG) || defined(MOZ_DIAGNOSTIC_ASSERT_ENABLED)
@@ -1655,7 +1635,7 @@ const DisplayItemClipChain* nsDisplayListBuilder::AllocateDisplayItemClipChain(
     // collapse into the same clip chain object, because clip chains do not keep
     // track of the reference frame that they were created in.
     c->DisplayItemClipChain::~DisplayItemClipChain();
-    DisplayListArena::Free(DisplayListArenaObjectId::CLIPCHAIN, c);
+    Destroy(DisplayListArenaObjectId::CLIPCHAIN, c);
     return *(result.first);
   }
   mFirstClipChainToDestroy = c;
@@ -1991,6 +1971,8 @@ void nsDisplayTransform::AddSizeOfExcludingThis(nsWindowSizes& aSizes) const {
 }
 
 void nsDisplayListBuilder::AddSizeOfExcludingThis(nsWindowSizes& aSizes) const {
+  mPool.AddSizeOfExcludingThis(aSizes, Arena::ArenaKind::DisplayList);
+
   size_t n = 0;
   MallocSizeOf mallocSizeOf = aSizes.mState.mMallocSizeOf;
   n += mRetainedWindowDraggingRegion.SizeOfExcludingThis(mallocSizeOf);
@@ -2161,6 +2143,15 @@ void nsDisplayListBuilder::ReuseDisplayItem(nsDisplayItem* aItem) {
   }
 
   aItem->SetReusedItem();
+}
+
+void nsDisplayListSet::CopyTo(const nsDisplayListSet& aDestination) const {
+  for (size_t i = 0; i < mLists.size(); ++i) {
+    auto* from = mLists[i];
+    auto* to = aDestination.mLists[i];
+
+    from->CopyTo(to);
+  }
 }
 
 void nsDisplayListSet::MoveTo(const nsDisplayListSet& aDestination) const {
@@ -2787,6 +2778,7 @@ nsDisplayContainer::nsDisplayContainer(
     const ActiveScrolledRoot* aActiveScrolledRoot,
     ContainerASRType aContainerASRType, nsDisplayList* aList)
     : nsDisplayItem(aBuilder, aFrame, aActiveScrolledRoot),
+      mChildren(aBuilder),
       mFrameASR(aContainerASRType == ContainerASRType::AncestorOfContained
                     ? aBuilder->CurrentActiveScrolledRoot()
                     : nullptr),
@@ -3261,7 +3253,7 @@ AppendedBackgroundType nsDisplayBackgroundImage::AppendBackgroundItemsToTop(
   // An auxiliary list is necessary in case we have background blending; if that
   // is the case, background items need to be wrapped by a blend container to
   // isolate blending to the background
-  nsDisplayList bgItemList;
+  nsDisplayList bgItemList(aBuilder);
   // Even if we don't actually have a background color to paint, we may still
   // need to create an item for hit testing and we still need to create an item
   // for background-color animations.
@@ -3359,7 +3351,7 @@ AppendedBackgroundType nsDisplayBackgroundImage::AppendBackgroundItemsToTop(
                               willPaintBorder);
     }
 
-    nsDisplayList thisItemList;
+    nsDisplayList thisItemList(aBuilder);
     nsDisplayBackgroundImage::InitData bgData =
         nsDisplayBackgroundImage::GetInitData(aBuilder, aFrame, i, bgOriginRect,
                                               bgSC);
@@ -4843,6 +4835,7 @@ nsDisplayWrapList::nsDisplayWrapList(
     const ActiveScrolledRoot* aActiveScrolledRoot,
     ContainerASRType aContainerASRType, bool aClearClipChain)
     : nsPaintedDisplayItem(aBuilder, aFrame, aActiveScrolledRoot),
+      mList(aBuilder),
       mFrameASR(aContainerASRType == ContainerASRType::AncestorOfContained
                     ? aBuilder->CurrentActiveScrolledRoot()
                     : nullptr),
@@ -4863,6 +4856,7 @@ nsDisplayWrapList::nsDisplayWrapList(
 nsDisplayWrapList::nsDisplayWrapList(nsDisplayListBuilder* aBuilder,
                                      nsIFrame* aFrame, nsDisplayItem* aItem)
     : nsPaintedDisplayItem(aBuilder, aFrame),
+      mList(aBuilder),
       mOverrideZIndex(0),
       mHasZIndexOverride(false) {
   MOZ_COUNT_CTOR(nsDisplayWrapList);
@@ -4933,6 +4927,79 @@ nsDisplayWrapList::CreateWebRenderCommandsNewClipListOption(
       GetChildren(), this, aDisplayListBuilder, aSc, aBuilder, aResources,
       aNewClipList);
   return Ok();
+}
+
+static nsresult WrapDisplayList(nsDisplayListBuilder* aBuilder,
+                                nsIFrame* aFrame, nsDisplayList* aList,
+                                nsDisplayItemWrapper* aWrapper) {
+  if (!aList->GetTop()) {
+    return NS_OK;
+  }
+  nsDisplayItem* item = aWrapper->WrapList(aBuilder, aFrame, aList);
+  if (!item) {
+    return NS_ERROR_OUT_OF_MEMORY;
+  }
+  // aList was emptied
+  aList->AppendToTop(item);
+  return NS_OK;
+}
+
+static nsresult WrapEachDisplayItem(nsDisplayListBuilder* aBuilder,
+                                    nsDisplayList* aList,
+                                    nsDisplayItemWrapper* aWrapper) {
+  for (nsDisplayItem* item : aList->TakeItems()) {
+    item = aWrapper->WrapItem(aBuilder, item);
+    if (!item) {
+      return NS_ERROR_OUT_OF_MEMORY;
+    }
+    aList->AppendToTop(item);
+  }
+  // aList was emptied
+  return NS_OK;
+}
+
+nsresult nsDisplayItemWrapper::WrapLists(nsDisplayListBuilder* aBuilder,
+                                         nsIFrame* aFrame,
+                                         const nsDisplayListSet& aIn,
+                                         const nsDisplayListSet& aOut) {
+  nsresult rv = WrapListsInPlace(aBuilder, aFrame, aIn);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  if (&aOut == &aIn) {
+    return NS_OK;
+  }
+  aOut.BorderBackground()->AppendToTop(aIn.BorderBackground());
+  aOut.BlockBorderBackgrounds()->AppendToTop(aIn.BlockBorderBackgrounds());
+  aOut.Floats()->AppendToTop(aIn.Floats());
+  aOut.Content()->AppendToTop(aIn.Content());
+  aOut.PositionedDescendants()->AppendToTop(aIn.PositionedDescendants());
+  aOut.Outlines()->AppendToTop(aIn.Outlines());
+  return NS_OK;
+}
+
+nsresult nsDisplayItemWrapper::WrapListsInPlace(
+    nsDisplayListBuilder* aBuilder, nsIFrame* aFrame,
+    const nsDisplayListSet& aLists) {
+  nsresult rv;
+  if (WrapBorderBackground()) {
+    // Our border-backgrounds are in-flow
+    rv = WrapDisplayList(aBuilder, aFrame, aLists.BorderBackground(), this);
+    NS_ENSURE_SUCCESS(rv, rv);
+  }
+  // Our block border-backgrounds are in-flow
+  rv = WrapDisplayList(aBuilder, aFrame, aLists.BlockBorderBackgrounds(), this);
+  NS_ENSURE_SUCCESS(rv, rv);
+  // The floats are not in flow
+  rv = WrapEachDisplayItem(aBuilder, aLists.Floats(), this);
+  NS_ENSURE_SUCCESS(rv, rv);
+  // Our child content is in flow
+  rv = WrapDisplayList(aBuilder, aFrame, aLists.Content(), this);
+  NS_ENSURE_SUCCESS(rv, rv);
+  // The positioned descendants may not be in-flow
+  rv = WrapEachDisplayItem(aBuilder, aLists.PositionedDescendants(), this);
+  NS_ENSURE_SUCCESS(rv, rv);
+  // The outlines may not be in-flow
+  return WrapEachDisplayItem(aBuilder, aLists.Outlines(), this);
 }
 
 nsDisplayOpacity::nsDisplayOpacity(
@@ -5598,10 +5665,9 @@ WebRenderCommandsResult nsDisplayViewTransitionCapture::CreateWebRenderCommands(
   Maybe<wr::SnapshotInfo> si;
   nsPresContext* pc = mFrame->PresContext();
   nsIFrame* capturedFrame =
-      mIsRoot ? pc->FrameConstructor()->GetRootElementStyleFrame()
-              : nsLayoutUtils::FirstContinuationOrIBSplitSibling(mFrame);
+      mIsRoot ? pc->FrameConstructor()->GetRootElementStyleFrame() : mFrame;
   auto captureRect =
-      ViewTransition::CapturedInkOverflowRectForFrame(capturedFrame, mIsRoot);
+      ViewTransition::CapturedInkOverflowRectForFrame(mFrame, mIsRoot);
   auto* vt = pc->Document()->GetActiveViewTransition();
   auto key = [&]() -> Maybe<wr::SnapshotImageKey> {
     if (NS_WARN_IF(!vt)) {
@@ -5675,17 +5741,11 @@ WebRenderCommandsResult nsDisplayViewTransitionCapture::CreateWebRenderCommands(
   if (key) {
     vt->UpdateActiveRectForCapturedFrame(capturedFrame, aSc.GetInheritedScale(),
                                          captureRect);
-    // The capture rect is relative to the first fragment of the captured
-    // element, but we might be a merged item for another fragment.
-    const nsPoint offsetToCapturedFrame =
-        mIsRoot || capturedFrame == mFrame ? nsPoint()
-                                           : capturedFrame->GetOffsetTo(mFrame);
 
     si.emplace(wr::SnapshotInfo{
         .key = *key,
         .area = wr::ToLayoutRect(LayoutDeviceRect::FromAppUnits(
-            captureRect + offsetToCapturedFrame + ToReferenceFrame(),
-            pc->AppUnitsPerDevPixel())),
+            captureRect + ToReferenceFrame(), pc->AppUnitsPerDevPixel())),
         .detached = true,
     });
     params.snapshot = si.ptr();
@@ -5768,7 +5828,7 @@ nsDisplayFixedPosition* nsDisplayFixedPosition::CreateForFixedBackground(
     nsDisplayListBuilder* aBuilder, nsIFrame* aFrame, nsIFrame* aSecondaryFrame,
     nsDisplayBackgroundImage* aImage, const uint16_t aIndex,
     const ActiveScrolledRoot* aScrollTargetASR) {
-  nsDisplayList temp;
+  nsDisplayList temp(aBuilder);
   temp.AppendToTop(aImage);
 
   if (aSecondaryFrame) {
@@ -6100,7 +6160,7 @@ UniquePtr<ScrollMetadata> nsDisplayScrollInfoLayer::ComputeScrollMetadata(
     aBuilder->AddScrollContainerFrameToNotify(scrollContainerFrame);
   }
 
-  return std::make_unique<ScrollMetadata>(metadata);
+  return MakeUnique<ScrollMetadata>(metadata);
 }
 
 bool nsDisplayScrollInfoLayer::UpdateScrollData(
@@ -6216,6 +6276,7 @@ nsDisplayTransform::nsDisplayTransform(nsDisplayListBuilder* aBuilder,
                                        nsIFrame* aFrame, nsDisplayList* aList,
                                        const nsRect& aChildrenBuildingRect)
     : nsPaintedDisplayItem(aBuilder, aFrame),
+      mChildren(aBuilder),
       mTransform(Some(Matrix4x4())),
       mChildrenBuildingRect(aChildrenBuildingRect),
       mPrerenderDecision(PrerenderDecision::No),
@@ -6237,6 +6298,7 @@ nsDisplayTransform::nsDisplayTransform(nsDisplayListBuilder* aBuilder,
                                        bool aWrapsBackdropFilter,
                                        bool aForceIsolation)
     : nsPaintedDisplayItem(aBuilder, aFrame),
+      mChildren(aBuilder),
       mChildrenBuildingRect(aChildrenBuildingRect),
       mPrerenderDecision(aPrerenderDecision),
       mIsTransformSeparator(false),
@@ -6256,6 +6318,7 @@ nsDisplayTransform::nsDisplayTransform(nsDisplayListBuilder* aBuilder,
                                        const nsRect& aChildrenBuildingRect,
                                        decltype(WithTransformGetter))
     : nsPaintedDisplayItem(aBuilder, aFrame),
+      mChildren(aBuilder),
       mChildrenBuildingRect(aChildrenBuildingRect),
       mPrerenderDecision(PrerenderDecision::No),
       mIsTransformSeparator(false),
@@ -6868,7 +6931,7 @@ const Matrix4x4& nsDisplayTransform::GetAccumulatedPreserved3DTransform(
     float scale = mFrame->PresContext()->AppUnitsPerDevPixel();
     uint32_t flags =
         INCLUDE_PRESERVE3D_ANCESTORS | INCLUDE_PERSPECTIVE | OFFSET_BY_ORIGIN;
-    mTransformPreserves3D = std::make_unique<Matrix4x4>(
+    mTransformPreserves3D = MakeUnique<Matrix4x4>(
         GetResultingTransformMatrix(mFrame, offset, scale, flags));
   }
 
@@ -7645,7 +7708,7 @@ void nsDisplayTransform::WriteDebugInfo(std::stringstream& aStream) {
 nsDisplayPerspective::nsDisplayPerspective(nsDisplayListBuilder* aBuilder,
                                            nsIFrame* aFrame,
                                            nsDisplayList* aList)
-    : nsPaintedDisplayItem(aBuilder, aFrame) {
+    : nsPaintedDisplayItem(aBuilder, aFrame), mList(aBuilder) {
   mList.AppendToTop(aList);
   MOZ_ASSERT(mList.Length() == 1);
   MOZ_ASSERT(mList.GetTop()->GetType() == DisplayItemType::TYPE_TRANSFORM);
@@ -8346,166 +8409,6 @@ void nsDisplayMasksAndClipPaths::Paint(nsDisplayListBuilder* aBuilder,
   });
 }
 
-// Records the commands of a path, to define a WebRender path clip with them.
-class WrPathRecorder final : public gfx::PathBuilder {
- public:
-  MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(WrPathRecorder, override)
-
-  WrPathRecorder() : PathBuilder(gfx::FillRule::FILL_WINDING) {}
-
-  void MoveTo(const gfx::Point& aPoint) override {
-    EndSubPath();
-    BeginSubPath(aPoint);
-  }
-
-  void LineTo(const gfx::Point& aPoint) override {
-    EnsureSubPath();
-    mCommands.AppendElement(wr::PathCommand::LineTo);
-    PushPoint(aPoint);
-    mCurrentPoint = aPoint;
-  }
-
-  void BezierTo(const gfx::Point& aCP1, const gfx::Point& aCP2,
-                const gfx::Point& aCP3) override {
-    EnsureSubPath();
-    mCommands.AppendElement(wr::PathCommand::CubicTo);
-    PushPoint(aCP1);
-    PushPoint(aCP2);
-    PushPoint(aCP3);
-    mCurrentPoint = aCP3;
-  }
-
-  void QuadraticBezierTo(const gfx::Point& aCP1,
-                         const gfx::Point& aCP2) override {
-    EnsureSubPath();
-    mCommands.AppendElement(wr::PathCommand::QuadraticTo);
-    PushPoint(aCP1);
-    PushPoint(aCP2);
-    mCurrentPoint = aCP2;
-  }
-
-  void Close() override {
-    if (mInSubPath) {
-      mCommands.AppendElement(wr::PathCommand::Close);
-      mInSubPath = false;
-    }
-    mCurrentPoint = mBeginPoint;
-  }
-
-  void Arc(const gfx::Point& aOrigin, float aRadius, float aStartAngle,
-           float aEndAngle, bool aAntiClockwise) override {
-    gfx::ArcToBezier(this, aOrigin, gfx::Size(aRadius, aRadius), aStartAngle,
-                     aEndAngle, aAntiClockwise);
-  }
-
-  // The commands are read from the recorder rather than from a Path.
-  already_AddRefed<gfx::Path> Finish() override {
-    EndSubPath();
-    return nullptr;
-  }
-
-  void Reset(gfx::FillRule aFillRule) override {
-    mCommands.Clear();
-    mPoints.Clear();
-    mInSubPath = false;
-    ResetBounds();
-    mFillRule = aFillRule;
-  }
-
-  void Transform(const gfx::Matrix& aTransform) override {
-    ResetBounds();
-    for (auto& point : mPoints) {
-      gfx::Point p = aTransform.TransformPoint(gfx::Point(point.x, point.y));
-      point = wr::LayoutPoint{p.x, p.y};
-      AccumulateBounds(p);
-    }
-  }
-
-  gfx::BackendType GetBackendType() const override {
-    return gfx::BackendType::NONE;
-  }
-
-  bool IsActive() const override { return !mCommands.IsEmpty(); }
-
-  // Defines a clip to the inside of the recorded path. Makes the points
-  // relative to the clip rect's origin in place, so that a path that only
-  // moves keeps interning to the same WebRender path.
-  wr::WrClipId DefineClip(wr::DisplayListBuilder& aBuilder,
-                          wr::FillRule aFillRule) {
-    MOZ_ASSERT(!mInSubPath, "Finish() must be called first");
-    if (mPoints.IsEmpty() || !mAllFinite) {
-      // Nothing is inside of an empty or non-finite path.
-      return aBuilder.DefineRectClip(Nothing(), wr::LayoutRect{});
-    }
-
-    // Path clips are positioned by a rect that also clips their content.
-    // Inflate it so that it does not clip the path's anti-aliasing.
-    const gfx::Point origin(mMin.x - 1.0f, mMin.y - 1.0f);
-    const wr::LayoutRect rect{wr::LayoutPoint{origin.x, origin.y},
-                              wr::LayoutPoint{mMax.x + 1.0f, mMax.y + 1.0f}};
-    for (auto& point : mPoints) {
-      point.x -= origin.x;
-      point.y -= origin.y;
-    }
-    const wr::LayoutRect aabb{
-        wr::LayoutPoint{mMin.x - origin.x, mMin.y - origin.y},
-        wr::LayoutPoint{mMax.x - origin.x, mMax.y - origin.y}};
-
-    return aBuilder.DefinePathClip(mCommands, mPoints, aabb, rect, aFillRule);
-  }
-
- private:
-  void BeginSubPath(const gfx::Point& aPoint) {
-    mCommands.AppendElement(wr::PathCommand::Begin);
-    PushPoint(aPoint);
-    mInSubPath = true;
-    mBeginPoint = aPoint;
-    mCurrentPoint = aPoint;
-  }
-
-  // Drawing after a Close() resumes from the closed sub-path's first point.
-  void EnsureSubPath() {
-    if (!mInSubPath) {
-      BeginSubPath(mCurrentPoint);
-    }
-  }
-
-  void EndSubPath() {
-    if (mInSubPath) {
-      mCommands.AppendElement(wr::PathCommand::End);
-      mInSubPath = false;
-    }
-  }
-
-  void PushPoint(const gfx::Point& aPoint) {
-    mPoints.AppendElement(wr::LayoutPoint{aPoint.x, aPoint.y});
-    AccumulateBounds(aPoint);
-  }
-
-  void AccumulateBounds(const gfx::Point& aPoint) {
-    mMin.x = std::min(mMin.x, aPoint.x);
-    mMin.y = std::min(mMin.y, aPoint.y);
-    mMax.x = std::max(mMax.x, aPoint.x);
-    mMax.y = std::max(mMax.y, aPoint.y);
-    mAllFinite &= std::isfinite(aPoint.x) && std::isfinite(aPoint.y);
-  }
-
-  void ResetBounds() {
-    mMin = gfx::Point(kInfinity, kInfinity);
-    mMax = gfx::Point(-kInfinity, -kInfinity);
-    mAllFinite = true;
-  }
-
-  static constexpr float kInfinity = std::numeric_limits<float>::infinity();
-
-  nsTArray<wr::PathCommand> mCommands;
-  nsTArray<wr::LayoutPoint> mPoints;
-  gfx::Point mMin{kInfinity, kInfinity};
-  gfx::Point mMax{-kInfinity, -kInfinity};
-  bool mAllFinite = true;
-  bool mInSubPath = false;
-};
-
 static Maybe<wr::WrClipChainId> CreateSimpleClipRegion(
     const nsDisplayMasksAndClipPaths& aDisplayItem,
     wr::DisplayListBuilder& aBuilder) {
@@ -8517,65 +8420,9 @@ static Maybe<wr::WrClipChainId> CreateSimpleClipRegion(
   }
 
   const auto& clipPath = style->mClipPath;
-  auto appUnitsPerDevPixel = frame->PresContext()->AppUnitsPerDevPixel();
-
-  if (clipPath.IsUrl()) {
-    // A trivial <clipPath> whose single child is a simple shape. The shape is
-    // in the clipped frame's user space, which is mapped to the reference
-    // frame the same way SVGIntegrationUtils positions the mask painting.
-    SVGClipPathFrame* clipPathFrame = nullptr;
-    SVGObserverUtils::GetAndObserveClipPath(
-        nsLayoutUtils::FirstContinuationOrIBSplitSibling(frame),
-        &clipPathFrame);
-    CSSRect rect;
-    CSSSize radii;
-    if (!clipPathFrame ||
-        !clipPathFrame->GetSimpleClipShape(frame, &rect, &radii)) {
-      return Nothing();
-    }
-
-    nsPoint offsetToBoundingBox =
-        aDisplayItem.ToReferenceFrame() -
-        SVGIntegrationUtils::GetOffsetToBoundingBox(frame);
-    if (!frame->IsSVGFrame()) {
-      nsPresContext* pc = frame->PresContext();
-      offsetToBoundingBox =
-          nsPoint(pc->RoundAppUnitsToNearestDevPixels(offsetToBoundingBox.x),
-                  pc->RoundAppUnitsToNearestDevPixels(offsetToBoundingBox.y));
-    }
-    const auto cssToDev = frame->PresContext()->CSSToDevPixelScale();
-    LayoutDevicePoint offset =
-        LayoutDevicePoint::FromAppUnits(offsetToBoundingBox,
-                                        appUnitsPerDevPixel) -
-        SVGUtils::FrameSpaceInCSSPxToUserSpaceOffset(frame) * cssToDev;
-
-    LayoutDeviceRect devRect = rect * cssToDev;
-    devRect.MoveBy(offset);
-    LayoutDeviceSize devRadii = radii * cssToDev;
-    wr::LayoutRect wrRect = wr::ToLayoutRect(devRect);
-
-    wr::WrClipId clipId{};
-    if (devRadii.IsEmpty()) {
-      clipId = aBuilder.DefineRectClip(Nothing(), wrRect);
-    } else {
-      wr::ComplexClipRegion region;
-      region.rect = wrRect;
-      region.radii = wr::EmptyBorderRadius();
-      wr::LayoutSize r{devRadii.width, devRadii.height};
-      region.radii.top_left = r;
-      region.radii.top_right = r;
-      region.radii.bottom_left = r;
-      region.radii.bottom_right = r;
-      region.inset = wr::EmptyLayoutSideOffsets();
-      region.mode = wr::ClipMode::Clip;
-      clipId = aBuilder.DefineRoundedRectClip(Nothing(), region);
-    }
-    wr::WrClipChainId clipChainId = aBuilder.DefineClipChain(
-        {&clipId, 1}, aBuilder.CurrentClipChainIdIfNotRoot());
-    return Some(clipChainId);
-  }
-
   const auto& shape = *clipPath.AsShape()._0;
+
+  auto appUnitsPerDevPixel = frame->PresContext()->AppUnitsPerDevPixel();
   const nsRect refBox =
       nsLayoutUtils::ComputeClipPathGeometryBox(frame, clipPath.AsShape()._1);
 
@@ -8635,51 +8482,6 @@ static Maybe<wr::WrClipChainId> CreateSimpleClipRegion(
       clipId = aBuilder.DefineRoundedRectClip(
           Nothing(), wr::ToComplexClipRegion(ellipseRect, ellipseRadii,
                                              appUnitsPerDevPixel));
-
-      break;
-    }
-    case StyleBasicShape::Tag::PathOrShape: {
-      // Same as CSSClipPathInstance::CreateClipPathPath and
-      // CSSClipPathInstance::CreateClipPathShape, positioned in the reference
-      // frame.
-      RefPtr<WrPathRecorder> recorder = MakeRefPtr<WrPathRecorder>();
-      nsPoint toUserSpace = toReferenceFrame;
-      if (!frame->IsSVGFrame()) {
-        // Snapped like the mask image, see ComputeEffectOffset.
-        const nsPoint toBoundingBox =
-            SVGIntegrationUtils::GetOffsetToBoundingBox(frame);
-        const nsPoint p = toReferenceFrame - toBoundingBox;
-        toUserSpace =
-            nsPoint(
-                frame->PresContext()->RoundAppUnitsToNearestDevPixels(p.x),
-                frame->PresContext()->RoundAppUnitsToNearestDevPixels(p.y)) +
-            toBoundingBox;
-      }
-      const gfx::Point offset =
-          LayoutDevicePoint::FromAppUnits(refBox.TopLeft() + toUserSpace,
-                                          appUnitsPerDevPixel)
-              .ToUnknownPoint();
-      const float scale =
-          float(AppUnitsPerCSSPixel()) / float(appUnitsPerDevPixel);
-      StyleFillRule fill;
-      if (shape.AsPathOrShape().IsPath()) {
-        const auto& path = shape.AsPathOrShape().AsPath();
-        fill = path.fill;
-        RefPtr<gfx::Path> unused = SVGPathData::BuildPath(
-            path.path._0.AsSpan(), recorder, StyleStrokeLinecap::Butt, 0.0, {},
-            offset, frame->Style()->EffectiveZoom().Zoom(scale));
-      } else {
-        // The zoom was already applied to the shape's commands.
-        const auto& shapeFunction = shape.AsPathOrShape().AsShape();
-        fill = shapeFunction.fill;
-        RefPtr<gfx::Path> unused = SVGPathData::BuildPath(
-            shapeFunction.commands.AsSpan(), recorder, StyleStrokeLinecap::Butt,
-            0.0, CSSSize::FromAppUnits(refBox.Size()), offset, scale);
-      }
-
-      clipId = recorder->DefineClip(aBuilder, fill == StyleFillRule::Nonzero
-                                                  ? wr::FillRule::Nonzero
-                                                  : wr::FillRule::Evenodd);
 
       break;
     }

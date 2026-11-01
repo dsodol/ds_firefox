@@ -85,8 +85,7 @@ void XULPopupElement::OpenPopupAtScreen(int32_t aXPos, int32_t aYPos,
   if (NodeInfo()->NameAtom() == nsGkAtoms::panel) {
     // TODO(bug 2038354): Remove this and make the front-end set the attribute
     // explicitly.
-    SetAttr(kNameSpaceID_None, nsGkAtoms::nonnative, u"true"_ns, true,
-            IsKnownNewAttr::No);
+    SetAttr(kNameSpaceID_None, nsGkAtoms::nonnative, u"true"_ns, true);
   }
   nsXULPopupManager* pm = nsXULPopupManager::GetInstance();
   if (pm) {
@@ -104,8 +103,7 @@ void XULPopupElement::OpenPopupAtScreenRect(const nsAString& aPosition,
   if (NodeInfo()->NameAtom() == nsGkAtoms::panel) {
     // TODO(bug 2038354): Remove this and make the front-end set the attribute
     // explicitly.
-    SetAttr(kNameSpaceID_None, nsGkAtoms::nonnative, u"true"_ns, true,
-            IsKnownNewAttr::No);
+    SetAttr(kNameSpaceID_None, nsGkAtoms::nonnative, u"true"_ns, true);
   }
   if (pm) {
     pm->ShowPopupAtScreenRect(
@@ -205,18 +203,6 @@ void XULPopupElement::ActivateItem(Element& aItemElement,
   const bool trusted = true;
   // KnownLive because item is aItemElement.
   MOZ_KnownLive(item)->ExecuteMenu(modifiers, aOptions.mButton, trusted);
-}
-
-void XULPopupElement::GetMenuItems(const GetMenuItemsOptions& aOptions,
-                                   nsTArray<RefPtr<Element>>& aItems) {
-  // Items without a frame are skipped, so build frames for new items first.
-  // During popupshowing this takes over work from the frame flush that
-  // nsXULPopupManager::BeginShowingPopup does right after the event.
-  OwnerDoc()->FlushPendingNotifications(FlushType::Frames);
-  for (auto* item = GetFirstMenuItem(aOptions); item;
-       item = GetNextMenuItemFrom(*item, aOptions)) {
-    aItems.AppendElement(item);
-  }
 }
 
 void XULPopupElement::MoveTo(int32_t aLeft, int32_t aTop) {

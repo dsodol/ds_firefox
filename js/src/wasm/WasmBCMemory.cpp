@@ -631,36 +631,33 @@ void BaseCompiler::executeLoad(MemoryAccessDesc* access, RegPtr instance,
   if (zeroExtend == ZeroExtendIndex::Yes) {
     ToValidIndex(masm, ptr);
   }
-  FaultingCodeRange fcr;
   if (IsUnaligned(*access)) {
     switch (dest.tag) {
       case AnyReg::I64:
-        fcr = masm.wasmUnalignedLoadI64(*access, memoryBase, ptr, ptr,
-                                        dest.i64(), temp);
+        masm.wasmUnalignedLoadI64(*access, memoryBase, ptr, ptr, dest.i64(),
+                                  temp);
         break;
       case AnyReg::F32:
-        fcr = masm.wasmUnalignedLoadFP(*access, memoryBase, ptr, ptr,
-                                       dest.f32(), temp);
+        masm.wasmUnalignedLoadFP(*access, memoryBase, ptr, ptr, dest.f32(),
+                                 temp);
         break;
       case AnyReg::F64:
-        fcr = masm.wasmUnalignedLoadFP(*access, memoryBase, ptr, ptr,
-                                       dest.f64(), temp);
+        masm.wasmUnalignedLoadFP(*access, memoryBase, ptr, ptr, dest.f64(),
+                                 temp);
         break;
       case AnyReg::I32:
-        fcr = masm.wasmUnalignedLoad(*access, memoryBase, ptr, ptr, dest.i32(),
-                                     temp);
+        masm.wasmUnalignedLoad(*access, memoryBase, ptr, ptr, dest.i32(), temp);
         break;
       default:
         MOZ_CRASH("Unexpected type");
     }
   } else {
     if (dest.tag == AnyReg::I64) {
-      fcr = masm.wasmLoadI64(*access, memoryBase, ptr, ptr, dest.i64());
+      masm.wasmLoadI64(*access, memoryBase, ptr, ptr, dest.i64());
     } else {
-      fcr = masm.wasmLoad(*access, memoryBase, ptr, ptr, dest.any());
+      masm.wasmLoad(*access, memoryBase, ptr, ptr, dest.any());
     }
   }
-  MaybeAddDebugStackMapForTrapOOB(this, fcr);
 #elif defined(JS_CODEGEN_ARM)
   MOZ_ASSERT(temp.isInvalid());
   if (dest.tag == AnyReg::I64) {
@@ -801,36 +798,33 @@ void BaseCompiler::executeStore(MemoryAccessDesc* access, RegPtr instance,
   if (zeroExtend == ZeroExtendIndex::Yes) {
     ToValidIndex(masm, ptr);
   }
-  FaultingCodeRange fcr;
   if (IsUnaligned(*access)) {
     switch (src.tag) {
       case AnyReg::I64:
-        fcr = masm.wasmUnalignedStoreI64(*access, src.i64(), memoryBase, ptr,
-                                         ptr, temp);
+        masm.wasmUnalignedStoreI64(*access, src.i64(), memoryBase, ptr, ptr,
+                                   temp);
         break;
       case AnyReg::F32:
-        fcr = masm.wasmUnalignedStoreFP(*access, src.f32(), memoryBase, ptr,
-                                        ptr, temp);
+        masm.wasmUnalignedStoreFP(*access, src.f32(), memoryBase, ptr, ptr,
+                                  temp);
         break;
       case AnyReg::F64:
-        fcr = masm.wasmUnalignedStoreFP(*access, src.f64(), memoryBase, ptr,
-                                        ptr, temp);
+        masm.wasmUnalignedStoreFP(*access, src.f64(), memoryBase, ptr, ptr,
+                                  temp);
         break;
       case AnyReg::I32:
-        fcr = masm.wasmUnalignedStore(*access, src.i32(), memoryBase, ptr, ptr,
-                                      temp);
+        masm.wasmUnalignedStore(*access, src.i32(), memoryBase, ptr, ptr, temp);
         break;
       default:
         MOZ_CRASH("Unexpected type");
     }
   } else {
     if (src.tag == AnyReg::I64) {
-      fcr = masm.wasmStoreI64(*access, src.i64(), memoryBase, ptr, ptr);
+      masm.wasmStoreI64(*access, src.i64(), memoryBase, ptr, ptr);
     } else {
-      fcr = masm.wasmStore(*access, src.any(), memoryBase, ptr, ptr);
+      masm.wasmStore(*access, src.any(), memoryBase, ptr, ptr);
     }
   }
-  MaybeAddDebugStackMapForTrapOOB(this, fcr);
 #elif defined(JS_CODEGEN_ARM64)
   MOZ_ASSERT(temp.isInvalid());
   FaultingCodeRange fcr;
@@ -1438,9 +1432,8 @@ static void PopAndAllocate(BaseCompiler* bc, ValType type,
 static void Perform(BaseCompiler* bc, const MemoryAccessDesc& access,
                     Address srcAddr, AtomicOp op, RegI32 rv, RegI32 rd,
                     const Temps& temps) {
-  FaultingCodeRange fcr = bc->masm.wasmAtomicFetchOp(
-      access, op, rv, srcAddr, temps.t0, temps.t1, temps.t2, rd);
-  MaybeAddDebugStackMapForTrapOOB(bc, fcr);
+  bc->masm.wasmAtomicFetchOp(access, op, rv, srcAddr, temps.t0, temps.t1,
+                             temps.t2, rd);
 }
 
 static void Deallocate(BaseCompiler* bc, RegI32 rv, const Temps& temps) {
@@ -1900,9 +1893,8 @@ static void PopAndAllocate(BaseCompiler* bc, ValType type,
 
 static void Perform(BaseCompiler* bc, const MemoryAccessDesc& access,
                     Address srcAddr, RegI32 rv, RegI32 rd, const Temps& temps) {
-  FaultingCodeRange fcr = bc->masm.wasmAtomicExchange(
-      access, srcAddr, rv, temps.t0, temps.t1, temps.t2, rd);
-  MaybeAddDebugStackMapForTrapOOB(bc, fcr);
+  bc->masm.wasmAtomicExchange(access, srcAddr, rv, temps.t0, temps.t1, temps.t2,
+                              rd);
 }
 
 static void Deallocate(BaseCompiler* bc, RegI32 rv, const Temps& temps) {

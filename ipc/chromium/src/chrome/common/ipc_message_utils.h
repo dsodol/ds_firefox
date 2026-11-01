@@ -22,7 +22,6 @@
 #include <variant>
 #include <vector>
 #include "ErrorList.h"
-#include "nsError.h"
 #include "base/logging.h"
 #include "base/pickle.h"
 #include "chrome/common/ipc_message.h"
@@ -1434,17 +1433,10 @@ template <>
 struct ParamTraitsMozilla<nsresult> {
   typedef nsresult param_type;
   static void Write(MessageWriter* writer, const param_type& p) {
-    if (NS_ERROR_GET_MODULE(p) == NS_ERROR_MODULE_ERRORRESULT) {
-      writer->FatalError("Cannot send ErrorResult-internal nsresult");
-      return;
-    }
     writer->WriteUInt32(static_cast<uint32_t>(p));
   }
   static bool Read(MessageReader* reader, param_type* r) {
-    if (!reader->ReadUInt32(reinterpret_cast<uint32_t*>(r))) {
-      return false;
-    }
-    return NS_ERROR_GET_MODULE(*r) != NS_ERROR_MODULE_ERRORRESULT;
+    return reader->ReadUInt32(reinterpret_cast<uint32_t*>(r));
   }
 };
 
@@ -1537,7 +1529,7 @@ struct ParamTraits<mozilla::Nothing> {
   // a monostate Variant alternative type).
 
   typedef mozilla::Nothing paramType;
-  static void Write(MessageWriter* writer, const paramType& /*aParam*/) {
+  static void Write(MessageWriter* writer, const paramType& aParam) {
     bool isSome = false;
     WriteParam(writer, isSome);
   }

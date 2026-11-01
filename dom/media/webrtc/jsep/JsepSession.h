@@ -87,7 +87,7 @@ class JsepSession {
  public:
   explicit JsepSession(const std::string& name)
       : mName(name), mState(kJsepStateStable), mNegotiations(0) {}
-  virtual ~JsepSession() = default;
+  virtual ~JsepSession() {}
 
   virtual UniquePtr<JsepSession> Clone() const = 0;
 

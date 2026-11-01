@@ -629,15 +629,6 @@ uint16_t WinUtils::GetMouseInputSource() {
 /* static */
 uint16_t WinUtils::GetMousePointerID() {
   LPARAM lParamExtraInfo = ::GetMessageExtraInfo();
-
-  // The low bits of the extra info are only a tablet cursor ID when the
-  // tablet signature is present. Otherwise, they may contain unrelated data
-  // (e.g. changing values from tablet drivers with Windows Ink disabled),
-  // which must not be used as the pointer ID. Fall back to the mouse ID.
-  if ((lParamExtraInfo & TABLET_INK_SIGNATURE) != TABLET_INK_CHECK) {
-    return 0;
-  }
-
   return lParamExtraInfo & TABLET_INK_ID_MASK;
 }
 
@@ -969,7 +960,7 @@ NS_IMETHODIMP AsyncDeleteAllFaviconsFromDisk::Run() {
  */
 nsresult FaviconHelper::ObtainCachedIconFile(
     nsCOMPtr<nsIURI> aFaviconPageURI, nsString& aICOFilePath,
-    nsISerialEventTarget* aIOThread, bool aURLShortcut,
+    RefPtr<LazyIdleThread>& aIOThread, bool aURLShortcut,
     already_AddRefed<nsIRunnable> aRunnable) {
   nsCOMPtr<nsIRunnable> runnable = aRunnable;
   // Obtain the ICO file path
@@ -1040,7 +1031,7 @@ nsresult FaviconHelper::ObtainCachedIconFile(
  *   in the event that the favicon cannot be retrieved and/or cached.
  */
 auto FaviconHelper::ObtainCachedIconFileAsync(
-    nsCOMPtr<nsIURI> aFaviconPageURI, nsISerialEventTarget* aIOThread,
+    nsCOMPtr<nsIURI> aFaviconPageURI, RefPtr<LazyIdleThread>& aIOThread,
     FaviconHelper::IconCacheDir aCacheDir)
     -> RefPtr<ObtainCachedIconFileAsyncPromise> {
   bool useShortcutCacheDir =
@@ -1102,7 +1093,7 @@ auto FaviconHelper::ObtainCachedIconFileAsync(
             [useShortcutCacheDir, pageURI = std::move(pageURI),
              icoFile = std::move(icoFile),
              aIOThread = std::move(currentThread)]() {
-              auto holder = std::make_unique<
+              auto holder = MakeUnique<
                   MozPromiseHolder<ObtainCachedIconFileAsyncPromise>>();
               RefPtr<ObtainCachedIconFileAsyncPromise> promise =
                   holder->Ensure(__func__);
@@ -1266,7 +1257,7 @@ nsAutoRegion WinUtils::RegionToHRGN(const LayoutDeviceIntRegion& aRegion) {
   // See:
   // https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-rgndataheader
   // https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-extcreateregion
-  auto buffer = std::make_unique<char[]>(regionDataBytes);
+  auto buffer = MakeUnique<char[]>(regionDataBytes);
   auto* data = reinterpret_cast<RGNDATA*>(buffer.get());
   data->rdh.dwSize = sizeof(RGNDATAHEADER);
   data->rdh.iType = RDH_RECTANGLES;
@@ -1870,7 +1861,8 @@ bool WinUtils::GetAppInitDLLs(nsAString& aOutput) {
     return false;
   }
   // Allocate the buffer and query for the actual data
-  auto data = std::make_unique<wchar_t[]>(numBytes / sizeof(wchar_t));
+  mozilla::UniquePtr<wchar_t[]> data =
+      mozilla::MakeUnique<wchar_t[]>(numBytes / sizeof(wchar_t));
   status = RegQueryValueExW(hkey, kAppInitDLLs, nullptr, nullptr,
                             (LPBYTE)data.get(), &numBytes);
   if (status != ERROR_SUCCESS) {

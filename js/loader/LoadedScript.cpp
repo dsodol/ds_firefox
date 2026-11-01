@@ -9,7 +9,7 @@
 #include "mozilla/RefPtr.h"     // RefPtr, mozilla::MakeRefPtr
 #include "mozilla/Span.h"       // mozilla::Span
 #include "mozilla/Sprintf.h"    // SprintfLiteral
-#include "mozilla/UniquePtr.h"  // mozilla::UniquePtr, std::make_unique
+#include "mozilla/UniquePtr.h"  // mozilla::UniquePtr, mozilla::MakeUnique
 
 #include "jsfriendapi.h"
 #include "LoadContextBase.h"  // LoadContextBase
@@ -212,7 +212,7 @@ void LoadedScript::SetSRIMetadata(
     return;
   }
 
-  mSRIMetadata = std::make_unique<mozilla::dom::SRIMetadata>(aSRIMetadata);
+  mSRIMetadata = mozilla::MakeUnique<mozilla::dom::SRIMetadata>(aSRIMetadata);
 }
 
 bool LoadedScript::IsSRIMetadataReusableBy(
@@ -376,7 +376,7 @@ void ModuleScript::SetHadImportMap(bool aValue) { mHadImportMap = aValue; }
 
 ResolvedModuleSet* ModuleScript::GetPreloadedResolvedSet() {
   if (!mPreloadedResolvedSet) {
-    mPreloadedResolvedSet = std::make_unique<ResolvedModuleSet>();
+    mPreloadedResolvedSet = mozilla::MakeUnique<ResolvedModuleSet>();
   }
 
   return mPreloadedResolvedSet.get();

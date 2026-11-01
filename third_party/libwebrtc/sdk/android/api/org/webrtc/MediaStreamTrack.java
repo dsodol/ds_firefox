@@ -70,42 +70,55 @@ public class MediaStreamTrack {
     }
   }
 
-  final NativeLifecycleLock lifecycleLock;
+  private long nativeTrack;
 
   public MediaStreamTrack(long nativeTrack) {
     if (nativeTrack == 0) {
       throw new IllegalArgumentException("nativeTrack may not be null");
     }
-    this.lifecycleLock = new NativeLifecycleLock("MediaStreamTrack", nativeTrack);
+    this.nativeTrack = nativeTrack;
   }
 
   public String id() {
-    return lifecycleLock.call(nativeTrack -> nativeGetId(nativeTrack));
+    checkMediaStreamTrackExists();
+    return nativeGetId(nativeTrack);
   }
 
   public String kind() {
-    return lifecycleLock.call(nativeTrack -> nativeGetKind(nativeTrack));
+    checkMediaStreamTrackExists();
+    return nativeGetKind(nativeTrack);
   }
 
   public boolean enabled() {
-    return lifecycleLock.call(nativeTrack -> nativeGetEnabled(nativeTrack));
+    checkMediaStreamTrackExists();
+    return nativeGetEnabled(nativeTrack);
   }
 
   public boolean setEnabled(boolean enable) {
-    return lifecycleLock.call(
-        nativeTrack -> nativeSetEnabled(nativeTrack, enable));
+    checkMediaStreamTrackExists();
+    return nativeSetEnabled(nativeTrack, enable);
   }
 
   public State state() {
-    return lifecycleLock.call(nativeTrack -> nativeGetState(nativeTrack));
+    checkMediaStreamTrackExists();
+    return nativeGetState(nativeTrack);
   }
 
   public void dispose() {
-    lifecycleLock.dispose(JniCommon::nativeReleaseRef);
+    checkMediaStreamTrackExists();
+    JniCommon.nativeReleaseRef(nativeTrack);
+    nativeTrack = 0;
   }
 
   long getNativeMediaStreamTrack() {
-    return lifecycleLock.getNativePointer();
+    checkMediaStreamTrackExists();
+    return nativeTrack;
+  }
+
+  private void checkMediaStreamTrackExists() {
+    if (nativeTrack == 0) {
+      throw new IllegalStateException("MediaStreamTrack has been disposed.");
+    }
   }
 
   private static native String nativeGetId(long track);

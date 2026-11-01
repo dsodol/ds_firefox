@@ -10,9 +10,16 @@
 const ENGINE_NAME = "Example";
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
-    set: [["browser.urlbar.scotchBonnet.enableOverride", false]],
+    set: [
+      ["browser.urlbar.scotchBonnet.enableOverride", false],
+      // Tests get no default Top Sites, and this test opens the view on an
+      // empty string, which would otherwise leave it closed with no results.
+      [
+        "browser.newtabpage.activity-stream.default.sites",
+        "https://example.com/",
+      ],
+    ],
   });
-  UrlbarTestUtils.registerZeroPrefixProvider();
   await SearchTestUtils.installSearchExtension({
     name: ENGINE_NAME,
   });
@@ -57,7 +64,7 @@ add_task(async function test_omnibox_searchMode() {
     fireInputEvent: true,
   });
 
-  await assertNoOmniboxResult(window);
+  assertNoOmniboxResult(window);
 
   await extension.unload();
   await UrlbarTestUtils.exitSearchMode(window);
@@ -103,7 +110,7 @@ add_task(async function test_omnibox_searchMode_switch() {
     entry: "oneoff",
   });
 
-  await assertNoOmniboxResult(window);
+  assertNoOmniboxResult(window);
 
   await extension.unload();
   await UrlbarTestUtils.exitSearchMode(window);
@@ -112,14 +119,12 @@ add_task(async function test_omnibox_searchMode_switch() {
 async function assertNoOmniboxResult(win) {
   let count = await UrlbarTestUtils.getResultCount(win);
   Assert.greaterOrEqual(count, 1, "There should be at least one result");
-  let hasOmniboxResult = false;
   for (let i = 0; i < count; ++i) {
     let result = await UrlbarTestUtils.getDetailsOfResultAt(win, i);
-    hasOmniboxResult ||= result.type == UrlbarShared.RESULT_TYPE.OMNIBOX;
+    Assert.notEqual(
+      result.type,
+      UrlbarShared.RESULT_TYPE.OMNIBOX,
+      "Result is not Omnibox"
+    );
   }
-  Assert.equal(
-    hasOmniboxResult,
-    UrlbarPrefs.get("unifiedSearchButton.historyInSearchMode"),
-    "Omnibox results are only shown in search mode with historyInSearchMode"
-  );
 }

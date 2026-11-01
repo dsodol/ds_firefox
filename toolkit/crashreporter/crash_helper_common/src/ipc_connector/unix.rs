@@ -21,7 +21,7 @@ use nix::{
     sys::socket::{recvmsg, sendmsg, ControlMessage, ControlMessageOwned, MsgFlags},
 };
 use std::{
-    ffi::{CString, OsStr},
+    ffi::{CStr, CString},
     io::{IoSlice, IoSliceMut},
     os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, IntoRawFd, OwnedFd, RawFd},
     str::FromStr,
@@ -90,10 +90,10 @@ impl IPCConnector {
     }
 
     /// Deserialize a connector from an argument passed on the command-line.
-    pub fn deserialize(string: &OsStr) -> Result<Self, IPCError> {
+    pub fn deserialize(string: &CStr) -> Result<IPCConnector, IPCError> {
         let string = string
             .to_str()
-            .ok_or(IPCError::Deserialize(PlatformError::ParseFileDescriptor))?;
+            .map_err(|_e| IPCError::Deserialize(PlatformError::ParseFileDescriptor))?;
         let fd = RawFd::from_str(string)
             .map_err(|_e| IPCError::Deserialize(PlatformError::ParseFileDescriptor))?;
 

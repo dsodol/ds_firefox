@@ -22,10 +22,7 @@ support-files = ["!/browser/base/content/test/browser-protectionsUI/trackingPage
 
 ["browser_trust_panel_icon.js"]
 https_first_disabled = true
-support-files = [
-  "!/browser/base/content/test/browser-protectionsUI/trackingPage.html",
-  "navigation.sjs",
-]
+support-files = ["!/browser/base/content/test/browser-protectionsUI/trackingPage.html"]
 
 ["browser_trust_panel_pages.js"]
 https_first_disabled = true
@@ -36,7 +33,3 @@ support-files = ["!/browser/base/content/test/browser-protectionsUI/trackingPage
 
 ["browser_trust_panel_security_view.js"]
 https_first_disabled = true
-
-["browser_trust_panel_telemetry.js"]
-https_first_disabled = true
-support-files = ["!/browser/base/content/test/browser-protectionsUI/trackingPage.html"]

@@ -65,9 +65,3 @@ LOCAL_INCLUDES += [
 ]
 
 include("/tools/fuzzing/libfuzzer-config.mozbuild")
-
-SOURCE_HEADERS += [
-    "WebSocketConnection.h",
-    "WebSocketLog.h",
-    "WebSocketProtocolHandler.h",
-]

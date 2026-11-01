@@ -175,9 +175,7 @@ void RtpReceiverBase::OnFrameDelivered(const RtpPacketInfos& infos,
 }
 
 RTCErrorOr<scoped_refptr<SframeDecryptorInterface>>
-RtpReceiverBase::CreateSframeDecryptorOrError(
-    SframeCipherSuite cipher_suite,
-    SframeDecryptErrorCallback error_callback) {
+RtpReceiverBase::CreateSframeDecryptorOrError(SframeCipherSuite cipher_suite) {
   RTC_DCHECK_RUN_ON(&signaling_thread_checker_);
 
   if (!enable_sframe_at_owner_) {

@@ -60,7 +60,7 @@ UniquePtr<SharedTextureDMABuf> SharedTextureDMABuf::Create(
     return nullptr;
   }
 
-  return std::make_unique<SharedTextureDMABuf>(
+  return MakeUnique<SharedTextureDMABuf>(
       aWidth, aHeight, aFormat, aUsage, std::move(surface),
       desc.get_SurfaceDescriptorDMABuf(), dmaBufInfo);
 }
@@ -101,47 +101,44 @@ Maybe<layers::SurfaceDescriptor> SharedTextureDMABuf::ToSurfaceDescriptor() {
   return Some(sd);
 }
 
-FrontBufferSnapshot SharedTextureDMABuf::GetSnapshot() {
+void SharedTextureDMABuf::GetSnapshot(const ipc::Shmem& aDestShmem,
+                                      size_t aDestStride) {
   const RefPtr<gfx::SourceSurface> surface = mSurface->GetAsSourceSurface();
   if (!surface) {
     MOZ_ASSERT_UNREACHABLE("unexpected to be called");
     gfxCriticalNoteOnce << "Failed to get SourceSurface from DMABufSurface";
-    return {};
+    return;
   }
 
   const RefPtr<gfx::DataSourceSurface> dataSurface = surface->GetDataSurface();
   if (!dataSurface) {
     MOZ_ASSERT_UNREACHABLE("unexpected to be called");
-    return {};
+    return;
   }
 
   gfx::DataSourceSurface::ScopedMap map(dataSurface,
                                         gfx::DataSourceSurface::READ);
   if (!map.IsMapped()) {
     MOZ_ASSERT_UNREACHABLE("unexpected to be called");
-    return {};
-  }
-
-  const size_t bytesPerRow = static_cast<size_t>(mWidth) * 4;
-  auto handle = ipc::shared_memory::Create(bytesPerRow * mHeight);
-  auto mapping = handle.Map();
-  if (!handle || !mapping) {
-    return {};
+    return;
   }
 
   uint8_t* src = static_cast<uint8_t*>(map.GetData());
-  uint8_t* dst = mapping.DataAs<uint8_t>();
+  uint8_t* dst = aDestShmem.get<uint8_t>();
 
   const size_t src_stride = static_cast<size_t>(map.GetStride());
+  const size_t bytesPerRow = static_cast<size_t>(mWidth) * 4;
   MOZ_RELEASE_ASSERT(src_stride >= bytesPerRow);
+  MOZ_RELEASE_ASSERT(aDestStride >= bytesPerRow);
 
   for (uint32_t y = 0; y < mHeight; y++) {
     memcpy(dst, src, bytesPerRow);
+    if (bytesPerRow < aDestStride) {
+      memset(dst + bytesPerRow, 0, aDestStride - bytesPerRow);
+    }
     src += src_stride;
-    dst += bytesPerRow;
+    dst += aDestStride;
   }
-
-  return {std::move(handle), mWidth, mHeight, bytesPerRow};
 }
 
 UniqueFileHandle SharedTextureDMABuf::CloneDmaBufFd() {

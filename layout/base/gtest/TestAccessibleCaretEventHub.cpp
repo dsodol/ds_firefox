@@ -52,7 +52,7 @@ class MockAccessibleCaretEventHub : public AccessibleCaretEventHub {
   using AccessibleCaretEventHub::ScrollState;
 
   MockAccessibleCaretEventHub() : AccessibleCaretEventHub(nullptr) {
-    mManager = std::make_unique<MockAccessibleCaretManager>();
+    mManager = MakeUnique<MockAccessibleCaretManager>();
     mInitialized = true;
   }
 
@@ -99,8 +99,8 @@ class AccessibleCaretEventHubTester : public ::testing::Test {
 
   static UniquePtr<WidgetEvent> CreateMouseEvent(EventMessage aMessage,
                                                  nscoord aX, nscoord aY) {
-    auto event = std::make_unique<WidgetMouseEvent>(true, aMessage, nullptr,
-                                                    WidgetMouseEvent::eReal);
+    auto event = MakeUnique<WidgetMouseEvent>(true, aMessage, nullptr,
+                                              WidgetMouseEvent::eReal);
 
     event->mButton = MouseButton::ePrimary;
     event->mRefPoint = LayoutDeviceIntPoint(aX, aY);
@@ -127,7 +127,7 @@ class AccessibleCaretEventHubTester : public ::testing::Test {
 
   static UniquePtr<WidgetEvent> CreateTouchEvent(EventMessage aMessage,
                                                  nscoord aX, nscoord aY) {
-    auto event = std::make_unique<WidgetTouchEvent>(true, aMessage, nullptr);
+    auto event = MakeUnique<WidgetTouchEvent>(true, aMessage, nullptr);
     int32_t identifier = 0;
     LayoutDeviceIntPoint point(aX, aY);
     LayoutDeviceIntPoint radius(19, 19);
@@ -158,7 +158,7 @@ class AccessibleCaretEventHubTester : public ::testing::Test {
   }
 
   static UniquePtr<WidgetEvent> CreateWheelEvent(EventMessage aMessage) {
-    auto event = std::make_unique<WidgetWheelEvent>(true, aMessage, nullptr);
+    auto event = MakeUnique<WidgetWheelEvent>(true, aMessage, nullptr);
 
     return std::move(event);
   }

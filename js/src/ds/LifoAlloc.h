@@ -6,6 +6,7 @@
 #define ds_LifoAlloc_h
 
 #include "mozilla/Attributes.h"
+#include "mozilla/CheckedArithmetic.h"
 #include "mozilla/MemoryChecking.h"
 #include "mozilla/MemoryReporting.h"
 
@@ -1202,7 +1203,11 @@ class LifoAllocPolicy : public AllocPolicyBase {
     if (MOZ_UNLIKELY(!n)) {
       return nullptr;
     }
-    std::copy_n(p, std::min(oldSize, newSize), n);
+    size_t oldLength;
+    [[maybe_unused]] bool nooverflow =
+        mozilla::SafeMul(oldSize, sizeof(T), &oldLength);
+    MOZ_ASSERT(nooverflow);
+    memcpy(n, p, std::min(oldLength, newSize * sizeof(T)));
     return n;
   }
   template <typename T>

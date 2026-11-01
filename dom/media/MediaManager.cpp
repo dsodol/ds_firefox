@@ -4403,7 +4403,7 @@ void DeviceListener::Activate(RefPtr<LocalMediaDevice> aDevice,
                                            &DeviceListener::Stop);
   }
 
-  mDeviceState = std::make_unique<DeviceState>(
+  mDeviceState = MakeUnique<DeviceState>(
       std::move(aDevice), std::move(aTrackSource), offWhileDisabled);
   mDeviceState->mDeviceMuted = aStartMuted;
   mDeviceState->mAllocated = aIsAllocated;

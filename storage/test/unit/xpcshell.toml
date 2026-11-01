@@ -78,8 +78,6 @@ prefs = ["security.storage.encryption.sqlite.enabled=false"]
 
 ["test_statement_executeAsync.js"]
 
-["test_statement_finalize_during_async.js"]
-
 ["test_statement_wrapper_automatically.js"]
 
 ["test_storage_connection.js"]

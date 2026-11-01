@@ -743,9 +743,6 @@ class Log final {
         case DeviceResetDetectPlace::CANVAS_TRANSLATOR:
           mMessage << "DeviceResetDetectPlace::CANVAS_TRANSLATOR";
           break;
-        case DeviceResetDetectPlace::WR_CREATE_COMPOSITOR:
-          mMessage << "DeviceResetDetectPlace::WR_CREATE_COMPOSITOR";
-          break;
         default:
           mMessage << "DeviceResetDetectPlace::UNKNOWN_REASON";
           break;

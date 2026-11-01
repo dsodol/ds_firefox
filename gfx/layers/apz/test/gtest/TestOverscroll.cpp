@@ -86,8 +86,7 @@ class APZCOverscrollTester : public APZCBasicTester {
     rootLayerScrollData.AppendScrollMetadata(scrollData, metadata);
     scrollData.AddLayerData(std::move(rootLayerScrollData));
 
-    registration =
-        std::make_unique<ScopedLayerTreeRegistration>(guid.mLayersId, mcc);
+    registration = MakeUnique<ScopedLayerTreeRegistration>(guid.mLayersId, mcc);
     tm->UpdateHitTestingTree(WebRenderScrollDataWrapper(*updater, &scrollData),
                              guid.mLayersId, 0);
     return guid;
@@ -1707,8 +1706,7 @@ TEST_F(APZCOverscrollTesterMock, OverscrollHandoff) {
 
   SetScrollHandoff(layers[1], root);
 
-  registration =
-      std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+  registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
   UpdateHitTestingTree();
   rootApzc = ApzcOf(root);
   rootApzc->GetFrameMetrics().SetIsRootContent(true);
@@ -1736,8 +1734,7 @@ TEST_F(APZCOverscrollTesterMock, VerticalOverscrollHandoffToScrollableRoot) {
 
   SetScrollHandoff(layers[1], root);
 
-  registration =
-      std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+  registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
   UpdateHitTestingTree();
   rootApzc = ApzcOf(root);
   rootApzc->GetFrameMetrics().SetIsRootContent(true);
@@ -1768,8 +1765,7 @@ TEST_F(APZCOverscrollTesterMock, NoOverscrollHandoffToNonScrollableRoot) {
 
   SetScrollHandoff(layers[1], root);
 
-  registration =
-      std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+  registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
   UpdateHitTestingTree();
   rootApzc = ApzcOf(root);
   rootApzc->GetFrameMetrics().SetIsRootContent(true);
@@ -1800,8 +1796,7 @@ TEST_F(APZCOverscrollTesterMock, NoOverscrollHandoffOrthogonalPanGesture) {
 
   SetScrollHandoff(layers[1], root);
 
-  registration =
-      std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+  registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
   UpdateHitTestingTree();
   rootApzc = ApzcOf(root);
   rootApzc->GetFrameMetrics().SetIsRootContent(true);
@@ -1833,8 +1828,7 @@ TEST_F(APZCOverscrollTesterMock,
 
   SetScrollHandoff(layers[1], root);
 
-  registration =
-      std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+  registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
   UpdateHitTestingTree();
   rootApzc = ApzcOf(root);
   rootApzc->GetFrameMetrics().SetIsRootContent(true);
@@ -1913,8 +1907,7 @@ TEST_F(APZCOverscrollTesterMock, RetriggeredOverscrollAnimationVelocity) {
 
   SetScrollHandoff(layers[1], root);
 
-  registration =
-      std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+  registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
   UpdateHitTestingTree();
   rootApzc = ApzcOf(root);
   rootApzc->GetFrameMetrics().SetIsRootContent(true);
@@ -1992,8 +1985,7 @@ TEST_F(APZCOverscrollTesterMock, OverscrollIntoPreventDefault) {
   CreateScrollData(treeShape, layerVisibleRects);
   SetScrollableFrameMetrics(root, START_SCROLL_ID, CSSRect(0, 0, 100, 200));
 
-  registration =
-      std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+  registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
   UpdateHitTestingTree();
   rootApzc = ApzcOf(root);
 
@@ -2083,8 +2075,7 @@ TEST_F(APZCOverscrollTesterMock, StuckInOverscroll_Bug1810935) {
                             CSSRect(0, 0, 50, 200));
   SetScrollHandoff(layers[1], root);
 
-  registration =
-      std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+  registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
   UpdateHitTestingTree();
   rootApzc = ApzcOf(root);
   auto* subframeApzc = ApzcOf(layers[1]);

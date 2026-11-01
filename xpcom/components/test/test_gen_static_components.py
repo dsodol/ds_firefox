@@ -4,9 +4,7 @@
 
 import os
 import sys
-import tempfile
 import unittest
-from types import SimpleNamespace
 
 import mozunit
 
@@ -145,25 +143,6 @@ class TestGenStaticComponents(unittest.TestCase):
                 "Module::BackgroundTasksSelector::ALL_TASKS,",
                 "Module::ProcessSelector::ANY_PROCESS },",
             ],
-        )
-
-    def test_read_manifest_config(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            conf = os.path.join(tmpdir, "components.conf")
-            with open(conf, "w", encoding="utf-8") as fh:
-                fh.write(
-                    "Toolkit = buildconfig.substs['MOZ_WIDGET_TOOLKIT']\n"
-                    "Crashes = defined('MOZ_CRASHREPORTER')\n"
-                )
-            config = SimpleNamespace(
-                substs={"MOZ_WIDGET_TOOLKIT": "cocoa", "MOZ_CRASHREPORTER": True}
-            )
-
-            manifest = gen_static_components.read_manifest(conf, config)
-
-        self.assertEqual(
-            (manifest["Toolkit"], manifest["Crashes"]),
-            ("cocoa", True),
         )
 
 

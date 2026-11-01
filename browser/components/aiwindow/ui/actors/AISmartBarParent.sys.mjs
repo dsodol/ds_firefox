@@ -13,8 +13,7 @@
  * @property {string} value - The query string
  * @property {SapLocation} location - The location of the input
  * @property {ContextWebsite[]} [contextMentions] - Context mentions
- * @property {?string} [contextPageUrl] - The current page URL context, as a
- *   string because URL objects can't be sent in actor messages
+ * @property {URL} [contextPageUrl] - The current page URL context
  * @property {SmartbarAction} [detectedIntent] - The detected intent
  * @property {ChatSubmitType} [submitType] - How the submit was triggered
  */

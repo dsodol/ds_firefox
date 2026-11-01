@@ -100,7 +100,7 @@ class ISurfaceProvider : public WebRenderImageProvider {
     MOZ_ASSERT(aImageKey, "Must have a valid image key");
   }
 
-  virtual ~ISurfaceProvider() = default;
+  virtual ~ISurfaceProvider() {}
 
   /// @return an eagerly computed drawable reference to a surface. For
   /// dynamically generated animation surfaces, @aFrame specifies the 0-based
@@ -165,9 +165,6 @@ class MOZ_STACK_CLASS DrawableSurface final {
     aOther.mHaveSurface = false;
     return *this;
   }
-
-  DrawableSurface(const DrawableSurface& aOther) = delete;
-  DrawableSurface& operator=(const DrawableSurface& aOther) = delete;
 
   /**
    * If this DrawableSurface is dynamically generated from an animation, attempt
@@ -259,6 +256,9 @@ class MOZ_STACK_CLASS DrawableSurface final {
   imgFrame* operator->() { return DrawableRef().get(); }
 
  private:
+  DrawableSurface(const DrawableSurface& aOther) = delete;
+  DrawableSurface& operator=(const DrawableSurface& aOther) = delete;
+
   DrawableFrameRef& DrawableRef() {
     MOZ_ASSERT(mHaveSurface);
 
@@ -334,7 +334,7 @@ class SimpleSurfaceProvider final : public ISurfaceProvider {
   }
 
  private:
-  virtual ~SimpleSurfaceProvider() = default;
+  virtual ~SimpleSurfaceProvider() {}
 
   NotNull<RefPtr<imgFrame>> mSurface;
   DrawableFrameRef mLockRef;

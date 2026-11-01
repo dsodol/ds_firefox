@@ -117,37 +117,35 @@ bool EditorLineBreakBase<ContentType>::IsPaddingForEmptyBlock(
 }
 
 NS_INSTANTIATE_EDITOR_LINE_BREAK_CONST_METHOD(bool, IsUnnecessary,
-                                              TreatAsUnnecessaryLineBreak,
+                                              PaddingForEmptyBlock,
                                               const Element*);
 
 template <typename ContentType>
 bool EditorLineBreakBase<ContentType>::IsUnnecessary(
-    TreatAsUnnecessaryLineBreak aTreatAsUnnecessaryLineBreak,
+    PaddingForEmptyBlock aPaddingForEmptyBlock,
     const dom::Element* aAncestorLimiter /* = nullptr */) const {
   return IsHTMLBRElement()
              ? HTMLEditUtils::IsUnnecessaryBRElement(
-                   BRElementRef(), aTreatAsUnnecessaryLineBreak,
-                   aAncestorLimiter)
+                   BRElementRef(), aPaddingForEmptyBlock, aAncestorLimiter)
              : HTMLEditUtils::IsUnnecessaryPreformattedLineBreak(
-                   To<EditorRawDOMPoint>(), aTreatAsUnnecessaryLineBreak,
+                   To<EditorRawDOMPoint>(), aPaddingForEmptyBlock,
                    HTMLEditUtils::SkipWhiteSpaceStyleCheck::Yes,
                    aAncestorLimiter);
 }
 
 NS_INSTANTIATE_EDITOR_LINE_BREAK_CONST_METHOD(bool, IsSignificant,
-                                              TreatAsUnnecessaryLineBreak,
+                                              PaddingForEmptyBlock,
                                               const Element*);
 
 template <typename ContentType>
 bool EditorLineBreakBase<ContentType>::IsSignificant(
-    TreatAsUnnecessaryLineBreak aTreatAsUnnecessaryLineBreak,
+    PaddingForEmptyBlock aPaddingForEmptyBlock,
     const dom::Element* aAncestorLimiter /* = nullptr */) const {
   return IsHTMLBRElement()
              ? HTMLEditUtils::IsSignificantBRElement(
-                   BRElementRef(), aTreatAsUnnecessaryLineBreak,
-                   aAncestorLimiter)
+                   BRElementRef(), aPaddingForEmptyBlock, aAncestorLimiter)
              : HTMLEditUtils::IsSignificantPreformattedLineBreak(
-                   To<EditorRawDOMPoint>(), aTreatAsUnnecessaryLineBreak,
+                   To<EditorRawDOMPoint>(), aPaddingForEmptyBlock,
                    HTMLEditUtils::SkipWhiteSpaceStyleCheck::Yes,
                    aAncestorLimiter);
 }

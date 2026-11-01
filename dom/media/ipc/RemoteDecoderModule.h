@@ -33,6 +33,16 @@ class RemoteDecoderModule : public PlatformDecoderModule {
   RefPtr<CreateDecoderPromise> AsyncCreateDecoder(
       const CreateDecoderParams& aParams) override;
 
+  already_AddRefed<MediaDataDecoder> CreateVideoDecoder(
+      const CreateDecoderParams& aParams) override {
+    MOZ_CRASH("Not available");
+  }
+
+  already_AddRefed<MediaDataDecoder> CreateAudioDecoder(
+      const CreateDecoderParams& aParams) override {
+    MOZ_CRASH("Not available");
+  }
+
  private:
   explicit RemoteDecoderModule(RemoteMediaIn aLocation);
 

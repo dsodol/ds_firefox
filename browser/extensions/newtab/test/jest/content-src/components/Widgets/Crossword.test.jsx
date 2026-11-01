@@ -870,30 +870,22 @@ describe("<Crossword>", () => {
   });
 
   describe("powered by particle action", () => {
-    it("opens particle.news in a new tab", () => {
-      const { container, dispatch, handleUserInteraction } = renderCrossword();
+    it("dispatches OPEN_LINK to particle.news", () => {
+      const { container, dispatch } = renderCrossword();
       fireEvent.click(
-        container.querySelector(
-          "panel-item[data-l10n-id='newtab-crossword-menu-powered-by-particle']"
-        )
+        container.querySelector("panel-item.powered-by-particle")
       );
 
       const openLinkCall = dispatch.mock.calls.find(
         ([action]) => action?.type === at.OPEN_LINK
       );
-      expect(openLinkCall?.[0].data).toEqual({
-        url: "https://particle.news",
-        where: "tab",
-      });
-      expect(handleUserInteraction).toHaveBeenCalledWith("crossword");
+      expect(openLinkCall?.[0].data.url).toBe("https://particle.news");
     });
 
     it("dispatches a powered_by_particle WIDGETS_USER_EVENT", () => {
       const { container, dispatch } = renderCrossword();
       fireEvent.click(
-        container.querySelector(
-          "panel-item[data-l10n-id='newtab-crossword-menu-powered-by-particle']"
-        )
+        container.querySelector("panel-item.powered-by-particle")
       );
 
       const userEventCall = dispatch.mock.calls.find(
@@ -929,10 +921,8 @@ describe("<Crossword>", () => {
         "Solve puzzle"
       );
       expect(
-        menu.querySelector(
-          "panel-item[data-l10n-id='newtab-crossword-menu-powered-by-particle']"
-        )
-      ).toBeInTheDocument();
+        menu.querySelector("panel-item.powered-by-particle")
+      ).toHaveTextContent("Powered by Particle");
 
       // Generic chrome keeps the shared, translated Fluent ids.
       expect(

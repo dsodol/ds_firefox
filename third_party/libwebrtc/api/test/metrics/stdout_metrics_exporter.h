@@ -23,8 +23,7 @@ namespace test {
 // Exports all collected metrics to stdout.
 class StdoutMetricsExporter : public MetricsExporter {
  public:
-  // Exports metrics to `output`, which must outlive the exporter.
-  explicit StdoutMetricsExporter(FILE* output = stdout);
+  StdoutMetricsExporter();
   ~StdoutMetricsExporter() override = default;
 
   StdoutMetricsExporter(const StdoutMetricsExporter&) = delete;

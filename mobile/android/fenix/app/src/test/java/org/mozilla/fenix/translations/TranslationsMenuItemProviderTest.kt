@@ -18,11 +18,9 @@ import mozilla.components.browser.state.state.ReaderState
 import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.browser.state.state.TranslationsBrowserState
 import mozilla.components.browser.state.state.TranslationsState
-import mozilla.components.browser.state.state.createCustomTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.menu.data.MenuItemBadge
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.ui.MenuItemIconRes
 import mozilla.components.compose.menu.ui.MenuItemState
@@ -44,30 +42,7 @@ class TranslationsMenuItemProviderTest {
     fun `GIVEN the current page is not translated WHEN providing the item THEN offer translating it`() = runTest {
         val provider = provider()
 
-        assertEquals(translatePageItem(), provider.itemsFlow.value.single())
-    }
-
-    @Test
-    fun `GIVEN a custom tab WHEN providing the item THEN offer translating it`() = runTest {
-        val customTab = createCustomTab(url = "https://mozilla.org", id = "customTabId")
-        val store =
-            BrowserStore(
-                BrowserState(
-                    customTabs = listOf(customTab),
-                    translationEngine =
-                        TranslationsBrowserState(
-                            isEngineSupported = true,
-                            supportedLanguages =
-                                TranslationSupport(
-                                    toLanguages =
-                                        listOf(Language(code = LANGUAGE_CODE, localizedDisplayName = LANGUAGE_NAME))
-                                ),
-                        ),
-                )
-            )
-        val provider = provider(browserStore = store, target = MenuTarget.CustomTab("customTabId"))
-
-        assertEquals(translatePageItem(), provider.itemsFlow.value.single())
+        assertEquals(translatePageItem(), provider.itemFlow.value)
     }
 
     @Test
@@ -77,13 +52,13 @@ class TranslationsMenuItemProviderTest {
 
             assertEquals(
                 StandardMenuItem(
-                    title = MenuItemTitle(Text.Resource(R.string.browser_menu_translated)),
+                    title = Text.Resource(R.string.browser_menu_translated),
                     icon = MenuItemIconRes(iconsR.drawable.mozac_ic_translate_active_24),
                     onClickEvent = MenuAction.Navigate.Translate,
                     badge = MenuItemBadge(text = Text.String(LANGUAGE_NAME), state = MenuItemState.ACTIVE),
                     state = MenuItemState.ACTIVE,
                 ),
-                provider.itemsFlow.value.single(),
+                provider.itemFlow.value,
             )
         }
 
@@ -92,42 +67,42 @@ class TranslationsMenuItemProviderTest {
         runTest {
             val provider = provider(browserStore = browserStore(translatedTo = "unknown language code"))
 
-            assertNull((provider.itemsFlow.value.single() as StandardMenuItem).badge)
+            assertNull((provider.itemFlow.value as StandardMenuItem).badge)
         }
 
     @Test
     fun `GIVEN reader view is active WHEN providing the item THEN show translating as not available`() = runTest {
         val provider = provider(browserStore = browserStore(isReaderViewActive = true))
 
-        assertEquals(translatePageItem(canTranslate = false), provider.itemsFlow.value.single())
+        assertEquals(translatePageItem(canTranslate = false), provider.itemFlow.value)
     }
 
     @Test
     fun `GIVEN the current page is a PDF WHEN providing the item THEN show translating as not available`() = runTest {
         val provider = provider(browserStore = browserStore(isPdf = true))
 
-        assertEquals(translatePageItem(canTranslate = false), provider.itemsFlow.value.single())
+        assertEquals(translatePageItem(canTranslate = false), provider.itemFlow.value)
     }
 
     @Test
     fun `GIVEN the engine does not support translating WHEN providing the item THEN return null`() = runTest {
         val provider = provider(browserStore = browserStore(isEngineSupported = null))
 
-        assertTrue(provider.itemsFlow.value.isEmpty())
+        assertNull(provider.itemFlow.value)
     }
 
     @Test
     fun `GIVEN translating is not available to this user WHEN providing the item THEN return null`() = runTest {
         val provider = provider(isFeatureEnabled = false)
 
-        assertTrue(provider.itemsFlow.value.isEmpty())
+        assertNull(provider.itemFlow.value)
     }
 
     @Test
     fun `GIVEN there is no page shown WHEN providing the item THEN return null`() = runTest {
         val provider = provider(browserStore = BrowserStore())
 
-        assertTrue(provider.itemsFlow.value.isEmpty())
+        assertNull(provider.itemFlow.value)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -136,11 +111,11 @@ class TranslationsMenuItemProviderTest {
         // Translations are assumed to still be on until read, so the item is offered before that is known.
         val provider = provider(translationsSettings = TranslationsEnabledSettings.inMemory(isEnabledInitial = false))
 
-        assertEquals(translatePageItem(), provider.itemsFlow.value.single())
+        assertEquals(translatePageItem(), provider.itemFlow.value)
 
         runCurrent()
 
-        assertTrue(provider.itemsFlow.value.isEmpty())
+        assertNull(provider.itemFlow.value)
     }
 
     @Test
@@ -157,26 +132,11 @@ class TranslationsMenuItemProviderTest {
         }
 
     @Test
-    fun `WHEN tapping translate with a custom tab THEN show the translations dialog for the custom tab`() = runTest {
-        val customTab = createCustomTab(url = "https://mozilla.org", id = CUSTOM_TAB_ID)
-        val store = BrowserStore(BrowserState(customTabs = listOf(customTab)))
-        val menu = FakeMenuHost()
-
-        provider(browserStore = store, target = MenuTarget.CustomTab(CUSTOM_TAB_ID))
-            .onEvent(MenuAction.Navigate.Translate, menu)
-
-        assertEquals(
-            MenuFragmentDirections.actionMenuFragmentToTranslationsDialogFragment(sessionId = CUSTOM_TAB_ID),
-            menu.directions,
-        )
-    }
-
-    @Test
     fun `WHEN the page is translated or not THEN handle all events the item can dispatch and no others`() = runTest {
         listOf(browserStore(), browserStore(translatedTo = LANGUAGE_CODE)).forEach { store ->
             val provider = provider(browserStore = store)
 
-            val events = provider.itemsFlow.value.single().reachableEvents()
+            val events = requireNotNull(provider.itemFlow.value).reachableEvents()
 
             assertTrue(events.all { provider.handles(it) }, "Not all of $events are handled")
             assertFalse(provider.handles(MenuAction.Navigate.Summarizer))
@@ -237,7 +197,7 @@ class TranslationsMenuItemProviderTest {
 
     private fun translatePageItem(canTranslate: Boolean = true) =
         StandardMenuItem(
-            title = MenuItemTitle(Text.Resource(R.string.browser_menu_translate_page_2)),
+            title = Text.Resource(R.string.browser_menu_translate_page_2),
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_translate_24),
             onClickEvent = MenuAction.Navigate.Translate,
             state =
@@ -249,7 +209,6 @@ class TranslationsMenuItemProviderTest {
 
     private companion object {
         const val TAB_ID = "tab1"
-        const val CUSTOM_TAB_ID = "customTabId"
         const val LANGUAGE_CODE = "fr"
         const val LANGUAGE_NAME = "French"
     }

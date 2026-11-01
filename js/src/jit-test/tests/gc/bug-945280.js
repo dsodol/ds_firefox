@@ -1,4 +1,4 @@
 gczeal(7,1);
-enableTrackAllocations();
+enableShellAllocationMetadataBuilder();
 gczeal(0);
 var statusitems = [];

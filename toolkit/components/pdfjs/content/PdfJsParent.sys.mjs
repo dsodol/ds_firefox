@@ -38,9 +38,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 const IMAGE_TO_TEXT_TASK = "moz-image-to-text";
 const ML_ENGINE_MAX_TIMEOUT = 60000;
-// Lets a test run the real alt-text model in automation.
-const ALT_TEXT_INFERENCE_IN_AUTOMATION_PREF =
-  "pdfjs.altText.inferenceInAutomation";
 const PDFJS_DB_NAME = "pdfjs";
 const PDFJS_DB_VERSION = 1;
 const PDFJS_STORE_NAME = "signatures";
@@ -123,13 +120,6 @@ export function filterCertsForView(data) {
       BASE64_RE.test(d)
   );
   return certs.length ? certs : null;
-}
-
-function stubAltTextInference() {
-  return (
-    Cu.isInAutomation &&
-    !Services.prefs.getBoolPref(ALT_TEXT_INFERENCE_IN_AUTOMATION_PREF, false)
-  );
 }
 
 /**
@@ -265,16 +255,14 @@ export class PdfJsParent extends JSWindowActorParent {
   }
 
   _openAboutPdfFeatures() {
-    // Ignore embedded viewers.
+    // Do not let an embedded viewer navigate the top-level tab.
     if (this.browsingContext !== this.browsingContext.top) {
       return;
     }
-    // Keep the PDF and unsaved edits open.
-    this.browser?.documentGlobal.openTrustedLinkIn(
-      "about:pdf#features",
-      "tab",
-      { inBackground: false, relatedToCurrent: true }
-    );
+    const browser = this.browser;
+    browser?.documentGlobal.openTrustedLinkIn("about:pdf#features", "current", {
+      targetBrowser: browser,
+    });
   }
 
   _claimFeaturesNotification() {
@@ -602,7 +590,7 @@ export class PdfJsParent extends JSWindowActorParent {
       const now = ChromeUtils.now();
 
       let response;
-      if (stubAltTextInference()) {
+      if (Cu.isInAutomation) {
         response = { output: "In Automation" };
       } else {
         const engine = await this.#createAIEngine(service, null);
@@ -631,7 +619,7 @@ export class PdfJsParent extends JSWindowActorParent {
       throw new Error("Invalid service");
     }
 
-    if (stubAltTextInference()) {
+    if (Cu.isInAutomation) {
       PdfJsTelemetry.report({
         type: "editing",
         data: {
@@ -775,7 +763,7 @@ export class PdfJsParent extends JSWindowActorParent {
           engineId: lazy.PdfJsGuessAltTextFeature.engineId,
           featureId: lazy.PdfJsGuessAltTextFeature.id,
           taskName,
-          backend: "best-onnx",
+          backend: "onnx-native",
         },
         aggregator?.aggregateCallback.bind(aggregator) || null
       );
@@ -959,13 +947,6 @@ export class PdfJsParent extends JSWindowActorParent {
       throw new Error(
         "FindEventManager was not bound for the current browser."
       );
-    }
-    // Open and focus the findbar so Escape can clear PDF highlights.
-    const findbar = aEvent.currentTarget;
-    if (type === "findagain" && findbar.hidden) {
-      findbar.open(findbar.FIND_NORMAL);
-      findbar._findField.select();
-      findbar._findField.focus();
     }
     browser.sendMessageToActor(
       "PDFJS:Child:handleEvent",

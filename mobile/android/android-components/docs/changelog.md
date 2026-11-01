@@ -4,46 +4,17 @@ title: Changelog
 permalink: /changelog/
 ---
 
-# 161.0 (In Development)
-* **support-ktx**
-    * Added `String.toSnakeCase`, which returns a camelCase or PascalCase string in snake_case. [Bug 2084683](https://bugzilla.mozilla.org/show_bug.cgi?id=2084683)
-* **feature-app-links**
-    * ⚠️ **Breaking change**: `launchInApp` on `AppLinksInterceptor`, `AppLinksUseCases` and `AppLinksFeature`, and `shouldPrompt` on `AppLinksFeature` now receive the url being opened so the decision can vary by host. [Bug 2083207](https://bugzilla.mozilla.org/show_bug.cgi?id=2083207)
-* **feature-session**
-    * `SwipeRefreshFeature` now disables pull-to-refresh while the observed tab is in fullscreen or showing a PDF. [Bug 2054920](https://bugzilla.mozilla.org/show_bug.cgi?id=2054920)
-
-# 160.0
-* **concept-engine**
-    * ⚠️ **Breaking change**: Removed `ServiceState.OptedOut`. Gecko does not report an opted-out IP Protection service state. [Bug 2082578](https://bugzilla.mozilla.org/show_bug.cgi?id=2082578)
-* **service-firefox-accounts**
-    * ⚠️ **Breaking change**: Removed `AccountState.Authenticating`. [Bug 2041509](https://bugzilla.mozilla.org/show_bug.cgi?id=2041509)
-* **feature-search**
-    * 🆕 Added `SearchEngineSelectorConfig.useSearchConfigV3`, which makes `SearchEngineSelectorRepository` read the configuration from the `search-config-v3` Remote Settings collection through the v3 `SearchEngineSelector` APIs. The partner code and telemetry suffix come from the `default` search access point, and an engine with no partner code for it has the partner code parameter omitted from its URLs rather than appended empty. [Bug 2075347](https://bugzilla.mozilla.org/show_bug.cgi?id=2075347)
-* **feature-awesomebar**
-    * Suggestions from `HistoryStorageSuggestionProvider`, including those `CombinedHistorySuggestionProvider` gets from history storage, now have the `HISTORY` flag, like the other history and bookmark suggestions. [Bug 2047486](https://bugzilla.mozilla.org/show_bug.cgi?id=2047486)
-    * `SessionSuggestionProvider` falls back to the URL formatted by `URLStringUtils.toLosslessDisplayUrl` when a tab has no title. [Bug 2047486](https://bugzilla.mozilla.org/show_bug.cgi?id=2047486)
-* **compose-awesomebar**
-    * The descriptions of bookmark and history suggestions, and their titles when Places made them from the URL, are shown formatted by `URLStringUtils.toLosslessDisplayUrl`. [Bug 2047486](https://bugzilla.mozilla.org/show_bug.cgi?id=2047486)
-* **support-utils**
-    * `URLStringUtils.isURLLike` (and so `isSearchTerm` and `String.isUrl`) now accepts spaces in the path, query or fragment of an HTTP/S URL such as `https://example.com/a b`, and of a scheme-less one with a port, an IP address as its host, or a `?` or `#` after its first `/`. Spaces in the scheme or authority are still rejected. [Bug 1813919](https://bugzilla.mozilla.org/show_bug.cgi?id=1813919)
-    * `URLStringUtils.toNormalizedURL` and `String.toNormalizedUrl` now encode the spaces in the path, query and fragment of an HTTP/S URL as `%20`, using the new `URLStringUtils.encodeSpacesAfterAuthority`. [Bug 1813919](https://bugzilla.mozilla.org/show_bug.cgi?id=1813919)
-    * Added `URLStringUtils.toLosslessDisplayUrl` and `URLStringUtils.toLosslessEditableUrl`, which decode the path, query and fragment of an HTTP/S URL when that is lossless, following desktop's `losslessDecodeDisplaySpec`. `toLosslessDisplayUrl` keeps spaces as `%20`, and `URLStringUtils.toDisplayUrl` now applies it. [Bug 2047486](https://bugzilla.mozilla.org/show_bug.cgi?id=2047486)
-* **support-ktx**
-    * `String.toShortUrl` now decodes the URL it returns when it cannot shorten it, using `URLStringUtils.toLosslessDisplayUrl`. [Bug 2047486](https://bugzilla.mozilla.org/show_bug.cgi?id=2047486)
+# 160.0 (In Development)
 * **ui-richtext**
     * 🆕 Added `StreamingParser`, which parses a markdown document as it arrives in chunks, reparsing only the part of it that can still change. [Bug 2059255](https://bugzilla.mozilla.org/show_bug.cgi?id=2059255)
 * **browser-engine-gecko**
     * Download filenames from `onExternalResponse` are now validated by Gecko with the same rules as desktop, so `GeckoEngineSession` no longer applies the `String.sanitizeFileName` helper from **support-ktx** to them. [Bug 1822968](https://bugzilla.mozilla.org/show_bug.cgi?id=1822968)
-* **compose-base**
-    * 🆕 Added `Slider`, an Acorn implementation of the M3 Slider component for Jetpack Compose. [Bug 2067129](https://bugzilla.mozilla.org/show_bug.cgi?id=2067129)
 
 # 159.0
 * **feature-readerview**
     * 🆕 Added `ReaderViewFeature.colorSchemeOverride`, which forces reader view to be displayed with a given `ColorScheme` without overwriting the one the user configured. [Bug 2069110](https://bugzilla.mozilla.org/show_bug.cgi?id=2069110)
 * **concept-engine**, **browser-engine-gecko**, **browser-engine-system**, **browser-state**, **feature-app-links**
     * ⚠️ **Breaking change**: `EngineSession.Observer.onLaunchIntentRequest` and `AppIntentState` take a `sourceUrl`, the URL of the page the launch was requested from, or null when the launch was not requested from a page. [Bug 2068801](https://bugzilla.mozilla.org/show_bug.cgi?id=2068801)
-* **compose-draggable**
-    * 🆕 Added `compose-draggable` component, which provides a common component for draggable and reorderable lists and grids. [Bug 2066533](https://bugzilla.mozilla.org/show_bug.cgi?id=2066533)
 
 # 158.0
 * **feature-accounts-push**

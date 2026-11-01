@@ -6,7 +6,6 @@
 
 #include "irregexp/imported/regexp-interpreter.h"
 
-#include <bit>
 #include <limits>
 
 #include "irregexp/imported/regexp-bytecodes-inl.h"
@@ -504,7 +503,7 @@ IrregexpInterpreter::Result RawMatch(
   // filled with kBreaks, indicating an invalid operation. This way using
   // kBytecodeMask guarantees no OOB access to the dispatch table.
   constexpr int kPaddedBytecodeCount =
-      std::bit_ceil<uint32_t>(Bytecodes::kCount);
+      base::bits::RoundUpToPowerOfTwo32(Bytecodes::kCount);
   constexpr int kBytecodeMask = kPaddedBytecodeCount - 1;
   static_assert(std::numeric_limits<uint8_t>::max() >= kBytecodeMask);
 

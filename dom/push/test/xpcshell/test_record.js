@@ -1,7 +1,7 @@
 "use strict";
 
 const { PushRecord } = ChromeUtils.importESModule(
-  "moz-src:///dom/push/PushRecord.sys.mjs"
+  "resource://gre/modules/PushRecord.sys.mjs"
 );
 
 add_task(async function test_updateQuota() {

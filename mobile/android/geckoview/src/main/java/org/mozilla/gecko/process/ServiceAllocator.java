@@ -119,13 +119,6 @@ import org.mozilla.gecko.util.XPCOMEventTarget;
       }
     }
 
-    private class IsolatedGmpBindDelegate extends DefaultBindDelegate {
-      @Override
-      public String getServiceName() {
-        return ServiceUtils.buildIsolatedGmpSvcName();
-      }
-    }
-
     @RequiresApi(Build.VERSION_CODES.Q)
     private class IsolatedBindDelegate implements BindServiceDelegate {
       @Override
@@ -171,11 +164,6 @@ import org.mozilla.gecko.util.XPCOMEventTarget;
     }
 
     private BindServiceDelegate getBindServiceDelegate() {
-      if (mType == GeckoProcessType.GMPLUGIN
-          && GeckoProcessManager.getInstance().isIsolatedGmpEnabled()) {
-        return this.new IsolatedGmpBindDelegate();
-      }
-
       if (!isContent()) {
         // Non-content services just use default binding
         return this.new DefaultBindDelegate();

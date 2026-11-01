@@ -123,6 +123,14 @@ class ThreadFront extends FrontClassWithSpec(threadSpec) {
   }
 
   /**
+   * Resume then pause without stepping.
+   *
+   */
+  resumeThenPause() {
+    return this._doResume({ type: "break" });
+  }
+
+  /**
    * Step over a function call.
    */
   stepOver(frameActorID) {

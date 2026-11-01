@@ -89,7 +89,7 @@ export class UrlbarValueFormatter {
   #hostRange = null;
 
   get #document() {
-    return this.#inputField.ownerDocument;
+    return this.#urlbarInput.document;
   }
 
   get #inputField() {
@@ -97,7 +97,7 @@ export class UrlbarValueFormatter {
   }
 
   get #window() {
-    return /** @type {BrowserWindow} */ (this.#urlbarInput.documentGlobal);
+    return this.#urlbarInput.window;
   }
 
   get #scheme() {

@@ -94,7 +94,6 @@ static void AsyncReEncodeImage(nsIURI* aRemoteURI, ImageIntSize aSize,
                                bool aStretch,
                                const Maybe<ContentParentId> aContentParentId,
                                ColorScheme aColorScheme,
-                               nsIPrincipal* aPrincipal,
                                nsIAsyncOutputStream* aOutputStream) {
   UniqueContentParentKeepAlive cp =
       GetLaunchingContentParentForDecode(aContentParentId);
@@ -103,19 +102,13 @@ static void AsyncReEncodeImage(nsIURI* aRemoteURI, ImageIntSize aSize,
     return;
   }
 
-  // TODO(Bug 1999930): Investigate using a content-principal for
-  // more moz-remote-image: requests
-  nsIPrincipal* principal =
-      aPrincipal ? aPrincipal : nsContentUtils::GetSystemPrincipal();
-
   cp->WaitForLaunchAsync()
       ->Then(
           GetCurrentSerialEventTarget(), __func__,
-          [remoteURI = nsCOMPtr{aRemoteURI}, aSize, aStretch, aColorScheme,
-           principal =
-               nsCOMPtr{principal}](UniqueContentParentKeepAlive&& aCp) {
+          [remoteURI = nsCOMPtr{aRemoteURI}, aSize, aStretch,
+           aColorScheme](UniqueContentParentKeepAlive&& aCp) {
             return aCp->SendDecodeImage(WrapNotNull(remoteURI), aSize, aStretch,
-                                        aColorScheme, WrapNotNull(principal));
+                                        aColorScheme);
           },
           [](nsresult aError) {
             return ContentParent::DecodeImagePromise::CreateAndReject(
@@ -162,7 +155,7 @@ static void AsyncReEncodeImage(nsIURI* aRemoteURI, ImageIntSize aSize,
 static nsresult ParseURI(nsIURI* aURI, nsIURI** aRemoteURI, ImageIntSize* aSize,
                          bool* aStretch,
                          Maybe<ContentParentId>& aContentParentId,
-                         ColorScheme* aColorScheme, nsIPrincipal** aPrincipal) {
+                         ColorScheme* aColorScheme) {
   MOZ_ASSERT(aURI->SchemeIs("moz-remote-image"));
 
   nsAutoCString query;
@@ -172,7 +165,6 @@ static nsresult ParseURI(nsIURI* aURI, nsIURI** aRemoteURI, ImageIntSize* aSize,
   int32_t width = 0;
   int32_t height = 0;
 
-  *aPrincipal = nullptr;
   *aStretch = false;
 
   bool ok = URLParams::Parse(
@@ -210,12 +202,6 @@ static nsresult ParseURI(nsIURI* aURI, nsIURI** aRemoteURI, ImageIntSize* aSize,
           } else {
             return false;
           }
-        } else if (aName.EqualsLiteral("principal")) {
-          RefPtr principal = BasePrincipal::FromJSON(aValue);
-          if (!principal) {
-            return false;
-          }
-          principal.forget(aPrincipal);
         }
         return true;
       });
@@ -243,9 +229,8 @@ NS_IMETHODIMP RemoteImageProtocolHandler::NewChannel(nsIURI* aURI,
   bool stretch;
   Maybe<ContentParentId> contentParentId;
   ColorScheme colorScheme = ColorScheme::Light;
-  nsCOMPtr<nsIPrincipal> principal;
   MOZ_TRY(ParseURI(aURI, getter_AddRefs(remoteURI), &size, &stretch,
-                   contentParentId, &colorScheme, getter_AddRefs(principal)));
+                   contentParentId, &colorScheme));
 
   nsCOMPtr<nsIAsyncInputStream> pipeIn;
   nsCOMPtr<nsIAsyncOutputStream> pipeOut;
@@ -258,7 +243,7 @@ NS_IMETHODIMP RemoteImageProtocolHandler::NewChannel(nsIURI* aURI,
       /* aContentCharset */ ""_ns, aLoadInfo));
 
   AsyncReEncodeImage(remoteURI, size, stretch, contentParentId, colorScheme,
-                     principal, pipeOut);
+                     pipeOut);
 
   channel.forget(aOutChannel);
   return NS_OK;

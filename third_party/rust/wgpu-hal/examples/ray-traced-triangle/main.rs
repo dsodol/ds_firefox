@@ -5,7 +5,7 @@ use hal::{
 };
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
-use glam::{Affine3A, Vec3};
+use glam::{Affine3A, Mat4, Vec3};
 use std::{
     borrow::{Borrow, Cow},
     iter, ptr,
@@ -429,7 +429,7 @@ impl<A: hal::Api> Example<A> {
         let indices_size_in_bytes = indices.len() * 4;
 
         let vertices_buffer = unsafe {
-            let (vertices_buffer, _) = device
+            let vertices_buffer = device
                 .create_buffer(&hal::BufferDescriptor {
                     label: Some("vertices buffer"),
                     size: vertices_size_in_bytes as u64,
@@ -455,7 +455,7 @@ impl<A: hal::Api> Example<A> {
 
         let indices_buffer = if index_buffer {
             unsafe {
-                let (indices_buffer, _) = device
+                let indices_buffer = device
                     .create_buffer(&hal::BufferDescriptor {
                         label: Some("indices buffer"),
                         size: indices_size_in_bytes as u64,
@@ -565,7 +565,7 @@ impl<A: hal::Api> Example<A> {
         let instances_buffer_size = instances.len() * size_of::<AccelerationStructureInstance>();
 
         let instances_buffer = unsafe {
-            let (instances_buffer, _) = device
+            let instances_buffer = device
                 .create_buffer(&hal::BufferDescriptor {
                     label: Some("instances_buffer"),
                     size: instances_buffer_size as u64,
@@ -619,14 +619,8 @@ impl<A: hal::Api> Example<A> {
         .unwrap();
 
         let uniforms = {
-            let view =
-                glam::camera::rh::view::look_at_mat4(Vec3::new(0.0, 0.0, 2.5), Vec3::ZERO, Vec3::Y);
-            let proj = glam::camera::rh::proj::directx::perspective(
-                59.0_f32.to_radians(),
-                1.0,
-                0.001,
-                1000.0,
-            );
+            let view = Mat4::look_at_rh(Vec3::new(0.0, 0.0, 2.5), Vec3::ZERO, Vec3::Y);
+            let proj = Mat4::perspective_rh(59.0_f32.to_radians(), 1.0, 0.001, 1000.0);
 
             Uniforms {
                 view_inverse: view.inverse(),
@@ -637,7 +631,7 @@ impl<A: hal::Api> Example<A> {
         let uniforms_size = size_of::<Uniforms>();
 
         let uniform_buffer = unsafe {
-            let (uniform_buffer, _) = device
+            let uniform_buffer = device
                 .create_buffer(&hal::BufferDescriptor {
                     label: Some("uniform buffer"),
                     size: uniforms_size as u64,
@@ -728,7 +722,7 @@ impl<A: hal::Api> Example<A> {
             unsafe { device.create_bind_group(&group_desc).unwrap() }
         };
 
-        let (scratch_buffer, _) = unsafe {
+        let scratch_buffer = unsafe {
             device
                 .create_buffer(&hal::BufferDescriptor {
                     label: Some("scratch buffer"),

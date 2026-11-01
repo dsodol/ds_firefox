@@ -55,7 +55,6 @@ fun BrowserSimpleToolbar(
     val uiState by store.observeAsComposableState { it }
 
     val pageOrigin = uiState.displayState.pageOrigin
-    val browserActionsStart = uiState.displayState.browserActionsStart
     val browserActionsEnd = uiState.displayState.browserActionsEnd
     val onInteraction: (BrowserToolbarEvent) -> Unit = { store.dispatch(it) }
 
@@ -75,13 +74,6 @@ fun BrowserSimpleToolbar(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (browserActionsStart.isNotEmpty()) {
-                ActionContainer(
-                    actions = browserActionsStart,
-                    onInteraction = onInteraction,
-                )
-            }
-
             Spacer(
                 modifier =
                     Modifier.clickable { onInteraction(requireNotNull(pageOrigin.onClick)) }.height(64.dp).weight(1f)

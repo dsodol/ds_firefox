@@ -249,6 +249,15 @@
               "value": "{space.small}"
             }
           }
+        },
+        "offset": {
+          "value": {
+            "default": "0px",
+            "nova": {
+              "comment": "There is no equivalent value for this token in Figma",
+              "value": "1px"
+            }
+          }
         }
       },
       "padding-block-start": {

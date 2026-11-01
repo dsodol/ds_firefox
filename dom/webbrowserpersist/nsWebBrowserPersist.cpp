@@ -52,7 +52,6 @@
 #include "nsNetCID.h"
 #include "nsNetUtil.h"
 #include "nsStreamUtils.h"
-#include "nsUTF8Utils.h"
 #include "nspr.h"
 
 #ifdef XP_WIN
@@ -311,27 +310,6 @@ nsCString GenerateRandomSeed() {
   // 4 so the seed is distinguishable from the 3-digit uniqueness counter.
   seed.Insert('_', 0);
   return seed;
-}
-
-// Returns the largest length <= aLength that doesn't split a UTF-8 sequence.
-uint32_t LengthAtCharBoundary(const nsACString& aStr, uint32_t aLength) {
-  MOZ_ASSERT(aLength <= aStr.Length());
-  while (aLength > 0 && aLength < aStr.Length() &&
-         UTF8traits::isInSeq(aStr[aLength])) {
-    --aLength;
-  }
-  return aLength;
-}
-
-uint32_t FirstCharLength(const nsACString& aStr) {
-  if (aStr.IsEmpty()) {
-    return 0;
-  }
-  uint32_t length = 1;
-  while (length < aStr.Length() && UTF8traits::isInSeq(aStr[length])) {
-    ++length;
-  }
-  return length;
 }
 
 }  // namespace
@@ -610,8 +588,7 @@ nsresult nsWebBrowserPersist::StartUpload(nsIInputStream* aInputStream,
 
   // add this to the upload list
   nsCOMPtr<nsISupports> keyPtr = do_QueryInterface(destChannel);
-  mUploadList.InsertOrUpdate(keyPtr,
-                             std::make_unique<UploadData>(aDestinationURI));
+  mUploadList.InsertOrUpdate(keyPtr, MakeUnique<UploadData>(aDestinationURI));
 
   return NS_OK;
 }
@@ -1541,8 +1518,8 @@ nsresult nsWebBrowserPersist::SaveChannelInternal(nsIChannel* aChannel,
   MutexAutoLock lock(mOutputMapMutex);
   // Add the output transport to the output map with the channel as the key
   nsCOMPtr<nsISupports> keyPtr = do_QueryInterface(aChannel);
-  mOutputMap.InsertOrUpdate(
-      keyPtr, std::make_unique<OutputData>(aFile, mURI, aCalcFileExt));
+  mOutputMap.InsertOrUpdate(keyPtr,
+                            MakeUnique<OutputData>(aFile, mURI, aCalcFileExt));
 
   return NS_OK;
 }
@@ -2049,17 +2026,14 @@ nsresult nsWebBrowserPersist::CalculateUniqueFilename(
   // Test if the filename is longer than allowed by the OS
   int32_t needToChop = filename.Length() - kDefaultMaxFilenameLength;
   if (needToChop > 0) {
-    // Truncate the base first, keeping at least its first character, and then
-    // the ext if necessary.
-    uint32_t newBaseLength = 0;
+    // Truncate the base first and then the ext if necessary
     if (base.Length() > (uint32_t)needToChop) {
-      newBaseLength = LengthAtCharBoundary(base, base.Length() - needToChop);
-    }
-    if (newBaseLength == 0) {
-      newBaseLength = FirstCharLength(base);
-      needToChop -= base.Length() - newBaseLength;
+      base.Truncate(base.Length() - needToChop);
+    } else {
+      needToChop -= base.Length() - 1;
+      base.Truncate(1);
       if (ext.Length() > (uint32_t)needToChop) {
-        ext.Truncate(LengthAtCharBoundary(ext, ext.Length() - needToChop));
+        ext.Truncate(ext.Length() - needToChop);
       } else {
         ext.Truncate(0);
       }
@@ -2067,7 +2041,6 @@ nsresult nsWebBrowserPersist::CalculateUniqueFilename(
       // but that won't happen because it will be set to a sensible
       // value.
     }
-    base.Truncate(newBaseLength);
 
     filename.Assign(base);
     filename.Append(mFilenameRandomSeed);
@@ -2096,10 +2069,7 @@ nsresult nsWebBrowserPersist::CalculateUniqueFilename(
         if (filename.Length() < kDefaultMaxFilenameLength - 4) {
           tmpBase = base;
         } else {
-          base.Mid(tmpBase, 0,
-                   base.Length() >= 4
-                       ? LengthAtCharBoundary(base, base.Length() - 4)
-                       : base.Length());
+          base.Mid(tmpBase, 0, base.Length() - 4);
         }
         tmpBase.Append(tmp.get());
       } else {
@@ -2742,7 +2712,7 @@ nsresult nsWebBrowserPersist::SaveSubframeContent(
   // We shouldn't use SaveDocumentInternal for the contents
   // of frames that are not documents, e.g. images.
   if (DocumentEncoderExists(contentType.get())) {
-    auto toWalk = std::make_unique<WalkData>();
+    auto toWalk = mozilla::MakeUnique<WalkData>();
     toWalk->mDocument = aFrameContent;
     toWalk->mFile = frameURI;
     toWalk->mDataPath = frameDataURI;

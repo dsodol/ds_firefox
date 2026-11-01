@@ -51,8 +51,6 @@ class CustomizationFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFrag
     private lateinit var radioDarkestTheme: RadioButtonPreference
     private lateinit var radioAutoBatteryTheme: RadioButtonPreference
     private lateinit var radioFollowDeviceTheme: RadioButtonPreference
-    private lateinit var radioHomepageSearchMiddle: RadioButtonPreference
-    private lateinit var radioHomepageSearchTop: RadioButtonPreference
     private val args by navArgs<CustomizationFragmentArgs>()
 
     // Cached reactive feature state used when (re)building preferences.
@@ -117,9 +115,7 @@ class CustomizationFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFrag
         bindLightTheme()
         bindAutoBatteryTheme()
         setupRadioGroups()
-        bindHomepageSearchPosition()
         setupToolbarCategory()
-        updateHomepageSearchPositionVisibility()
         setupTabStripDisplayCategory()
         setupTabStripLocationCategory()
         setupToolbarLayout()
@@ -288,7 +284,6 @@ class CustomizationFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFrag
             ToolbarSettings.changedPosition.record(ToolbarSettings.ChangedPositionExtra(Position.TOP.name))
 
             updateToolbarLayoutIcons()
-            updateHomepageSearchPositionVisibility()
         }
 
         val bottomPreference = requirePreference<RadioButtonPreference>(R.string.pref_key_toolbar_bottom)
@@ -296,7 +291,6 @@ class CustomizationFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFrag
             ToolbarSettings.changedPosition.record(ToolbarSettings.ChangedPositionExtra(Position.BOTTOM.name))
 
             updateToolbarLayoutIcons()
-            updateHomepageSearchPositionVisibility()
         }
 
         val toolbarPosition = requireComponents.settings.toolbarPosition
@@ -304,26 +298,6 @@ class CustomizationFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFrag
         bottomPreference.setCheckedWithoutClickListener(toolbarPosition == ToolbarPosition.BOTTOM)
 
         addToRadioGroup(topPreference, bottomPreference)
-    }
-
-    private fun bindHomepageSearchPosition() {
-        radioHomepageSearchMiddle = requirePreference(R.string.pref_key_enable_homepage_searchbar2)
-        radioHomepageSearchTop = requirePreference(R.string.pref_key_homepage_search_location_top)
-
-        val middleSearchEnabled = requireComponents.settings.enableHomepageSearchBar
-        radioHomepageSearchMiddle.setCheckedWithoutClickListener(middleSearchEnabled)
-        radioHomepageSearchTop.setCheckedWithoutClickListener(!middleSearchEnabled)
-
-        addToRadioGroup(radioHomepageSearchMiddle, radioHomepageSearchTop)
-    }
-
-    private fun updateHomepageSearchPositionVisibility() {
-        val settings = requireComponents.settings
-        val isVisible = settings.enableHomepageCustomization && settings.toolbarPosition == ToolbarPosition.TOP
-
-        requirePreference<Preference>(R.string.pref_key_homepage_search_location_header).isVisible = isVisible
-        radioHomepageSearchMiddle.isVisible = isVisible
-        radioHomepageSearchTop.isVisible = isVisible
     }
 
     private fun setupTabStripDisplayCategory() {

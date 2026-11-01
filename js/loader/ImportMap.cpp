@@ -24,6 +24,7 @@
 using JS::SourceText;
 using mozilla::Err;
 using mozilla::LazyLogModule;
+using mozilla::MakeUnique;
 using mozilla::UniquePtr;
 using mozilla::WrapNotNull;
 
@@ -118,7 +119,7 @@ static UniquePtr<SpecifierMap> SortAndNormalizeSpecifierMap(
     JSContext* aCx, HandleObject aOriginalMap, nsIURI* aBaseURL,
     const ReportWarningHelper& aWarning) {
   // Step 1. Let normalized be an empty ordered map.
-  auto normalized = std::make_unique<SpecifierMap>();
+  UniquePtr<SpecifierMap> normalized = MakeUnique<SpecifierMap>();
 
   Rooted<IdVector> specifierKeys(aCx, IdVector(aCx));
   if (!JS_Enumerate(aCx, aOriginalMap, &specifierKeys)) {
@@ -244,7 +245,7 @@ static UniquePtr<ScopeMap> SortAndNormalizeScopes(
   }
 
   // Step 1. Let normalized be an empty map.
-  auto normalized = std::make_unique<ScopeMap>();
+  UniquePtr<ScopeMap> normalized = MakeUnique<ScopeMap>();
 
   // Step 2. For each scopePrefix → potentialSpecifierMap of originalMap,
   for (size_t i = 0; i < scopeKeys.length(); i++) {
@@ -316,7 +317,7 @@ static UniquePtr<IntegrityMap> NormalizeIntegrity(
     JSContext* aCx, HandleObject aOriginalMap, nsIURI* aBaseURL,
     const ReportWarningHelper& aWarning) {
   // Step 1. Let normalized be an empty ordered map.
-  auto normalized = std::make_unique<IntegrityMap>();
+  UniquePtr<IntegrityMap> normalized = MakeUnique<IntegrityMap>();
 
   Rooted<IdVector> keys(aCx, IdVector(aCx));
   if (!JS_Enumerate(aCx, aOriginalMap, &keys)) {
@@ -570,9 +571,9 @@ UniquePtr<ImportMap> ImportMap::ParseString(
   // sortedAndNormalizedImports, whose scopes are
   // sortedAndNormalizedScopes, and whose integrity
   // are normalizedIntegrity.
-  return std::make_unique<ImportMap>(std::move(sortedAndNormalizedImports),
-                                     std::move(sortedAndNormalizedScopes),
-                                     std::move(normalizedIntegrity));
+  return MakeUnique<ImportMap>(std::move(sortedAndNormalizedImports),
+                               std::move(sortedAndNormalizedScopes),
+                               std::move(normalizedIntegrity));
 }
 
 // https://url.spec.whatwg.org/#is-special
@@ -589,7 +590,7 @@ static UniquePtr<SpecifierMap> MergeSpecifierMaps(
     SpecifierMap* newMap, SpecifierMap* oldMap,
     const ReportWarningHelper& aWarning) {
   // 1. Let mergedMap be a deep copy of oldMap.
-  auto mergedMap = std::make_unique<SpecifierMap>();
+  UniquePtr<SpecifierMap> mergedMap = MakeUnique<SpecifierMap>();
   for (auto&& [k, v] : *oldMap) {
     mergedMap->emplace(k, v);
   }
@@ -633,9 +634,8 @@ void ImportMap::Merge(ModuleLoaderBase* aModuleLoader,
   //
   // TODO: https://github.com/whatwg/html/issues/12006
   // Deep copy is redudant.
-  UniquePtr<ScopeMap> newScopes = aNewMap->mScopes
-                                      ? std::move(aNewMap->mScopes)
-                                      : std::make_unique<ScopeMap>();
+  UniquePtr<ScopeMap> newScopes =
+      aNewMap->mScopes ? std::move(aNewMap->mScopes) : MakeUnique<ScopeMap>();
   MOZ_ASSERT(newScopes);
 
   // 2. Let oldImportMap be global's import map.
@@ -648,7 +648,7 @@ void ImportMap::Merge(ModuleLoaderBase* aModuleLoader,
   // 3. Let newImportMapImports be a deep copy of newImportMap's imports.
   UniquePtr<SpecifierMap> newImports = aNewMap->mImports
                                            ? std::move(aNewMap->mImports)
-                                           : std::make_unique<SpecifierMap>();
+                                           : MakeUnique<SpecifierMap>();
   MOZ_ASSERT(newImports);
 
   // 4. For each scopePrefix → scopeImports of newImportMapScopes:
@@ -900,7 +900,7 @@ static UniquePtr<SpecifierResolutionRecord> CreateResolutionRecord(
   bool isURLLike = !!aAsURL;
   bool isSpecial = aAsURL ? IsSpecialScheme(aAsURL) : false;
 
-  return std::make_unique<SpecifierResolutionRecord>(
+  return mozilla::MakeUnique<SpecifierResolutionRecord>(
       aSerializedBaseURL, aNormalizedSpecifier, aResult, isURLLike, isSpecial);
 }
 
@@ -918,13 +918,7 @@ ResolveResult ImportMap::ResolveModuleSpecifier(ImportMap* aImportMap,
   }
 
   // 6. Let serializedBaseURL be baseURL, serialized.
-  //
-  // Impl note: baseURL is null for scripts without a fetch info running in a
-  // loader without a base URI, such as precompiled scripts.
-  nsCString serializedBaseURL;
-  if (baseURL) {
-    serializedBaseURL = baseURL->GetSpecOrDefault();
-  }
+  nsCString serializedBaseURL = baseURL->GetSpecOrDefault();
 
   LOG(("ResolveModuleSpecifier baseURL:%s, specifier: %s",
        serializedBaseURL.get(), NS_ConvertUTF16toUTF8(aSpecifier).get()));

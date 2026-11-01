@@ -2,7 +2,7 @@
 const source = 'import source s from "<module source>";';
 
 for (let i = 1; i < 64; i++) {
-  const root = parseModule(source, "root.js");
+  const root = registerModule("root", parseModule(source, "root.js"));
 
   oomAtAllocation(i);
   try {

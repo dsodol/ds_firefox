@@ -130,7 +130,7 @@ uint32_t gfxFT2FontEntryBase::GetGlyph(uint32_t aCharCode,
   // one Unicode block.  This assumption is probably not so valid with
   // scripts with large character sets as used for East Asian languages.
   if (!mCmapCache) {
-    mCmapCache = std::make_unique<CmapCacheSlot[]>(kNumCmapCacheSlots);
+    mCmapCache = mozilla::MakeUnique<CmapCacheSlot[]>(kNumCmapCacheSlots);
 
     // Invalidate slot 0 by setting its char code to something that would
     // never end up in slot 0.  All other slots are already invalid
@@ -247,15 +247,64 @@ static double FindClosestSize(FT_Face aFace, double aSize) {
   return aFace->available_sizes[bestSize].y_ppem / 64.0;
 }
 
-bool gfxFT2FontBase::InitMetricsFromPlatform() {
+void gfxFT2FontBase::InitMetrics() {
+  mFUnitsConvFactor = 0.0;
+
   if (MOZ_UNLIKELY(mStyle.AdjustedSizeMustBeZero())) {
     mSpaceGlyph = GetGlyph(' ');
-    return true;
+    return;
   }
 
-  // Ensure we don't have any stale cached widths, as this may be re-run
-  // from InitMetrics during font-size-adjust processing.
-  mGlyphMetrics.reset(nullptr);
+  if (FontSizeAdjust::Tag(mStyle.sizeAdjustBasis) !=
+          FontSizeAdjust::Tag::None &&
+      mStyle.sizeAdjust >= 0.0 && GetAdjustedSize() > 0.0 && mFTSize == 0.0) {
+    // If font-size-adjust is in effect, we need to get metrics in order to
+    // determine the aspect ratio, then compute the final adjusted size and
+    // re-initialize metrics.
+    // Setting mFTSize nonzero here ensures we will not recurse again; the
+    // actual value will be overridden by FindClosestSize below.
+    mFTSize = 1.0;
+    InitMetrics();
+    // Now do the font-size-adjust calculation and set the final size.
+    gfxFloat aspect;
+    switch (FontSizeAdjust::Tag(mStyle.sizeAdjustBasis)) {
+      default:
+        MOZ_ASSERT_UNREACHABLE("unhandled sizeAdjustBasis?");
+        aspect = 0.0;
+        break;
+      case FontSizeAdjust::Tag::ExHeight:
+        aspect = mMetrics.xHeight / mAdjustedSize;
+        break;
+      case FontSizeAdjust::Tag::CapHeight:
+        aspect = mMetrics.capHeight / mAdjustedSize;
+        break;
+      case FontSizeAdjust::Tag::ChWidth:
+        aspect =
+            mMetrics.zeroWidth > 0.0 ? mMetrics.zeroWidth / mAdjustedSize : 0.5;
+        break;
+      case FontSizeAdjust::Tag::IcWidth:
+      case FontSizeAdjust::Tag::IcHeight: {
+        bool vertical = FontSizeAdjust::Tag(mStyle.sizeAdjustBasis) ==
+                        FontSizeAdjust::Tag::IcHeight;
+        gfxFloat advance = GetCharAdvance(kWaterIdeograph, vertical);
+        aspect = advance > 0.0 ? advance / mAdjustedSize : 1.0;
+        break;
+      }
+    }
+    if (aspect > 0.0) {
+      // If we created a shaper above (to measure glyphs), discard it so we
+      // get a new one for the adjusted scaling.
+      delete mHarfBuzzShaper.exchange(nullptr);
+      mAdjustedSize = mStyle.GetAdjustedSize(aspect);
+      // Ensure the FT_Face will be reconfigured for the new size next time we
+      // need to use it.
+      mFTFace->ForgetLockOwner(this);
+    }
+  }
+
+  // Set mAdjustedSize if it hasn't already been set by a font-size-adjust
+  // computation.
+  mAdjustedSize = GetAdjustedSize();
 
   // Cairo metrics are normalized to em-space, so that whatever fixed size
   // might actually be chosen is factored out. They are then later scaled by
@@ -263,17 +312,20 @@ bool gfxFT2FontBase::InitMetricsFromPlatform() {
   // size here for later scaling of the metrics.
   mFTSize = FindClosestSize(mFTFace->GetFace(), GetAdjustedSize());
 
-  // Ensure the FT size will be reset, as this may be called for a font
-  // being rescaled by font-size-adjust.
-  mFTFace->ForgetLockOwner(this);
+#ifdef MOZ_FONTATIONS
+  if (InitMetricsFromSkrifa()) {
+    InitExtraMetrics(GetAdjustedSize(), 0);
+    return;
+  }
+#endif
 
   // Explicitly lock the face so we can release it early before calling
   // back into Cairo below.
   FT_Face face = LockFTFace();
 
   if (MOZ_UNLIKELY(!face)) {
-    // No face. This unfortunate situation might happen if the font file is
-    // (re)moved at the wrong time. Fill in reasonable placeholder values.
+    // No face.  This unfortunate situation might happen if the font
+    // file is (re)moved at the wrong time.
     const gfxFloat emHeight = GetAdjustedSize();
     mMetrics.emHeight = emHeight;
     mMetrics.maxAscent = mMetrics.emAscent = 0.8 * emHeight;
@@ -281,19 +333,24 @@ bool gfxFT2FontBase::InitMetricsFromPlatform() {
     mMetrics.maxHeight = emHeight;
     mMetrics.internalLeading = 0.0;
     mMetrics.externalLeading = 0.2 * emHeight;
-    mMetrics.spaceWidth = 0.5 * emHeight;
-    mMetrics.maxAdvance = mMetrics.spaceWidth;
-    mMetrics.aveCharWidth = mMetrics.spaceWidth;
-    mMetrics.zeroWidth = mMetrics.spaceWidth;
+    const gfxFloat spaceWidth = 0.5 * emHeight;
+    mMetrics.spaceWidth = spaceWidth;
+    mMetrics.maxAdvance = spaceWidth;
+    mMetrics.aveCharWidth = spaceWidth;
+    mMetrics.zeroWidth = spaceWidth;
     mMetrics.ideographicWidth = emHeight;
-    mMetrics.xHeight = 0.5 * emHeight;
+    const gfxFloat xHeight = 0.5 * emHeight;
+    mMetrics.xHeight = xHeight;
     mMetrics.capHeight = mMetrics.maxAscent;
-    mMetrics.underlineSize = emHeight / 14.0;
-    mMetrics.underlineOffset = -mMetrics.underlineSize;
+    const gfxFloat underlineSize = emHeight / 14.0;
+    mMetrics.underlineSize = underlineSize;
+    mMetrics.underlineOffset = -underlineSize;
     mMetrics.strikeoutOffset = 0.25 * emHeight;
-    mMetrics.strikeoutSize = mMetrics.underlineSize;
+    mMetrics.strikeoutSize = underlineSize;
+
+    SanitizeMetrics(false);
     UnlockFTFace();
-    return true;
+    return;
   }
 
   const FT_Size_Metrics& ftMetrics = face->size->metrics;
@@ -355,18 +412,7 @@ bool gfxFT2FontBase::InitMetricsFromPlatform() {
 
   TT_OS2* os2 = static_cast<TT_OS2*>(FT_Get_Sfnt_Table(face, ft_sfnt_os2));
 
-  const uint16_t kUseTypoMetricsMask = 1 << 7;
-  // Hack around broken Nimbus font metrics, see bug 2082557
-  if (face->family_name &&
-      StringBeginsWith(nsDependentCString(face->family_name), "Nimbus "_ns) &&
-      os2 && yScale > 0.0 && !(os2->fsSelection & kUseTypoMetricsMask) &&
-      os2->sTypoLineGap > 0 && os2->usWinAscent) {
-    mMetrics.maxAscent = mMetrics.emAscent =
-        NS_round(os2->usWinAscent * yScale);
-    mMetrics.maxDescent = mMetrics.emDescent =
-        NS_round(os2->usWinDescent * yScale);
-    lineHeight = mMetrics.maxAscent + mMetrics.maxDescent;
-  } else if (os2 && os2->sTypoAscender && yScale > 0.0) {
+  if (os2 && os2->sTypoAscender && yScale > 0.0) {
     mMetrics.emAscent = os2->sTypoAscender * yScale;
     mMetrics.emDescent = -os2->sTypoDescender * yScale;
     FT_Short typoHeight =
@@ -375,6 +421,7 @@ bool gfxFT2FontBase::InitMetricsFromPlatform() {
 
     // If the OS/2 fsSelection USE_TYPO_METRICS bit is set,
     // set maxAscent/Descent from the sTypo* fields instead of hhea.
+    const uint16_t kUseTypoMetricsMask = 1 << 7;
     if ((os2->fsSelection & kUseTypoMetricsMask) ||
         // maxAscent/maxDescent get used for frame heights, and some fonts
         // don't have the HHEA table ascent/descent set (bug 279032).
@@ -453,8 +500,6 @@ bool gfxFT2FontBase::InitMetricsFromPlatform() {
   UnlockFTFace();
 
   InitExtraMetrics(emHeight, lineHeight);
-
-  return true;
 }
 
 void gfxFT2FontBase::InitExtraMetrics(gfxFloat aEmHeight,
@@ -543,13 +588,21 @@ void gfxFT2FontBase::InitExtraMetrics(gfxFloat aEmHeight,
   mMetrics.emAscent =
       sum > 0.0 ? mMetrics.emAscent * mMetrics.emHeight / sum : 0.0;
   mMetrics.emDescent = mMetrics.emHeight - mMetrics.emAscent;
-}
 
-void gfxFT2FontBase::FinishInitFontMetrics() {
-  // If we used Skrifa to initialize mMetrics, mFTSize has not been set up yet.
-  if (mFTSize == 0.0) {
-    mFTSize = FindClosestSize(mFTFace->GetFace(), GetAdjustedSize());
-  }
+  SanitizeMetrics(false);
+
+#if 0
+    //    printf("font name: %s %f\n", NS_ConvertUTF16toUTF8(GetName()).get(), GetStyle()->size);
+    //    printf ("pango font %s\n", pango_font_description_to_string (pango_font_describe (font)));
+
+    fprintf (stderr, "Font: %s\n", GetName().get());
+    fprintf (stderr, "    emHeight: %f emAscent: %f emDescent: %f\n", mMetrics.emHeight, mMetrics.emAscent, mMetrics.emDescent);
+    fprintf (stderr, "    maxAscent: %f maxDescent: %f\n", mMetrics.maxAscent, mMetrics.maxDescent);
+    fprintf (stderr, "    internalLeading: %f externalLeading: %f\n", mMetrics.externalLeading, mMetrics.internalLeading);
+    fprintf (stderr, "    spaceWidth: %f aveCharWidth: %f xHeight: %f\n", mMetrics.spaceWidth, mMetrics.aveCharWidth, mMetrics.xHeight);
+    fprintf (stderr, "    ideographicWidth: %f\n", mMetrics.ideographicWidth);
+    fprintf (stderr, "    uOff: %f uSize: %f stOff: %f stSize: %f\n", mMetrics.underlineOffset, mMetrics.underlineSize, mMetrics.strikeoutOffset, mMetrics.strikeoutSize);
+#endif
 }
 
 uint32_t gfxFT2FontBase::GetGlyph(uint32_t unicode,
@@ -753,7 +806,7 @@ gfxFT2FontBase::GlyphMetrics gfxFT2FontBase::GetCachedGlyphMetrics(
   AutoWriteLock lock(mLock);
   if (!mGlyphMetrics) {
     mGlyphMetrics =
-        std::make_unique<nsTHashMap<nsUint32HashKey, GlyphMetrics>>(128);
+        mozilla::MakeUnique<nsTHashMap<nsUint32HashKey, GlyphMetrics>>(128);
   }
 
   return mGlyphMetrics->LookupOrInsertWith(aGID, [&] {

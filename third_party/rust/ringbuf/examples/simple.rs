@@ -1,18 +1,20 @@
-use ringbuf::{traits::*, HeapRb};
+extern crate ringbuf;
+
+use ringbuf::RingBuffer;
 
 fn main() {
-    let rb = HeapRb::<i32>::new(2);
+    let rb = RingBuffer::<i32>::new(2);
     let (mut prod, mut cons) = rb.split();
 
-    prod.try_push(0).unwrap();
-    prod.try_push(1).unwrap();
-    assert_eq!(prod.try_push(2), Err(2));
+    prod.push(0).unwrap();
+    prod.push(1).unwrap();
+    assert_eq!(prod.push(2), Err(2));
 
-    assert_eq!(cons.try_pop().unwrap(), 0);
+    assert_eq!(cons.pop().unwrap(), 0);
 
-    prod.try_push(2).unwrap();
+    prod.push(2).unwrap();
 
-    assert_eq!(cons.try_pop().unwrap(), 1);
-    assert_eq!(cons.try_pop().unwrap(), 2);
-    assert_eq!(cons.try_pop(), None);
+    assert_eq!(cons.pop().unwrap(), 1);
+    assert_eq!(cons.pop().unwrap(), 2);
+    assert_eq!(cons.pop(), None);
 }

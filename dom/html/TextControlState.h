@@ -182,9 +182,7 @@ class TextControlState final : public SupportsWeakPtr {
   using Element = dom::Element;
   using HTMLInputElement = dom::HTMLInputElement;
 
-  static TextControlState* Construct(
-      TextControlElement* aOwningElement,
-      const nsAString& aInitialValue = VoidString());
+  static TextControlState* Construct(TextControlElement* aOwningElement);
 
   // Note that this does not run script actually because of `sHasShutDown`
   // is set to true before calling `DeleteOrCacheForReuse()`.
@@ -463,8 +461,7 @@ class TextControlState final : public SupportsWeakPtr {
   MOZ_CAN_RUN_SCRIPT void EnsureEditorInitialized();
 
  private:
-  explicit TextControlState(TextControlElement* aOwningElement,
-                            const nsAString& aInitialValue = VoidString());
+  explicit TextControlState(TextControlElement* aOwningElement);
   MOZ_CAN_RUN_SCRIPT ~TextControlState();
 
   /**
@@ -524,7 +521,7 @@ class TextControlState final : public SupportsWeakPtr {
   RefPtr<TextInputListener> mTextInputListener;
   UniquePtr<PasswordMaskData> mPasswordMaskData;
 
-  nsString mValue;  // Void if there's no value.
+  nsString mValue{VoidString()};  // Void if there's no value.
 
   // If our input's last value change was not interactive (as in, the value
   // change was caused by a ValueChangeKind::UserInteraction), this is the value

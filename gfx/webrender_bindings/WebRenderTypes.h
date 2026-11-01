@@ -831,7 +831,6 @@ enum class WebRenderError : int8_t {
   VIDEO_SW_OVERLAY,
   DCOMP_TEXTURE_OVERLAY,
   EXCESSIVE_RESETS,
-  SOFTWARE_D3D11,
 
   Sentinel /* this must be last for serialization purposes. */
 };

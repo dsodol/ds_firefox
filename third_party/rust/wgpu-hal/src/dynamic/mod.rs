@@ -116,8 +116,8 @@ pub trait DynSurfaceTexture:
 pub trait DynTexture: DynResource + fmt::Debug {}
 pub trait DynTextureView: DynResource + fmt::Debug {}
 
-impl<'a, S> BufferBinding<'a, dyn DynBuffer, S> {
-    pub fn expect_downcast<B: DynBuffer>(self) -> BufferBinding<'a, B, S> {
+impl<'a> BufferBinding<'a, dyn DynBuffer> {
+    pub fn expect_downcast<B: DynBuffer>(self) -> BufferBinding<'a, B> {
         BufferBinding {
             buffer: self.buffer.expect_downcast_ref(),
             offset: self.offset,

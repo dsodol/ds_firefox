@@ -6,8 +6,7 @@ use std::slice;
 use cubeb_backend::SampleFormat;
 use num::cast::AsPrimitive;
 
-use super::ringbuf::traits::{Consumer, Observer, Producer, Split};
-use super::ringbuf::HeapRb as RingBuffer;
+use super::ringbuf::RingBuffer;
 
 use self::LinearBuffer::*;
 use self::RingBufferConsumer::*;
@@ -137,13 +136,13 @@ fn process_data<T: DataType>(
 }
 
 pub enum RingBufferConsumer {
-    IntegerRingBufferConsumer(ringbuf::HeapCons<i16>),
-    FloatRingBufferConsumer(ringbuf::HeapCons<f32>),
+    IntegerRingBufferConsumer(ringbuf::Consumer<i16>),
+    FloatRingBufferConsumer(ringbuf::Consumer<f32>),
 }
 
 pub enum RingBufferProducer {
-    IntegerRingBufferProducer(ringbuf::HeapProd<i16>),
-    FloatRingBufferProducer(ringbuf::HeapProd<f32>),
+    IntegerRingBufferProducer(ringbuf::Producer<i16>),
+    FloatRingBufferProducer(ringbuf::Producer<f32>),
 }
 
 pub enum LinearBuffer {
@@ -337,24 +336,11 @@ impl BufferManager {
 
         p
     }
-    // The cached ringbuf endpoints are not Sync: even occupied_len() updates
-    // their local indices. Query the producer from the input callback so a
-    // duplex stream never touches the consumer from both audio callbacks.
-    pub fn available_frames_from_producer(&self) -> usize {
-        assert_ne!(self.stored_channel_count(), 0);
-        let stored_samples = match &self.producer {
-            IntegerRingBufferProducer(p) => p.occupied_len(),
-            FloatRingBufferProducer(p) => p.occupied_len(),
-        };
-        stored_samples / self.stored_channel_count()
-    }
-    // Only call this from the callback that consumes the input data (the
-    // output callback for duplex streams, or the input callback otherwise).
-    pub fn available_frames_from_consumer(&self) -> usize {
+    pub fn available_frames(&self) -> usize {
         assert_ne!(self.stored_channel_count(), 0);
         let stored_samples = match &self.consumer {
-            IntegerRingBufferConsumer(p) => p.occupied_len(),
-            FloatRingBufferConsumer(p) => p.occupied_len(),
+            IntegerRingBufferConsumer(p) => p.len(),
+            FloatRingBufferConsumer(p) => p.len(),
         };
         stored_samples / self.stored_channel_count()
     }
@@ -362,16 +348,16 @@ impl BufferManager {
         let final_sample_count = final_frame_count * self.stored_channel_count();
         match &mut self.consumer {
             IntegerRingBufferConsumer(c) => {
-                let available = c.occupied_len();
+                let available = c.len();
                 assert!(available >= final_sample_count);
                 let to_pop = available - final_sample_count;
-                c.skip(to_pop);
+                c.discard(to_pop);
             }
             FloatRingBufferConsumer(c) => {
-                let available = c.occupied_len();
+                let available = c.len();
                 assert!(available >= final_sample_count);
                 let to_pop = available - final_sample_count;
-                c.skip(to_pop);
+                c.discard(to_pop);
             }
         }
     }
@@ -386,43 +372,6 @@ impl fmt::Debug for BufferManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn producer_available_frames_tracks_consumption() {
-        let mut integer_data = [0i16; 8];
-        let mut float_data = [0f32; 8];
-        for (format, data) in [
-            (
-                SampleFormat::S16NE,
-                integer_data.as_mut_ptr() as *mut c_void,
-            ),
-            (
-                SampleFormat::Float32NE,
-                float_data.as_mut_ptr() as *mut c_void,
-            ),
-        ] {
-            // Include remixing so both views count stored frames, not samples
-            // or frames in the output format.
-            for (input_channels, output_channels) in [(1, 1), (2, 2), (2, 1)] {
-                let mut buffer = BufferManager::new(format, 4, input_channels, 0, output_channels);
-                assert_eq!(buffer.available_frames_from_producer(), 0);
-
-                buffer.push_data(data, 4);
-                assert_eq!(buffer.available_frames_from_producer(), 4);
-                assert_eq!(buffer.available_frames_from_consumer(), 4);
-
-                buffer.get_linear_data(2);
-                assert_eq!(buffer.available_frames_from_producer(), 2);
-
-                buffer.trim(1);
-                assert_eq!(buffer.available_frames_from_producer(), 1);
-
-                buffer.get_linear_data(1);
-                assert_eq!(buffer.available_frames_from_producer(), 0);
-            }
-        }
-    }
-
     #[test]
     fn remix_stereo_ints() {
         let mut data = [i16::MAX / 2 + 1, i16::MAX / 2 + 1];

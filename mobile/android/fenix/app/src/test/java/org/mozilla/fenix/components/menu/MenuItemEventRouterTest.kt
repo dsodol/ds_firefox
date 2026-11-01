@@ -84,7 +84,7 @@ class MenuItemEventRouterTest {
         private val handling: MenuEvent?,
         private val react: (MenuHost) -> Unit = {},
     ) : MenuItemProvider {
-        override val itemsFlow = MutableStateFlow<List<MenuItem>>(emptyList())
+        override val itemFlow = MutableStateFlow<MenuItem?>(null)
 
         val events = mutableListOf<MenuEvent>()
 

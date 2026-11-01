@@ -20,7 +20,7 @@ struct ParamTraits<mozilla::dom::AudioFocusInterruptAction>
     : public ContiguousEnumSerializerInclusive<
           mozilla::dom::AudioFocusInterruptAction,
           mozilla::dom::AudioFocusInterruptAction::Suspend,
-          mozilla::dom::kHighestAudioFocusInterruptAction> {};
+          mozilla::dom::AudioFocusInterruptAction::Resume> {};
 
 template <>
 struct ParamTraits<mozilla::dom::MediaControlKey>

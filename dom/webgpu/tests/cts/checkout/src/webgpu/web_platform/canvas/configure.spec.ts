@@ -7,7 +7,7 @@ TODO:
 `;
 
 import { makeTestGroup } from '../../../common/framework/test_group.js';
-import { assert, hasFeature } from '../../../common/util/util.js';
+import { assert } from '../../../common/util/util.js';
 import {
   isValidTextureUsageCombination,
   kCanvasTextureFormats,
@@ -377,12 +377,7 @@ g.test('invalid_usage')
       });
     } else {
       // Otherwise just the normal createTexture() usage validation applies.
-      const hasStorageUsage = (usage & GPUConst.TextureUsage.STORAGE_BINDING) !== 0;
-      const isUnsupportedBgra8unormStorage =
-        format === 'bgra8unorm' &&
-        hasStorageUsage &&
-        !hasFeature(t.device.features, 'bgra8unorm-storage');
-      const invalidUsage = !isValidTextureUsageCombination(usage) || isUnsupportedBgra8unormStorage;
+      const invalidUsage = !isValidTextureUsageCombination(usage);
       t.expectValidationError(() => {
         ctx.configure({ device: t.device, format, usage });
       }, invalidUsage);

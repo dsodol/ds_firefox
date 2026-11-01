@@ -10,9 +10,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 
-def main(output, *args):
-    *paths, moz_app_version = args
-    parser_config = {"expire_by_version": int(moz_app_version.split(".", 1)[0])}
+def main(output, *paths):
     # There's no way to just get the output as a string nor to write to our
     # `output`, so we have to make a temporary directory for glean_parser to
     # write to (which is ironic as glean_parser makes a temporary directory
@@ -27,12 +25,7 @@ def main(output, *args):
             # _before_ importing the module.
             from glean_parser.translate import translate
 
-            result = translate(
-                [Path(p) for p in paths],
-                "rust",
-                outdir_path,
-                parser_config=parser_config,
-            )
+            result = translate([Path(p) for p in paths], "rust", outdir_path)
         if result != 0:
             print(translate_output.getvalue())
             sys.exit(result)

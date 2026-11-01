@@ -75,16 +75,10 @@ add_task(async function initialState() {
       },
       async function (browser) {
         const doc = browser.contentDocument;
-        const win = browser.contentWindow;
-
-        // Navigate to passwordsAutofill pane to check the elements there
-        const passwordsPaneShown = waitForPaneChange("passwordsAutofill", win);
-        win.gotoPref("passwordsAutofill");
-        await passwordsPaneShown;
-
+        const relayGroup = doc.getElementById("relayIntegrationBox");
         const checkbox = doc.getElementById("relayIntegration");
         const savePasswords = doc.getElementById("savePasswords");
-        doc.getElementById("passwordsGroup").scrollIntoView();
+        doc.getElementById("passwordSettings").scrollIntoView();
 
         Assert.equal(
           checkbox.disabled,
@@ -94,15 +88,17 @@ add_task(async function initialState() {
 
         switch (test.expected) {
           case "hidden":
-            is_element_hidden(checkbox, "#relayIntegration checkbox is hidden");
+            is_element_hidden(relayGroup, "#relayIntegrationBox is hidden");
             break;
           case "checked":
+            is_element_visible(relayGroup, "#relayIntegrationBox is visible");
             Assert.ok(
               checkbox.checked,
               "#relayIntegration checkbox is checked"
             );
             break;
           case "unchecked":
+            is_element_visible(relayGroup, "#relayIntegrationBox is visible");
             Assert.ok(
               !checkbox.checked,
               "#relayIntegration checkbox is un-checked"
@@ -206,6 +202,7 @@ add_task(async function toggleRememberSignon() {
     },
     async function (browser) {
       const doc = browser.contentDocument;
+      const checkbox = doc.getElementById("savePasswords");
       const relayCheckbox = doc.getElementById("relayIntegration");
 
       Assert.ok(
@@ -214,20 +211,10 @@ add_task(async function toggleRememberSignon() {
       );
 
       await SimpleTest.promiseFocus(browser);
-
-      // Navigate to the passwordsAutofill pane where the savePasswords checkbox lives
-      const passwordsPaneShown = waitForPaneChange(
-        "passwordsAutofill",
-        browser.contentWindow
-      );
-      browser.contentWindow.gotoPref("passwordsAutofill");
-      await passwordsPaneShown;
-
       const prefChanged = TestUtils.waitForPrefChange("signon.rememberSignons");
 
       // the preferences "Search" bar obscures the checkbox if we scrollIntoView and try to click on it
       // so use keyboard events instead
-      const checkbox = doc.getElementById("savePasswords");
       checkbox.focus();
       Assert.equal(doc.activeElement, checkbox, "checkbox is focused");
       EventUtils.synthesizeKey(" ");

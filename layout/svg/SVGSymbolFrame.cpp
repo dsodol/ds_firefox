@@ -10,7 +10,8 @@
 
 nsIFrame* NS_NewSVGSymbolFrame(mozilla::PresShell* aPresShell,
                                mozilla::ComputedStyle* aStyle) {
-  return new mozilla::SVGSymbolFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      mozilla::SVGSymbolFrame(aStyle, aPresShell->GetPresContext());
 }
 
 namespace mozilla {

@@ -49,50 +49,50 @@ return handleRustResult(
 }
 
 /**
- * createAutofillStoreWithNssKeymanager
- * @param {string} path
- * @param {PrimaryPasswordAuthenticator} primaryPasswordAuthenticator
- * @returns {Promise<Store>}}
+ * Decrypt an arbitrary string - `key` must have come from `create_key()`
+ * and `ciphertext` must have come from `encrypt_string()`
+ * @param {string} key
+ * @param {string} ciphertext
+ * @returns {string}
  */
-export async function createAutofillStoreWithNssKeymanager(
-    path, 
-    primaryPasswordAuthenticator) {
+export function decryptString(
+    key, 
+    ciphertext) {
    
-FfiConverterString.checkType(path);
-FfiConverterTypePrimaryPasswordAuthenticator.checkType(primaryPasswordAuthenticator);
-const result = await UniFFIScaffolding.callAsyncWrapper(
-    1, // uniffi_autofill_fn_func_create_autofill_store_with_nss_keymanager
-    FfiConverterString.lower(path),
-    FfiConverterTypePrimaryPasswordAuthenticator.lower(primaryPasswordAuthenticator),
+FfiConverterString.checkType(key);
+FfiConverterString.checkType(ciphertext);
+const result = UniFFIScaffolding.callSync(
+    1, // uniffi_autofill_fn_func_decrypt_string
+    FfiConverterString.lower(key),
+    FfiConverterString.lower(ciphertext),
 )
 return handleRustResult(
     result,
-    FfiConverterTypeStore.lift.bind(FfiConverterTypeStore),
+    FfiConverterString.lift.bind(FfiConverterString),
     FfiConverterTypeAutofillApiError.lift.bind(FfiConverterTypeAutofillApiError),
 )
 }
 
 /**
- * Create a Store with StaticKeyManager by passing in a db path and a
- * static key
- * @param {string} path
+ * Encrypt an arbitrary string - `key` must have come from `create_key()`
  * @param {string} key
- * @returns {Promise<Store>}}
+ * @param {string} cleartext
+ * @returns {string}
  */
-export async function createAutofillStoreWithStaticKeyManager(
-    path, 
-    key) {
+export function encryptString(
+    key, 
+    cleartext) {
    
-FfiConverterString.checkType(path);
 FfiConverterString.checkType(key);
-const result = await UniFFIScaffolding.callAsyncWrapper(
-    2, // uniffi_autofill_fn_func_create_autofill_store_with_static_key_manager
-    FfiConverterString.lower(path),
+FfiConverterString.checkType(cleartext);
+const result = UniFFIScaffolding.callSync(
+    2, // uniffi_autofill_fn_func_encrypt_string
     FfiConverterString.lower(key),
+    FfiConverterString.lower(cleartext),
 )
 return handleRustResult(
     result,
-    FfiConverterTypeStore.lift.bind(FfiConverterTypeStore),
+    FfiConverterString.lift.bind(FfiConverterString),
     FfiConverterTypeAutofillApiError.lift.bind(FfiConverterTypeAutofillApiError),
 )
 }
@@ -856,54 +856,15 @@ export class FfiConverterTypeAddressTombstone extends FfiConverterArrayBuffer {
         }
     }
 }
-// Export the FFIConverter object to make external types work.
-export class FfiConverterOptionalString extends FfiConverterArrayBuffer {
-    static checkType(value) {
-        if (value !== undefined && value !== null) {
-            FfiConverterString.checkType(value)
-        }
-    }
-
-    static read(dataStream) {
-        const code = dataStream.readUint8(0);
-        switch (code) {
-            case 0:
-                return null
-            case 1:
-                return FfiConverterString.read(dataStream)
-            default:
-                throw new UniFFIError(`Unexpected code: ${code}`);
-        }
-    }
-
-    static write(dataStream, value) {
-        if (value === null || value === undefined) {
-            dataStream.writeUint8(0);
-            return;
-        }
-        dataStream.writeUint8(1);
-        FfiConverterString.write(dataStream, value)
-    }
-
-    static computeSize(value) {
-        if (value === null || value === undefined) {
-            return 1;
-        }
-        return 1 + FfiConverterString.computeSize(value)
-    }
-}
 /**
- * What you get back as a credit-card. The number comes back decrypted;
- * it is empty for a scrubbed card or one saved without a number. A number
- * the key cannot read fails the read.
+ * What you get back as a credit-card.
  */
 export class CreditCard {
     constructor(
         {
             guid, 
             ccName, 
-            ccNumber, 
-            ccCvv= null, 
+            ccNumberEnc, 
             ccNumberLast4, 
             ccExpMonth, 
             ccExpYear, 
@@ -915,8 +876,7 @@ export class CreditCard {
         } = {
             guid: undefined, 
             ccName: undefined, 
-            ccNumber: undefined, 
-            ccCvv: undefined, 
+            ccNumberEnc: undefined, 
             ccNumberLast4: undefined, 
             ccExpMonth: undefined, 
             ccExpYear: undefined, 
@@ -944,18 +904,10 @@ export class CreditCard {
             throw e;
         }
         try {
-            FfiConverterString.checkType(ccNumber)
+            FfiConverterString.checkType(ccNumberEnc)
         } catch (e) {
             if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart("ccNumber");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterOptionalString.checkType(ccCvv)
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart("ccCvv");
+                e.addItemDescriptionPart("ccNumberEnc");
             }
             throw e;
         }
@@ -1034,11 +986,7 @@ export class CreditCard {
         /**
          * @type {string}
          */
-        this.ccNumber = ccNumber;
-        /**
-         * @type {?string}
-         */
-        this.ccCvv = ccCvv;
+        this.ccNumberEnc = ccNumberEnc;
         /**
          * @type {string}
          */
@@ -1077,8 +1025,7 @@ export class CreditCard {
         return (
             this.guid == other.guid
             && this.ccName == other.ccName
-            && this.ccNumber == other.ccNumber
-            && this.ccCvv == other.ccCvv
+            && this.ccNumberEnc == other.ccNumberEnc
             && this.ccNumberLast4 == other.ccNumberLast4
             && this.ccExpMonth == other.ccExpMonth
             && this.ccExpYear == other.ccExpYear
@@ -1097,8 +1044,7 @@ export class FfiConverterTypeCreditCard extends FfiConverterArrayBuffer {
         return new CreditCard({
             guid: FfiConverterString.read(dataStream),
             ccName: FfiConverterString.read(dataStream),
-            ccNumber: FfiConverterString.read(dataStream),
-            ccCvv: FfiConverterOptionalString.read(dataStream),
+            ccNumberEnc: FfiConverterString.read(dataStream),
             ccNumberLast4: FfiConverterString.read(dataStream),
             ccExpMonth: FfiConverterInt64.read(dataStream),
             ccExpYear: FfiConverterInt64.read(dataStream),
@@ -1112,8 +1058,7 @@ export class FfiConverterTypeCreditCard extends FfiConverterArrayBuffer {
     static write(dataStream, value) {
         FfiConverterString.write(dataStream, value.guid);
         FfiConverterString.write(dataStream, value.ccName);
-        FfiConverterString.write(dataStream, value.ccNumber);
-        FfiConverterOptionalString.write(dataStream, value.ccCvv);
+        FfiConverterString.write(dataStream, value.ccNumberEnc);
         FfiConverterString.write(dataStream, value.ccNumberLast4);
         FfiConverterInt64.write(dataStream, value.ccExpMonth);
         FfiConverterInt64.write(dataStream, value.ccExpYear);
@@ -1128,8 +1073,7 @@ export class FfiConverterTypeCreditCard extends FfiConverterArrayBuffer {
         let totalSize = 0;
         totalSize += FfiConverterString.computeSize(value.guid);
         totalSize += FfiConverterString.computeSize(value.ccName);
-        totalSize += FfiConverterString.computeSize(value.ccNumber);
-        totalSize += FfiConverterOptionalString.computeSize(value.ccCvv);
+        totalSize += FfiConverterString.computeSize(value.ccNumberEnc);
         totalSize += FfiConverterString.computeSize(value.ccNumberLast4);
         totalSize += FfiConverterInt64.computeSize(value.ccExpMonth);
         totalSize += FfiConverterInt64.computeSize(value.ccExpYear);
@@ -1163,18 +1107,10 @@ export class FfiConverterTypeCreditCard extends FfiConverterArrayBuffer {
             throw e;
         }
         try {
-            FfiConverterString.checkType(value.ccNumber);
+            FfiConverterString.checkType(value.ccNumberEnc);
         } catch (e) {
             if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart(".ccNumber");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterOptionalString.checkType(value.ccCvv);
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart(".ccCvv");
+                e.addItemDescriptionPart(".ccNumberEnc");
             }
             throw e;
         }
@@ -1183,336 +1119,6 @@ export class FfiConverterTypeCreditCard extends FfiConverterArrayBuffer {
         } catch (e) {
             if (e instanceof UniFFITypeError) {
                 e.addItemDescriptionPart(".ccNumberLast4");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterInt64.checkType(value.ccExpMonth);
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart(".ccExpMonth");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterInt64.checkType(value.ccExpYear);
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart(".ccExpYear");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterString.checkType(value.ccType);
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart(".ccType");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterInt64.checkType(value.timeCreated);
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart(".timeCreated");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterOptionalInt64.checkType(value.timeLastUsed);
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart(".timeLastUsed");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterInt64.checkType(value.timeLastModified);
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart(".timeLastModified");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterInt64.checkType(value.timesUsed);
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart(".timesUsed");
-            }
-            throw e;
-        }
-    }
-}
-
-
-/**
- * A credit card stored in the database, minus the encrypted fields.
- * 
- * Reading these never needs the encryption key, so consumers listing cards by name,
- * last four digits and expiry can do so without forcing the user to authenticate.
- * See `list_credit_card_candidates()`.
- */
-export class CreditCardCandidate {
-    constructor(
-        {
-            guid, 
-            ccName, 
-            ccNumberLast4, 
-            hasCvv, 
-            ccExpMonth, 
-            ccExpYear, 
-            ccType, 
-            timeCreated, 
-            timeLastUsed, 
-            timeLastModified, 
-            timesUsed
-        } = {
-            guid: undefined, 
-            ccName: undefined, 
-            ccNumberLast4: undefined, 
-            hasCvv: undefined, 
-            ccExpMonth: undefined, 
-            ccExpYear: undefined, 
-            ccType: undefined, 
-            timeCreated: undefined, 
-            timeLastUsed: undefined, 
-            timeLastModified: undefined, 
-            timesUsed: undefined
-        }
-    ) {
-        try {
-            FfiConverterString.checkType(guid)
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart("guid");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterString.checkType(ccName)
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart("ccName");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterString.checkType(ccNumberLast4)
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart("ccNumberLast4");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterBoolean.checkType(hasCvv)
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart("hasCvv");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterInt64.checkType(ccExpMonth)
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart("ccExpMonth");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterInt64.checkType(ccExpYear)
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart("ccExpYear");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterString.checkType(ccType)
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart("ccType");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterInt64.checkType(timeCreated)
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart("timeCreated");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterOptionalInt64.checkType(timeLastUsed)
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart("timeLastUsed");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterInt64.checkType(timeLastModified)
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart("timeLastModified");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterInt64.checkType(timesUsed)
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart("timesUsed");
-            }
-            throw e;
-        }
-        /**
-         * @type {string}
-         */
-        this.guid = guid;
-        /**
-         * @type {string}
-         */
-        this.ccName = ccName;
-        /**
-         * @type {string}
-         */
-        this.ccNumberLast4 = ccNumberLast4;
-        /**
-         * @type {boolean}
-         */
-        this.hasCvv = hasCvv;
-        /**
-         * @type {number}
-         */
-        this.ccExpMonth = ccExpMonth;
-        /**
-         * @type {number}
-         */
-        this.ccExpYear = ccExpYear;
-        /**
-         * @type {string}
-         */
-        this.ccType = ccType;
-        /**
-         * @type {number}
-         */
-        this.timeCreated = timeCreated;
-        /**
-         * @type {?number}
-         */
-        this.timeLastUsed = timeLastUsed;
-        /**
-         * @type {number}
-         */
-        this.timeLastModified = timeLastModified;
-        /**
-         * @type {number}
-         */
-        this.timesUsed = timesUsed;
-    }
-
-    equals(other) {
-        return (
-            this.guid == other.guid
-            && this.ccName == other.ccName
-            && this.ccNumberLast4 == other.ccNumberLast4
-            && this.hasCvv == other.hasCvv
-            && this.ccExpMonth == other.ccExpMonth
-            && this.ccExpYear == other.ccExpYear
-            && this.ccType == other.ccType
-            && this.timeCreated == other.timeCreated
-            && this.timeLastUsed == other.timeLastUsed
-            && this.timeLastModified == other.timeLastModified
-            && this.timesUsed == other.timesUsed
-        )
-    }
-}
-
-// Export the FFIConverter object to make external types work.
-export class FfiConverterTypeCreditCardCandidate extends FfiConverterArrayBuffer {
-    static read(dataStream) {
-        return new CreditCardCandidate({
-            guid: FfiConverterString.read(dataStream),
-            ccName: FfiConverterString.read(dataStream),
-            ccNumberLast4: FfiConverterString.read(dataStream),
-            hasCvv: FfiConverterBoolean.read(dataStream),
-            ccExpMonth: FfiConverterInt64.read(dataStream),
-            ccExpYear: FfiConverterInt64.read(dataStream),
-            ccType: FfiConverterString.read(dataStream),
-            timeCreated: FfiConverterInt64.read(dataStream),
-            timeLastUsed: FfiConverterOptionalInt64.read(dataStream),
-            timeLastModified: FfiConverterInt64.read(dataStream),
-            timesUsed: FfiConverterInt64.read(dataStream),
-        });
-    }
-    static write(dataStream, value) {
-        FfiConverterString.write(dataStream, value.guid);
-        FfiConverterString.write(dataStream, value.ccName);
-        FfiConverterString.write(dataStream, value.ccNumberLast4);
-        FfiConverterBoolean.write(dataStream, value.hasCvv);
-        FfiConverterInt64.write(dataStream, value.ccExpMonth);
-        FfiConverterInt64.write(dataStream, value.ccExpYear);
-        FfiConverterString.write(dataStream, value.ccType);
-        FfiConverterInt64.write(dataStream, value.timeCreated);
-        FfiConverterOptionalInt64.write(dataStream, value.timeLastUsed);
-        FfiConverterInt64.write(dataStream, value.timeLastModified);
-        FfiConverterInt64.write(dataStream, value.timesUsed);
-    }
-
-    static computeSize(value) {
-        let totalSize = 0;
-        totalSize += FfiConverterString.computeSize(value.guid);
-        totalSize += FfiConverterString.computeSize(value.ccName);
-        totalSize += FfiConverterString.computeSize(value.ccNumberLast4);
-        totalSize += FfiConverterBoolean.computeSize(value.hasCvv);
-        totalSize += FfiConverterInt64.computeSize(value.ccExpMonth);
-        totalSize += FfiConverterInt64.computeSize(value.ccExpYear);
-        totalSize += FfiConverterString.computeSize(value.ccType);
-        totalSize += FfiConverterInt64.computeSize(value.timeCreated);
-        totalSize += FfiConverterOptionalInt64.computeSize(value.timeLastUsed);
-        totalSize += FfiConverterInt64.computeSize(value.timeLastModified);
-        totalSize += FfiConverterInt64.computeSize(value.timesUsed);
-        return totalSize
-    }
-
-    static checkType(value) {
-        super.checkType(value);
-        if (!(value instanceof CreditCardCandidate)) {
-            throw new UniFFITypeError(`Expected 'CreditCardCandidate', found '${typeof value}'`);
-        }
-        try {
-            FfiConverterString.checkType(value.guid);
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart(".guid");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterString.checkType(value.ccName);
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart(".ccName");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterString.checkType(value.ccNumberLast4);
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart(".ccNumberLast4");
-            }
-            throw e;
-        }
-        try {
-            FfiConverterBoolean.checkType(value.hasCvv);
-        } catch (e) {
-            if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart(".hasCvv");
             }
             throw e;
         }
@@ -2721,24 +2327,21 @@ export class FfiConverterTypeUpdatableAddressFieldsWithMeta extends FfiConverter
     }
 }
 /**
- * What you pass to create or update a credit-card. The number is given in
- * cleartext; the store encrypts it and derives the last-4 digits itself.
- * On update, a null `cc_cvv` keeps the stored CVV and an empty one clears
- * it.
+ * What you pass to create or update a credit-card.
  */
 export class UpdatableCreditCardFields {
     constructor(
         {
             ccName, 
-            ccNumber, 
-            ccCvv= null, 
+            ccNumberEnc, 
+            ccNumberLast4, 
             ccExpMonth, 
             ccExpYear, 
             ccType
         } = {
             ccName: undefined, 
-            ccNumber: undefined, 
-            ccCvv: undefined, 
+            ccNumberEnc: undefined, 
+            ccNumberLast4: undefined, 
             ccExpMonth: undefined, 
             ccExpYear: undefined, 
             ccType: undefined
@@ -2753,18 +2356,18 @@ export class UpdatableCreditCardFields {
             throw e;
         }
         try {
-            FfiConverterString.checkType(ccNumber)
+            FfiConverterString.checkType(ccNumberEnc)
         } catch (e) {
             if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart("ccNumber");
+                e.addItemDescriptionPart("ccNumberEnc");
             }
             throw e;
         }
         try {
-            FfiConverterOptionalString.checkType(ccCvv)
+            FfiConverterString.checkType(ccNumberLast4)
         } catch (e) {
             if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart("ccCvv");
+                e.addItemDescriptionPart("ccNumberLast4");
             }
             throw e;
         }
@@ -2799,11 +2402,11 @@ export class UpdatableCreditCardFields {
         /**
          * @type {string}
          */
-        this.ccNumber = ccNumber;
+        this.ccNumberEnc = ccNumberEnc;
         /**
-         * @type {?string}
+         * @type {string}
          */
-        this.ccCvv = ccCvv;
+        this.ccNumberLast4 = ccNumberLast4;
         /**
          * @type {number}
          */
@@ -2821,8 +2424,8 @@ export class UpdatableCreditCardFields {
     equals(other) {
         return (
             this.ccName == other.ccName
-            && this.ccNumber == other.ccNumber
-            && this.ccCvv == other.ccCvv
+            && this.ccNumberEnc == other.ccNumberEnc
+            && this.ccNumberLast4 == other.ccNumberLast4
             && this.ccExpMonth == other.ccExpMonth
             && this.ccExpYear == other.ccExpYear
             && this.ccType == other.ccType
@@ -2835,8 +2438,8 @@ export class FfiConverterTypeUpdatableCreditCardFields extends FfiConverterArray
     static read(dataStream) {
         return new UpdatableCreditCardFields({
             ccName: FfiConverterString.read(dataStream),
-            ccNumber: FfiConverterString.read(dataStream),
-            ccCvv: FfiConverterOptionalString.read(dataStream),
+            ccNumberEnc: FfiConverterString.read(dataStream),
+            ccNumberLast4: FfiConverterString.read(dataStream),
             ccExpMonth: FfiConverterInt64.read(dataStream),
             ccExpYear: FfiConverterInt64.read(dataStream),
             ccType: FfiConverterString.read(dataStream),
@@ -2844,8 +2447,8 @@ export class FfiConverterTypeUpdatableCreditCardFields extends FfiConverterArray
     }
     static write(dataStream, value) {
         FfiConverterString.write(dataStream, value.ccName);
-        FfiConverterString.write(dataStream, value.ccNumber);
-        FfiConverterOptionalString.write(dataStream, value.ccCvv);
+        FfiConverterString.write(dataStream, value.ccNumberEnc);
+        FfiConverterString.write(dataStream, value.ccNumberLast4);
         FfiConverterInt64.write(dataStream, value.ccExpMonth);
         FfiConverterInt64.write(dataStream, value.ccExpYear);
         FfiConverterString.write(dataStream, value.ccType);
@@ -2854,8 +2457,8 @@ export class FfiConverterTypeUpdatableCreditCardFields extends FfiConverterArray
     static computeSize(value) {
         let totalSize = 0;
         totalSize += FfiConverterString.computeSize(value.ccName);
-        totalSize += FfiConverterString.computeSize(value.ccNumber);
-        totalSize += FfiConverterOptionalString.computeSize(value.ccCvv);
+        totalSize += FfiConverterString.computeSize(value.ccNumberEnc);
+        totalSize += FfiConverterString.computeSize(value.ccNumberLast4);
         totalSize += FfiConverterInt64.computeSize(value.ccExpMonth);
         totalSize += FfiConverterInt64.computeSize(value.ccExpYear);
         totalSize += FfiConverterString.computeSize(value.ccType);
@@ -2876,18 +2479,18 @@ export class FfiConverterTypeUpdatableCreditCardFields extends FfiConverterArray
             throw e;
         }
         try {
-            FfiConverterString.checkType(value.ccNumber);
+            FfiConverterString.checkType(value.ccNumberEnc);
         } catch (e) {
             if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart(".ccNumber");
+                e.addItemDescriptionPart(".ccNumberEnc");
             }
             throw e;
         }
         try {
-            FfiConverterOptionalString.checkType(value.ccCvv);
+            FfiConverterString.checkType(value.ccNumberLast4);
         } catch (e) {
             if (e instanceof UniFFITypeError) {
-                e.addItemDescriptionPart(".ccCvv");
+                e.addItemDescriptionPart(".ccNumberLast4");
             }
             throw e;
         }
@@ -3870,11 +3473,46 @@ export class FfiConverterSequenceString extends FfiConverterArrayBuffer {
         })
     }
 }
+// Export the FFIConverter object to make external types work.
+export class FfiConverterOptionalString extends FfiConverterArrayBuffer {
+    static checkType(value) {
+        if (value !== undefined && value !== null) {
+            FfiConverterString.checkType(value)
+        }
+    }
+
+    static read(dataStream) {
+        const code = dataStream.readUint8(0);
+        switch (code) {
+            case 0:
+                return null
+            case 1:
+                return FfiConverterString.read(dataStream)
+            default:
+                throw new UniFFIError(`Unexpected code: ${code}`);
+        }
+    }
+
+    static write(dataStream, value) {
+        if (value === null || value === undefined) {
+            dataStream.writeUint8(0);
+            return;
+        }
+        dataStream.writeUint8(1);
+        FfiConverterString.write(dataStream, value)
+    }
+
+    static computeSize(value) {
+        if (value === null || value === undefined) {
+            return 1;
+        }
+        return 1 + FfiConverterString.computeSize(value)
+    }
+}
 
 /**
- * The bridged sync engine for addresses, which wraps the
- * `sync15::engine::SyncEngine` implemented by this component (see
- * `sync15::engine::BridgedEngineWrapper`).
+ * The bridged sync engine for addresses. The canonical docs are in
+ * services/interfaces/mozIBridgedSyncEngine.idl.
  * NOTE: all timestamps here are milliseconds.
  */
 export class AddressesBridgedEngineInterface {
@@ -3963,9 +3601,8 @@ export class AddressesBridgedEngineInterface {
 }
 
 /**
- * The bridged sync engine for addresses, which wraps the
- * `sync15::engine::SyncEngine` implemented by this component (see
- * `sync15::engine::BridgedEngineWrapper`).
+ * The bridged sync engine for addresses. The canonical docs are in
+ * services/interfaces/mozIBridgedSyncEngine.idl.
  * NOTE: all timestamps here are milliseconds.
  */
 export class AddressesBridgedEngine extends AddressesBridgedEngineInterface {
@@ -4213,356 +3850,6 @@ export class FfiConverterTypeAddressesBridgedEngine extends FfiConverter {
 
     static write(dataStream, value) {
         dataStream.writePointer(2, this.lower(value));
-    }
-
-    static computeSize(value) {
-        return 8;
-    }
-}
-
-
-/**
- * The bridged sync engine for credit cards, which wraps the
- * `sync15::engine::SyncEngine` implemented by this component (see
- * `sync15::engine::BridgedEngineWrapper`).
- * NOTE: all timestamps here are milliseconds.
- */
-export class CreditCardsBridgedEngineInterface {
-    /**
-     * apply
-     * @param {number} serverModifiedMillis
-     * @returns {Promise<Array.<string>>}}
-     */
-    async apply(
-        serverModifiedMillis) {
-      throw Error("apply not implemented");
-    }
-    /**
-     * ensureCurrentSyncId
-     * @param {string} newSyncId
-     * @returns {Promise<string>}}
-     */
-    async ensureCurrentSyncId(
-        newSyncId) {
-      throw Error("ensureCurrentSyncId not implemented");
-    }
-    /**
-     * lastSync
-     * @returns {Promise<number>}}
-     */
-    async lastSync() {
-      throw Error("lastSync not implemented");
-    }
-    /**
-     * reset
-     */
-    async reset() {
-      throw Error("reset not implemented");
-    }
-    /**
-     * resetSyncId
-     * @returns {Promise<string>}}
-     */
-    async resetSyncId() {
-      throw Error("resetSyncId not implemented");
-    }
-    /**
-     * setUploaded
-     * @param {number} newTimestamp
-     * @param {Array.<string>} uploadedIds
-     */
-    async setUploaded(
-        newTimestamp, 
-        uploadedIds) {
-      throw Error("setUploaded not implemented");
-    }
-    /**
-     * storeIncoming
-     * @param {Array.<string>} incomingEnvelopesAsJson
-     */
-    async storeIncoming(
-        incomingEnvelopesAsJson) {
-      throw Error("storeIncoming not implemented");
-    }
-    /**
-     * syncFinished
-     */
-    async syncFinished() {
-      throw Error("syncFinished not implemented");
-    }
-    /**
-     * syncId
-     * @returns {Promise<?string>}}
-     */
-    async syncId() {
-      throw Error("syncId not implemented");
-    }
-    /**
-     * syncStarted
-     */
-    async syncStarted() {
-      throw Error("syncStarted not implemented");
-    }
-    /**
-     * wipe
-     */
-    async wipe() {
-      throw Error("wipe not implemented");
-    }
-
-}
-
-/**
- * The bridged sync engine for credit cards, which wraps the
- * `sync15::engine::SyncEngine` implemented by this component (see
- * `sync15::engine::BridgedEngineWrapper`).
- * NOTE: all timestamps here are milliseconds.
- */
-export class CreditCardsBridgedEngine extends CreditCardsBridgedEngineInterface {
-    // Use `init` to instantiate this class.
-    // DO NOT USE THIS CONSTRUCTOR DIRECTLY
-    constructor(opts) {
-        super();
-        if (!Object.prototype.hasOwnProperty.call(opts, constructUniffiObject)) {
-            throw new UniFFIError("Attempting to construct an int using the JavaScript constructor directly" +
-            "Please use a UDL defined constructor, or the init function for the primary constructor")
-        }
-        if (!(opts[constructUniffiObject] instanceof UniFFIPointer)) {
-            throw new UniFFIError("Attempting to create a UniFFI object with a pointer that is not an instance of UniFFIPointer")
-        }
-        this[uniffiObjectPtr] = opts[constructUniffiObject];
-    }
-
-    /**
-     * apply
-     * @param {number} serverModifiedMillis
-     * @returns {Promise<Array.<string>>}}
-     */
-    async apply(
-        serverModifiedMillis) {
-       
-        FfiConverterInt64.checkType(serverModifiedMillis);
-        const result = await UniFFIScaffolding.callAsyncWrapper(
-            63, // uniffi_autofill_fn_method_creditcardsbridgedengine_apply
-            FfiConverterTypeCreditCardsBridgedEngine.lowerReceiver(this),
-            FfiConverterInt64.lower(serverModifiedMillis),
-        )
-        return handleRustResult(
-            result,
-            FfiConverterSequenceString.lift.bind(FfiConverterSequenceString),
-            FfiConverterTypeAutofillApiError.lift.bind(FfiConverterTypeAutofillApiError),
-        )
-    }
-
-    /**
-     * ensureCurrentSyncId
-     * @param {string} newSyncId
-     * @returns {Promise<string>}}
-     */
-    async ensureCurrentSyncId(
-        newSyncId) {
-       
-        FfiConverterString.checkType(newSyncId);
-        const result = await UniFFIScaffolding.callAsyncWrapper(
-            64, // uniffi_autofill_fn_method_creditcardsbridgedengine_ensure_current_sync_id
-            FfiConverterTypeCreditCardsBridgedEngine.lowerReceiver(this),
-            FfiConverterString.lower(newSyncId),
-        )
-        return handleRustResult(
-            result,
-            FfiConverterString.lift.bind(FfiConverterString),
-            FfiConverterTypeAutofillApiError.lift.bind(FfiConverterTypeAutofillApiError),
-        )
-    }
-
-    /**
-     * lastSync
-     * @returns {Promise<number>}}
-     */
-    async lastSync() {
-       
-        const result = await UniFFIScaffolding.callAsyncWrapper(
-            65, // uniffi_autofill_fn_method_creditcardsbridgedengine_last_sync
-            FfiConverterTypeCreditCardsBridgedEngine.lowerReceiver(this),
-        )
-        return handleRustResult(
-            result,
-            FfiConverterInt64.lift.bind(FfiConverterInt64),
-            FfiConverterTypeAutofillApiError.lift.bind(FfiConverterTypeAutofillApiError),
-        )
-    }
-
-    /**
-     * reset
-     */
-    async reset() {
-       
-        const result = await UniFFIScaffolding.callAsyncWrapper(
-            66, // uniffi_autofill_fn_method_creditcardsbridgedengine_reset
-            FfiConverterTypeCreditCardsBridgedEngine.lowerReceiver(this),
-        )
-        return handleRustResult(
-            result,
-            (result) => undefined,
-            FfiConverterTypeAutofillApiError.lift.bind(FfiConverterTypeAutofillApiError),
-        )
-    }
-
-    /**
-     * resetSyncId
-     * @returns {Promise<string>}}
-     */
-    async resetSyncId() {
-       
-        const result = await UniFFIScaffolding.callAsyncWrapper(
-            67, // uniffi_autofill_fn_method_creditcardsbridgedengine_reset_sync_id
-            FfiConverterTypeCreditCardsBridgedEngine.lowerReceiver(this),
-        )
-        return handleRustResult(
-            result,
-            FfiConverterString.lift.bind(FfiConverterString),
-            FfiConverterTypeAutofillApiError.lift.bind(FfiConverterTypeAutofillApiError),
-        )
-    }
-
-    /**
-     * setUploaded
-     * @param {number} newTimestamp
-     * @param {Array.<string>} uploadedIds
-     */
-    async setUploaded(
-        newTimestamp, 
-        uploadedIds) {
-       
-        FfiConverterInt64.checkType(newTimestamp);
-        FfiConverterSequenceString.checkType(uploadedIds);
-        const result = await UniFFIScaffolding.callAsyncWrapper(
-            68, // uniffi_autofill_fn_method_creditcardsbridgedengine_set_uploaded
-            FfiConverterTypeCreditCardsBridgedEngine.lowerReceiver(this),
-            FfiConverterInt64.lower(newTimestamp),
-            FfiConverterSequenceString.lower(uploadedIds),
-        )
-        return handleRustResult(
-            result,
-            (result) => undefined,
-            FfiConverterTypeAutofillApiError.lift.bind(FfiConverterTypeAutofillApiError),
-        )
-    }
-
-    /**
-     * storeIncoming
-     * @param {Array.<string>} incomingEnvelopesAsJson
-     */
-    async storeIncoming(
-        incomingEnvelopesAsJson) {
-       
-        FfiConverterSequenceString.checkType(incomingEnvelopesAsJson);
-        const result = await UniFFIScaffolding.callAsyncWrapper(
-            69, // uniffi_autofill_fn_method_creditcardsbridgedengine_store_incoming
-            FfiConverterTypeCreditCardsBridgedEngine.lowerReceiver(this),
-            FfiConverterSequenceString.lower(incomingEnvelopesAsJson),
-        )
-        return handleRustResult(
-            result,
-            (result) => undefined,
-            FfiConverterTypeAutofillApiError.lift.bind(FfiConverterTypeAutofillApiError),
-        )
-    }
-
-    /**
-     * syncFinished
-     */
-    async syncFinished() {
-       
-        const result = await UniFFIScaffolding.callAsyncWrapper(
-            70, // uniffi_autofill_fn_method_creditcardsbridgedengine_sync_finished
-            FfiConverterTypeCreditCardsBridgedEngine.lowerReceiver(this),
-        )
-        return handleRustResult(
-            result,
-            (result) => undefined,
-            FfiConverterTypeAutofillApiError.lift.bind(FfiConverterTypeAutofillApiError),
-        )
-    }
-
-    /**
-     * syncId
-     * @returns {Promise<?string>}}
-     */
-    async syncId() {
-       
-        const result = await UniFFIScaffolding.callAsyncWrapper(
-            71, // uniffi_autofill_fn_method_creditcardsbridgedengine_sync_id
-            FfiConverterTypeCreditCardsBridgedEngine.lowerReceiver(this),
-        )
-        return handleRustResult(
-            result,
-            FfiConverterOptionalString.lift.bind(FfiConverterOptionalString),
-            FfiConverterTypeAutofillApiError.lift.bind(FfiConverterTypeAutofillApiError),
-        )
-    }
-
-    /**
-     * syncStarted
-     */
-    async syncStarted() {
-       
-        const result = await UniFFIScaffolding.callAsyncWrapper(
-            72, // uniffi_autofill_fn_method_creditcardsbridgedengine_sync_started
-            FfiConverterTypeCreditCardsBridgedEngine.lowerReceiver(this),
-        )
-        return handleRustResult(
-            result,
-            (result) => undefined,
-            FfiConverterTypeAutofillApiError.lift.bind(FfiConverterTypeAutofillApiError),
-        )
-    }
-
-    /**
-     * wipe
-     */
-    async wipe() {
-       
-        const result = await UniFFIScaffolding.callAsyncWrapper(
-            73, // uniffi_autofill_fn_method_creditcardsbridgedengine_wipe
-            FfiConverterTypeCreditCardsBridgedEngine.lowerReceiver(this),
-        )
-        return handleRustResult(
-            result,
-            (result) => undefined,
-            FfiConverterTypeAutofillApiError.lift.bind(FfiConverterTypeAutofillApiError),
-        )
-    }
-
-}
-
-// Export the FFIConverter object to make external types work.
-export class FfiConverterTypeCreditCardsBridgedEngine extends FfiConverter {
-    static lift(value) {
-        const opts = {};
-        opts[constructUniffiObject] = value;
-        return new CreditCardsBridgedEngine(opts);
-    }
-
-    static lower(value) {
-        const ptr = value[uniffiObjectPtr];
-        if (!(ptr instanceof UniFFIPointer)) {
-            throw new UniFFITypeError("Object is not a 'CreditCardsBridgedEngine' instance");
-        }
-        return ptr;
-    }
-
-    static lowerReceiver(value) {
-        // This works exactly the same as lower for non-trait interfaces
-        return this.lower(value);
-    }
-
-    static read(dataStream) {
-        return this.lift(dataStream.readPointer(3));
-    }
-
-    static write(dataStream, value) {
-        dataStream.writePointer(3, this.lower(value));
     }
 
     static computeSize(value) {
@@ -4914,6 +4201,8 @@ export class FfiConverterSequenceTypeCreditCardBulkResultEntry extends FfiConver
         })
     }
 }
+
+
 // Export the FFIConverter object to make external types work.
 export class FfiConverterSequenceTypeAddress extends FfiConverterArrayBuffer {
     static read(dataStream) {
@@ -5043,49 +4332,6 @@ export class FfiConverterSequenceTypePassport extends FfiConverterArrayBuffer {
         })
     }
 }
-// Export the FFIConverter object to make external types work.
-export class FfiConverterSequenceTypeCreditCardCandidate extends FfiConverterArrayBuffer {
-    static read(dataStream) {
-        const len = dataStream.readInt32();
-        const arr = [];
-        for (let i = 0; i < len; i++) {
-            arr.push(FfiConverterTypeCreditCardCandidate.read(dataStream));
-        }
-        return arr;
-    }
-
-    static write(dataStream, value) {
-        dataStream.writeInt32(value.length);
-        value.forEach((innerValue) => {
-            FfiConverterTypeCreditCardCandidate.write(dataStream, innerValue);
-        })
-    }
-
-    static computeSize(value) {
-        // The size of the length
-        let size = 4;
-        for (const innerValue of value) {
-            size += FfiConverterTypeCreditCardCandidate.computeSize(innerValue);
-        }
-        return size;
-    }
-
-    static checkType(value) {
-        if (!Array.isArray(value)) {
-            throw new UniFFITypeError(`${value} is not an array`);
-        }
-        value.forEach((innerValue, idx) => {
-            try {
-                FfiConverterTypeCreditCardCandidate.checkType(innerValue);
-            } catch (e) {
-                if (e instanceof UniFFITypeError) {
-                    e.addItemDescriptionPart(`[${idx}]`);
-                }
-                throw e;
-            }
-        })
-    }
-}
 
 /**
  * StoreInterface
@@ -5203,15 +4449,6 @@ export class StoreInterface {
       throw Error("countAllPassports not implemented");
     }
     /**
-     * Returns a bridged sync engine for credit cards, for use by Desktop's
-     * Sync framework. Constructing it only assembles structs and never touches
-     * the DB, so it cannot fail.
-     * @returns {Promise<CreditCardsBridgedEngine>}}
-     */
-    async creditCardsBridgedEngine() {
-      throw Error("creditCardsBridgedEngine not implemented");
-    }
-    /**
      * deleteAddress
      * @param {string} guid
      * @returns {Promise<boolean>}}
@@ -5309,16 +4546,6 @@ export class StoreInterface {
       throw Error("getPassport not implemented");
     }
     /**
-     * Every stored credit card without its encrypted fields. Unlike
-     * `get_all_credit_cards` this never touches the key, so listing cannot
-     * prompt for a primary password; read the one card that needs its
-     * secrets with `get_credit_card`.
-     * @returns {Promise<Array.<CreditCardCandidate>>}}
-     */
-    async listCreditCardCandidates() {
-      throw Error("listCreditCardCandidates not implemented");
-    }
-    /**
      * registerWithSyncManager
      */
     async registerWithSyncManager() {
@@ -5346,9 +4573,11 @@ export class StoreInterface {
      * 
      * NB: This function was created to unblock iOS credit card users who are unable to sync records and should not be used
      * outside of this use case.
+     * @param {string} localEncryptionKey
      * @returns {Promise<CreditCardsDeletionMetrics>}}
      */
-    async scrubUndecryptableCreditCardDataForRemoteReplacement() {
+    async scrubUndecryptableCreditCardDataForRemoteReplacement(
+        localEncryptionKey) {
       throw Error("scrubUndecryptableCreditCardDataForRemoteReplacement not implemented");
     }
     /**
@@ -5450,19 +4679,15 @@ export class Store extends StoreInterface {
     /**
      * init
      * @param {string} dbpath
-     * @param {EncryptorDecryptor} encdec
      * @returns {Promise<Store>}}
      */
     static async init(
-        dbpath, 
-        encdec) {
+        dbpath) {
        
         FfiConverterString.checkType(dbpath);
-        FfiConverterTypeEncryptorDecryptor.checkType(encdec);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            74, // uniffi_autofill_fn_constructor_store_new
+            63, // uniffi_autofill_fn_constructor_store_new
             FfiConverterString.lower(dbpath),
-            FfiConverterTypeEncryptorDecryptor.lower(encdec),
         )
         return handleRustResult(
             result,
@@ -5481,7 +4706,7 @@ export class Store extends StoreInterface {
        
         FfiConverterTypeUpdatableAddressFields.checkType(a);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            75, // uniffi_autofill_fn_method_store_add_address
+            64, // uniffi_autofill_fn_method_store_add_address
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterTypeUpdatableAddressFields.lower(a),
         )
@@ -5502,7 +4727,7 @@ export class Store extends StoreInterface {
        
         FfiConverterTypeUpdatableAddressFieldsWithMeta.checkType(entryWithMeta);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            76, // uniffi_autofill_fn_method_store_add_address_with_meta
+            65, // uniffi_autofill_fn_method_store_add_address_with_meta
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterTypeUpdatableAddressFieldsWithMeta.lower(entryWithMeta),
         )
@@ -5523,7 +4748,7 @@ export class Store extends StoreInterface {
        
         FfiConverterTypeUpdatableCreditCardFields.checkType(cc);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            77, // uniffi_autofill_fn_method_store_add_credit_card
+            66, // uniffi_autofill_fn_method_store_add_credit_card
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterTypeUpdatableCreditCardFields.lower(cc),
         )
@@ -5544,7 +4769,7 @@ export class Store extends StoreInterface {
        
         FfiConverterTypeUpdatableCreditCardFieldsWithMeta.checkType(entryWithMeta);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            78, // uniffi_autofill_fn_method_store_add_credit_card_with_meta
+            67, // uniffi_autofill_fn_method_store_add_credit_card_with_meta
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterTypeUpdatableCreditCardFieldsWithMeta.lower(entryWithMeta),
         )
@@ -5565,7 +4790,7 @@ export class Store extends StoreInterface {
        
         FfiConverterSequenceTypeAddressTombstone.checkType(tombstones);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            79, // uniffi_autofill_fn_method_store_add_many_address_tombstones
+            68, // uniffi_autofill_fn_method_store_add_many_address_tombstones
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterSequenceTypeAddressTombstone.lower(tombstones),
         )
@@ -5586,7 +4811,7 @@ export class Store extends StoreInterface {
        
         FfiConverterSequenceTypeUpdatableAddressFieldsWithMeta.checkType(entriesWithMeta);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            80, // uniffi_autofill_fn_method_store_add_many_addresses_with_meta
+            69, // uniffi_autofill_fn_method_store_add_many_addresses_with_meta
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterSequenceTypeUpdatableAddressFieldsWithMeta.lower(entriesWithMeta),
         )
@@ -5607,7 +4832,7 @@ export class Store extends StoreInterface {
        
         FfiConverterSequenceTypeCreditCardTombstone.checkType(tombstones);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            81, // uniffi_autofill_fn_method_store_add_many_credit_card_tombstones
+            70, // uniffi_autofill_fn_method_store_add_many_credit_card_tombstones
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterSequenceTypeCreditCardTombstone.lower(tombstones),
         )
@@ -5628,7 +4853,7 @@ export class Store extends StoreInterface {
        
         FfiConverterSequenceTypeUpdatableCreditCardFieldsWithMeta.checkType(entriesWithMeta);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            82, // uniffi_autofill_fn_method_store_add_many_credit_cards_with_meta
+            71, // uniffi_autofill_fn_method_store_add_many_credit_cards_with_meta
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterSequenceTypeUpdatableCreditCardFieldsWithMeta.lower(entriesWithMeta),
         )
@@ -5649,7 +4874,7 @@ export class Store extends StoreInterface {
        
         FfiConverterTypeUpdatablePassportFields.checkType(p);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            83, // uniffi_autofill_fn_method_store_add_passport
+            72, // uniffi_autofill_fn_method_store_add_passport
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterTypeUpdatablePassportFields.lower(p),
         )
@@ -5669,7 +4894,7 @@ export class Store extends StoreInterface {
     async addressesBridgedEngine() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            84, // uniffi_autofill_fn_method_store_addresses_bridged_engine
+            73, // uniffi_autofill_fn_method_store_addresses_bridged_engine
             FfiConverterTypeStore.lowerReceiver(this),
         )
         return handleRustResult(
@@ -5686,7 +4911,7 @@ export class Store extends StoreInterface {
     async countAllAddresses() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            85, // uniffi_autofill_fn_method_store_count_all_addresses
+            74, // uniffi_autofill_fn_method_store_count_all_addresses
             FfiConverterTypeStore.lowerReceiver(this),
         )
         return handleRustResult(
@@ -5703,7 +4928,7 @@ export class Store extends StoreInterface {
     async countAllCreditCards() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            86, // uniffi_autofill_fn_method_store_count_all_credit_cards
+            75, // uniffi_autofill_fn_method_store_count_all_credit_cards
             FfiConverterTypeStore.lowerReceiver(this),
         )
         return handleRustResult(
@@ -5720,32 +4945,13 @@ export class Store extends StoreInterface {
     async countAllPassports() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            87, // uniffi_autofill_fn_method_store_count_all_passports
+            76, // uniffi_autofill_fn_method_store_count_all_passports
             FfiConverterTypeStore.lowerReceiver(this),
         )
         return handleRustResult(
             result,
             FfiConverterInt64.lift.bind(FfiConverterInt64),
             FfiConverterTypeAutofillApiError.lift.bind(FfiConverterTypeAutofillApiError),
-        )
-    }
-
-    /**
-     * Returns a bridged sync engine for credit cards, for use by Desktop's
-     * Sync framework. Constructing it only assembles structs and never touches
-     * the DB, so it cannot fail.
-     * @returns {Promise<CreditCardsBridgedEngine>}}
-     */
-    async creditCardsBridgedEngine() {
-       
-        const result = await UniFFIScaffolding.callAsyncWrapper(
-            88, // uniffi_autofill_fn_method_store_credit_cards_bridged_engine
-            FfiConverterTypeStore.lowerReceiver(this),
-        )
-        return handleRustResult(
-            result,
-            FfiConverterTypeCreditCardsBridgedEngine.lift.bind(FfiConverterTypeCreditCardsBridgedEngine),
-            null,
         )
     }
 
@@ -5759,7 +4965,7 @@ export class Store extends StoreInterface {
        
         FfiConverterString.checkType(guid);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            89, // uniffi_autofill_fn_method_store_delete_address
+            77, // uniffi_autofill_fn_method_store_delete_address
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterString.lower(guid),
         )
@@ -5781,7 +4987,7 @@ export class Store extends StoreInterface {
     async deleteAllAddresses() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            90, // uniffi_autofill_fn_method_store_delete_all_addresses
+            78, // uniffi_autofill_fn_method_store_delete_all_addresses
             FfiConverterTypeStore.lowerReceiver(this),
         )
         return handleRustResult(
@@ -5802,7 +5008,7 @@ export class Store extends StoreInterface {
     async deleteAllCreditCards() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            91, // uniffi_autofill_fn_method_store_delete_all_credit_cards
+            79, // uniffi_autofill_fn_method_store_delete_all_credit_cards
             FfiConverterTypeStore.lowerReceiver(this),
         )
         return handleRustResult(
@@ -5822,7 +5028,7 @@ export class Store extends StoreInterface {
        
         FfiConverterString.checkType(guid);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            92, // uniffi_autofill_fn_method_store_delete_credit_card
+            80, // uniffi_autofill_fn_method_store_delete_credit_card
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterString.lower(guid),
         )
@@ -5843,7 +5049,7 @@ export class Store extends StoreInterface {
        
         FfiConverterString.checkType(guid);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            93, // uniffi_autofill_fn_method_store_delete_passport
+            81, // uniffi_autofill_fn_method_store_delete_passport
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterString.lower(guid),
         )
@@ -5864,7 +5070,7 @@ export class Store extends StoreInterface {
        
         FfiConverterString.checkType(guid);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            94, // uniffi_autofill_fn_method_store_get_address
+            82, // uniffi_autofill_fn_method_store_get_address
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterString.lower(guid),
         )
@@ -5882,7 +5088,7 @@ export class Store extends StoreInterface {
     async getAllAddresses() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            95, // uniffi_autofill_fn_method_store_get_all_addresses
+            83, // uniffi_autofill_fn_method_store_get_all_addresses
             FfiConverterTypeStore.lowerReceiver(this),
         )
         return handleRustResult(
@@ -5899,7 +5105,7 @@ export class Store extends StoreInterface {
     async getAllCreditCards() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            96, // uniffi_autofill_fn_method_store_get_all_credit_cards
+            84, // uniffi_autofill_fn_method_store_get_all_credit_cards
             FfiConverterTypeStore.lowerReceiver(this),
         )
         return handleRustResult(
@@ -5916,7 +5122,7 @@ export class Store extends StoreInterface {
     async getAllPassports() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            97, // uniffi_autofill_fn_method_store_get_all_passports
+            85, // uniffi_autofill_fn_method_store_get_all_passports
             FfiConverterTypeStore.lowerReceiver(this),
         )
         return handleRustResult(
@@ -5936,7 +5142,7 @@ export class Store extends StoreInterface {
        
         FfiConverterString.checkType(guid);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            98, // uniffi_autofill_fn_method_store_get_credit_card
+            86, // uniffi_autofill_fn_method_store_get_credit_card
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterString.lower(guid),
         )
@@ -5957,7 +5163,7 @@ export class Store extends StoreInterface {
        
         FfiConverterString.checkType(guid);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            99, // uniffi_autofill_fn_method_store_get_passport
+            87, // uniffi_autofill_fn_method_store_get_passport
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterString.lower(guid),
         )
@@ -5969,32 +5175,12 @@ export class Store extends StoreInterface {
     }
 
     /**
-     * Every stored credit card without its encrypted fields. Unlike
-     * `get_all_credit_cards` this never touches the key, so listing cannot
-     * prompt for a primary password; read the one card that needs its
-     * secrets with `get_credit_card`.
-     * @returns {Promise<Array.<CreditCardCandidate>>}}
-     */
-    async listCreditCardCandidates() {
-       
-        const result = await UniFFIScaffolding.callAsyncWrapper(
-            100, // uniffi_autofill_fn_method_store_list_credit_card_candidates
-            FfiConverterTypeStore.lowerReceiver(this),
-        )
-        return handleRustResult(
-            result,
-            FfiConverterSequenceTypeCreditCardCandidate.lift.bind(FfiConverterSequenceTypeCreditCardCandidate),
-            FfiConverterTypeAutofillApiError.lift.bind(FfiConverterTypeAutofillApiError),
-        )
-    }
-
-    /**
      * registerWithSyncManager
      */
     async registerWithSyncManager() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            101, // uniffi_autofill_fn_method_store_register_with_sync_manager
+            88, // uniffi_autofill_fn_method_store_register_with_sync_manager
             FfiConverterTypeStore.lowerReceiver(this),
         )
         return handleRustResult(
@@ -6013,7 +5199,7 @@ export class Store extends StoreInterface {
     async runMaintenance() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            102, // uniffi_autofill_fn_method_store_run_maintenance
+            89, // uniffi_autofill_fn_method_store_run_maintenance
             FfiConverterTypeStore.lowerReceiver(this),
         )
         return handleRustResult(
@@ -6029,7 +5215,7 @@ export class Store extends StoreInterface {
     async scrubEncryptedData() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            103, // uniffi_autofill_fn_method_store_scrub_encrypted_data
+            90, // uniffi_autofill_fn_method_store_scrub_encrypted_data
             FfiConverterTypeStore.lowerReceiver(this),
         )
         return handleRustResult(
@@ -6046,13 +5232,17 @@ export class Store extends StoreInterface {
      * 
      * NB: This function was created to unblock iOS credit card users who are unable to sync records and should not be used
      * outside of this use case.
+     * @param {string} localEncryptionKey
      * @returns {Promise<CreditCardsDeletionMetrics>}}
      */
-    async scrubUndecryptableCreditCardDataForRemoteReplacement() {
+    async scrubUndecryptableCreditCardDataForRemoteReplacement(
+        localEncryptionKey) {
        
+        FfiConverterString.checkType(localEncryptionKey);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            104, // uniffi_autofill_fn_method_store_scrub_undecryptable_credit_card_data_for_remote_replacement
+            91, // uniffi_autofill_fn_method_store_scrub_undecryptable_credit_card_data_for_remote_replacement
             FfiConverterTypeStore.lowerReceiver(this),
+            FfiConverterString.lower(localEncryptionKey),
         )
         return handleRustResult(
             result,
@@ -6067,7 +5257,7 @@ export class Store extends StoreInterface {
     async shutdown() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            105, // uniffi_autofill_fn_method_store_shutdown
+            92, // uniffi_autofill_fn_method_store_shutdown
             FfiConverterTypeStore.lowerReceiver(this),
         )
         return handleRustResult(
@@ -6086,7 +5276,7 @@ export class Store extends StoreInterface {
        
         FfiConverterString.checkType(guid);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            106, // uniffi_autofill_fn_method_store_touch_address
+            93, // uniffi_autofill_fn_method_store_touch_address
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterString.lower(guid),
         )
@@ -6106,7 +5296,7 @@ export class Store extends StoreInterface {
        
         FfiConverterString.checkType(guid);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            107, // uniffi_autofill_fn_method_store_touch_credit_card
+            94, // uniffi_autofill_fn_method_store_touch_credit_card
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterString.lower(guid),
         )
@@ -6126,7 +5316,7 @@ export class Store extends StoreInterface {
        
         FfiConverterString.checkType(guid);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            108, // uniffi_autofill_fn_method_store_touch_passport
+            95, // uniffi_autofill_fn_method_store_touch_passport
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterString.lower(guid),
         )
@@ -6149,7 +5339,7 @@ export class Store extends StoreInterface {
         FfiConverterString.checkType(guid);
         FfiConverterTypeUpdatableAddressFields.checkType(a);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            109, // uniffi_autofill_fn_method_store_update_address
+            96, // uniffi_autofill_fn_method_store_update_address
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterString.lower(guid),
             FfiConverterTypeUpdatableAddressFields.lower(a),
@@ -6170,7 +5360,7 @@ export class Store extends StoreInterface {
        
         FfiConverterTypeUpdatableAddressFieldsWithMeta.checkType(entryWithMeta);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            110, // uniffi_autofill_fn_method_store_update_address_with_meta
+            97, // uniffi_autofill_fn_method_store_update_address_with_meta
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterTypeUpdatableAddressFieldsWithMeta.lower(entryWithMeta),
         )
@@ -6193,7 +5383,7 @@ export class Store extends StoreInterface {
         FfiConverterString.checkType(guid);
         FfiConverterTypeUpdatableCreditCardFields.checkType(cc);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            111, // uniffi_autofill_fn_method_store_update_credit_card
+            98, // uniffi_autofill_fn_method_store_update_credit_card
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterString.lower(guid),
             FfiConverterTypeUpdatableCreditCardFields.lower(cc),
@@ -6214,7 +5404,7 @@ export class Store extends StoreInterface {
        
         FfiConverterTypeUpdatableCreditCardFieldsWithMeta.checkType(entryWithMeta);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            112, // uniffi_autofill_fn_method_store_update_credit_card_with_meta
+            99, // uniffi_autofill_fn_method_store_update_credit_card_with_meta
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterTypeUpdatableCreditCardFieldsWithMeta.lower(entryWithMeta),
         )
@@ -6237,7 +5427,7 @@ export class Store extends StoreInterface {
         FfiConverterString.checkType(guid);
         FfiConverterTypeUpdatablePassportFields.checkType(p);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            113, // uniffi_autofill_fn_method_store_update_passport
+            100, // uniffi_autofill_fn_method_store_update_passport
             FfiConverterTypeStore.lowerReceiver(this),
             FfiConverterString.lower(guid),
             FfiConverterTypeUpdatablePassportFields.lower(p),
@@ -6273,11 +5463,11 @@ export class FfiConverterTypeStore extends FfiConverter {
     }
 
     static read(dataStream) {
-        return this.lift(dataStream.readPointer(4));
+        return this.lift(dataStream.readPointer(3));
     }
 
     static write(dataStream, value) {
-        dataStream.writePointer(4, this.lower(value));
+        dataStream.writePointer(3, this.lower(value));
     }
 
     static computeSize(value) {
@@ -6285,15 +5475,3 @@ export class FfiConverterTypeStore extends FfiConverter {
     }
 }
 
-import {
-  FfiConverterTypePrimaryPasswordAuthenticator,
-} from "./RustDbCrypto.sys.mjs";
-
-// Export the FFIConverter object to make external types work.
-export { FfiConverterTypePrimaryPasswordAuthenticator };
-import {
-  FfiConverterTypeEncryptorDecryptor,
-} from "./RustDbCrypto.sys.mjs";
-
-// Export the FFIConverter object to make external types work.
-export { FfiConverterTypeEncryptorDecryptor };

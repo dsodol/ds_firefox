@@ -79,7 +79,7 @@ ModuleLoadFrame::ModuleLoadFrame(PCUNICODE_STRING aRequestedDllName)
   } else {
     USHORT charLenExclNul = aRequestedDllName->Length / sizeof(WCHAR);
     USHORT charLenInclNul = charLenExclNul + 1;
-    nameBuf = std::make_unique<WCHAR[]>(charLenInclNul);
+    nameBuf = MakeUnique<WCHAR[]>(charLenInclNul);
     if (!wcsncpy_s(nameBuf.get(), charLenInclNul, aRequestedDllName->Buffer,
                    charLenExclNul)) {
       name = nameBuf.get();

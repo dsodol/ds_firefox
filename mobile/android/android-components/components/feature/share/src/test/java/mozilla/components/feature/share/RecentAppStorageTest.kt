@@ -5,7 +5,6 @@
 package mozilla.components.feature.share
 
 import android.content.Context
-import kotlinx.coroutines.test.runTest
 import mozilla.components.feature.share.db.RecentAppEntity
 import mozilla.components.feature.share.db.RecentAppsDao
 import mozilla.components.support.test.mock
@@ -31,14 +30,14 @@ class RecentAppStorageTest {
     }
 
     @Test
-    fun `get the two most recent apps`() = runTest {
+    fun `get the two most recent apps`() {
         whenever(recentAppsDao.getRecentAppsUpTo(2)).thenReturn(emptyList())
 
         assertEquals(emptyList<RecentApp>(), recentAppsStorage.getRecentAppsUpTo(2))
     }
 
     @Test
-    fun `increment selected app count and decay all others`() = runTest {
+    fun `increment selected app count and decay all others`() {
         val activityName = "activityName"
 
         recentAppsStorage.updateRecentApp(activityName)
@@ -47,7 +46,7 @@ class RecentAppStorageTest {
     }
 
     @Test
-    fun `add newly installed apps to our database`() = runTest {
+    fun `add newly installed apps to our database`() {
         val firstActivityName = "first"
         val secondActivityName = "second"
         val thirdActivityName = "third"
@@ -67,7 +66,7 @@ class RecentAppStorageTest {
     }
 
     @Test
-    fun `delete an app from our database`() = runTest {
+    fun `delete an app from our database`() {
         val deleteAppName = "delete"
         val recentApp = RecentAppEntity(score = 1.0, activityName = deleteAppName)
 

@@ -95,7 +95,7 @@ void RemoteLazyInputStreamStorage::AddStream(nsIInputStream* aInputStream,
 
   MOZ_ASSERT(cloneable->GetCloneable(), "NS_EnsureInputStreamIsCloneable lied");
 
-  auto data = std::make_unique<StreamData>();
+  UniquePtr<StreamData> data = MakeUnique<StreamData>();
   data->mInputStream = cloneable.forget();
 
   mozilla::StaticMutexAutoLock lock(gMutex);

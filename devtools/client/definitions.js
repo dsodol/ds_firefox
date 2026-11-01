@@ -170,8 +170,8 @@ Tools.options = {
     if (this.url === NEW_SETTINGS_PANEL_URL) {
       const {
         SettingsPanel,
-      } = require("resource://devtools/client/settings/panel.mjs");
-      return new SettingsPanel(iframeWindow, toolbox);
+      } = require("resource://devtools/client/settings/panel.js");
+      return new SettingsPanel();
     }
     return new OptionsPanel(iframeWindow, toolbox, commands);
   },
@@ -603,7 +603,12 @@ exports.ToolboxButtons = [
     id: "command-button-screenshot",
     description: l10n("toolbox.buttons.screenshot"),
     isToolSupported: toolbox => {
-      return toolbox.target.hasActor("screenshotContent");
+      return (
+        // @backward-compat { version 87 } We need to check for the screenshot actor as well
+        // when connecting to older server that does not have the screenshotContentActor
+        toolbox.target.hasActor("screenshotContent") ||
+        toolbox.target.hasActor("screenshot")
+      );
     },
     async onClick(event, toolbox) {
       // Special case for screenshot button to check for clipboard preference

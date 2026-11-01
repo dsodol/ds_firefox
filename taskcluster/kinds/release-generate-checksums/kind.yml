@@ -18,6 +18,7 @@ transforms:
     - gecko_taskgraph.transforms.task:transforms
 
 task-defaults:
+    run-on-repo-type: [hg]
     name: generate-checksums
     description: generates checksums
     task-context:
@@ -46,6 +47,7 @@ task-defaults:
               path: /builds/worker/SHA512SUMS
               type: file
     run:
+        clone-with: hg
         sparse-profile: mach
         output-dir: /builds/worker
         bucket-name:

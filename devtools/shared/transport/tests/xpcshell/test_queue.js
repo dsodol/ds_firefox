@@ -67,7 +67,7 @@ var test_transport = async function (transportFactory) {
     Assert.equal(type, "file-stream");
     Assert.equal(length, reallyLong.length);
 
-    const outputFile = getTestTempFile("bulk-output");
+    const outputFile = getTestTempFile("bulk-output", true);
     outputFile.create(Ci.nsIFile.NORMAL_FILE_TYPE, parseInt("666", 8));
 
     const output = FileUtils.openSafeFileOutputStream(outputFile);
@@ -187,12 +187,12 @@ function verify() {
 }
 
 function cleanup_files() {
-  const inputFile = getTestTempFile("bulk-input");
+  const inputFile = getTestTempFile("bulk-input", true);
   if (inputFile.exists()) {
     inputFile.remove(false);
   }
 
-  const outputFile = getTestTempFile("bulk-output");
+  const outputFile = getTestTempFile("bulk-output", true);
   if (outputFile.exists()) {
     outputFile.remove(false);
   }

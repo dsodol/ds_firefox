@@ -75,11 +75,10 @@ nsresult WebTransportSessionProxy::AsyncConnect(
     WebTransportSessionEventListener* aListener,
     nsIWebTransport::HTTPVersion aVersion) {
   nsTArray<nsString> emptyProtocols;
-  nsTArray<nsCString> emptyHeaders;
   return AsyncConnectWithClient(aURI, aDedicated, std::move(aServerCertHashes),
                                 aPrincipal, 0, aSecurityFlags, aListener,
                                 Maybe<dom::ClientInfo>(), emptyProtocols,
-                                emptyHeaders, emptyHeaders, aVersion);
+                                aVersion);
 }
 
 nsresult WebTransportSessionProxy::AsyncConnectWithClient(
@@ -89,11 +88,8 @@ nsresult WebTransportSessionProxy::AsyncConnectWithClient(
     uint32_t aSecurityFlags, WebTransportSessionEventListener* aListener,
     const Maybe<dom::ClientInfo>& aClientInfo,
     const nsTArray<nsString>& aProtocols,
-    const nsTArray<nsCString>& aHeaderNames,
-    const nsTArray<nsCString>& aHeaderValues,
     nsIWebTransport::HTTPVersion aVersion) {
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(aHeaderNames.Length() == aHeaderValues.Length());
 
   if (aVersion == nsIWebTransport::HTTPVersion::h2) {
     mHTTPVersion = nsIWebTransport::HTTPVersion::h2;
@@ -181,13 +177,6 @@ nsresult WebTransportSessionProxy::AsyncConnectWithClient(
   rv = httpChannel->SetRequestHeader("Origin"_ns, serializedOrigin, false);
   if (NS_FAILED(rv)) {
     return rv;
-  }
-
-  for (size_t i = 0; i < aHeaderNames.Length(); i++) {
-    rv = httpChannel->SetRequestHeader(aHeaderNames[i], aHeaderValues[i], true);
-    if (NS_FAILED(rv)) {
-      return rv;
-    }
   }
 
   // Set wt-available-protocols header if protocols were provided
@@ -311,7 +300,7 @@ void WebTransportSessionProxy::GetStatsInternal(
 NS_IMETHODIMP
 WebTransportSessionProxy::ExportKeyingMaterial(
     const nsTArray<uint8_t>& aLabel, const nsTArray<uint8_t>& aContext,
-    uint32_t aOutputLength, nsTArray<uint8_t>& aKeyingMaterial) {
+    nsTArray<uint8_t>& aKeyingMaterial) {
   MOZ_ASSERT(OnSocketThread(),
              "ExportKeyingMaterial must be called on socket thread");
 
@@ -325,8 +314,7 @@ WebTransportSessionProxy::ExportKeyingMaterial(
     session = mWebTransportSession;
   }
 
-  return session->ExportKeyingMaterial(aLabel, aContext, aOutputLength,
-                                       aKeyingMaterial);
+  return session->ExportKeyingMaterial(aLabel, aContext, aKeyingMaterial);
 }
 
 bool WebTransportSessionProxy::CloseSessionAndGetStats(
@@ -423,16 +411,6 @@ WebTransportSessionProxy::GetNegotiatedProtocol(nsACString& aProtocol) {
   aProtocol = mProtocol;
   return NS_OK;
 }
-
-NS_IMETHODIMP
-WebTransportSessionProxy::GetResponseHeaders(nsTArray<nsCString>& aNames,
-                                             nsTArray<nsCString>& aValues) {
-  MutexAutoLock lock(mMutex);
-  aNames = mResponseHeaderNames.Clone();
-  aValues = mResponseHeaderValues.Clone();
-  return NS_OK;
-}
-
 NS_IMETHODIMP
 WebTransportSessionProxy::RegisterSendGroup(uint64_t aGroupId) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
@@ -758,12 +736,11 @@ WebTransportSessionProxy::CreateOutgoingBidirectionalStream(
 
 void WebTransportSessionProxy::SendDatagramInternal(
     const RefPtr<WebTransportSessionBase>& aSession, nsTArray<uint8_t>&& aData,
-    uint64_t aTrackingId, uint64_t aSendGroupId, int64_t aSendOrder,
-    TimeStamp aTimestamp) {
+    uint64_t aTrackingId, uint64_t aSendGroupId, int64_t aSendOrder) {
   MOZ_ASSERT(OnSocketThread());
 
   aSession->SendDatagram(std::move(aData), aTrackingId, aSendGroupId,
-                         aSendOrder, aTimestamp);
+                         aSendOrder);
 }
 
 NS_IMETHODIMP
@@ -771,16 +748,6 @@ WebTransportSessionProxy::SendDatagram(const nsTArray<uint8_t>& aData,
                                        uint64_t aTrackingId,
                                        uint64_t aSendGroupId,
                                        int64_t aSendOrder) {
-  return SendDatagramAt(aData, aTrackingId, aSendGroupId, aSendOrder,
-                        TimeStamp::Now());
-}
-
-NS_IMETHODIMP
-WebTransportSessionProxy::SendDatagramAt(const nsTArray<uint8_t>& aData,
-                                         uint64_t aTrackingId,
-                                         uint64_t aSendGroupId,
-                                         int64_t aSendOrder,
-                                         TimeStamp aTimestamp) {
   RefPtr<WebTransportSessionBase> session;
   {
     MutexAutoLock lock(mMutex);
@@ -798,15 +765,14 @@ WebTransportSessionProxy::SendDatagramAt(const nsTArray<uint8_t>& aData,
         "WebTransportSessionProxy::SendDatagramInternal",
         [self = RefPtr{this}, session{std::move(session)},
          data{std::move(copied)}, trackingId(aTrackingId),
-         sendGroupId(aSendGroupId), sendOrder(aSendOrder),
-         timestamp(aTimestamp)]() mutable {
+         sendGroupId(aSendGroupId), sendOrder(aSendOrder)]() mutable {
           self->SendDatagramInternal(session, std::move(data), trackingId,
-                                     sendGroupId, sendOrder, timestamp);
+                                     sendGroupId, sendOrder);
         }));
   }
 
   SendDatagramInternal(session, std::move(copied), aTrackingId, aSendGroupId,
-                       aSendOrder, aTimestamp);
+                       aSendOrder);
   return NS_OK;
 }
 
@@ -844,72 +810,6 @@ WebTransportSessionProxy::GetMaxDatagramSize() {
 NS_IMETHODIMP
 WebTransportSessionProxy::GetHttpChannelID(uint64_t* _retval) {
   *_retval = mHttpChannelID;
-  return NS_OK;
-}
-
-void WebTransportSessionProxy::SetDatagramMaxBufferedDatagramsInternal(
-    const RefPtr<WebTransportSessionBase>& aSession,
-    uint32_t aMaxBufferedDatagrams) {
-  MOZ_ASSERT(OnSocketThread());
-
-  aSession->SetDatagramMaxBufferedDatagrams(aMaxBufferedDatagrams);
-}
-
-NS_IMETHODIMP
-WebTransportSessionProxy::SetDatagramMaxBufferedDatagrams(
-    uint32_t aMaxBufferedDatagrams) {
-  RefPtr<WebTransportSessionBase> session;
-  {
-    MutexAutoLock lock(mMutex);
-    if (mState != WebTransportSessionProxyState::ACTIVE ||
-        !mWebTransportSession) {
-      return NS_ERROR_NOT_AVAILABLE;
-    }
-    session = mWebTransportSession;
-  }
-
-  if (!OnSocketThread()) {
-    return gSocketTransportService->Dispatch(NS_NewRunnableFunction(
-        "WebTransportSessionProxy::SetDatagramMaxBufferedDatagramsInternal",
-        [self = RefPtr{this}, session{std::move(session)},
-         maxBufferedDatagrams(aMaxBufferedDatagrams)]() {
-          self->SetDatagramMaxBufferedDatagramsInternal(session,
-                                                        maxBufferedDatagrams);
-        }));
-  }
-
-  SetDatagramMaxBufferedDatagramsInternal(session, aMaxBufferedDatagrams);
-  return NS_OK;
-}
-
-void WebTransportSessionProxy::SetDatagramMaxAgeInternal(
-    const RefPtr<WebTransportSessionBase>& aSession, double aMaxAge) {
-  MOZ_ASSERT(OnSocketThread());
-
-  aSession->SetDatagramMaxAge(aMaxAge);
-}
-
-NS_IMETHODIMP
-WebTransportSessionProxy::SetDatagramMaxAge(double aMaxAge) {
-  RefPtr<WebTransportSessionBase> session;
-  {
-    MutexAutoLock lock(mMutex);
-    if (mState != WebTransportSessionProxyState::ACTIVE ||
-        !mWebTransportSession) {
-      return NS_ERROR_NOT_AVAILABLE;
-    }
-    session = mWebTransportSession;
-  }
-
-  if (!OnSocketThread()) {
-    return gSocketTransportService->Dispatch(NS_NewRunnableFunction(
-        "WebTransportSessionProxy::SetDatagramMaxAgeInternal",
-        [self = RefPtr{this}, session{std::move(session)}, maxAge(aMaxAge)]() {
-          self->SetDatagramMaxAgeInternal(session, maxAge);
-        }));
-  }
-
-  SetDatagramMaxAgeInternal(session, aMaxAge);
   return NS_OK;
 }
 
@@ -1200,7 +1100,6 @@ WebTransportSessionProxy::OnSessionReadyInternal(
       mWebTransportSession = aSession;
       mSessionId = aSession->GetStreamId();
       aSession->GetNegotiatedProtocol(mProtocol);
-      aSession->GetResponseHeaders(mResponseHeaderNames, mResponseHeaderValues);
       // Validate the negotiated protocol against offered protocols
       // Note: mOfferedProtocols is only set if protocols were offered (not
       // null) If a protocol is returned but either:
@@ -1408,16 +1307,6 @@ WebTransportSessionProxy::OnDraining() {
 
   {
     MutexAutoLock lock(mMutex);
-    // Since OnSessionReady on the listener is called on the main thread,
-    // OnDraining and OnSessionReady can be racy. If OnStopRequest is not
-    // called yet, mTarget may still be the pre-retargeting default and
-    // OnDraining needs to wait.
-    if (!mStopRequestCalled) {
-      mPendingEvents.AppendElement(
-          [self = RefPtr{this}]() { (void)self->OnDraining(); });
-      return NS_OK;
-    }
-
     if (!mTarget->IsOnCurrentThread()) {
       return mTarget->Dispatch(NS_NewRunnableFunction(
           "WebTransportSessionProxy::OnDraining",
@@ -1777,7 +1666,7 @@ WebTransportSessionProxy::OnOutgoingDatagramOutCome(
 }
 
 void WebTransportSessionProxy::OnStopSendingInternal(uint64_t aStreamId,
-                                                     uint64_t aErrorCode) {
+                                                     nsresult aError) {
   nsCOMPtr<WebTransportSessionEventListener> listener;
   {
     MutexAutoLock lock(mMutex);
@@ -1786,8 +1675,8 @@ void WebTransportSessionProxy::OnStopSendingInternal(uint64_t aStreamId,
       // the current target so the listener is only ever invoked on one thread.
       mTarget->Dispatch(NS_NewRunnableFunction(
           "WebTransportSessionProxy::OnStopSendingInternal",
-          [self = RefPtr{this}, aStreamId, aErrorCode] {
-            self->OnStopSendingInternal(aStreamId, aErrorCode);
+          [self = RefPtr{this}, aStreamId, aError] {
+            self->OnStopSendingInternal(aStreamId, aError);
           }));
       return;
     }
@@ -1797,11 +1686,11 @@ void WebTransportSessionProxy::OnStopSendingInternal(uint64_t aStreamId,
     listener = mListener;
   }
 
-  listener->OnStopSending(aStreamId, aErrorCode);
+  listener->OnStopSending(aStreamId, aError);
 }
 
 NS_IMETHODIMP WebTransportSessionProxy::OnStopSending(uint64_t aStreamId,
-                                                      uint64_t aErrorCode) {
+                                                      nsresult aError) {
   MOZ_ASSERT(OnSocketThread());
 
   {
@@ -1809,18 +1698,18 @@ NS_IMETHODIMP WebTransportSessionProxy::OnStopSending(uint64_t aStreamId,
     if (!mTarget->IsOnCurrentThread()) {
       return mTarget->Dispatch(NS_NewRunnableFunction(
           "WebTransportSessionProxy::OnStopSending",
-          [self = RefPtr{this}, aStreamId, aErrorCode] {
-            self->OnStopSendingInternal(aStreamId, aErrorCode);
+          [self = RefPtr{this}, aStreamId, aError] {
+            self->OnStopSendingInternal(aStreamId, aError);
           }));
     }
   }
 
-  OnStopSendingInternal(aStreamId, aErrorCode);
+  OnStopSendingInternal(aStreamId, aError);
   return NS_OK;
 }
 
 void WebTransportSessionProxy::OnResetReceivedInternal(uint64_t aStreamId,
-                                                       uint64_t aErrorCode) {
+                                                       nsresult aError) {
   nsCOMPtr<WebTransportSessionEventListener> listener;
   {
     MutexAutoLock lock(mMutex);
@@ -1829,8 +1718,8 @@ void WebTransportSessionProxy::OnResetReceivedInternal(uint64_t aStreamId,
       // the current target so the listener is only ever invoked on one thread.
       mTarget->Dispatch(NS_NewRunnableFunction(
           "WebTransportSessionProxy::OnResetReceivedInternal",
-          [self = RefPtr{this}, aStreamId, aErrorCode] {
-            self->OnResetReceivedInternal(aStreamId, aErrorCode);
+          [self = RefPtr{this}, aStreamId, aError] {
+            self->OnResetReceivedInternal(aStreamId, aError);
           }));
       return;
     }
@@ -1840,11 +1729,11 @@ void WebTransportSessionProxy::OnResetReceivedInternal(uint64_t aStreamId,
     listener = mListener;
   }
 
-  listener->OnResetReceived(aStreamId, aErrorCode);
+  listener->OnResetReceived(aStreamId, aError);
 }
 
 NS_IMETHODIMP WebTransportSessionProxy::OnResetReceived(uint64_t aStreamId,
-                                                        uint64_t aErrorCode) {
+                                                        nsresult aError) {
   MOZ_ASSERT(OnSocketThread());
 
   {
@@ -1852,13 +1741,13 @@ NS_IMETHODIMP WebTransportSessionProxy::OnResetReceived(uint64_t aStreamId,
     if (!mTarget->IsOnCurrentThread()) {
       return mTarget->Dispatch(NS_NewRunnableFunction(
           "WebTransportSessionProxy::OnResetReceived",
-          [self = RefPtr{this}, aStreamId, aErrorCode] {
-            self->OnResetReceivedInternal(aStreamId, aErrorCode);
+          [self = RefPtr{this}, aStreamId, aError] {
+            self->OnResetReceivedInternal(aStreamId, aError);
           }));
     }
   }
 
-  OnResetReceivedInternal(aStreamId, aErrorCode);
+  OnResetReceivedInternal(aStreamId, aError);
   return NS_OK;
 }
 

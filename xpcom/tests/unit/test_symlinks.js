@@ -1,3 +1,5 @@
+const CWD = do_get_cwd();
+
 const DIR_TARGET = "target";
 const DIR_LINK = "link";
 const DIR_LINK_LINK = "link_link";
@@ -129,7 +131,7 @@ function testSymLinks(testDir, relative) {
 }
 
 function run_test() {
-  var testDir = do_get_tempdir();
+  var testDir = CWD;
   testDir.append("test_symlinks");
 
   testSymLinks(testDir, false);

@@ -15,6 +15,7 @@ _TAR_FLAGS = (
     "--owner=0",
     "--group=0",
     "--numeric-owner",
+    "--mode=go-w",
     "--exclude=.mkdir.done",
 )
 
@@ -29,13 +30,8 @@ FORMAT_SUFFIX = {
 }
 
 
-def is_gnu_tar(tar_bin):
-    return "GNU tar" in subprocess.check_output([tar_bin, "--version"], text=True)
-
-
 def _run_tar_pipeline(tar_bin, cwd, tar_args, output_path, compress_argv):
-    mode = ("--mode=go-w",) if is_gnu_tar(tar_bin) else ()
-    tar_argv = [tar_bin, "-c", *_TAR_FLAGS, *mode, "-f", "-", *tar_args]
+    tar_argv = [tar_bin, "-c", *_TAR_FLAGS, "-f", "-", *tar_args]
     if compress_argv is None:
         with open(output_path, "wb") as out:
             return subprocess.call(tar_argv, cwd=cwd, stdout=out)

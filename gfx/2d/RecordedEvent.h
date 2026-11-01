@@ -532,7 +532,7 @@ class RecordedEventArray {
 
   void Assign(const T* aData, Z aSize) {
     mSize = aSize;
-    mData = std::make_unique<T[]>(aSize);
+    mData = MakeUnique<T[]>(aSize);
     PodCopy(mData.get(), aData, aSize);
   }
 

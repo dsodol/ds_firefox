@@ -28,12 +28,7 @@ static constexpr uint32_t MxcsrDenormalsDisabled =
     MxcsrFlushToZero | MxcsrDenormalsAreZero;
 
 #if defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_X64)
-#  if defined(__GNUC__) || defined(__clang__)
-__attribute__((target("sse")))
-#  endif
-inline uint32_t ReadMxcsr() {
-  return _mm_getcsr();
-}
+inline uint32_t ReadMxcsr() { return _mm_getcsr(); }
 #endif
 
 #if defined(JS_CODEGEN_X86)
@@ -78,8 +73,7 @@ inline bool CanDisableDenormals() {
 // Returns false on platforms where we cannot read the FP control register.
 inline bool DenormalsDisabled() {
 #if defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_X64)
-  return mozilla::supports_sse() &&
-         ((ReadMxcsr() & MxcsrDenormalsDisabled) != 0);
+  return (ReadMxcsr() & MxcsrDenormalsDisabled) != 0;
 #elif defined(__GNUC__) && defined(__aarch64__)
   uint64_t fpcr;
   asm volatile("mrs %0, FPCR" : "=r"(fpcr));

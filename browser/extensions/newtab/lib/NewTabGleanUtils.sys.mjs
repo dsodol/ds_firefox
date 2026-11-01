@@ -72,9 +72,9 @@ export const NewTabGleanUtils = {
    * Example: await NewTabGleanUtils.registerMetricsAndPings("resource://path/to/metrics.json");
    *
    * @param {string} resourceURI - The URI of the JSON file containing metrics and pings definitions
-   * @returns {Promise<boolean>} A promise that resolves to true when all metrics and pings are registered
-   * If a metric or ping registration fails, it is skipped and the rest are still registered,
-   * and this Promise resolves to false (errors will be logged to the console).
+   * @returns {Promise<boolean>} A promise that resolves when all metrics and pings are registered
+   * If a metric or ping registration fails, all further registration halts and this Promise
+   * will still resolve (errors will be logged to the console).
    */
   async registerMetricsAndPings(resourceURI) {
     try {
@@ -86,20 +86,13 @@ export const NewTabGleanUtils = {
         return false;
       }
 
-      let allRegistered = true;
-
       // First register all pings from the JSON file
       if (data.pings) {
         for (const [pingName, pingConfig] of Object.entries(data.pings)) {
-          try {
-            await this.registerPingIfNeeded({
-              name: pingName,
-              ...this.convertToCamelCase(pingConfig),
-            });
-          } catch {
-            // Already logged and recorded by registerPingIfNeeded.
-            allRegistered = false;
-          }
+          await this.registerPingIfNeeded({
+            name: pingName,
+            ...this.convertToCamelCase(pingConfig),
+          });
         }
       }
 
@@ -107,26 +100,19 @@ export const NewTabGleanUtils = {
       if (data.metrics) {
         for (const [category, metrics] of Object.entries(data.metrics)) {
           for (const [name, config] of Object.entries(metrics)) {
-            try {
-              await this.registerMetricIfNeeded({
-                ...config,
-                category,
-                name,
-              });
-            } catch {
-              // Already logged and recorded by registerMetricIfNeeded.
-              allRegistered = false;
-            }
+            await this.registerMetricIfNeeded({
+              ...config,
+              category,
+              name,
+            });
           }
         }
       }
-      if (allRegistered) {
-        lazy.logConsole.debug(
-          "Successfully registered metrics and pings found in the JSON file"
-        );
-      }
+      lazy.logConsole.debug(
+        "Successfully registered metrics and pings found in the JSON file"
+      );
       this._registrationDone.resolve();
-      return allRegistered;
+      return true;
     } catch (e) {
       lazy.logConsole.error(
         "Failed to complete registration of metrics and pings found in runtime metrics JSON:",
@@ -161,12 +147,7 @@ export const NewTabGleanUtils = {
       let categoryName = this.dottedSnakeToCamel(category);
       let metricName = this.dottedSnakeToCamel(name);
 
-      // An existing event is only in the payload when it gained extra_keys.
-      if (
-        categoryName in Glean &&
-        metricName in Glean[categoryName] &&
-        type !== "event"
-      ) {
+      if (categoryName in Glean && metricName in Glean[categoryName]) {
         lazy.logConsole.warn(
           `Fail to register metric ${name} in category ${category} as it already exists`
         );

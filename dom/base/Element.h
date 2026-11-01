@@ -85,6 +85,7 @@ class nsIDOMXULControlElement;
 class nsIDOMXULMenuListElement;
 class nsIDOMXULMultiSelectControlElement;
 class nsIDOMXULRadioGroupElement;
+class nsIDOMXULRelatedElement;
 class nsIDOMXULSelectControlElement;
 class nsIDOMXULSelectControlItemElement;
 class nsIFrame;
@@ -213,12 +214,8 @@ enum : uint32_t {
   // https://w3c.github.io/edit-context
   ELEMENT_HAS_EDIT_CONTEXT = ELEMENT_FLAG_BIT(10),
 
-  // Set while this element is on the HTML parser's stack of open elements.
-  // Used for rel=expect.
-  ELEMENT_ON_PARSER_STACK = ELEMENT_FLAG_BIT(11),
-
   // Remaining bits are for subclasses
-  ELEMENT_TYPE_SPECIFIC_BITS_OFFSET = NODE_TYPE_SPECIFIC_BITS_OFFSET + 12
+  ELEMENT_TYPE_SPECIFIC_BITS_OFFSET = NODE_TYPE_SPECIFIC_BITS_OFFSET + 11
 };
 
 #undef ELEMENT_FLAG_BIT
@@ -471,15 +468,6 @@ class Element : public FragmentOrElement {
   bool IsPendingMappedAttributeEvaluation() const {
     return mAttrs.IsPendingMappedAttributeEvaluation();
   }
-
-  void ScheduleForPresAttrEvaluationIfNeeded() {
-    if (IsPendingMappedAttributeEvaluation() ||
-        !mAttrs.MarkAsPendingPresAttributeEvaluation() || !IsInComposedDoc()) {
-      return;
-    }
-    DoScheduleForPresAttrEvaluation();
-  }
-  void DoScheduleForPresAttrEvaluation();
 
   void SetMappedDeclarationBlock(already_AddRefed<StyleLockedDeclarationBlock>);
 
@@ -1123,21 +1111,19 @@ class Element : public FragmentOrElement {
    *        notified of the attribute change.
    */
   nsresult SetAttr(int32_t aNameSpaceID, nsAtom* aName, const nsAString& aValue,
-                   bool aNotify, IsKnownNewAttr aIsKnownNew) {
+                   bool aNotify) {
     return SetAttr(aNameSpaceID, aName, nullptr, aValue, nullptr, aNotify,
-                   aIsKnownNew);
+                   IsKnownNewAttr::No);
   }
   nsresult SetAttr(int32_t aNameSpaceID, nsAtom* aName, nsAtom* aPrefix,
-                   const nsAString& aValue, bool aNotify,
-                   IsKnownNewAttr aIsKnownNew) {
+                   const nsAString& aValue, bool aNotify) {
     return SetAttr(aNameSpaceID, aName, aPrefix, aValue, nullptr, aNotify,
-                   aIsKnownNew);
+                   IsKnownNewAttr::No);
   }
   nsresult SetAttr(int32_t aNameSpaceID, nsAtom* aName, const nsAString& aValue,
-                   nsIPrincipal* aTriggeringPrincipal, bool aNotify,
-                   IsKnownNewAttr aIsKnownNew) {
+                   nsIPrincipal* aTriggeringPrincipal, bool aNotify) {
     return SetAttr(aNameSpaceID, aName, nullptr, aValue, aTriggeringPrincipal,
-                   aNotify, aIsKnownNew);
+                   aNotify, IsKnownNewAttr::No);
   }
 
   /**
@@ -1163,11 +1149,11 @@ class Element : public FragmentOrElement {
   nsresult SetAttr(int32_t aNameSpaceID, nsAtom* aName, nsAtom* aPrefix,
                    const nsAString& aValue,
                    nsIPrincipal* aMaybeScriptedPrincipal, bool aNotify,
-                   IsKnownNewAttr);
+                   IsKnownNewAttr aIsKnownNew);
 
   nsresult SetAttr(int32_t aNameSpaceID, nsAtom* aName, nsAtom* aPrefix,
                    nsAtom* aValue, nsIPrincipal* aMaybeScriptedPrincipal,
-                   bool aNotify, IsKnownNewAttr);
+                   bool aNotify);
 
   /**
    * Remove an attribute so that it is no longer explicitly specified.
@@ -1190,7 +1176,7 @@ class Element : public FragmentOrElement {
    * @param aHadValue set to true if attribute existed, false otherwise
    */
   nsresult SetAndSwapAttr(nsAtom* aLocalName, nsAttrValue& aValue,
-                          bool* aHadValue, IsKnownNewAttr);
+                          bool* aHadValue, IsKnownNewAttr aIsKnownNew);
 
   /**
    * Swap an attribute value. This is a public wrapper that ensures bloom
@@ -1203,7 +1189,7 @@ class Element : public FragmentOrElement {
    * @param aHadValue set to true if attribute existed, false otherwise
    */
   nsresult SetAndSwapAttr(mozilla::dom::NodeInfo* aName, nsAttrValue& aValue,
-                          bool* aHadValue, IsKnownNewAttr);
+                          bool* aHadValue, IsKnownNewAttr aIsKnownNew);
 
   /**
    * Get the namespace / name / prefix of a given attribute.
@@ -1393,9 +1379,7 @@ class Element : public FragmentOrElement {
   void GetId(nsAString& aId) const { GetAttr(nsGkAtoms::id, aId); }
   void GetId(DOMString& aId) const { GetAttr(nsGkAtoms::id, aId); }
   void SetId(const nsAString& aId) {
-    // NOTE(emilio): We can't use HasID() for IsKnownNewAttr, since we don't set
-    // it for id="".
-    SetAttr(kNameSpaceID_None, nsGkAtoms::id, aId, true, IsKnownNewAttr::No);
+    SetAttr(kNameSpaceID_None, nsGkAtoms::id, aId, true);
   }
   void GetClassName(nsAString& aClassName) {
     GetAttr(nsGkAtoms::_class, aClassName);
@@ -1404,11 +1388,7 @@ class Element : public FragmentOrElement {
     GetAttr(nsGkAtoms::_class, aClassName);
   }
   void SetClassName(const nsAString& aClassName) {
-    // TODO(emilio): IsKnownNewAttr(!MayHaveClass()) might be doable if we
-    // make SetNoNameSpaceAttrOnNewlyCreatedElement set MayHaveClass in the
-    // non-atom cases.
-    SetAttr(kNameSpaceID_None, nsGkAtoms::_class, aClassName, true,
-            IsKnownNewAttr::No);
+    SetAttr(kNameSpaceID_None, nsGkAtoms::_class, aClassName, true);
   }
 
   nsDOMTokenList* ClassList();
@@ -1745,15 +1725,6 @@ class Element : public FragmentOrElement {
   virtual bool IsPotentiallyRenderBlocking() { return false; }
   bool BlockingContainsRender() const;
 
-  // Unblocks rendering on this element if it is no longer potentially
-  // render-blocking, for example after an attribute change.
-  void UnblockRenderingIfNotPotentiallyRenderBlocking();
-
-  // Unblocks rendering when the element becomes browsing-context disconnected,
-  // which an atomic move does not do.
-  // https://html.spec.whatwg.org/#render-blocking-mechanism
-  void RenderBlockingElementUnbindFromTree(UnbindContext&);
-
   // Shadow DOM v1
   enum class ShadowRootDeclarative : bool { No, Yes };
 
@@ -1968,8 +1939,6 @@ class Element : public FragmentOrElement {
   MOZ_CAN_RUN_SCRIPT int32_t ScrollWidth();
   MOZ_CAN_RUN_SCRIPT int32_t ScrollHeight();
   MOZ_CAN_RUN_SCRIPT nsSize GetScrollSize();
-  /** Gets the scroll position as for the scroll{Top,Left} APIs */
-  MOZ_CAN_RUN_SCRIPT nsPoint GetScrollOrigin();
   MOZ_CAN_RUN_SCRIPT void MozScrollSnap();
   MOZ_CAN_RUN_SCRIPT int32_t ClientTop() {
     return CSSPixel::FromAppUnits(GetClientAreaRect().y).Rounded();
@@ -2118,8 +2087,10 @@ class Element : public FragmentOrElement {
    * (like onclick) and with the value as JS
    * @param aEventName the event listener name
    * @param aValue the JS to attach
+   * @param aDefer indicates if deferred execution is allowed
    */
-  void SetEventHandler(nsAtom* aEventName, const nsAString& aValue);
+  void SetEventHandler(nsAtom* aEventName, const nsAString& aValue,
+                       bool aDefer = true);
 
   /**
    * Do whatever needs to be done when the mouse leaves a link
@@ -2161,13 +2132,6 @@ class Element : public FragmentOrElement {
   bool IsDisplayContents() const {
     return HasServoData() && Servo_Element_IsDisplayContents(this);
   }
-
-  /**
-   * A unique value for the element to use in the generation of random base
-   * values for element-scoped CSS `random()` functions.
-   * https://drafts.csswg.org/css-values-5/#random-caching
-   */
-  uintptr_t GetRandomSeed() const;
 
   /*
    * https://html.spec.whatwg.org/#being-rendered
@@ -2312,14 +2276,13 @@ class Element : public FragmentOrElement {
    * Set an attribute in the simplest way possible.
    */
   void SetAttr(nsAtom* aAttr, const nsAString& aValue, ErrorResult& aError) {
-    aError =
-        SetAttr(kNameSpaceID_None, aAttr, aValue, true, IsKnownNewAttr::No);
+    aError = SetAttr(kNameSpaceID_None, aAttr, aValue, true);
   }
 
   void SetAttr(nsAtom* aAttr, const nsAString& aValue,
                nsIPrincipal* aTriggeringPrincipal, ErrorResult& aError) {
-    aError = SetAttr(kNameSpaceID_None, aAttr, aValue, aTriggeringPrincipal,
-                     true, IsKnownNewAttr::No);
+    aError =
+        SetAttr(kNameSpaceID_None, aAttr, aValue, aTriggeringPrincipal, true);
   }
 
   /**
@@ -2387,6 +2350,7 @@ class Element : public FragmentOrElement {
   already_AddRefed<nsIDOMXULMultiSelectControlElement>
   AsXULMultiSelectControl();
   already_AddRefed<nsIDOMXULRadioGroupElement> AsXULRadioGroup();
+  already_AddRefed<nsIDOMXULRelatedElement> AsXULRelated();
   already_AddRefed<nsIDOMXULSelectControlElement> AsXULSelectControl();
   already_AddRefed<nsIDOMXULSelectControlItemElement> AsXULSelectControlItem();
   already_AddRefed<nsIBrowser> AsBrowser();
@@ -2591,7 +2555,7 @@ class Element : public FragmentOrElement {
    * needed for attachment of attribute-defined handlers
    */
   virtual EventListenerManager* GetEventListenerManagerForAttr(
-      nsAtom* aAttrName);
+      nsAtom* aAttrName, bool* aDefer);
 
   /**
    * Internal hook for converting an attribute name-string to nsAttrName in
@@ -2750,6 +2714,8 @@ class Element : public FragmentOrElement {
    */
   MOZ_CAN_RUN_SCRIPT nsRect GetClientAreaRect();
 
+  /** Gets the scroll position as for the scroll{Top,Left} APIs */
+  MOZ_CAN_RUN_SCRIPT nsPoint GetScrollOrigin();
   /** Gets the scroll range as for the scroll{Top,Left}{Min,Max} APIs */
   MOZ_CAN_RUN_SCRIPT nsRect GetScrollRange();
 

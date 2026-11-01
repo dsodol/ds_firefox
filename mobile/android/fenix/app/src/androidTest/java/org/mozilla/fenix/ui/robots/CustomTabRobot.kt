@@ -5,17 +5,15 @@ package org.mozilla.fenix.ui.robots
 
 import android.net.Uri
 import android.util.Log
-import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -29,6 +27,9 @@ import androidx.test.uiautomator.UiSelector
 import mozilla.components.compose.browser.toolbar.concept.BrowserToolbarTestTags.ADDRESSBAR_URL_BOX
 import mozilla.components.feature.customtabs.R as customtabsR
 import org.mozilla.fenix.R
+import org.mozilla.fenix.components.menu.MenuDialogTestTag.DESKTOP_SITE_OFF
+import org.mozilla.fenix.components.menu.MenuDialogTestTag.DESKTOP_SITE_ON
+import org.mozilla.fenix.components.menu.compose.CustomTabMenuTestTags
 import org.mozilla.fenix.helpers.Constants.LONG_CLICK_DURATION
 import org.mozilla.fenix.helpers.Constants.TAG
 import org.mozilla.fenix.helpers.DataGenerationHelper.getStringResource
@@ -36,7 +37,7 @@ import org.mozilla.fenix.helpers.MatcherHelper.assertUIObjectExists
 import org.mozilla.fenix.helpers.MatcherHelper.itemContainingText
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithDescription
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithResId
-import org.mozilla.fenix.helpers.MatcherHelper.itemWithText
+import org.mozilla.fenix.helpers.MatcherHelper.itemWithResIdAndText
 import org.mozilla.fenix.helpers.TestAssetHelper
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
 import org.mozilla.fenix.helpers.TestHelper.appName
@@ -177,6 +178,8 @@ class CustomTabRobot(private val composeTestRule: ComposeTestRule) {
         Log.i(TAG, "verifyCustomTabActionButton: Verified that the custom tab action button is displayed")
     }
 
+    fun verifyPDFReaderToolbarItems() = assertUIObjectExists(itemWithResIdAndText("download", "Download"))
+
     fun verifyCustomTabsMainMenuItems(
         customMenuItem: String,
         exist: Boolean,
@@ -187,9 +190,9 @@ class CustomTabRobot(private val composeTestRule: ComposeTestRule) {
             itemContainingText(getStringResource(R.string.browser_menu_forward)),
             itemContainingText(getStringResource(R.string.browser_menu_refresh)),
             itemContainingText(getStringResource(R.string.browser_menu_share)),
-            itemWithText(getStringResource(R.string.browser_menu_open_in_fenix, appName)),
-            itemWithText(getStringResource(R.string.browser_menu_find_in_page)),
-            itemWithText(getStringResource(R.string.browser_menu_desktop_site)),
+            itemWithDescription("Open in $appName"),
+            itemWithDescription(getStringResource(R.string.browser_menu_find_in_page)),
+            itemWithDescription(getStringResource(R.string.browser_menu_desktop_site)),
             itemContainingText(customMenuItem),
             itemContainingText("Powered by $appName"),
             exists = exist,
@@ -230,12 +233,6 @@ class CustomTabRobot(private val composeTestRule: ComposeTestRule) {
             composeTestRule.disabledDesktopSiteButton().assertIsDisplayed()
             Log.i(TAG, "verifyDesktopSiteButtonState: Verified that the \"Desktop site\" button is set to \"Off\".")
         }
-    }
-
-    fun verifyDesktopSiteButtonIsDisabled() {
-        Log.i(TAG, "verifyDesktopSiteButtonIsDisabled: Trying to verify that the \"Desktop site\" button is disabled.")
-        composeTestRule.desktopSiteButton().assertIsNotEnabled()
-        Log.i(TAG, "verifyDesktopSiteButtonIsDisabled: Verified that the \"Desktop site\" button is disabled.")
     }
 
     fun clickSwitchToDesktopSiteButton() {
@@ -416,42 +413,24 @@ private fun findInPageButton() = onView(withText("Find in page"))
 private fun openInBrowserButton() = onView(withText("Open in $appName"))
 
 private fun ComposeTestRule.openInBrowserButtonFromRedesignedToolbar() =
-    onNodeWithText(getStringResource(R.string.browser_menu_open_in_fenix, appName))
+    onNodeWithContentDescription("Open in $appName")
 
 private fun progressBar() =
     mDevice.findObject(UiSelector().resourceId("$packageName:id/mozac_browser_toolbar_progress"))
 
-private fun ComposeTestRule.desktopSiteButton() = onNodeWithText(getStringResource(R.string.browser_menu_desktop_site))
+private fun ComposeTestRule.desktopSiteButton() =
+    onNodeWithContentDescription(getStringResource(R.string.browser_menu_desktop_site), substring = true)
 
-private fun ComposeTestRule.enabledDesktopSiteButton() =
-    onNode(
-        hasText(getStringResource(R.string.browser_menu_desktop_site))
-            .and(
-                SemanticsMatcher.expectValue(
-                    SemanticsProperties.StateDescription,
-                    getStringResource(R.string.browser_feature_desktop_site_on),
-                )
-            )
-    )
+private fun ComposeTestRule.enabledDesktopSiteButton() = onNodeWithTag(DESKTOP_SITE_ON)
 
-private fun ComposeTestRule.disabledDesktopSiteButton() =
-    onNode(
-        hasText(getStringResource(R.string.browser_menu_desktop_site))
-            .and(
-                SemanticsMatcher.expectValue(
-                    SemanticsProperties.StateDescription,
-                    getStringResource(R.string.browser_feature_desktop_site_off),
-                )
-            )
-    )
+private fun ComposeTestRule.disabledDesktopSiteButton() = onNodeWithTag(DESKTOP_SITE_OFF)
 
-private fun ComposeTestRule.findInPageButton() = onNodeWithText(getStringResource(R.string.browser_menu_find_in_page))
+private fun ComposeTestRule.findInPageButton() =
+    onNodeWithContentDescription(getStringResource(R.string.browser_menu_find_in_page))
 
-private fun ComposeTestRule.bookmarkPageButton() =
-    onNodeWithText(getStringResource(R.string.browser_menu_bookmark_this_page_2))
+private fun ComposeTestRule.bookmarkPageButton() = onNodeWithTag(CustomTabMenuTestTags.BOOKMARK_PAGE_ITEM)
 
-private fun ComposeTestRule.editBookmarkButton() =
-    onNodeWithText(getStringResource(R.string.browser_menu_edit_bookmark))
+private fun ComposeTestRule.editBookmarkButton() = onNodeWithTag(CustomTabMenuTestTags.EDIT_BOOKMARK_PAGE_ITEM)
 
 private fun ComposeTestRule.backButton() = onNodeWithText("Back")
 

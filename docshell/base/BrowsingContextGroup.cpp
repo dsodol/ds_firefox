@@ -690,7 +690,7 @@ void BrowsingContextGroup::NotifyFocusedOrActiveBrowsingContextToProcess(
 // Non-http(s) principals always use origin agent clusters.
 static bool AlwaysUseOriginAgentCluster(nsIPrincipal* aPrincipal) {
   return !aPrincipal->GetIsContentPrincipal() ||
-         !net::SchemeIsHttpOrHttps(aPrincipal);
+         (!aPrincipal->SchemeIs("http") && !aPrincipal->SchemeIs("https"));
 }
 
 void BrowsingContextGroup::SetUseOriginAgentClusterFromNetwork(

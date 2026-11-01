@@ -5,7 +5,6 @@
 #ifndef mozilla_image_test_gtest_Common_h
 #define mozilla_image_test_gtest_Common_h
 
-#include <memory>
 #include <vector>
 
 #include "Decoder.h"
@@ -17,6 +16,7 @@
 #include "gtest/gtest.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/UniquePtr.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gtest/MozAssertions.h"
 #include "nsCOMPtr.h"
@@ -311,8 +311,7 @@ already_AddRefed<Decoder> CreateTrivialDecoder();
 template <typename Func, typename... Configs>
 void WithFilterPipeline(Decoder* aDecoder, Func aFunc, bool aFinish,
                         const Configs&... aConfigs) {
-  auto pipe =
-      std::make_unique<typename detail::FilterPipeline<Configs...>::Type>();
+  auto pipe = MakeUnique<typename detail::FilterPipeline<Configs...>::Type>();
   nsresult rv = pipe->Configure(aConfigs...);
   ASSERT_NS_SUCCEEDED(rv);
 
@@ -343,8 +342,7 @@ void WithFilterPipeline(Decoder* aDecoder, Func aFunc,
 template <typename... Configs>
 void AssertConfiguringPipelineFails(Decoder* aDecoder,
                                     const Configs&... aConfigs) {
-  auto pipe =
-      std::make_unique<typename detail::FilterPipeline<Configs...>::Type>();
+  auto pipe = MakeUnique<typename detail::FilterPipeline<Configs...>::Type>();
   nsresult rv = pipe->Configure(aConfigs...);
 
   // Callers expect configuring the pipeline to fail.
@@ -566,7 +564,6 @@ ImageTestCase DownscaledBMPTestCase();
 ImageTestCase DownscaledICOTestCase();
 ImageTestCase DownscaledIconTestCase();
 ImageTestCase DownscaledWebPTestCase();
-ImageTestCase DownscaledLossyWebPTestCase();
 ImageTestCase DownscaledTransparentICOWithANDMaskTestCase();
 
 ImageTestCase TruncatedSmallGIFTestCase();

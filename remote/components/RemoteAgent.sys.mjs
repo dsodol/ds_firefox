@@ -322,10 +322,6 @@ class RemoteAgentParentProcess {
         throw new Error(`Failed to start HTTP server on port ${port}`);
       }
 
-      // Blocking affects outgoing local connections only,
-      // not the inbound client.
-      Services.io.addBlockedLocalPort(this.#port);
-
       if (isIPv4Host) {
         // Bug 1783938: httpd.js refuses connections when started on a IPv4
         // address. As workaround start on localhost and add another identity
@@ -418,8 +414,6 @@ class RemoteAgentParentProcess {
     try {
       await this.#server.stop();
       this.#server = null;
-
-      Services.io.removeBlockedLocalPort(this.#port);
 
       this.updateWebdriverActiveFlag(false);
 

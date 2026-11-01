@@ -16,7 +16,7 @@ namespace mozilla::dom::quota {
 
 DirtyTrackingAutoLock::DirtyTrackingAutoLock(Mutex& aLock,
                                              RefPtr<OriginInfo> aOriginInfo)
-    : mLock(&aLock), mOriginInfo(std::move(aOriginInfo)) {
+    : mLock(&aLock), mOriginInfo(std::move(aOriginInfo)), mTouched(false) {
   Lock();
   if (!IsValid()) {
     Unlock<true>();
@@ -35,7 +35,7 @@ DirtyTrackingAutoLock::DirtyTrackingAutoLock(
     Mutex& aLock,
     const nsClassHashtable<nsCStringHashKey, GroupInfoPair>& aGroupInfoPairs,
     const OriginMetadata& aOriginMetadata)
-    : mLock(&aLock), mOriginInfo(nullptr) {
+    : mLock(&aLock), mOriginInfo(nullptr), mTouched(false) {
   Lock();
   mOriginInfo = GetOriginInfo(aGroupInfoPairs, aOriginMetadata);
   if (!IsValid()) {
@@ -51,7 +51,6 @@ DirtyTrackingAutoLock::DirtyTrackingAutoLock(
   }
 }
 
-DirtyTrackingAutoLock::~DirtyTrackingAutoLock() { Unlock<true>(); }
 void DirtyTrackingAutoLock::EagerMarkAsDirty() {
   MOZ_ASSERT(IsValid());
 
@@ -74,8 +73,6 @@ void DirtyTrackingAutoLock::EagerMarkAsDirty() {
   }
 }
 
-bool DirtyTrackingAutoLock::IsValid() const { return !!mOriginInfo; }
-
 RefPtr<OriginInfo> DirtyTrackingAutoLock::GetOriginInfo(
     const nsClassHashtable<nsCStringHashKey, GroupInfoPair>& aGroupInfoPairs,
     const OriginMetadata& aOriginMetadata) {
@@ -90,12 +87,6 @@ RefPtr<OriginInfo> DirtyTrackingAutoLock::GetOriginInfo(
 
   return groupInfo ? groupInfo->LockedGetOriginInfo(aOriginMetadata.mOrigin)
                    : nullptr;
-}
-
-RefPtr<OriginInfo> DirtyTrackingAutoLock::GetOriginInfo() const {
-  MOZ_DIAGNOSTIC_ASSERT(IsValid());
-
-  return mOriginInfo;
 }
 
 }  // namespace mozilla::dom::quota

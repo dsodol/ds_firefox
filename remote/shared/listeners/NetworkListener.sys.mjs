@@ -71,7 +71,6 @@ export class NetworkListener {
     }
 
     this.#devtoolsNetworkObserver = new lazy.NetworkObserver({
-      collectSecurityInfo: false,
       decodeResponseBodies: false,
       bodyLimit: 0,
       ignoreChannelFunction: this.#ignoreChannelFunction,

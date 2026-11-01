@@ -5,7 +5,6 @@
 #ifndef builtin_WeakMapObject_h
 #define builtin_WeakMapObject_h
 
-#include "gc/Allocator.h"
 #include "gc/WeakMap.h"
 #include "vm/NativeObject.h"
 
@@ -16,7 +15,7 @@ class WeakCollectionObject : public NativeObject {
  public:
   enum { DataSlot, SlotCount };
 
-  using Map = gc::BufferAllocated<WeakMap<Value, Value, BufferAllocPolicy>>;
+  using Map = WeakMap<Value, Value, BufferAllocPolicy>;
   Map* getMap() { return maybePtrFromReservedSlot<Map>(DataSlot); }
 
   size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf);

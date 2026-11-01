@@ -151,8 +151,6 @@ class WaylandSurface;
 class WaylandSurfaceLock;
 class nsWindowX11;
 class nsWindowWayland;
-class nsWindowWaylandToplevel;
-class nsWindowWaylandPopup;
 }  // namespace widget
 }  // namespace mozilla
 
@@ -173,12 +171,6 @@ class nsWindow : public nsIWidget {
   NS_INLINE_DECL_REFCOUNTING_INHERITED(nsWindow, nsIWidget)
 
   virtual mozilla::widget::nsWindowWayland* AsWayland() { return nullptr; }
-  virtual mozilla::widget::nsWindowWaylandPopup* AsWaylandPopup() {
-    return nullptr;
-  }
-  virtual mozilla::widget::nsWindowWaylandToplevel* AsWaylandToplevel() {
-    return nullptr;
-  }
   virtual mozilla::widget::nsWindowX11* AsX11() { return nullptr; }
 
   // called when we are destroyed
@@ -214,7 +206,6 @@ class nsWindow : public nsIWidget {
   void SetFocus(Raise, mozilla::dom::CallerType aCallerType) override;
   LayoutDeviceIntRect GetBounds() override;
   LayoutDeviceIntRect GetScreenBounds() override;
-  DesktopIntRect GetClientArea() const { return mClientArea; }
   DesktopIntRect GetScreenBoundsUnscaled();
   LayoutDeviceIntRect GetClientBounds() override;
   LayoutDeviceIntSize GetClientSize() override;
@@ -256,8 +247,6 @@ class nsWindow : public nsIWidget {
 #ifdef MOZ_WAYLAND
     static Bounds ComputeWayland(const nsWindow*);
 #endif
-    static DesktopIntMargin ComputeCSDMargin(GtkWidget* aShell,
-                                             GtkWidget* aChild);
   };
   void SchedulePendingBounds();
   void MaybeRecomputeBounds();
@@ -355,7 +344,7 @@ class nsWindow : public nsIWidget {
       mozilla::gfx::DrawTarget* aDrawTarget,
       const LayoutDeviceIntRegion& aInvalidRegion) override;
 
-  virtual void SetProgress(unsigned long progressPercent) {}
+  virtual void SetProgress(unsigned long progressPercent) {};
 
   bool SynchronouslyRepaintOnResize() override;
 
@@ -514,6 +503,8 @@ class nsWindow : public nsIWidget {
 
   mozilla::UniquePtr<mozilla::widget::WaylandSurfaceLock> LockSurface();
 
+  bool ApplyEnterLeaveMutterWorkaround();
+
   void NotifyOcclusionState(mozilla::widget::OcclusionState aState) override;
 
   static nsWindow* GetWindow(GdkWindow* window);
@@ -550,18 +541,17 @@ class nsWindow : public nsIWidget {
  protected:
   virtual ~nsWindow();
 
-  virtual void CreateNative() {}
-  virtual void DestroyNative() {}
+  virtual void CreateNative() = 0;
+  virtual void DestroyNative() = 0;
 
   void ConfigureToplevelWindow();
-  virtual void ConfigureToplevelWindowNative() {}
+  virtual void ConfigureToplevelWindowNative() {};
 
   // Native implementation of OnMap() event for X11/Wayland.
-  virtual void OnMapNative() {}
+  virtual void OnMapNative() {};
 
-  virtual void EnableVSyncSource() {}
-  virtual void DisableVSyncSource() {}
-  virtual void WatchHiddenVSyncSource() {}
+  virtual void EnableVSyncSource() {};
+  virtual void DisableVSyncSource() {};
 
   // event handling code
   void DispatchActivateEvent(void);
@@ -623,8 +613,6 @@ class nsWindow : public nsIWidget {
 
   void CreateAndPutGdkScrollEvent(mozilla::LayoutDeviceIntPoint aPoint,
                                   double aDeltaX, double aDeltaY);
-
-  bool IsFullscreenSupported();
 
   nsCString mGtkWindowAppClass;
   nsCString mGtkWindowAppName;

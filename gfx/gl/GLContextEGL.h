@@ -138,7 +138,7 @@ class GLContextEGL final : public GLContext {
       const std::shared_ptr<EglDisplay> display,
       const GLContextCreateDesc& desc, nsACString* const out_failureId);
 
-  EGLSurface CreateEGLSurfaceForCompositorWidget(
+  static EGLSurface CreateEGLSurfaceForCompositorWidget(
       widget::CompositorWidget* aCompositorWidget, const EGLConfig aConfig);
 
   static void DestroySurface(EglDisplay&, const EGLSurface aSurface);

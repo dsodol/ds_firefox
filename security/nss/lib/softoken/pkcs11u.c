@@ -1372,12 +1372,11 @@ sftk_DestroySessionObjectData(SFTKSessionObject *so)
              * unless the attribute owns a heap allocation for it. Anything
              * else means this object was already destroyed and its memory
              * reused; abort rather than zeroize through a wild pointer. */
-            PRBool freeData = so->attrList[i].freeData;
-            PORT_ReleaseAssert(freeData == PR_TRUE ||
-                               (freeData == PR_FALSE && value == so->attrList[i].space &&
+            PORT_ReleaseAssert(so->attrList[i].freeData ||
+                               (value == so->attrList[i].space &&
                                 so->attrList[i].attrib.ulValueLen <= ATTR_SPACE));
             PORT_Memset(value, 0, so->attrList[i].attrib.ulValueLen);
-            if (freeData) {
+            if (so->attrList[i].freeData) {
                 PORT_Free(value);
             }
             so->attrList[i].attrib.pValue = NULL;

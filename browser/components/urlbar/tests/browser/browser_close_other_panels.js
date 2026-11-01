@@ -12,8 +12,17 @@ const { CustomizableUITestUtils } = ChromeUtils.importESModule(
 );
 let gCUITestUtils = new CustomizableUITestUtils(window);
 
-add_setup(function () {
-  UrlbarTestUtils.registerZeroPrefixProvider();
+add_setup(async function () {
+  // Tests get no default Top Sites, and the view is opened on an empty string
+  // here, which would otherwise leave it closed with no results.
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [
+        "browser.newtabpage.activity-stream.default.sites",
+        "https://example.com/",
+      ],
+    ],
+  });
 });
 
 add_task(async function () {

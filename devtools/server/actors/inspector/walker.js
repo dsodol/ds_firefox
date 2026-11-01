@@ -710,7 +710,7 @@ class WalkerActor extends Actor {
 
   /**
    * Return the documentElement for the document containing the
-   * given node, or null if the document has no root element.
+   * given node.
    *
    * @param NodeActor node
    *        The node whose documentElement is requested, or null
@@ -720,9 +720,6 @@ class WalkerActor extends Actor {
     const elt = isNodeDead(node)
       ? this.rootDoc.documentElement
       : nodeDocument(node.rawNode).documentElement;
-    if (!elt) {
-      return null;
-    }
     return this._getOrCreateNodeActor(elt);
   }
 

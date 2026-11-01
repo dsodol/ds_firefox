@@ -2,7 +2,7 @@
 
 // Tests if toResizableBuffer and toFixedLengthBuffer have AutoSetNewObjectMetadata.
 
-enableTrackAllocations();
+enableShellAllocationMetadataBuilder();
 
 var m = new WebAssembly.Memory({
     initial: 0,

@@ -231,7 +231,12 @@ nsresult HTMLBodyElement::BindToTree(BindContext& aContext, nsINode& aParent) {
 
 void HTMLBodyElement::FrameMarginsChanged() {
   MOZ_ASSERT(IsInComposedDoc());
-  ScheduleForPresAttrEvaluationIfNeeded();
+  if (IsPendingMappedAttributeEvaluation()) {
+    return;
+  }
+  if (mAttrs.MarkAsPendingPresAttributeEvaluation()) {
+    OwnerDoc()->ScheduleForPresAttrEvaluation(this);
+  }
 }
 
 #define EVENT(name_, id_, type_, \

@@ -5,9 +5,7 @@
 loader: taskgraph.loader.transform:loader
 
 kind-dependencies:
-    - fetch
     - openh264-plugin
-    - toolchain
 
 transforms:
     - taskgraph.transforms.from_deps
@@ -16,8 +14,10 @@ transforms:
     - gecko_taskgraph.transforms.job
     - gecko_taskgraph.transforms.task
 
+task-defaults:
+    run-on-repo-type: [hg]
+
 tasks:
     openh264-symbol-upload:
         from-deps:
-            kinds: [openh264-plugin]
             group-by: single-with-filters

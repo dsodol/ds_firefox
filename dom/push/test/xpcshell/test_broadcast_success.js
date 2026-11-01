@@ -7,7 +7,7 @@
 // is initialized with the correct path
 do_get_profile();
 const { BroadcastService } = ChromeUtils.importESModule(
-  "moz-src:///dom/push/PushBroadcastService.sys.mjs"
+  "resource://gre/modules/PushBroadcastService.sys.mjs"
 );
 const { JSONFile } = ChromeUtils.importESModule(
   "resource://gre/modules/JSONFile.sys.mjs"

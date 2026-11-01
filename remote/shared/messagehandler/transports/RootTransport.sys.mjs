@@ -177,7 +177,7 @@ export class RootTransport {
 
         return await browsingContext.currentWindowGlobal
           .getActor("MessageHandlerFrame")
-          .sendCommand(command, this._messageHandler.internalSessionId);
+          .sendCommand(command, this._messageHandler.sessionId);
       } catch (e) {
         // Re-throw the error in case it is not an AbortError.
         if (e.name != "AbortError") {

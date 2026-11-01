@@ -22,7 +22,7 @@ AsyncPanZoomAnimation* AndroidSpecificState::CreateFlingAnimation(
 
 UniquePtr<VelocityTracker> AndroidSpecificState::CreateVelocityTracker(
     Axis* aAxis) {
-  return std::make_unique<AndroidVelocityTracker>();
+  return MakeUnique<AndroidVelocityTracker>();
 }
 
 /* static */

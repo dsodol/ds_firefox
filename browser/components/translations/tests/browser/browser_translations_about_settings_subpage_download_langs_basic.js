@@ -7,7 +7,9 @@ requestLongerTimeout(2);
 
 add_task(async function test_download_languages_basic_flow() {
   const { cleanup, remoteClients, translationsSettingsTestUtils } =
-    await setupAboutPreferences(LANGUAGE_PAIRS, {});
+    await setupAboutPreferences(LANGUAGE_PAIRS, {
+      prefs: [["browser.settings-redesign.enabled", true]],
+    });
 
   const document = gBrowser.selectedBrowser.contentDocument;
 

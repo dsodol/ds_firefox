@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #ifndef ipc_testshell_TestShellChild_h
-#define ipc_testshell_TestShellChild_h
+#define ipc_testshell_TestShellChild_h 1
 
 #include "mozilla/ipc/ProtocolUtils.h"
 #include "mozilla/ipc/PTestShellChild.h"

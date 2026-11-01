@@ -45,8 +45,12 @@ async function testResult(input, expected, index = 1) {
     "Should have the expected title"
   );
 
-  // The heuristic currently doesn't have a type icon even if it's from history.
-  if (!result.heuristic) {
+  if (
+    // The heuristic currently doesn't have a type icon even if it's from
+    // history.
+    !result.heuristic &&
+    Services.prefs.getBoolPref("browser.nova.enabled", false)
+  ) {
     Assert.equal(
       result.displayed.typeIcon,
       'url("chrome://browser/skin/urlbar/badge-history.svg#ltr-icon")',

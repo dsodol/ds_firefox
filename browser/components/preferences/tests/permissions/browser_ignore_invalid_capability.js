@@ -1,31 +1,23 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-const ALLOWED_ORIGIN = "https://mozilla.org";
-const IGNORED_ORIGIN = "https://foobar.org";
-const PERMISSION_TYPE = "cookie";
-
 add_task(async function testInvalidCapabilityIgnored() {
   info(
     "Test to make sure that invalid combinations of type and capability are ignored \
      so the cookieExceptions management popup does not crash"
   );
   PermissionTestUtils.add(
-    ALLOWED_ORIGIN,
-    PERMISSION_TYPE,
+    "https://mozilla.org",
+    "cookie",
     Ci.nsICookiePermission.ACCESS_ALLOW
   );
 
   // This is an invalid combination of type & capability and should be ignored
   PermissionTestUtils.add(
-    IGNORED_ORIGIN,
-    PERMISSION_TYPE,
+    "https://foobar.org",
+    "cookie",
     Ci.nsIHttpsOnlyModePermission.LOAD_INSECURE_ALLOW_SESSION
   );
-  registerCleanupFunction(() => {
-    PermissionTestUtils.remove(ALLOWED_ORIGIN, PERMISSION_TYPE);
-    PermissionTestUtils.remove(IGNORED_ORIGIN, PERMISSION_TYPE);
-  });
 
   await openPreferencesViaOpenPreferencesAPI("panePrivacy", {
     leaveOpen: true,

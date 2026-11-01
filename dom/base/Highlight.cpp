@@ -21,7 +21,7 @@
 
 namespace mozilla::dom {
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(Highlight, mSetData, mWindow)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(Highlight, mRanges, mWindow)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(Highlight)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(Highlight)
@@ -33,12 +33,13 @@ NS_INTERFACE_MAP_END
 
 Highlight::Highlight(
     const Sequence<OwningNonNull<AbstractRange>>& aInitialRanges,
-    nsPIDOMWindowInner* aWindow)
+    nsPIDOMWindowInner* aWindow, ErrorResult& aRv)
     : mWindow(aWindow) {
-  // No registry references this highlight yet, so the initial ranges only need
-  // to reach the storage.
-  for (const auto& range : aInitialRanges) {
-    Setlike().Add(RefPtr<AbstractRange>(range));
+  for (RefPtr<AbstractRange> range : aInitialRanges) {
+    Add(*range, aRv);
+    if (aRv.Failed()) {
+      return;
+    }
   }
 }
 
@@ -56,7 +57,8 @@ already_AddRefed<Highlight> Highlight::Constructor(
     return nullptr;
   }
 
-  return MakeAndAddRef<Highlight>(aInitialRanges, window);
+  RefPtr<Highlight> highlight = new Highlight(aInitialRanges, window, aRv);
+  return aRv.Failed() ? nullptr : highlight.forget();
 }
 
 void Highlight::AddToHighlightRegistry(HighlightRegistry& aHighlightRegistry,
@@ -99,10 +101,26 @@ void Highlight::SetType(HighlightType aHighlightType) {
   Repaint();
 }
 
-void Highlight::Add(AbstractRange& aRange, ErrorResult& aRv) {
-  if (!Setlike().Add(&aRange)) {
-    return;
+Highlight* Highlight::Add(AbstractRange& aRange, ErrorResult& aRv) {
+  // Manually check if the range `aKey` is already present in this highlight,
+  // because `SetlikeHelpers::Add()` doesn't indicate this.
+  // To keep the setlike and the mirrored array in sync, the range must not
+  // be added to `mRanges` if it was already present.
+  // `SetlikeHelpers::Has()` is much faster in checking this than
+  // `nsTArray<>::Contains()`.
+  if (Highlight_Binding::SetlikeHelpers::Has(this, aRange, aRv) ||
+      aRv.Failed()) {
+    return this;
   }
+  Highlight_Binding::SetlikeHelpers::Add(this, aRange, aRv);
+  if (aRv.Failed()) {
+    return this;
+  }
+
+  MOZ_ASSERT(!mRanges.Contains(&aRange),
+             "setlike and DOM mirror are not in sync");
+
+  mRanges.AppendElement(&aRange);
   AutoFrameSelectionBatcher selectionBatcher(__FUNCTION__,
                                              mHighlightRegistries.Count());
   for (const RefPtr<HighlightRegistry>& registry :
@@ -112,27 +130,37 @@ void Highlight::Add(AbstractRange& aRange, ErrorResult& aRv) {
     // since this is run in a context guarded by a selection batcher,
     // no strong reference is needed to keep `registry` alive.
     MOZ_KnownLive(registry)->MaybeAddRangeToHighlightSelection(aRange, *this);
+    if (aRv.Failed()) {
+      return this;
+    }
   }
+  return this;
 }
 
-void Highlight::Clear() {
-  SetlikeMixin::Clear();
-  AutoFrameSelectionBatcher selectionBatcher(__FUNCTION__,
-                                             mHighlightRegistries.Count());
-  for (const RefPtr<HighlightRegistry>& registry :
-       mHighlightRegistries.Keys()) {
-    auto frameSelection = registry->GetFrameSelection();
-    selectionBatcher.AddFrameSelection(frameSelection);
-    // since this is run in a context guarded by a selection batcher,
-    // no strong reference is needed to keep `registry` alive.
-    MOZ_KnownLive(registry)->RemoveHighlightSelection(*this);
-  }
-}
-
-bool Highlight::Delete(AbstractRange& aRange) {
-  if (SetlikeMixin::Delete(aRange)) {
+void Highlight::Clear(ErrorResult& aRv) {
+  Highlight_Binding::SetlikeHelpers::Clear(this, aRv);
+  if (!aRv.Failed()) {
+    mRanges.Clear();
     AutoFrameSelectionBatcher selectionBatcher(__FUNCTION__,
                                                mHighlightRegistries.Count());
+
+    for (const RefPtr<HighlightRegistry>& registry :
+         mHighlightRegistries.Keys()) {
+      auto frameSelection = registry->GetFrameSelection();
+      selectionBatcher.AddFrameSelection(frameSelection);
+      // since this is run in a context guarded by a selection batcher,
+      // no strong reference is needed to keep `registry` alive.
+      MOZ_KnownLive(registry)->RemoveHighlightSelection(*this);
+    }
+  }
+}
+
+bool Highlight::Delete(AbstractRange& aRange, ErrorResult& aRv) {
+  if (Highlight_Binding::SetlikeHelpers::Delete(this, aRange, aRv)) {
+    mRanges.RemoveElement(&aRange);
+    AutoFrameSelectionBatcher selectionBatcher(__FUNCTION__,
+                                               mHighlightRegistries.Count());
+
     for (const RefPtr<HighlightRegistry>& registry :
          mHighlightRegistries.Keys()) {
       auto frameSelection = registry->GetFrameSelection();
@@ -187,7 +215,7 @@ nsTArray<RefPtr<AbstractRange>> Highlight::RangesAtPoint(
                ? closestShadowRootInFlattenedTree
                : nullptr;
   }();
-  for (const auto& range : Setlike()) {
+  for (const auto& range : mRanges) {
     // 3.2.1. If abstractRange is an invalid StaticRange, then continue.
     if (range->IsStaticRange() && !range->AsStaticRange()->IsValid()) {
       continue;

@@ -136,8 +136,8 @@ class PowerMeterDevice {
         return;
       }
 
-      mDataBuffer = std::make_unique<EMI_CHANNEL_MEASUREMENT_DATA[]>(
-          metadata2->ChannelCount);
+      mDataBuffer =
+          MakeUnique<EMI_CHANNEL_MEASUREMENT_DATA[]>(metadata2->ChannelCount);
       if (!mDataBuffer) {
         return;
       }
@@ -165,7 +165,7 @@ class PowerMeterDevice {
         return;
       }
 
-      mDataBuffer = std::make_unique<EMI_CHANNEL_MEASUREMENT_DATA[]>(1);
+      mDataBuffer = MakeUnique<EMI_CHANNEL_MEASUREMENT_DATA[]>(1);
       if (!mDataBuffer) {
         return;
       }
@@ -288,7 +288,7 @@ PowerCounters::PowerCounters() {
     }
 
     UniquePtr<PowerMeterDevice> pmd =
-        std::make_unique<PowerMeterDevice>(pdidd->DevicePath);
+        MakeUnique<PowerMeterDevice>(pdidd->DevicePath);
     if (!pmd->HasChannels() ||
         !mPowerMeterDevices.emplaceBack(std::move(pmd))) {
       NS_WARNING("PowerMeterDevice without measurement channel (or OOM)");

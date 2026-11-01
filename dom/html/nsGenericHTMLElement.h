@@ -792,7 +792,7 @@ class nsGenericHTMLElement : public nsGenericHTMLElementBase {
   MOZ_CAN_RUN_SCRIPT void AfterSetPopoverAttr();
 
   mozilla::EventListenerManager* GetEventListenerManagerForAttr(
-      nsAtom* aAttrName) override;
+      nsAtom* aAttrName, bool* aDefer) override;
 
   /**
    * Handles dispatching a simulated click on `this` on space or enter.
@@ -830,8 +830,7 @@ class nsGenericHTMLElement : public nsGenericHTMLElementBase {
   }
 
   void SetHTMLAttr(nsAtom* aName, const nsAString& aValue) {
-    SetAttr(kNameSpaceID_None, aName, aValue, true,
-            mozilla::dom::IsKnownNewAttr::No);
+    SetAttr(kNameSpaceID_None, aName, aValue, true);
   }
   void SetHTMLAttr(nsAtom* aName, const nsAString& aValue,
                    mozilla::ErrorResult& aError) {

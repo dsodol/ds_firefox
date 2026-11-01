@@ -52,7 +52,7 @@ const lazy = {};
 
 ChromeUtils.defineLazyGetter(lazy, "overlayLocalization", () => {
   return new Localization(
-    ["browser/screenshots.ftl", "browser/miniWindow.ftl"],
+    ["browser/screenshots.ftl", "preview/miniWindow.ftl"],
     true
   );
 });
@@ -1375,8 +1375,6 @@ export class ScreenshotsOverlay {
       region: this.selectionRegion.dimensions,
       viewportWidth: this.windowDimensions.clientWidth,
       viewportHeight: this.windowDimensions.clientHeight,
-      innerWidth: this.window.innerWidth,
-      innerHeight: this.window.innerHeight,
     });
   }
 
@@ -2003,11 +2001,6 @@ export class ScreenshotsOverlay {
    * @param {number} pageY The y position relative to the page
    */
   scrollIfByEdge(pageX, pageY) {
-    // Mini-window crops must fit in the visible viewport.
-    if (this.mode === SELECTION_MODES.MINI_WINDOW) {
-      return;
-    }
-
     let { scrollX, scrollY, clientWidth, clientHeight } =
       this.windowDimensions.dimensions;
 

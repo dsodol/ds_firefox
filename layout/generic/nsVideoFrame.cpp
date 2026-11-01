@@ -33,11 +33,11 @@ using namespace mozilla::dom;
 using namespace mozilla::gfx;
 
 nsIFrame* NS_NewHTMLVideoFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
-  return new nsVideoFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell) nsVideoFrame(aStyle, aPresShell->GetPresContext());
 }
 
 nsIFrame* NS_NewHTMLAudioFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
-  return new nsAudioFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell) nsAudioFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsVideoFrame)
@@ -111,13 +111,7 @@ nsresult nsVideoFrame::CreateAnonymousContent(
     NS_ENSURE_TRUE(nodeInfo, NS_ERROR_OUT_OF_MEMORY);
     mPosterImage = NS_NewHTMLImageElement(nodeInfo.forget());
     NS_ENSURE_TRUE(mPosterImage, NS_ERROR_OUT_OF_MEMORY);
-
-    auto* videoElement = static_cast<HTMLVideoElement*>(GetContent());
-    if (!videoElement->IsLazyLoading()) {
-      // Defer poster source update until lazy loading ends.
-      // UpdatePosterSource is called by StopLazyLoading.
-      UpdatePosterSource(false);
-    }
+    UpdatePosterSource(false);
 
     // XXX(Bug 1631371) Check if this should use a fallible operation as it
     // pretended earlier.
@@ -169,9 +163,6 @@ nsIContent* nsVideoFrame::GetVideoControls() const {
 void nsVideoFrame::Destroy(DestroyContext& aContext) {
   if (mReflowCallbackPosted) {
     PresShell()->CancelReflowCallback(this);
-  }
-  if (mPosterImage) {
-    mPosterImage->DestroyContent();
   }
   aContext.AddAnonymousContent(mCaptionDiv.forget());
   aContext.AddAnonymousContent(mPosterImage.forget());
@@ -530,8 +521,8 @@ void nsVideoFrame::UpdatePosterSource(bool aNotify) {
                             nsGkAtoms::_empty, eIgnoreCase)) {
     nsAutoString posterStr;
     element->GetPoster(posterStr);
-    mPosterImage->SetAttr(kNameSpaceID_None, nsGkAtoms::src, posterStr, aNotify,
-                          IsKnownNewAttr::No);
+    mPosterImage->SetAttr(kNameSpaceID_None, nsGkAtoms::src, posterStr,
+                          aNotify);
   } else {
     mPosterImage->UnsetAttr(kNameSpaceID_None, nsGkAtoms::src, aNotify);
   }
@@ -541,12 +532,7 @@ nsresult nsVideoFrame::AttributeChanged(int32_t aNameSpaceID,
                                         nsAtom* aAttribute,
                                         AttrModType aModType) {
   if (aAttribute == nsGkAtoms::poster && HasVideoElement()) {
-    auto* element = static_cast<HTMLVideoElement*>(GetContent());
-    if (!element->IsLazyLoading()) {
-      // Defer poster source update until lazy loading ends.
-      // UpdatePosterSource is called by StopLazyLoading.
-      UpdatePosterSource(true);
-    }
+    UpdatePosterSource(true);
   }
   return nsContainerFrame::AttributeChanged(aNameSpaceID, aAttribute, aModType);
 }

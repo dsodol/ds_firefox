@@ -15,8 +15,8 @@ class HTMLSelectElement;
 
 class HTMLOptionElement final : public nsGenericHTMLElement {
  public:
-  explicit HTMLOptionElement(already_AddRefed<mozilla::dom::NodeInfo> aNodeInfo,
-                             FromParser = NOT_FROM_PARSER);
+  explicit HTMLOptionElement(
+      already_AddRefed<mozilla::dom::NodeInfo> aNodeInfo);
 
   static already_AddRefed<HTMLOptionElement> Option(
       const GlobalObject& aGlobal, const nsAString& aText,
@@ -120,16 +120,12 @@ class HTMLOptionElement final : public nsGenericHTMLElement {
   // to also update descendant selectedcontent elements.
   void UpdateNearestAncestorSelect();
 
-  void DoneAddingChildren(bool) override;
-  bool IsDoneAddingChildren() const { return mIsDoneAddingChildren; }
-
  protected:
   virtual ~HTMLOptionElement();
 
   JSObject* WrapNode(JSContext*, JS::Handle<JSObject*> aGivenProto) override;
 
   bool mSelectedChanged = false;
-  bool mIsDoneAddingChildren = false;
 
   // https://html.spec.whatwg.org/#concept-option-cached-nearest-ancestor-select
   // Safe as a raw pointer: the option is always unbound from the tree before

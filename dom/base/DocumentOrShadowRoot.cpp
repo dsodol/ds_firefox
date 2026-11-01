@@ -812,7 +812,11 @@ CustomElementRegistry* DocumentOrShadowRoot::GetCustomElementRegistry() const {
         return registry;
       }
     }
-    return doc->GetGlobalCustomElementRegistry();
+    nsPIDOMWindowInner* window = doc->GetInnerWindow();
+    if (!window) {
+      return nullptr;
+    }
+    return window->CustomElements();
   }
 
   // Step 2. Assert: this is a ShadowRoot node.

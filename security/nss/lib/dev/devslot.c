@@ -45,6 +45,29 @@ nssSlot_Destroy(
     return PR_SUCCESS;
 }
 
+void
+nssSlot_EnterMonitor(NSSSlot *slot)
+{
+    if (slot->lock) {
+        PR_Lock(slot->lock);
+    }
+}
+
+void
+nssSlot_ExitMonitor(NSSSlot *slot)
+{
+    if (slot->lock) {
+        PR_Unlock(slot->lock);
+    }
+}
+
+NSS_IMPLEMENT void
+NSSSlot_Destroy(
+    NSSSlot *slot)
+{
+    (void)nssSlot_Destroy(slot);
+}
+
 NSS_IMPLEMENT NSSSlot *
 nssSlot_AddRef(
     NSSSlot *slot)
@@ -52,6 +75,13 @@ nssSlot_AddRef(
     PRInt32 refCount = PR_ATOMIC_INCREMENT(&slot->base.refCount);
     PORT_ReleaseAssert(refCount > 1);
     return slot;
+}
+
+NSS_IMPLEMENT NSSUTF8 *
+nssSlot_GetName(
+    NSSSlot *slot)
+{
+    return slot->base.name;
 }
 
 NSS_IMPLEMENT void

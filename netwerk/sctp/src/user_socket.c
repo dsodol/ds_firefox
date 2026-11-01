@@ -60,12 +60,9 @@
 #endif
 userland_mutex_t accept_mtx;
 userland_cond_t accept_cond;
-#if defined(_WIN32)
+#ifdef _WIN32
 #include <time.h>
 #include <sys/timeb.h>
-#if !defined(_MSC_VER)
-#include <minmax.h>
-#endif
 #endif
 
 MALLOC_DEFINE(M_PCB, "sctp_pcb", "sctp pcb");
@@ -3157,7 +3154,8 @@ usrsctp_deregister_address(void *addr)
 	sconn.sconn_addr = addr;
 	sctp_del_addr_from_vrf(SCTP_DEFAULT_VRFID,
 	                       (struct sockaddr *)&sconn,
-	                       NULL, 0xffffffff);
+	                       0xffffffff,
+	                       "conn");
 }
 
 #define PREAMBLE_FORMAT "\n%c %02d:%02d:%02d.%06ld "

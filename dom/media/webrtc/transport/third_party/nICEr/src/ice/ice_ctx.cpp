@@ -59,7 +59,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 int LOG_ICE = 0;
 
 static int nr_ice_fetch_stun_servers(int ct, nr_ice_stun_server **out);
+#ifdef USE_TURN
 static int nr_ice_fetch_turn_servers(int ct, nr_ice_turn_server **out);
+#endif /* USE_TURN */
 static int nr_ice_ctx_pair_new_trickle_candidates(nr_ice_ctx *ctx, nr_ice_candidate *cand);
 static int no_op(void **obj) {
   return 0;
@@ -228,6 +230,7 @@ void nr_ice_ctx_set_socket_factory(nr_ice_ctx *ctx, nr_socket_factory *factory)
     ctx->socket_factory = factory;
   }
 
+#ifdef USE_TURN
 int nr_ice_fetch_turn_servers(int ct, nr_ice_turn_server **out)
   {
     int r,_status;
@@ -294,6 +297,7 @@ int nr_ice_fetch_turn_servers(int ct, nr_ice_turn_server **out)
     if (_status) free(servers);
     return(_status);
   }
+#endif /* USE_TURN */
 
 #define MAXADDRS 100 /* Ridiculously high */
   int nr_ice_ctx_create(char* label, UINT4 flags,
@@ -336,12 +340,16 @@ int nr_ice_fetch_turn_servers(int ct, nr_ice_turn_server **out)
       }
     }
 
+#ifdef USE_TURN
     /* Get the TURN servers */
     if(r=NR_reg_get_child_count(NR_ICE_REG_TURN_SRV_PRFX,
       (unsigned int *)&ctx->turn_server_ct_cfg)||ctx->turn_server_ct_cfg==0) {
       r_log(LOG_ICE,LOG_DEBUG,"ICE(%s): No TURN servers specified in nICEr registry", ctx->label);
       ctx->turn_server_ct_cfg=0;
     }
+#else
+    ctx->turn_server_ct_cfg=0;
+#endif /* USE_TURN */
 
     ctx->local_addrs=0;
     ctx->local_addr_ct=0;
@@ -352,6 +360,7 @@ int nr_ice_fetch_turn_servers(int ct, nr_ice_turn_server **out)
       ctx->turn_server_ct_cfg=31-ctx->stun_server_ct_cfg;
     }
 
+#ifdef USE_TURN
     if(ctx->turn_server_ct_cfg>0){
       if(r=nr_ice_fetch_turn_servers(ctx->turn_server_ct_cfg,&ctx->turn_servers_cfg)){
         ctx->turn_server_ct_cfg=0;
@@ -359,6 +368,7 @@ int nr_ice_fetch_turn_servers(int ct, nr_ice_turn_server **out)
         ABORT(r);
       }
     }
+#endif /* USE_TURN */
 
 
     ctx->Ta = 20;

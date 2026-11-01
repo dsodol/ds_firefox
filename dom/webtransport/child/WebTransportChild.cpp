@@ -18,10 +18,7 @@ void WebTransportChild::Shutdown(bool aClose) {
 }
 
 void WebTransportChild::CloseAll() {
-  if (mTransport) {
-    RefPtr<WebTransport> self(mTransport);
-    self->RemoteClosed(false, 0, EmptyCString(), Nothing());
-  }
+  // XXX need impl
 }
 
 ::mozilla::ipc::IPCResult WebTransportChild::RecvCloseAll(
@@ -69,15 +66,6 @@ void WebTransportChild::CloseAll() {
   return IPC_OK();
 }
 
-::mozilla::ipc::IPCResult WebTransportChild::RecvDatagramReady(
-    const uint64_t& aDatagramId) {
-  if (mTransport) {
-    RefPtr<WebTransport> self(mTransport);
-    self->OnDatagramReady(aDatagramId);
-  }
-  return IPC_OK();
-}
-
 ::mozilla::ipc::IPCResult WebTransportChild::RecvDraining() {
   if (mTransport) {
     RefPtr<WebTransport> self(mTransport);
@@ -86,14 +74,13 @@ void WebTransportChild::CloseAll() {
   return IPC_OK();
 }
 
-::mozilla::ipc::IPCResult WebTransportChild::RecvNegotiatedProtocolAndHeaders(
-    const nsACString& aSubprotocol, nsTArray<WebTransportHeader>&& aHeaders) {
-  LOG(("WebTransportChild::RecvNegotiatedProtocolAndHeaders: %s",
+::mozilla::ipc::IPCResult WebTransportChild::RecvNegotiatedProtocol(
+    const nsACString& aSubprotocol) {
+  LOG(("WebTransportChild::RecvNegotiatedProtocol: %s",
        PromiseFlatCString(aSubprotocol).get()));
   if (mTransport) {
     RefPtr<WebTransport> self(mTransport);
     self->SetNegotiatedProtocol(aSubprotocol);
-    self->SetResponseHeaders(std::move(aHeaders));
   }
   return IPC_OK();
 }

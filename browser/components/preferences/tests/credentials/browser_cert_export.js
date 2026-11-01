@@ -45,9 +45,10 @@ var exportButton;
 var expectedCert;
 
 async function setupTest() {
-  await openPreferencesViaOpenPreferencesAPI("paneConnectionSecurity", {
-    leaveOpen: true,
-  });
+  await openPreferencesViaOpenPreferencesAPI(
+    SRD_PREF_VALUE ? "paneConnectionSecurity" : "privacy",
+    { leaveOpen: true }
+  );
   let certButton = gBrowser.selectedBrowser.contentDocument.getElementById(
     "viewCertificatesButton"
   );

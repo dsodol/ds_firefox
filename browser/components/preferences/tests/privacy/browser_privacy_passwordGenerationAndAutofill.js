@@ -1,6 +1,7 @@
-requestLongerTimeout(2);
+/* Any copyright is dedicated to the Public Domain.
+ * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-add_task(async function initialStateNew() {
+add_task(async function initialState() {
   // check pref permutations to verify the UI opens in the correct state
   const prefTests = [
     {
@@ -49,17 +50,15 @@ add_task(async function initialStateNew() {
     await BrowserTestUtils.withNewTab(
       {
         gBrowser,
-        url: "about:preferences#passwordsAutofill",
+        url: "about:preferences#privacy",
       },
       async function (browser) {
         let doc = browser.contentDocument;
-        let generatePasswordsCheckbox = doc
-          .getElementById("suggestStrongPasswords")
-          .shadowRoot.querySelector("input");
-        let autofillFormsCheckbox = doc
-          .getElementById("fillUsernameAndPasswords")
-          .shadowRoot.querySelector("input");
-        doc.getElementById("passwordsGroup").scrollIntoView();
+        let generatePasswordsCheckbox = doc.getElementById("generatePasswords");
+        let autofillFormsCheckbox = doc.getElementById(
+          "passwordAutofillCheckbox"
+        );
+        doc.getElementById("passwordSettings").scrollIntoView();
 
         info("initialState, assert on expected state:" + test.expected);
         switch (test.expected) {
@@ -112,7 +111,7 @@ add_task(async function initialStateNew() {
   }
 });
 
-add_task(async function toggleGenerationEnabledNew() {
+add_task(async function toggleGenerationEnabled() {
   // clicking the checkbox should toggle the pref
   SpecialPowers.pushPrefEnv({
     set: [
@@ -125,11 +124,11 @@ add_task(async function toggleGenerationEnabledNew() {
   await BrowserTestUtils.withNewTab(
     {
       gBrowser,
-      url: "about:preferences#passwordsAutofill",
+      url: "about:preferences#privacy",
     },
     async function (browser) {
       let doc = browser.contentDocument;
-      let checkbox = doc.getElementById("suggestStrongPasswords");
+      let checkbox = doc.getElementById("generatePasswords");
 
       info("waiting for the browser to have focus");
       await SimpleTest.promiseFocus(browser);
@@ -155,7 +154,7 @@ add_task(async function toggleGenerationEnabledNew() {
   await SpecialPowers.popPrefEnv();
 });
 
-add_task(async function toggleRememberSignonNew() {
+add_task(async function toggleRememberSignon() {
   // toggling rememberSignons checkbox should make generation checkbox disabled
   SpecialPowers.pushPrefEnv({
     set: [
@@ -168,14 +167,12 @@ add_task(async function toggleRememberSignonNew() {
   await BrowserTestUtils.withNewTab(
     {
       gBrowser,
-      url: "about:preferences#passwordsAutofill",
+      url: "about:preferences#privacy",
     },
     async function (browser) {
       let doc = browser.contentDocument;
       let checkbox = doc.getElementById("savePasswords");
-      let generationCheckbox = doc
-        .getElementById("suggestStrongPasswords")
-        .shadowRoot.querySelector("input");
+      let generationCheckbox = doc.getElementById("generatePasswords");
 
       ok(
         !generationCheckbox.disabled,
@@ -186,16 +183,16 @@ add_task(async function toggleRememberSignonNew() {
       await SimpleTest.promiseFocus(browser);
       let prefChanged = TestUtils.waitForPrefChange("signon.rememberSignons");
 
-      checkbox.click();
+      // the preferences "Search" bar obscures the checkbox if we scrollIntoView and try to click on it
+      // so use keyboard events instead
+      checkbox.focus();
+      is(doc.activeElement, checkbox, "checkbox is focused");
+      EventUtils.synthesizeKey(" ");
 
       info("waiting for pref to change");
       await prefChanged;
       ok(!checkbox.checked, "#savePasswords checkbox is un-checked");
-      await TestUtils.waitForCondition(
-        () => generationCheckbox.disabled,
-        "generation checkbox becomes disabled",
-        200
-      );
+      ok(generationCheckbox.disabled, "generation checkbox becomes disabled");
     }
   );
   await SpecialPowers.popPrefEnv();

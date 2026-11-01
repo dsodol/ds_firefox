@@ -1,7 +1,7 @@
 "use strict";
 
 const { getCryptoParamsFromHeaders, PushCrypto } = ChromeUtils.importESModule(
-  "moz-src:///dom/push/PushCrypto.sys.mjs"
+  "resource://gre/modules/PushCrypto.sys.mjs"
 );
 
 const REJECT_PADDING = { padding: "reject" };

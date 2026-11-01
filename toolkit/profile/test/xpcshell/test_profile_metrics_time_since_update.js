@@ -12,26 +12,17 @@ add_task(async function test_days_since_update() {
   Services.fog.testResetFOG();
 
   let greDir = Services.dirsvc.get("GreD", Ci.nsIFile);
-  let fiveDaysAgoMs = Date.now() - 5 * 24 * 60 * 60 * 1000;
-  let json = JSON.stringify({ install_timestamp: String(fiveDaysAgoMs) });
+  let updatePath = PathUtils.join(greDir.path, "update_telemetry.json");
 
-  if (Services.appinfo.OS == "Darwin") {
-    let appPath = greDir.parent.parent.path;
-    await IOUtils.setMacXAttr(
-      appPath,
-      "org.mozilla.update-telemetry",
-      new TextEncoder().encode(json)
-    );
-    registerCleanupFunction(async () => {
-      await IOUtils.delMacXAttr(appPath, "org.mozilla.update-telemetry");
-    });
-  } else {
-    let updatePath = PathUtils.join(greDir.path, "update_telemetry.json");
-    registerCleanupFunction(async () => {
-      await IOUtils.remove(updatePath, { ignoreAbsent: true });
-    });
-    await IOUtils.writeUTF8(updatePath, json);
-  }
+  registerCleanupFunction(async () => {
+    await IOUtils.remove(updatePath, { ignoreAbsent: true });
+  });
+
+  let fiveDaysAgoMs = Date.now() - 5 * 24 * 60 * 60 * 1000;
+  await IOUtils.writeUTF8(
+    updatePath,
+    JSON.stringify({ install_timestamp: String(fiveDaysAgoMs) })
+  );
 
   selectStartupProfile();
 

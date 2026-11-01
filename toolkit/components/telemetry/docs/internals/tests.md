@@ -16,7 +16,7 @@ Unless otherwise mentioned the tests live in subdirectories of
 
 :Location: ``t/c/t/t/browser/``
 :Language: Javascript
-  (:doc:`mochitest </testing/mochitest-plain/index>`)
+  (`mochitest <https://firefox-source-docs.mozilla.org/testing/mochitest-plain>`__)
 ```
 
 This test harness runs nearly the entire Firefox and gives access to multiple tabs and browser chrome APIs.
@@ -72,7 +72,7 @@ This is for tests like
 
 :Location: ``t/c/t/t/unit``
 :Language: Javascript
-  (:doc:`xpcshell </testing/xpcshell/index>`)
+  (`xpcshell <https://firefox-source-docs.mozilla.org/testing/xpcshell>`__)
 ```
 
 This test harness uses a stripped-down shell of the Firefox browser to run privileged Javascript.
@@ -93,8 +93,8 @@ New integration tests should use telemetry-tests-client instead.
 
 :Location: Various
 :Language: Usually Javascript
-  (:doc:`xpcshell </testing/xpcshell/index>` or
-  :doc:`mochitest </testing/mochitest-plain/index>`)
+  (`xpcshell <https://firefox-source-docs.mozilla.org/testing/xpcshell>`__ or
+  `mochitest <https://firefox-source-docs.mozilla.org/testing/mochitest-plain>`__)
 ```
 
 In addition to the tests of Firefox Telemetry,

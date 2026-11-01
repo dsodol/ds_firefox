@@ -5,7 +5,6 @@
 #ifndef WEBGLQUEUEPARAMTRAITS_H_
 #define WEBGLQUEUEPARAMTRAITS_H_
 
-#include "QueueParamTraits.h"
 #include "TexUnpackBlob.h"
 #include "WebGLTypes.h"
 #include "ipc/EnumSerializer.h"

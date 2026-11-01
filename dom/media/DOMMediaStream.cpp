@@ -73,8 +73,7 @@ class DOMMediaStream::PlaybackTrackListener : public MediaStreamTrackConsumer {
   explicit PlaybackTrackListener(DOMMediaStream* aStream) : mStream(aStream) {}
 
   void NotifyEnded(MediaStreamTrack* aTrack) override {
-    RefPtr<DOMMediaStream> stream = mStream.get();
-    if (!stream) {
+    if (!mStream) {
       return;
     }
 
@@ -83,8 +82,8 @@ class DOMMediaStream::PlaybackTrackListener : public MediaStreamTrackConsumer {
       return;
     }
 
-    MOZ_ASSERT(stream->HasTrack(*aTrack));
-    stream->NotifyTrackRemoved(aTrack);
+    MOZ_ASSERT(mStream->HasTrack(*aTrack));
+    mStream->NotifyTrackRemoved(aTrack);
   }
 
  protected:
@@ -276,7 +275,7 @@ already_AddRefed<Promise> DOMMediaStream::CountUnderlyingStreams(
     MediaTrackGraphImpl* mGraph;
     RefPtr<Promise> mPromise;
   };
-  graphImpl->AppendMessage(std::make_unique<Counter>(graphImpl, p));
+  graphImpl->AppendMessage(MakeUnique<Counter>(graphImpl, p));
 
   return p.forget();
 }
@@ -443,8 +442,8 @@ void DOMMediaStream::NotifyActive() {
   LOG(LogLevel::Info, ("DOMMediaStream {} NotifyActive(). ", fmt::ptr(this)));
 
   MOZ_ASSERT(mActive);
-  for (RefPtr<TrackListener> listener : mTrackListeners.BackwardRange()) {
-    listener->NotifyActive();
+  for (int32_t i = mTrackListeners.Length() - 1; i >= 0; --i) {
+    mTrackListeners[i]->NotifyActive();
   }
 }
 
@@ -452,8 +451,8 @@ void DOMMediaStream::NotifyInactive() {
   LOG(LogLevel::Info, ("DOMMediaStream {} NotifyInactive(). ", fmt::ptr(this)));
 
   MOZ_ASSERT(!mActive);
-  for (RefPtr<TrackListener> listener : mTrackListeners.BackwardRange()) {
-    listener->NotifyInactive();
+  for (int32_t i = mTrackListeners.Length() - 1; i >= 0; --i) {
+    mTrackListeners[i]->NotifyInactive();
   }
 }
 
@@ -461,8 +460,8 @@ void DOMMediaStream::NotifyAudible() {
   LOG(LogLevel::Info, ("DOMMediaStream {} NotifyAudible(). ", fmt::ptr(this)));
 
   MOZ_ASSERT(mAudible);
-  for (RefPtr<TrackListener> listener : mTrackListeners.BackwardRange()) {
-    listener->NotifyAudible();
+  for (int32_t i = mTrackListeners.Length() - 1; i >= 0; --i) {
+    mTrackListeners[i]->NotifyAudible();
   }
 }
 
@@ -471,8 +470,8 @@ void DOMMediaStream::NotifyInaudible() {
       ("DOMMediaStream {} NotifyInaudible(). ", fmt::ptr(this)));
 
   MOZ_ASSERT(!mAudible);
-  for (RefPtr<TrackListener> listener : mTrackListeners.BackwardRange()) {
-    listener->NotifyInaudible();
+  for (int32_t i = mTrackListeners.Length() - 1; i >= 0; --i) {
+    mTrackListeners[i]->NotifyInaudible();
   }
 }
 
@@ -492,8 +491,8 @@ void DOMMediaStream::NotifyTrackAdded(const RefPtr<MediaStreamTrack>& aTrack) {
 
   aTrack->AddConsumer(mPlaybackTrackListener);
 
-  for (RefPtr<TrackListener> listener : mTrackListeners.BackwardRange()) {
-    listener->NotifyTrackAdded(aTrack);
+  for (int32_t i = mTrackListeners.Length() - 1; i >= 0; --i) {
+    mTrackListeners[i]->NotifyTrackAdded(aTrack);
   }
 
   if (!mActive) {
@@ -525,8 +524,8 @@ void DOMMediaStream::NotifyTrackRemoved(
 
     aTrack->RemoveConsumer(mPlaybackTrackListener);
 
-    for (RefPtr<TrackListener> listener : mTrackListeners.BackwardRange()) {
-      listener->NotifyTrackRemoved(aTrack);
+    for (int32_t i = mTrackListeners.Length() - 1; i >= 0; --i) {
+      mTrackListeners[i]->NotifyTrackRemoved(aTrack);
     }
 
     if (!mActive) {

@@ -510,8 +510,8 @@ impl Message for MinidumpReply {
 
 #[cfg(target_os = "windows")]
 pub struct WindowsErrorReportingMinidump {
-    pub process_id: u32,
-    pub thread_id: u32,
+    pub process: AncillaryData,
+    pub thread: AncillaryData,
     pub exception_records: Vec<EXCEPTION_RECORD>,
     pub context: CONTEXT,
 }
@@ -519,14 +519,14 @@ pub struct WindowsErrorReportingMinidump {
 #[cfg(target_os = "windows")]
 impl WindowsErrorReportingMinidump {
     pub fn new(
-        process_id: u32,
-        thread_id: u32,
+        process: AncillaryData,
+        thread: AncillaryData,
         exception_records: Vec<EXCEPTION_RECORD>,
         context: CONTEXT,
     ) -> WindowsErrorReportingMinidump {
         WindowsErrorReportingMinidump {
-            process_id,
-            thread_id,
+            process,
+            thread,
             exception_records,
             context,
         }
@@ -544,31 +544,28 @@ const EXCEPTION_RECORD_SERIALIZED_SIZE: usize =
 const EXCEPTION_RECORD_SERIALIZED_SIZE: usize = size_of::<EXCEPTION_RECORD>() - size_of::<usize>();
 
 #[cfg(target_os = "windows")]
+const WINDOWS_ERROR_REPORTING_MINIDUMP_ANCILLARY_DATA_LEN: usize = 2;
+
+#[cfg(target_os = "windows")]
 impl Message for WindowsErrorReportingMinidump {
     fn kind() -> Kind {
         Kind::WindowsErrorReporting
     }
 
     fn payload_size(&self) -> usize {
-        // This is process_id (u32), plus thread_id (u32), plus number of
-        // elements in the exception record array (usize), plus the size of the
-        // exception record array plus the size of the context.
-        (size_of::<u32>() * 2)
-            + size_of::<usize>() // number of elements in the exception record array
+        size_of::<usize>()
             + (EXCEPTION_RECORD_SERIALIZED_SIZE * self.exception_records.len())
             + size_of::<CONTEXT>()
     }
 
     fn ancillary_data_len(&self) -> usize {
-        0
+        WINDOWS_ERROR_REPORTING_MINIDUMP_ANCILLARY_DATA_LEN
     }
 
     fn encode(self) -> (Bytes, Bytes, Vec<AncillaryData>) {
         let header = Header::encode(Self::kind(), self.payload_size());
         let mut payload = BytesMut::with_capacity(self.payload_size());
 
-        payload.put_u32_ne(self.process_id);
-        payload.put_u32_ne(self.thread_id);
         payload.put_usize_ne(self.exception_records.len());
         for exception_record in self.exception_records.iter() {
             payload.put_exception_record(exception_record);
@@ -582,13 +579,13 @@ impl Message for WindowsErrorReportingMinidump {
         data: Vec<u8>,
         ancillary_data: Vec<AncillaryData>,
     ) -> Result<WindowsErrorReportingMinidump, MessageError> {
-        if !ancillary_data.is_empty() {
+        if ancillary_data.len() < WINDOWS_ERROR_REPORTING_MINIDUMP_ANCILLARY_DATA_LEN {
+            return Err(MessageError::MissingAncillary);
+        } else if ancillary_data.len() > WINDOWS_ERROR_REPORTING_MINIDUMP_ANCILLARY_DATA_LEN {
             return Err(MessageError::UnexpectedAncillaryData);
         }
 
         let mut bytes = Bytes::from(data);
-        let process_id = bytes.try_get_u32_ne()?;
-        let thread_id = bytes.try_get_u32_ne()?;
         let exception_records_n = bytes.try_get_usize_ne()?;
 
         let mut exception_records = Vec::<EXCEPTION_RECORD>::with_capacity(exception_records_n);
@@ -599,9 +596,13 @@ impl Message for WindowsErrorReportingMinidump {
 
         let context = bytes.try_get_context()?;
 
+        let mut iter = ancillary_data.into_iter();
+        let process = iter.next().unwrap();
+        let thread = iter.next().unwrap();
+
         Ok(WindowsErrorReportingMinidump {
-            process_id,
-            thread_id,
+            process,
+            thread,
             exception_records,
             context,
         })

@@ -6,7 +6,6 @@
 #define nsHtml5StringParser_h
 
 #include "mozilla/UniquePtr.h"
-#include "nsContentUtils.h"
 #include "nsHtml5AtomTable.h"
 #include "nsParserBase.h"
 
@@ -52,7 +51,7 @@ class nsHtml5StringParser : public nsParserBase {
    * @param aSanitizer the Sanitizer API configuration to apply while parsing
    * (the spec's "parser sanitizer configuration"), or nullptr not to sanitize
    * while parsing.
-   * @param aSanitizerMode whether to safely sanitize, i.e.
+   * @param aSanitizerSafe safely sanitize, i.e.
    * "remove javascript navigation URLs".
    */
   nsresult ParseFragment(
@@ -62,8 +61,7 @@ class nsHtml5StringParser : public nsParserBase {
       mozilla::Maybe<RefPtr<mozilla::dom::CustomElementRegistry>>
           aCustomElementRegistry,
       mozilla::dom::Sanitizer* aSanitizer = nullptr,
-      nsContentUtils::SanitizerMode aSanitizerMode =
-          nsContentUtils::SanitizerMode::Unsafe);
+      bool aSanitizerSafe = false);
 
   /**
    * Parse an entire HTML document from a source string.
@@ -74,7 +72,7 @@ class nsHtml5StringParser : public nsParserBase {
                          mozilla::dom::Document* aTargetDoc,
                          bool aScriptingEnabledForNoscriptParsing,
                          mozilla::dom::Sanitizer* aSanitizer,
-                         nsContentUtils::SanitizerMode aSanitizerMode);
+                         bool aSanitizerSafe);
 
  private:
   virtual ~nsHtml5StringParser();

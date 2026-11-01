@@ -16,9 +16,6 @@ prefs = [
 
 ["browser_1936752_lock_tab_sizing.js"]
 
-["browser_TabUnloader.js"]
-support-files = ["file_webrtc.html"]
-
 ["browser_addAdjacentNewTab.js"]
 tags = "vertical-tabs"
 
@@ -72,8 +69,6 @@ support-files = ["test_bug1358314.html"]
 tags = "vertical-tabs"
 
 ["browser_ctrlTab.js"]
-
-["browser_discardBrowser_discarded_attribute.js"]
 
 ["browser_discarded_tab_move.js"]
 
@@ -282,6 +277,7 @@ tags = "vertical-tabs"
 ["browser_multiselect_tabs_unload_telemetry.js"]
 skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11'", # Bug 1935293
+  "os == 'mac' && os_version == '14.70' && arch == 'x86_64' && opt", # Bug 1929417
 ]
 tags = "vertical-tabs"
 
@@ -331,6 +327,8 @@ https_first_disabled = true
 support-files = ["file_observe_height_changes.html"]
 tags = "vertical-tabs"
 skip-if = [
+  "os == 'mac' && os_version == '10.15' && arch == 'x86_64'", # Bug 1872477
+  "os == 'mac' && os_version == '14.70' && arch == 'x86_64'", # Bug 1929417
   "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 1872477
   "vertical_tab", # Bug 1936170
 ]
@@ -399,8 +397,6 @@ tags = "vertical-tabs"
 
 ["browser_preloadedBrowser_zoom.js"]
 
-["browser_preloading_tab_moving.js"]
-
 ["browser_privilegedmozilla_process_pref.js"]
 https_first_disabled = true
 
@@ -416,6 +412,8 @@ tags = "vertical-tabs"
 ["browser_reload_deleted_file.js"]
 tags = "vertical-tabs"
 skip-if = [
+  "os == 'mac' && os_version == '10.15' && arch == 'x86_64' && vertical_tab", # Bug 1936168
+  "os == 'mac' && os_version == '14.70' && arch == 'x86_64' && vertical_tab", # Bug 1936168
   "os == 'mac' && os_version == '15.30' && arch == 'aarch64' && vertical_tab", # Bug 1936168
 ]
 
@@ -557,6 +555,10 @@ tags = "vertical-tabs"
 tags = "vertical-tabs"
 
 ["browser_tab_groups_tab_interactions_telemetry.js"]
+skip-if = [
+  "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && ccov", # Bug 1968371
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && ccov", # Bug 1968371
+]
 
 ["browser_tab_groups_telemetry.js"]
 
@@ -579,6 +581,9 @@ tags = "vertical-tabs"
 
 ["browser_tab_manager_groups.js"]
 tags = "vertical-tabs"
+skip-if = [
+  "opt && standalone", # Bug 2028649
+]
 
 ["browser_tab_manager_keyboard_access.js"]
 tags = "vertical-tabs"
@@ -619,6 +624,7 @@ skip-if = [
 
 ["browser_tab_splitview_contextmenu.js"]
 skip-if = [
+  "os == 'mac' && os_version == '10.15' && arch == 'x86_64'", # Bug 1994508
   "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 2023967
 ]
 

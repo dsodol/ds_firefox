@@ -592,7 +592,7 @@ nsresult gfxFontUtils::ReadCMAP(const uint8_t* aBuf, uint32_t aBufLength,
 
 #pragma pack(1)
 
-struct Format4Cmap {
+typedef struct {
   AutoSwap_PRUint16 format;
   AutoSwap_PRUint16 length;
   AutoSwap_PRUint16 language;
@@ -602,32 +602,32 @@ struct Format4Cmap {
   AutoSwap_PRUint16 rangeShift;
 
   AutoSwap_PRUint16 arrays[1];
-};
+} Format4Cmap;
 
-struct Format14Cmap {
+typedef struct Format14Cmap {
   AutoSwap_PRUint16 format;
   AutoSwap_PRUint32 length;
   AutoSwap_PRUint32 numVarSelectorRecords;
 
-  struct VarSelectorRecord {
+  typedef struct {
     AutoSwap_PRUint24 varSelector;
     AutoSwap_PRUint32 defaultUVSOffset;
     AutoSwap_PRUint32 nonDefaultUVSOffset;
-  };
+  } VarSelectorRecord;
 
   VarSelectorRecord varSelectorRecords[1];
-};
+} Format14Cmap;
 
-struct DefUVSTable {
+typedef struct DefUVSTable {
   AutoSwap_PRUint32 numUnicodeValueRanges;
 
-  struct UnicodeRange {
+  typedef struct {
     AutoSwap_PRUint24 startUnicodeValue;
     uint8_t additionalCount;
-  };
+  } UnicodeRange;
 
   UnicodeRange ranges[1];
-};
+} DefUVSTable;
 
 typedef struct UnicodeRangeComparator {
   explicit UnicodeRangeComparator(uint32_t aTarget) : mTarget(aTarget) {}
@@ -643,7 +643,7 @@ typedef struct UnicodeRangeComparator {
   const uint32_t mTarget;
 } UnicodeRangeComparator;
 
-struct NonDefUVSTable {
+typedef struct NonDefUVSTable {
   AutoSwap_PRUint32 numUVSMappings;
 
   typedef struct {
@@ -652,7 +652,7 @@ struct NonDefUVSTable {
   } UVSMapping;
 
   UVSMapping uvsMappings[1];
-};
+} NonDefUVSTable;
 
 #pragma pack()
 
@@ -1864,9 +1864,9 @@ bool gfxFontUtils::IsCffFont(const uint8_t* aFontData) {
 }
 
 #ifdef DEBUG
-/* static */ void gfxFontUtils::AssertSafeThreadOrServoFFILocked() {
+/* static */ void gfxFontUtils::AssertSafeThreadOrServoFontMetricsLocked() {
   if (!dom::GetCurrentThreadWorkerPrivate()) {
-    mozilla::AssertIsMainThreadOrServoFFILocked();
+    AssertIsMainThreadOrServoFontMetricsLocked();
   }
 }
 #endif

@@ -187,10 +187,9 @@ use std::{collections::HashMap, sync::Mutex};
 mod error;
 
 use error_support::handle_error;
-use internal::communications::ConnectHttp;
 pub use internal::config::{BridgeType, Protocol as PushHttpProtocol, PushConfiguration};
 use internal::crypto::Crypto;
-pub use internal::push_manager::DecryptResponse;
+use internal::{communications::ConnectHttp, push_manager::DecryptResponse};
 
 pub use error::{debug, ApiResult, PushApiError, PushError};
 use internal::storage::Store;

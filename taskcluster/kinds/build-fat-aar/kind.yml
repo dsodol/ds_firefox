@@ -141,7 +141,7 @@ tasks:
             maven_packages:
                 - geckoview
         shipping-phase: build
-        shipping-product: firefox-android
+        shipping-product: fennec
         index:
             job-name: android-geckoview-fat-aar-opt
             type: shippable-with-multi-l10n
@@ -178,7 +178,7 @@ tasks:
             maven_packages:
                 - geckoview
         shipping-phase: build
-        shipping-product: firefox-android
+        shipping-product: fennec
         index:
             job-name: android-geckoview-fat-aar-opt-lite
             type: shippable-with-multi-l10n

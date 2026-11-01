@@ -20,6 +20,7 @@ const gConfig = (function () {
     undefined
   );
   return {
+    scope: ["profile", "https://identity.mozilla.com/apps/relay"],
     addressesUrl: baseUrl + `relayaddresses/`,
     acceptTermsUrl: baseUrl + `terms-accepted-user/`,
     profilesUrl: baseUrl + `profiles/`,
@@ -88,7 +89,7 @@ const RELAY_PROFILE_CACHE_TS_PREF =
 
 async function getRelayTokenAsync() {
   try {
-    return await lazy.fxAccounts.getOAuthToken({ service: "relay" });
+    return await lazy.fxAccounts.getOAuthToken({ scope: gConfig.scope });
   } catch (e) {
     console.error(`There was an error getting the user's token: ${e.message}`);
     return undefined;

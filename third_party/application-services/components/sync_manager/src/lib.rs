@@ -36,4 +36,4 @@ pub(crate) fn reset_all() -> Result<()> {
     manager.reset_all()
 }
 
-uniffi::setup_scaffolding!("syncmanager");
+uniffi::include_scaffolding!("syncmanager");

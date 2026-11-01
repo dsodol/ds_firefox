@@ -17,8 +17,7 @@ class HTMLStyleElement final : public nsGenericHTMLElement,
                                public LinkStyle,
                                public nsStubMutationObserver {
  public:
-  HTMLStyleElement(already_AddRefed<mozilla::dom::NodeInfo> aNodeInfo,
-                   FromParser aFromParser);
+  explicit HTMLStyleElement(already_AddRefed<mozilla::dom::NodeInfo> aNodeInfo);
 
   // nsISupports
   NS_DECL_ISUPPORTS_INHERITED
@@ -101,7 +100,6 @@ class HTMLStyleElement final : public nsGenericHTMLElement,
   nsresult CopyInnerTo(HTMLStyleElement* aDest);
 
   RefPtr<nsDOMTokenList> mBlocking;
-  FromParser mCreatedByParser;
 };
 
 }  // namespace mozilla::dom

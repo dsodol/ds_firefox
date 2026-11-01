@@ -59,5 +59,3 @@ class ConvertBugsToLinks(SphinxTransform):
 
 def setup(app):
     app.add_transform(ConvertBugsToLinks)
-
-    return {"parallel_read_safe": True, "parallel_write_safe": True}

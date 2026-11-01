@@ -1141,10 +1141,6 @@ export let ProfileDataUpgrader = {
       Services.prefs.clearUserPref("sidebar.revamp");
     }
 
-    if (existingDataVersion < 184) {
-      Services.prefs.clearUserPref("browser.ipProtection.locationListCache");
-    }
-
     // Update the migration version.
     Services.prefs.setIntPref("browser.migration.version", newVersion);
   },

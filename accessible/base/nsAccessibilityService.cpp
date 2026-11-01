@@ -8,6 +8,7 @@
 #include "ARIAGridAccessible.h"
 #include "ARIAMap.h"
 #include "ApplicationAccessibleWrap.h"
+#include "CssAltContent.h"
 #include "DocAccessible-inl.h"
 #include "DocAccessibleChild.h"
 #include "FocusManager.h"
@@ -28,7 +29,6 @@
 #include "nsArrayUtils.h"
 #include "nsAttrName.h"
 #include "nsCRT.h"
-#include "nsCoreUtils.h"
 #include "nsDOMTokenList.h"
 #include "nsEventShell.h"
 #include "nsGkAtoms.h"
@@ -260,7 +260,7 @@ bool nsAccessibilityService::ShouldCreateImgAccessible(
       ((!aElement->IsHTMLElement(nsGkAtoms::embed) &&
         !aElement->IsHTMLElement(nsGkAtoms::object)) ||
        frame->AccessibleType() != AccType::eImageType) &&
-      nsCoreUtils::GetCssAltContent(aElement).valueOr(u""_ns).IsEmpty()) {
+      CssAltContent(aElement).IsEmpty()) {
     return false;
   }
 
@@ -542,8 +542,8 @@ NS_IMPL_ISUPPORTS_INHERITED(nsAccessibilityService, DocManager, nsIObserver,
 // nsIObserver
 
 NS_IMETHODIMP
-nsAccessibilityService::Observe(nsISupports* /*aSubject*/, const char* aTopic,
-                                const char16_t* /*aData*/) {
+nsAccessibilityService::Observe(nsISupports* aSubject, const char* aTopic,
+                                const char16_t* aData) {
   if (!nsCRT::strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) {
     Shutdown();
   }
@@ -615,15 +615,12 @@ void nsAccessibilityService::NotifyOfComputedStyleChange(
   LocalAccessible* accessible = document->GetAccessibleOrDocument(aContent);
 
   if (!accessible && aContent && aContent->HasChildren() &&
-      !aContent->IsInNativeAnonymousSubtree() && !aContent->IsXULElement()) {
+      !aContent->IsInNativeAnonymousSubtree()) {
     // If the content has children and its frame has a transform, create an
     // Accessible so that we can account for the transform when calculating
     // the Accessible's bounds using the parent process cache. Ditto for
     // position: fixed/sticky and content with overflow styling (hidden, auto,
     // scroll)
-    // However, don't do this for XUL widgets, as this breaks XUL a11y code
-    // expectations in some cases. XUL widgets are only used in the parent
-    // process and can't be cached anyway.
     if (const nsIFrame* frame = aContent->GetPrimaryFrame()) {
       const auto& disp = *frame->StyleDisplay();
       if (disp.HasTransform(frame) ||
@@ -777,7 +774,7 @@ void nsAccessibilityService::NotifyOfEditContextAttachmentChange(
 void nsAccessibilityService::AriaNotify(
     nsINode* aNode, const nsAString& aAnnouncement,
     const mozilla::dom::AriaNotificationOptions& aOptions) {
-  Document* doc = aNode->GetComposedDoc();
+  Document* doc = aNode->GetUncomposedDoc();
   if (!doc) {
     return;
   }
@@ -1429,7 +1426,7 @@ LocalAccessible* nsAccessibilityService::CreateAccessible(
     nsIFrame::RenderedText text = frame->GetRenderedText(
         0, UINT32_MAX, nsIFrame::TextOffsetType::OffsetsInContentText,
         nsIFrame::TrailingWhitespace::DontTrim);
-    Maybe<nsString> cssAlt = nsCoreUtils::GetCssAltContent(content);
+    auto cssAlt = CssAltContent(content);
     // Ignore not rendered text nodes and whitespace text nodes between table
     // cells.
     if (text.mString.IsEmpty() ||
@@ -1443,7 +1440,7 @@ LocalAccessible* nsAccessibilityService::CreateAccessible(
 
       return nullptr;
     }
-    if (cssAlt && cssAlt->IsEmpty()) {
+    if (cssAlt && cssAlt.IsEmpty()) {
       if (aIsSubtreeHidden) {
         *aIsSubtreeHidden = true;
       }
@@ -1453,7 +1450,9 @@ LocalAccessible* nsAccessibilityService::CreateAccessible(
     MOZ_ASSERT(newAcc, "Accessible not created for text node!");
     document->BindToDocument(newAcc, nullptr);
     if (cssAlt) {
-      newAcc->AsTextLeaf()->SetText(*cssAlt);
+      nsAutoString text;
+      cssAlt.AppendToString(text);
+      newAcc->AsTextLeaf()->SetText(text);
     } else {
       newAcc->AsTextLeaf()->SetText(text.mString);
     }
@@ -1622,25 +1621,14 @@ LocalAccessible* nsAccessibilityService::CreateAccessible(
         newAcc = MakeRefPtr<HyperTextAccessible>(content, document);
       }
     } else if (content->IsGeneratedContentContainerForMarker()) {
-      nsAutoString text;
       if (aContext->IsHTMLListItem()) {
-        HTMLListBulletAccessible::ComputeText(content, text);
-      }
-      // If there is no text (e.g. because there is empty CSS alt content), we
-      // don't expose the bullet.
-      if (!text.IsEmpty()) {
         newAcc = MakeRefPtr<HTMLListBulletAccessible>(content, document);
-        // An HTMLListBulletAccessible is a special kind of TextLeafAccessible.
-        // This is so we can cache the text, since it's not safe to retrieve the
-        // text from layout except during refresh ticks. This also allows us to
-        // use TextUpdater to fire events.
-        newAcc->AsTextLeaf()->SetText(text);
       }
       if (aIsSubtreeHidden) {
         *aIsSubtreeHidden = true;
       }
-    } else if (Maybe<nsString> cssAlt = nsCoreUtils::GetCssAltContent(content);
-               cssAlt && !cssAlt->IsEmpty()) {
+    } else if (auto cssAlt = CssAltContent(content);
+               cssAlt && !cssAlt.IsEmpty()) {
       // This is a pseudo-element without children that has CSS alt text which
       // isn't empty. This only happens when there is alt text with an empty
       // content string; e.g. content: "" / "alt" In this case, we need to
@@ -1648,7 +1636,9 @@ LocalAccessible* nsAccessibilityService::CreateAccessible(
       // child to use. We create a TextLeafAccessible with the pseudo-element as
       // the backing DOM node.
       newAcc = MakeRefPtr<TextLeafAccessible>(content, document);
-      newAcc->AsTextLeaf()->SetText(*cssAlt);
+      nsAutoString text;
+      cssAlt.AppendToString(text);
+      newAcc->AsTextLeaf()->SetText(text);
     }
   }
 
@@ -2317,7 +2307,7 @@ EPlatformDisabledState ReadPlatformDisabledState() {
   return static_cast<EPlatformDisabledState>(sPlatformDisabledState);
 }
 
-void PrefChanged(const char* /*aPref*/, void* /*aClosure*/) {
+void PrefChanged(const char* aPref, void* aClosure) {
   EPlatformDisabledState disabledState = ReadPlatformDisabledState();
   if (disabledState == ePlatformIsDisabled) {
     // Force shut down accessibility.

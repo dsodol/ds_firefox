@@ -53,9 +53,6 @@ bool operator==(const Color<T> &a, const Color<T> &b);
 template <typename T>
 bool operator!=(const Color<T> &a, const Color<T> &b);
 
-template <typename T>
-std::ostream &operator<<(std::ostream &os, const Color<T> &rect);
-
 typedef Color<float> ColorF;
 typedef Color<int> ColorI;
 typedef Color<unsigned int> ColorUI;

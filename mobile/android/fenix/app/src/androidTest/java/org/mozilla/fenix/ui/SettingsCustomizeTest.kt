@@ -9,7 +9,6 @@ import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidCompo
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.customannotations.Converted
-import org.mozilla.fenix.customannotations.Critical
 import org.mozilla.fenix.customannotations.SmokeTest
 import org.mozilla.fenix.helpers.AppAndSystemHelper.enableOrDisableBackGestureNavigationOnDevice
 import org.mozilla.fenix.helpers.FenixTestRule
@@ -240,17 +239,8 @@ class SettingsCustomizeTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3909001
-    @Converted(
-        replacedBy =
-            [
-                "org.mozilla.fenix.ui.efficiency.tests.SettingsCustomizeSimpleToolbarTest#verifyTheSimpleToolbarLayoutOpenANewTabShortcutOptionTest"
-            ],
-        bug = 2084095,
-        since = "2026-10",
-    )
-    @Critical
     @Test
-    fun verifyTheSimpleToolbarLayoutOpenANewTabShortcutOptionTest() {
+    fun verifyTheSimpleToolbarLayoutOpenANewTabShortcut() {
         val firstPage = mockWebServer.getGenericAsset(1)
         val secondPage = mockWebServer.getGenericAsset(2)
 
@@ -281,17 +271,8 @@ class SettingsCustomizeTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3909002
-    @Converted(
-        replacedBy =
-            [
-                "org.mozilla.fenix.ui.efficiency.tests.SettingsCustomizeSimpleToolbarTest#verifyTheSimpleToolbarLayoutShareShortcutOptionTest"
-            ],
-        bug = 2084095,
-        since = "2026-10",
-    )
-    @Critical
     @Test
-    fun verifyTheSimpleToolbarLayoutShareShortcutOptionTest() {
+    fun verifyTheSimpleToolbarLayoutShareShortcut() {
         val firstPage = mockWebServer.getGenericAsset(1)
         val secondPage = mockWebServer.getGenericAsset(2)
 
@@ -311,25 +292,26 @@ class SettingsCustomizeTest {
             }
         navigationToolbar(composeTestRule) {}.enterURLAndEnterToBrowser(firstPage.url) {}
         navigationToolbar(composeTestRule) {
+            verifyTheNavigationBarShareButton()
+        }
+
+        navigationToolbar(composeTestRule) {}
+            .enterURLAndEnterToBrowser(secondPage.url) {
+                swipeNavBarRight(secondPage.url.toString())
+                waitForPageToLoad()
+                verifyUrl(firstPage.url.toString())
+            }
+        navigationToolbar(composeTestRule) {
                 verifyTheNavigationBarShareButton()
             }
             .clickTheNavigationBarShareButton {
                 verifyShareTabLayout()
                 verifySharingWithSelectedApp(
                     appName = "Gmail",
-                    content = firstPage.url.toString(),
-                    subject = firstPage.title,
+                    content = secondPage.url.toString(),
+                    subject = secondPage.title,
                 )
             }
-        restartApp(composeTestRule.activityRule)
-        navigationToolbar(composeTestRule) {}
-            .enterURLAndEnterToBrowser(secondPage.url) {
-                waitForPageToLoad()
-                verifyUrl(secondPage.url.toString())
-            }
-        navigationToolbar(composeTestRule) {
-            verifyTheNavigationBarShareButton()
-        }
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3909003
@@ -365,17 +347,8 @@ class SettingsCustomizeTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3909005
-    @Converted(
-        replacedBy =
-            [
-                "org.mozilla.fenix.ui.efficiency.tests.SettingsCustomizeSimpleToolbarTest#verifyTheSimpleToolbarLayoutHomepageShortcutOptionTest"
-            ],
-        bug = 2084095,
-        since = "2026-10",
-    )
-    @Critical
     @Test
-    fun verifyTheSimpleToolbarLayoutHomepageShortcutOptionTest() {
+    fun verifyTheSimpleToolbarLayoutHomepageShortcut() {
         val firstPage = mockWebServer.getGenericAsset(1)
         val secondPage = mockWebServer.getGenericAsset(2)
 

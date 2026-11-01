@@ -86,15 +86,15 @@ CompositorVsyncScheduler::CompositorVsyncScheduler(
 }
 
 CompositorVsyncScheduler::~CompositorVsyncScheduler() {
-  MOZ_RELEASE_ASSERT(!mIsObservingVsync);
-  MOZ_RELEASE_ASSERT(!mVsyncObserver);
+  MOZ_ASSERT(!mIsObservingVsync);
+  MOZ_ASSERT(!mVsyncObserver);
   // The CompositorVsyncDispatcher is cleaned up before this in the
   // nsIWidget, which stops vsync listeners
   mVsyncSchedulerOwner = nullptr;
 }
 
 void CompositorVsyncScheduler::Destroy() {
-  MOZ_RELEASE_ASSERT(CompositorThreadHolder::IsInCompositorThread());
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
 
   if (!mVsyncObserver) {
     // Destroy was already called on this object.
@@ -135,7 +135,7 @@ void CompositorVsyncScheduler::PostVRTask(TimeStamp aTimestamp) {
 }
 
 void CompositorVsyncScheduler::ScheduleComposition(wr::RenderReasons aReasons) {
-  MOZ_RELEASE_ASSERT(CompositorThreadHolder::IsInCompositorThread());
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   if (!mVsyncObserver) {
     // Destroy was already called on this object.
     return;
@@ -184,7 +184,7 @@ void CompositorVsyncScheduler::NotifyVsync(const VsyncEvent& aVsync) {
   {
     MOZ_ASSERT_IF(XRE_IsParentProcess(),
                   !CompositorThreadHolder::IsInCompositorThread());
-    MOZ_RELEASE_ASSERT(!NS_IsMainThread());
+    MOZ_ASSERT(!NS_IsMainThread());
   }
 
   MOZ_ASSERT_IF(XRE_GetProcessType() == GeckoProcessType_GPU,
@@ -204,8 +204,8 @@ void CompositorVsyncScheduler::NotifyVsync(const VsyncEvent& aVsync) {
 }
 
 void CompositorVsyncScheduler::CancelCurrentVRTask() {
-  MOZ_RELEASE_ASSERT(CompositorThreadHolder::IsInCompositorThread() ||
-                     NS_IsMainThread());
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread() ||
+             NS_IsMainThread());
   MonitorAutoLock lock(mCurrentVRTaskMonitor);
   if (mCurrentVRTask) {
     mCurrentVRTask->Cancel();
@@ -214,8 +214,8 @@ void CompositorVsyncScheduler::CancelCurrentVRTask() {
 }
 
 wr::RenderReasons CompositorVsyncScheduler::CancelCurrentCompositeTask() {
-  MOZ_RELEASE_ASSERT(CompositorThreadHolder::IsInCompositorThread() ||
-                     NS_IsMainThread());
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread() ||
+             NS_IsMainThread());
   MonitorAutoLock lock(mCurrentCompositeTaskMonitor);
   wr::RenderReasons canceledTaskRenderReasons = mCurrentCompositeTaskReasons;
   mCurrentCompositeTaskReasons = wr::RenderReasons::NONE;
@@ -229,8 +229,8 @@ wr::RenderReasons CompositorVsyncScheduler::CancelCurrentCompositeTask() {
 
 void CompositorVsyncScheduler::Composite(const VsyncEvent& aVsyncEvent,
                                          wr::RenderReasons aReasons) {
-  MOZ_RELEASE_ASSERT(CompositorThreadHolder::IsInCompositorThread());
-  MOZ_RELEASE_ASSERT(mVsyncSchedulerOwner);
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
+  MOZ_ASSERT(mVsyncSchedulerOwner);
 
   {  // scope lock
     MonitorAutoLock lock(mCurrentCompositeTaskMonitor);
@@ -284,7 +284,7 @@ void CompositorVsyncScheduler::Composite(const VsyncEvent& aVsyncEvent,
 void CompositorVsyncScheduler::ForceComposeToTarget(wr::RenderReasons aReasons,
                                                     gfx::DrawTarget* aTarget,
                                                     const IntRect* aRect) {
-  MOZ_RELEASE_ASSERT(CompositorThreadHolder::IsInCompositorThread());
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
 
   /**
    * bug 1138502 - There are cases such as during long-running window resizing
@@ -303,17 +303,17 @@ void CompositorVsyncScheduler::ForceComposeToTarget(wr::RenderReasons aReasons,
   mVsyncNotificationsSkipped = 0;
 
   mLastComposeTime = SampleTime::FromNow();
-  MOZ_RELEASE_ASSERT(mVsyncSchedulerOwner);
+  MOZ_ASSERT(mVsyncSchedulerOwner);
   mVsyncSchedulerOwner->CompositeToTarget(VsyncId(), aReasons, aTarget, aRect);
 }
 
 bool CompositorVsyncScheduler::NeedsComposite() {
-  MOZ_RELEASE_ASSERT(CompositorThreadHolder::IsInCompositorThread());
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   return (bool)mCompositeRequestedAt;
 }
 
 bool CompositorVsyncScheduler::FlushPendingComposite() {
-  MOZ_RELEASE_ASSERT(CompositorThreadHolder::IsInCompositorThread());
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   if (mCompositeRequestedAt) {
     wr::RenderReasons reasons = CancelCurrentCompositeTask();
     ForceComposeToTarget(reasons, nullptr, nullptr);
@@ -323,13 +323,13 @@ bool CompositorVsyncScheduler::FlushPendingComposite() {
 }
 
 void CompositorVsyncScheduler::ObserveVsync() {
-  MOZ_RELEASE_ASSERT(CompositorThreadHolder::IsInCompositorThread());
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   mWidget->ObserveVsync(mVsyncObserver);
   mIsObservingVsync = true;
 }
 
 void CompositorVsyncScheduler::UnobserveVsync() {
-  MOZ_RELEASE_ASSERT(CompositorThreadHolder::IsInCompositorThread());
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   mWidget->ObserveVsync(nullptr);
   mIsObservingVsync = false;
 }
@@ -352,27 +352,27 @@ void CompositorVsyncScheduler::DispatchVREvents(TimeStamp aVsyncTimestamp) {
 }
 
 const SampleTime& CompositorVsyncScheduler::GetLastComposeTime() const {
-  MOZ_RELEASE_ASSERT(CompositorThreadHolder::IsInCompositorThread());
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   return mLastComposeTime;
 }
 
 const TimeStamp& CompositorVsyncScheduler::GetLastVsyncTime() const {
-  MOZ_RELEASE_ASSERT(CompositorThreadHolder::IsInCompositorThread());
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   return mLastVsyncTime;
 }
 
 const TimeStamp& CompositorVsyncScheduler::GetLastVsyncOutputTime() const {
-  MOZ_RELEASE_ASSERT(CompositorThreadHolder::IsInCompositorThread());
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   return mLastVsyncOutputTime;
 }
 
 const VsyncId& CompositorVsyncScheduler::GetLastVsyncId() const {
-  MOZ_RELEASE_ASSERT(CompositorThreadHolder::IsInCompositorThread());
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   return mLastVsyncId;
 }
 
 void CompositorVsyncScheduler::UpdateLastComposeTime() {
-  MOZ_RELEASE_ASSERT(CompositorThreadHolder::IsInCompositorThread());
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   mLastComposeTime = SampleTime::FromNow();
 }
 

@@ -219,8 +219,8 @@ static StaticAutoPtr<ScrollFrameActivityTracker> gScrollFrameActivityTracker;
 ScrollContainerFrame* NS_NewScrollContainerFrame(mozilla::PresShell* aPresShell,
                                                  ComputedStyle* aStyle,
                                                  bool aIsRoot) {
-  return new ScrollContainerFrame(aStyle, aPresShell->GetPresContext(),
-                                  aIsRoot);
+  return new (aPresShell)
+      ScrollContainerFrame(aStyle, aPresShell->GetPresContext(), aIsRoot);
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(ScrollContainerFrame)
@@ -342,8 +342,7 @@ void ScrollContainerFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
 void ScrollContainerFrame::Destroy(DestroyContext& aContext) {
   if (Maybe<ScrollState> state = SaveState();
       state && !PresShell()->IsDestroying()) {
-    mContent->AsElement()->SetSavedScrollState(
-        std::make_unique<ScrollState>(*state));
+    mContent->AsElement()->SetSavedScrollState(MakeUnique<ScrollState>(*state));
   }
 
   DestroyAbsoluteFrames(aContext);
@@ -758,8 +757,8 @@ bool ScrollContainerFrame::TryLayout(ScrollReflowInput& aState,
   // That case also happens to have no APZ and no MVM, so we use that as a
   // way to detect the scenario. Bug 1648669 tracks removing this clause.
   if (mIsRoot && presShell->GetMobileViewportManager()) {
-    visualViewportSize =
-        nsLayoutUtils::CalculateCompositionSizeForFrame(this, &layoutSize);
+    visualViewportSize = nsLayoutUtils::CalculateCompositionSizeForFrame(
+        this, false, &layoutSize);
     visualViewportSize =
         Max(nsSize(0, 0), visualViewportSize - scrollbarGutterSize);
 
@@ -2259,14 +2258,14 @@ void ScrollContainerFrame::AsyncScroll::InitSmoothScroll(
   if (!mAnimationPhysics || aOrigin != mOrigin) {
     mOrigin = aOrigin;
     if (StaticPrefs::general_smoothScroll_msdPhysics_enabled()) {
-      mAnimationPhysics = std::make_unique<ScrollAnimationMSDPhysics>(
+      mAnimationPhysics = MakeUnique<ScrollAnimationMSDPhysics>(
           apz::ScrollAnimationKind::Smooth, aInitialPosition,
           /*smallestVisibleIncrement=*/1.0);
     } else {
       ScrollAnimationBezierPhysicsSettings settings =
           layers::apz::ComputeBezierAnimationSettingsForOrigin(mOrigin);
-      mAnimationPhysics = std::make_unique<ScrollAnimationBezierPhysics>(
-          aInitialPosition, settings);
+      mAnimationPhysics =
+          MakeUnique<ScrollAnimationBezierPhysics>(aInitialPosition, settings);
     }
   }
 
@@ -2559,11 +2558,11 @@ void ScrollContainerFrame::ScrollToWithOrigin(nsPoint aScrollPosition,
 
   UniquePtr<ScrollSnapTargetIds> snapTargetIds;
   if (snapDestination) {
-    snapTargetIds = std::make_unique<ScrollSnapTargetIds>(
-        std::move(snapDestination->mTargetIds));
+    snapTargetIds =
+        MakeUnique<ScrollSnapTargetIds>(std::move(snapDestination->mTargetIds));
   } else {
     snapTargetIds =
-        std::make_unique<ScrollSnapTargetIds>(std::move(aParams.mTargetIds));
+        MakeUnique<ScrollSnapTargetIds>(std::move(aParams.mTargetIds));
   }
   if (aParams.IsInstant()) {
     // Asynchronous scrolling is not allowed, so we'll kill any existing
@@ -3589,7 +3588,7 @@ void ScrollContainerFrame::AppendScrollPartsTo(nsDisplayListBuilder* aBuilder,
       continue;
     }
 
-    nsDisplayList list;
+    nsDisplayList list(aBuilder);
     partList.SerializeWithCorrectZOrder(&list, scrollPart->GetContent());
 
     if (createLayer) {
@@ -3720,7 +3719,7 @@ void ScrollContainerFrame::MaybeCreateTopLayerAndWrapRootItems(
   }
   nsIFrame* rootStyleFrame = GetFrameForStyle();
 
-  nsDisplayList rootResultList;
+  nsDisplayList rootResultList(aBuilder);
   bool serializedList = false;
   auto SerializeList = [&] {
     if (!serializedList) {
@@ -4068,33 +4067,26 @@ void ScrollContainerFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
   // the corners where we have a scrollbar.
   nsRectCornerRadii radii;
   const bool haveRadii = GetPaddingBoxBorderRadii(radii);
-  if (isRootContent) {
-    const nsSize compositionSize =
-        nsLayoutUtils::CalculateCompositionSizeForFrame(
-            this, nullptr /* aOverrideScrollPortSize */,
-            // With the dynamic toolbar, this CalculateCompositionSizeForFrame
-            // call basically expands the region being covered up by the dynamic
-            // toolbar, but if the root scroll container is not scrollable, e.g.
-            // the root element has `overflow: hidden` or `position: fixed`, the
-            // function doesn't expand the region since expanding the region in
-            // such cases will prevent the content from restoring zooming to 1.0
-            // zoom level such as bug 1652190. That said, this `clipRect` which
-            // will be used for the async zoom container needs to be expanded
-            // because zoomed-in contents can be scrollable __visually__ so that
-            // the region under the dynamic toolbar area will be revealed.
-            nsLayoutUtils::IncludeDynamicToolbar::Force);
-    // The composition bounds include the area under the root scrollbars, which
-    // are painted on top of the content if non-overlay. Intersect them with the
-    // layout viewport so that zoomed-in content can be seen under non-opaque
-    // scrollbars, but content outside of it can't.
-    clipRect = nsRect(aBuilder->ToReferenceFrame(this), compositionSize);
-    clipRect = clipRect.Intersect(
-        ViewportUtils::LayoutToVisual(scrollPortClip, PresShell()));
+  if (mIsRoot) {
+    clipRect.SizeTo(nsLayoutUtils::CalculateCompositionSizeForFrame(
+        this, true /* aSubtractScrollbars */,
+        nullptr /* aOverrideScrollPortSize */,
+        // With the dynamic toolbar, this CalculateCompositionSizeForFrame call
+        // basically expands the region being covered up by the dynamic toolbar,
+        // but if the root scroll container is not scrollable, e.g. the root
+        // element has `overflow: hidden` or `position: fixed`, the function
+        // doesn't expand the region since expanding the region in such cases
+        // will prevent the content from restoring zooming to 1.0 zoom level
+        // such as bug 1652190. That said, this `clipRect` which will be used
+        // for the async zoom container needs to be expanded because zoomed-in
+        // contents can be scrollable __visually__ so that the region under the
+        // dynamic toolbar area will be revealed.
+        nsLayoutUtils::IncludeDynamicToolbar::Force));
 
     // The composition size is essentially in visual coordinates.
     // If we are hit-testing in layout coordinates, transform the clip rect
     // to layout coordinates to match.
-    if (aBuilder->IsRelativeToLayoutViewport()) {
+    if (aBuilder->IsRelativeToLayoutViewport() && isRootContent) {
       clipRect = ViewportUtils::VisualToLayout(clipRect, PresShell());
     }
   }
@@ -5274,7 +5266,7 @@ static void AddToListIfHeaderFooter(nsIFrame* aFrame,
 
 StickyScrollContainer& ScrollContainerFrame::EnsureStickyContainer() {
   if (!mStickyContainer) {
-    mStickyContainer = std::make_unique<StickyScrollContainer>(this);
+    mStickyContainer = MakeUnique<StickyScrollContainer>(this);
   }
   return *mStickyContainer;
 }
@@ -5648,15 +5640,13 @@ already_AddRefed<Element> ScrollContainerFrame::MakeScrollbar(
 #endif  // DEBUG
 
   if (aVertical) {
-    e->SetAttr(kNameSpaceID_None, nsGkAtoms::vertical, u"true"_ns, false,
-               IsKnownNewAttr::Yes);
+    e->SetAttr(kNameSpaceID_None, nsGkAtoms::vertical, u"true"_ns, false);
   }
 
   if (mIsRoot) {
     e->SetProperty(nsGkAtoms::docLevelNativeAnonymousContent,
                    reinterpret_cast<void*>(true));
-    e->SetAttr(kNameSpaceID_None, nsGkAtoms::root, u"true"_ns, false,
-               IsKnownNewAttr::Yes);
+    e->SetAttr(kNameSpaceID_None, nsGkAtoms::root, u"true"_ns, false);
 
     // Don't bother making style caching take [root] styles into account.
     aKey = AnonymousContentKey::None;
@@ -5786,7 +5776,7 @@ nsresult ScrollContainerFrame::CreateAnonymousContent(
         dir.AssignLiteral("bottom");
         if (!IsScrollbarOnRight()) {
           mResizerContent->SetAttr(kNameSpaceID_None, nsGkAtoms::flip, u""_ns,
-                                   false, IsKnownNewAttr::Yes);
+                                   false);
         }
         break;
       case StyleResize::Both:
@@ -5799,8 +5789,7 @@ nsresult ScrollContainerFrame::CreateAnonymousContent(
       default:
         NS_WARNING("only resizable types should have resizers");
     }
-    mResizerContent->SetAttr(kNameSpaceID_None, nsGkAtoms::dir, dir, false,
-                             IsKnownNewAttr::Yes);
+    mResizerContent->SetAttr(kNameSpaceID_None, nsGkAtoms::dir, dir, false);
     aElements.AppendElement(mResizerContent);
   }
 
@@ -5818,7 +5807,7 @@ nsresult ScrollContainerFrame::CreateAnonymousContent(
           nsGkAtoms::docLevelNativeAnonymousContent,
           reinterpret_cast<void*>(true));
       mScrollCornerContent->SetAttr(kNameSpaceID_None, nsGkAtoms::root,
-                                    u"true"_ns, false, IsKnownNewAttr::Yes);
+                                    u"true"_ns, false);
 
       // Don't bother making style caching take [root="true"] styles into
       // account.
@@ -6344,10 +6333,6 @@ void ScrollContainerFrame::UpdateMinimumScaleSize(
 
   Document* doc = pc->Document();
   MOZ_ASSERT(doc, "The document should be valid");
-  if (doc->HasViewportSizeOverrideForMiniWindow()) {
-    // The override fixes the layout viewport size, so don't grow it.
-    return;
-  }
   if (doc->GetFullscreenElement()) {
     // Don't use the minimum scale size in the case of fullscreen state.
     // FIXME: 1508177: We will no longer need this.
@@ -6799,8 +6784,8 @@ void ScrollContainerFrame::LayoutScrollbars(ScrollReflowInput& aState,
 
   nsSize compositionSize = mScrollPort.Size();
   if (overlayScrollBarsOnRoot) {
-    compositionSize =
-        nsLayoutUtils::CalculateCompositionSizeForFrame(this, &compositionSize);
+    compositionSize = nsLayoutUtils::CalculateCompositionSizeForFrame(
+        this, false, &compositionSize);
   }
 
   nsPresContext* presContext = mScrolledFrame->PresContext();
@@ -6905,17 +6890,11 @@ void ScrollContainerFrame::LayoutScrollbars(ScrollReflowInput& aState,
 
     nsRect r;
     r.width = std::max(std::max(r.width, scrollbarSize), resizerMinSize.width);
+    r.x = scrollbarOnLeft ? aInsideBorderArea.x
+                          : aInsideBorderArea.XMost() - r.width;
     r.height =
         std::max(std::max(r.height, scrollbarSize), resizerMinSize.height);
-
-    // Get scrollbar insets specified via -moz-scrollbar-inset-{inline,block}.
-    // These are used to position the resizer within rounded corners.
-    const nsMargin scrollbarInset = ScrollbarInsets();
-
-    r.x = scrollbarOnLeft
-              ? aInsideBorderArea.x + scrollbarInset.left
-              : aInsideBorderArea.XMost() - r.width - scrollbarInset.right;
-    r.y = aInsideBorderArea.YMost() - r.height - scrollbarInset.bottom;
+    r.y = aInsideBorderArea.YMost() - r.height;
 
     LayoutScrollbarPartAtRect(aState, resizerRI, r);
   }
@@ -7584,8 +7563,6 @@ void ScrollContainerFrame::FireScrolledAreaEvent() {
   nsIContent* content = GetContent();
 
   event.mArea = mScrolledFrame->ScrollableOverflowRectRelativeToParent();
-  event.mFlags.mOnlyChromeDispatch =
-      !StaticPrefs::layout_scrolled_area_changed_content_enabled();
   if (RefPtr<Document> doc = content->GetUncomposedDoc()) {
     EventDispatcher::Dispatch(doc, presContext, &event, nullptr);
   }

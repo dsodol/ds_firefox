@@ -4,8 +4,6 @@
 #ifndef mozilla_net_Http2HuffmanOutgoing_h
 #define mozilla_net_Http2HuffmanOutgoing_h
 
-#include <cstdint>
-
 namespace mozilla {
 namespace net {
 

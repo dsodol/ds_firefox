@@ -35,8 +35,7 @@ class APZScrollbarDraggingTester : public APZCTreeManagerTester {
                                        LayerIntRect(50, 0, 50, 10)};
     CreateScrollData(treeShape, layerVisibleRect);
     SetScrollableFrameMetrics(layers[1], scrollId, CSSRect(0, 0, 50, 1000));
-    registration =
-        std::make_unique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
+    registration = MakeUnique<ScopedLayerTreeRegistration>(LayersId{0}, mcc);
     layers[2]->SetScrollbarData(ScrollbarData::CreateForThumb(
         ScrollDirection::eVertical, 0.1, 0, 10, 10, true, 0, 100, scrollId));
     UpdateHitTestingTree();

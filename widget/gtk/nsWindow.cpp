@@ -668,7 +668,14 @@ bool nsWindow::WidgetTypeSupportsNativeCompositing() {
   if (IsDragPopup()) {
     return false;
   }
+#if defined(NIGHTLY_BUILD)
+  // For testing purpose use layered native composition for popups
+  // on nightly. It uses rapid map/unmap sequences it may reveal
+  // hidden bugs in layered code.
+  return true;
+#else
   return WidgetTypeSupportsAcceleration();
+#endif
 }
 
 static bool IsPenEvent(GdkEvent* aEvent, bool* isEraser) {
@@ -757,10 +764,23 @@ void nsWindow::ConstrainPosition(DesktopIntPoint& aPoint) {
     return;
   }
 
-  const DesktopIntRect screenBounds = GetScreenBoundsUnscaled();
-  nsCOMPtr<nsIScreen> screen =
-      ScreenManager::GetSingleton().ScreenForRect(screenBounds);
+  double dpiScale = GetDefaultScale().scale;
 
+  // we need to use the window size in logical screen pixels
+  auto bounds = GetScreenBounds();
+  int32_t logWidth = std::max(NSToIntRound(bounds.width / dpiScale), 1);
+  int32_t logHeight = std::max(NSToIntRound(bounds.height / dpiScale), 1);
+
+  /* get our playing field. use the current screen, or failing that
+    for any reason, use device caps for the default screen. */
+  nsCOMPtr<nsIScreenManager> screenmgr =
+      do_GetService("@mozilla.org/gfx/screenmanager;1");
+  if (!screenmgr) {
+    return;
+  }
+  nsCOMPtr<nsIScreen> screen;
+  screenmgr->ScreenForRect(aPoint.x, aPoint.y, logWidth, logHeight,
+                           getter_AddRefs(screen));
   // We don't have any screen so leave the coordinates as is
   if (!screen) {
     return;
@@ -776,7 +796,8 @@ void nsWindow::ConstrainPosition(DesktopIntPoint& aPoint) {
   auto slop =
       DesktopIntPoint::Round(GetScreenEdgeSlop() / GetDesktopToDeviceScale());
   screenRect.Inflate(slop.x, slop.y);
-  aPoint = ConstrainPositionToBounds(aPoint, screenBounds.Size(), screenRect);
+
+  aPoint = ConstrainPositionToBounds(aPoint, {logWidth, logHeight}, screenRect);
 }
 
 bool nsWindow::ConstrainSizeWithScale(int* aWidth, int* aHeight,
@@ -1320,7 +1341,7 @@ void nsWindow::SetFocus(Raise aRaise, mozilla::dom::CallerType aCallerType) {
                                    timestamp);
 
 #ifdef MOZ_WAYLAND
-      if (auto* toplevelWayland = toplevelWindow->AsWaylandToplevel()) {
+      if (auto* toplevelWayland = toplevelWindow->AsWayland()) {
         auto existingToken =
             std::move(toplevelWayland->mWindowActivationTokenFromEnv);
         if (!existingToken.IsEmpty()) {
@@ -1558,15 +1579,11 @@ auto nsWindow::Bounds::ComputeX11(const nsWindow* aWindow) -> Bounds {
   LOG_WIN(aWindow, "  mClientArea %s", ToString(result.mClientArea).c_str());
 
   if (result.mClientArea.X() < 0 || result.mClientArea.Y() < 0 ||
-      (!aWindow->mHasReceivedSizeAllocate &&
-       (result.mClientArea.Width() <= 1 || result.mClientArea.Height() <= 1))) {
-    // For an invalid client position or a placeholder size before the first
-    // allocation, assume we take the whole toplevel except decorations.
+      result.mClientArea.Width() <= 1 || result.mClientArea.Height() <= 1) {
+    // If we don't have gdkwindow bounds, assume we take the whole toplevel
+    // except system decorations.
     result.mClientArea =
         DesktopIntRect(systemDecorationOffset, toplevelBounds.Size());
-    if (aWindow->ToplevelUsesCSD()) {
-      result.mClientArea.Deflate(aWindow->mClientMargin);
-    }
   }
 
   result.mClientMargin =
@@ -1610,34 +1627,14 @@ auto nsWindow::Bounds::ComputeWayland(const nsWindow* aWindow) -> Bounds {
           ToString(result.mClientMargin).c_str());
 
   if (result.mClientArea.X() < 0 || result.mClientArea.Y() < 0 ||
-      (!aWindow->mHasReceivedSizeAllocate &&
-       (result.mClientArea.Width() <= 1 || result.mClientArea.Height() <= 1))) {
-    // For an invalid client position or a placeholder size before the first
-    // allocation, assume we take the whole toplevel except CSD decorations.
-    result.mClientMargin = aWindow->ToplevelUsesCSD() ? aWindow->mClientMargin
-                                                      : DesktopIntMargin();
+      result.mClientArea.Width() <= 1 || result.mClientArea.Height() <= 1) {
+    // If we don't have gdkwindow bounds yet, assume we take the whole toplevel.
     result.mClientArea = toplevelBounds;
-    result.mClientArea.Deflate(result.mClientMargin);
+    result.mClientMargin = {};
   }
   return result;
 }
 #endif
-
-DesktopIntMargin nsWindow::Bounds::ComputeCSDMargin(GtkWidget* aShell,
-                                                    GtkWidget* aChild) {
-  GtkAllocation shell{};
-  GtkAllocation child{};
-  gtk_widget_get_allocation(aShell, &shell);
-  gtk_widget_get_allocation(aChild, &child);
-  if (child.x < 0 || child.y < 0) {
-    return {};
-  }
-  auto result =
-      DesktopIntMargin(child.y, shell.width - child.width - child.x,
-                       shell.height - child.height - child.y, child.x);
-  result.EnsureAtLeast(DesktopIntMargin());
-  return result;
-}
 
 auto nsWindow::Bounds::Compute(const nsWindow* aWindow) -> Bounds {
 #ifdef MOZ_X11
@@ -1711,10 +1708,6 @@ void nsWindow::RecomputeBounds(bool aScaleChange) {
     mLastSizeRequest.width += mClientMargin.LeftRight() - oldMargin.LeftRight();
     mLastSizeRequest.height +=
         mClientMargin.TopBottom() - oldMargin.TopBottom();
-    if (ToplevelUsesCSD()) {
-      // Size constraints are in outer pixels when using CSD.
-      ApplySizeConstraints();
-    }
   }
 
   // We need to send WindowMoved even if only the client margins changed
@@ -1832,20 +1825,19 @@ void nsWindow::SetCursor(const Cursor& aCursor) {
   if (mCustomCursorAllowed) {
     imageCursor = GetCursorForImage(aCursor, GdkCeiledScaleFactor());
   }
+
+  // When using a custom cursor, clear the cursor first using eCursor_none, in
+  // order to work around https://gitlab.gnome.org/GNOME/gtk/-/issues/6242
+  GdkCursor* nonImageCursor =
+      get_gtk_cursor(imageCursor ? eCursor_none : aCursor.mDefaultCursor);
   auto CleanupCursor = mozilla::MakeScopeExit([&]() {
     // get_gtk_cursor returns a weak reference, which we shouldn't unref.
     if (imageCursor) {
       g_object_unref(imageCursor);
     }
   });
-  // When using a custom cursor, clear the cursor first using eCursor_none if we
-  // are using gtk<3.24.39, to work around:
-  // https://gitlab.gnome.org/GNOME/gtk/-/issues/6242
-  if (!imageCursor || gtk_check_version(3, 24, 39)) {
-    GdkCursor* nonImageCursor =
-        get_gtk_cursor(imageCursor ? eCursor_none : aCursor.mDefaultCursor);
-    gdk_window_set_cursor(mGdkWindow, nonImageCursor);
-  }
+
+  gdk_window_set_cursor(mGdkWindow, nonImageCursor);
   if (imageCursor) {
     gdk_window_set_cursor(mGdkWindow, imageCursor);
   }
@@ -2200,11 +2192,6 @@ gboolean nsWindow::OnExposeEvent(cairo_t* cr) {
     LOG("destroyed after NotifyOcclusionState()");
     return FALSE;
   }
-
-  // It's possible we're still hidden although we get 'draw' (on-expose) event
-  // from Gtk3. Add explicit check for it to avoid painting to hidden
-  // window.
-  WatchHiddenVSyncSource();
 
   // Send any pending resize events so that layout can update. May run event
   // loop and destroy us.
@@ -2701,7 +2688,7 @@ void nsWindow::OnMotionNotifyEvent(GdkEventMotion* aEvent) {
 
     if (dragWindow) {
 #ifdef MOZ_WAYLAND
-      if (AsWaylandToplevel() && AsWaylandToplevel()->PIPMove()) {
+      if (AsWayland() && AsWayland()->PIPMove()) {
         // The ungrab is needed because the compositor won't send a button
         // release event. GDK may get stuck thinking that the implicit grab is
         // still active.
@@ -3004,7 +2991,7 @@ void nsWindow::OnButtonPressEvent(GdkEventButton* aEvent) {
       return;
     }
 #ifdef MOZ_WAYLAND
-    if (AsWaylandToplevel() && AsWaylandToplevel()->PIPResize(*edge)) {
+    if (AsWayland() && AsWayland()->PIPResize(*edge)) {
       // The ungrab is needed because the compositor won't send a button release
       // event. GDK may get stuck thinking that the implicit grab is still
       // active.
@@ -3319,7 +3306,7 @@ TimeStamp nsWindow::GetEventTimeStamp(guint32 aEventTime) {
 #ifdef MOZ_X11
 mozilla::CurrentX11TimeGetter* nsWindow::GetCurrentTimeGetter() {
   if (MOZ_UNLIKELY(!mCurrentTimeGetter)) {
-    mCurrentTimeGetter = std::make_unique<CurrentX11TimeGetter>(mGdkWindow);
+    mCurrentTimeGetter = MakeUnique<CurrentX11TimeGetter>(mGdkWindow);
   }
   return mCurrentTimeGetter.get();
 }
@@ -4048,8 +4035,8 @@ gboolean nsWindow::OnTouchEvent(GdkEventTouch* aEvent) {
 
           bool moved = false;
 #ifdef MOZ_WAYLAND
-          if (AsWaylandToplevel()) {
-            moved = AsWaylandToplevel()->PIPMove();
+          if (AsWayland()) {
+            moved = AsWayland()->PIPMove();
           }
 #endif
           if (!moved) {
@@ -4455,14 +4442,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, const LayoutDeviceIntRect& aRect,
     gtk_window_set_focus_on_map(GTK_WINDOW(mShell), FALSE);
   }
 
-  // Show the container before realizing it, so that GTK lays it out inside the
-  // CSD decorations and we can compute the margin properly.
-  gtk_widget_show(container);
   gtk_widget_realize(container);
-  if (ToplevelUsesCSD()) {
-    mClientMargin = Bounds::ComputeCSDMargin(mShell, container);
-  }
-
   // mGdkWindow is set by moz_container_realize() / SetGdkWindow().
   MOZ_DIAGNOSTIC_ASSERT(mGdkWindow, "MozContainer realize failed?");
 
@@ -4485,6 +4465,8 @@ nsresult nsWindow::Create(nsIWidget* aParent, const LayoutDeviceIntRect& aRect,
   ConfigureToplevelWindow();
 
   // make sure this is the focus widget in the container
+  gtk_widget_show(container);
+
   if (shouldFocus) {
     gtk_widget_grab_focus(container);
   }
@@ -4809,8 +4791,8 @@ void nsWindow::NativeMoveResize(bool aMoved, bool aResized) {
   }
 
 #ifdef MOZ_WAYLAND
-  if (auto* popup = AsWaylandPopup()) {
-    popup->NativeMoveResizeWaylandPopup(aMoved, aResized);
+  if (IsWaylandPopup()) {
+    AsWayland()->NativeMoveResizeWaylandPopup(aMoved, aResized);
   } else
 #endif
   {
@@ -5081,16 +5063,15 @@ void nsWindow::UpdateOpaqueRegionInternal() {
       LOG("nsWindow::UpdateOpaqueRegionInternal() window is transparent");
     }
     gdk_window_set_opaque_region(window, region);
-
-#ifdef MOZ_WAYLAND
-    if (GdkIsWaylandDisplay()) {
-      AsWayland()->SetToplevelOpaqueRegion(region);
-      mSurface->SetOpaqueRegion(mOpaqueRegion.ToUnknownRegion());
-    }
-#endif
     if (region) {
       cairo_region_destroy(region);
     }
+
+#ifdef MOZ_WAYLAND
+    if (GdkIsWaylandDisplay()) {
+      mSurface->SetOpaqueRegion(mOpaqueRegion.ToUnknownRegion());
+    }
+#endif
   }
 }
 
@@ -5313,28 +5294,22 @@ void nsWindow::KioskLockOnMonitor() {
   sGdkWindowFullscreenOnMonitor(GetToplevelGdkWindow(), monitor);
 }
 
-bool nsWindow::IsFullscreenSupported() {
-#if defined(MOZ_X11)
-  if (GdkIsX11Display()) {
-    GdkScreen* screen = gtk_widget_get_screen(mShell);
-    GdkAtom atom = gdk_atom_intern("_NET_WM_STATE_FULLSCREEN", FALSE);
-    return gdk_x11_screen_supports_net_wm_hint(screen, atom);
-  }
-#endif
-#if defined(MOZ_WAYLAND)
-  if (auto* window = AsWaylandToplevel()) {
-    return !window->IsPipWindow();
-  }
-#endif
+static bool IsFullscreenSupported(GtkWidget* aShell) {
+#ifdef MOZ_X11
+  GdkScreen* screen = gtk_widget_get_screen(aShell);
+  GdkAtom atom = gdk_atom_intern("_NET_WM_STATE_FULLSCREEN", FALSE);
+  return gdk_x11_screen_supports_net_wm_hint(screen, atom);
+#else
   return true;
+#endif
 }
 
 nsresult nsWindow::MakeFullScreen(bool aFullScreen) {
-  if (!IsFullscreenSupported()) {
+  LOG("nsWindow::MakeFullScreen aFullScreen %d\n", aFullScreen);
+
+  if (GdkIsX11Display() && !IsFullscreenSupported(mShell)) {
     return NS_ERROR_NOT_AVAILABLE;
   }
-
-  LOG("nsWindow::MakeFullScreen aFullScreen %d\n", aFullScreen);
 
   if (aFullScreen) {
     if (mSizeMode != nsSizeMode_Fullscreen &&
@@ -6749,40 +6724,29 @@ void nsWindow::SetCustomTitlebar(bool aState) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     gtk_widget_reparent(GTK_WIDGET(mContainer), tmpWindow);
-    gtk_widget_unrealize(mShell);
+    gtk_widget_unrealize(GTK_WIDGET(mShell));
 
     // Add a hidden titlebar widget to trigger CSD, but disable the default
-    // titlebar. GtkFixed is a somewhat random choice for a simple unused
-    // widget. gtk_window_set_titlebar() takes ownership of the titlebar widget.
+    // titlebar.  GtkFixed is a somewhat random choice for a simple unused
+    // widget. gtk_window_set_titlebar() takes ownership of the titlebar
+    // widget.
     gtk_window_set_titlebar(GTK_WINDOW(mShell),
                             aState ? gtk_fixed_new() : nullptr);
 
-    // Layout the shell at its preferred size, and use a placeholder child, so
-    // that we can compute the CSD margin of the new decorations.
-    //
-    // We can't use mContainer for this, to prevent the unmapped toplevel
-    // surface from moving.
-    //
-    // This also works around https://bugzilla.gnome.org/show_bug.cgi?id=791081
-    {
-      GtkWidget* placeholder = gtk_fixed_new();
-      gtk_widget_show(placeholder);
-      gtk_container_add(GTK_CONTAINER(mShell), placeholder);
-      GtkAllocation allocation{};
-      gtk_widget_get_preferred_width(mShell, nullptr, &allocation.width);
-      gtk_widget_get_preferred_height(mShell, nullptr, &allocation.height);
-      gtk_widget_size_allocate(mShell, &allocation);
-      // If we're not yet visible, compute the CSD margin here synchronously.
-      // Otherwise wait for the resize to arrive, to make sure we deal with
-      // changes to it properly.
-      if (!visible && ToplevelUsesCSD()) {
-        mClientMargin = Bounds::ComputeCSDMargin(mShell, placeholder);
-      }
-      gtk_widget_destroy(placeholder);
-    }
+    /* A workaround for https://bugzilla.gnome.org/show_bug.cgi?id=791081
+     * gtk_widget_realize() throws:
+     * "In pixman_region32_init_rect: Invalid rectangle passed"
+     * when mShell has default 1x1 size.
+     */
+    GtkAllocation allocation = {0, 0, 0, 0};
+    gtk_widget_get_preferred_width(GTK_WIDGET(mShell), nullptr,
+                                   &allocation.width);
+    gtk_widget_get_preferred_height(GTK_WIDGET(mShell), nullptr,
+                                    &allocation.height);
+    gtk_widget_size_allocate(GTK_WIDGET(mShell), &allocation);
 
-    gtk_widget_realize(mShell);
-    gtk_widget_reparent(GTK_WIDGET(mContainer), mShell);
+    gtk_widget_realize(GTK_WIDGET(mShell));
+    gtk_widget_reparent(GTK_WIDGET(mContainer), GTK_WIDGET(mShell));
 #pragma GCC diagnostic pop
 
     if (AreBoundsSane()) {
@@ -7304,15 +7268,11 @@ nsresult nsWindow::GetSystemFont(nsCString& aFontName) {
   return NS_OK;
 }
 
-static already_AddRefed<nsIWidget> CreateWindow(bool aToplevel) {
+static already_AddRefed<nsIWidget> CreateWindow() {
   nsCOMPtr<nsIWidget> window;
 #ifdef MOZ_WAYLAND
   if (GdkIsWaylandDisplay()) {
-    if (aToplevel) {
-      window = new nsWindowWaylandToplevel();
-    } else {
-      window = new nsWindowWaylandPopup();
-    }
+    window = new nsWindowWayland();
   }
 #endif
 #ifdef MOZ_X11
@@ -7325,12 +7285,12 @@ static already_AddRefed<nsIWidget> CreateWindow(bool aToplevel) {
 }
 
 already_AddRefed<nsIWidget> nsIWidget::CreateTopLevelWindow() {
-  nsCOMPtr<nsIWidget> window = CreateWindow(/* aToplevel */ true);
+  nsCOMPtr<nsIWidget> window = CreateWindow();
   return window.forget();
 }
 
 already_AddRefed<nsIWidget> nsIWidget::CreateChildWindow() {
-  nsCOMPtr<nsIWidget> window = CreateWindow(/* aToplevel */ false);
+  nsCOMPtr<nsIWidget> window = CreateWindow();
   return window.forget();
 }
 
@@ -7439,8 +7399,8 @@ void nsWindow::OnUnmap() {
   LOG("nsWindow::OnUnmap");
 
 #ifdef MOZ_WAYLAND
-  if (auto* toplevel = AsWaylandToplevel()) {
-    toplevel->ClearPipResources();
+  if (AsWayland()) {
+    AsWayland()->ClearPipResources();
   }
 #endif
 
@@ -7505,7 +7465,7 @@ UniquePtr<WaylandSurfaceLock> nsWindow::LockSurface() {
   if (mIsDestroyed || !mSurface) {
     return nullptr;
   }
-  return std::make_unique<WaylandSurfaceLock>(MOZ_WL_SURFACE(mContainer));
+  return MakeUnique<WaylandSurfaceLock>(MOZ_WL_SURFACE(mContainer));
 #else
   return nullptr;
 #endif
@@ -7582,9 +7542,8 @@ void nsWindow::InsertEmoji(RefPtr<nsWindow> aToplevelWindow) {
   }
 
   if (IsTopLevelWidget()) {
-    // Only redirect to our own popup, not to an open popup of another window.
-    nsIWidget* popup = nsXULPopupManager::GetInstance()->GetRollupWidget();
-    if (popup && popup->GetTopLevelWidget() == this) {
+    if (nsIWidget* popup =
+            nsXULPopupManager::GetInstance()->GetRollupWidget()) {
       if (nsWindow* window = nsWindow::FromWidget(popup)) {
         LOG("nsWindow::InsertEmoji() - redirect to child popup [%p]", window);
         window->InsertEmoji(this);
@@ -7609,11 +7568,6 @@ void nsWindow::InsertEmoji(RefPtr<nsWindow> aToplevelWindow) {
   if (!entry) {
     entry = moz_container_entry_set(MOZ_CONTAINER(mContainer), gtk_entry_new());
     gtk_widget_show(entry);
-    // Keep aToplevelWindow alive as long as the entry can call the handler.
-    g_object_set_data_full(
-        G_OBJECT(entry), "nsWindow-emoji-target",
-        do_AddRef(aToplevelWindow).take(),
-        [](gpointer data) { static_cast<nsWindow*>(data)->Release(); });
     g_signal_connect(entry, "insert_text",
                      G_CALLBACK(+[](GtkWidget* entry, gchar* text, gint length,
                                     gint* position, gpointer data) {

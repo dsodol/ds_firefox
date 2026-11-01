@@ -1881,13 +1881,15 @@ angle::Result Blit11::resolveStencil(const gl::Context *context,
     // Check if we need to re-create the stencil SRV.
     if (mStencilSRV.valid())
     {
-        angle::ComPtr<ID3D11Resource> priorResource;
+        ID3D11Resource *priorResource = nullptr;
         mStencilSRV.get()->GetResource(&priorResource);
 
-        if (stencilResource != priorResource.Get())
+        if (stencilResource != priorResource)
         {
             mStencilSRV.reset();
         }
+
+        SafeRelease(priorResource);
     }
 
     Context11 *context11 = GetImplAs<Context11>(context);

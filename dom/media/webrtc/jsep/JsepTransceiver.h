@@ -26,7 +26,7 @@ class JsepUuidGenerator {
 
 class JsepTransceiver {
  public:
-  explicit JsepTransceiver(SdpMediaSection::MediaTypeInfo type,
+  explicit JsepTransceiver(SdpMediaSection::MediaType type,
                            JsepUuidGenerator& aUuidGen,
                            SdpDirectionAttribute::Direction jsDirection =
                                SdpDirectionAttribute::kSendrecv)
@@ -186,12 +186,6 @@ class JsepTransceiver {
   SdpMediaSection::MediaType GetMediaType() const {
     MOZ_ASSERT(mRecvTrack.GetMediaType() == mSendTrack.GetMediaType());
     return mRecvTrack.GetMediaType();
-  }
-
-  // Convenience function
-  SdpMediaSection::MediaTypeInfo GetMediaTypeInfo() const {
-    MOZ_ASSERT(mRecvTrack.GetMediaType() == mSendTrack.GetMediaType());
-    return mRecvTrack.GetMediaTypeInfo();
   }
 
   bool HasTransport() const { return mTransport.mComponents != 0; }

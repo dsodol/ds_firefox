@@ -986,14 +986,12 @@ class WorkerPrivate final
 
   void EvictFromBFCache();
 
-  PolicyContainer* GetPolicyContainer() const {
+  nsIContentSecurityPolicy* GetCsp() const {
     AssertIsOnMainThread();
-    return mLoadInfo.mPolicyContainer;
+    return mLoadInfo.mCSP;
   }
 
-  nsIContentSecurityPolicy* GetCsp() const {
-    return PolicyContainer::GetCSP(GetPolicyContainer());
-  }
+  nsresult SetCsp(nsIContentSecurityPolicy* aCSP);
 
   nsresult SetCSPFromHeaderValues(const nsACString& aCSPHeaderValue,
                                   const nsACString& aCSPReportOnlyHeaderValue);
@@ -1145,13 +1143,12 @@ class WorkerPrivate final
 
   void CycleCollect();
 
-  nsresult SetPrincipalsOnMainThread(nsIPrincipal* aPrincipal,
-                                     nsIPrincipal* aPartitionedPrincipal,
-                                     nsILoadGroup* aLoadGroup);
+  nsresult SetPrincipalsAndCSPOnMainThread(nsIPrincipal* aPrincipal,
+                                           nsIPrincipal* aPartitionedPrincipal,
+                                           nsILoadGroup* aLoadGroup,
+                                           nsIContentSecurityPolicy* aCsp);
 
-  nsresult SetPolicyContainerOnMainThread(PolicyContainer* aPolicyContainer);
-
-  nsresult SetPrincipalsAndPolicyContainerFromChannel(nsIChannel* aChannel);
+  nsresult SetPrincipalsAndCSPFromChannel(nsIChannel* aChannel);
 
   bool FinalChannelPrincipalIsValid(nsIChannel* aChannel);
 

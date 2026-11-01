@@ -1873,73 +1873,67 @@ struct MOZ_STACK_CLASS AutoPinBufferSourceLength {
 };
 
 // Checks if the `obj` is a buffer source (according to WebIDL rules) and
-// returns the underlying memory. Callers should be sure to use
-// AutoPinBufferSourceLength for the resulting lifetime of the memory.
-static bool GetBufferSourceMemory(JSContext* cx, Handle<JSObject*> obj,
-                                  unsigned errorNumber,
-                                  SharedMem<uint8_t*>* dataPointer,
-                                  size_t* byteLength, bool* isShared) {
+// returns a view to the underlying memory. Callers should be sure to use
+// AutoPinBufferSourceLength for the resulting lifetime of the bytecode
+// source.
+static bool GetBytecodeSource(JSContext* cx, Handle<JSObject*> obj,
+                              unsigned errorNumber, BytecodeSource* bytecode,
+                              bool* isShared) {
   JSObject* unwrapped = CheckedUnwrapStatic(obj);
+
+  SharedMem<uint8_t*> dataPointer;
+  size_t byteLength;
   if (!unwrapped || !IsBufferSource(cx, unwrapped, /*allowShared*/ true,
-                                    /*allowResizable*/ true, dataPointer,
-                                    byteLength, isShared)) {
+                                    /*allowResizable*/ true, &dataPointer,
+                                    &byteLength, isShared)) {
     JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr, errorNumber);
     return false;
   }
+
+  *bytecode = BytecodeSource(dataPointer.unwrap(), byteLength);
   return true;
 }
 
-// Returns an owned bytecode buffer copy of a buffer source. Callers don't need
-// to use AutoPinBufferSourceLength because they own the resulting memory.
+// The same as `GetBytecodeSource`, but instead returns an owned bytecode
+// buffer copy. Callers don't need to use AutoPinBufferSourceLength because
+// they own the resulting memory.
 static bool GetBytecodeBuffer(JSContext* cx, Handle<JSObject*> obj,
                               unsigned errorNumber, BytecodeBuffer* bytecode) {
-  SharedMem<uint8_t*> dataPointer;
-  size_t byteLength;
+  BytecodeSource source;
   bool isShared;
-  if (!GetBufferSourceMemory(cx, obj, errorNumber, &dataPointer, &byteLength,
-                             &isShared)) {
+  if (!GetBytecodeSource(cx, obj, errorNumber, &source, &isShared)) {
     return false;
   }
   AutoPinBufferSourceLength pin(cx, obj);
 
-  bool ok =
-      isShared
-          ? BytecodeBuffer::fromSharedMemory(dataPointer, byteLength, bytecode)
-          : BytecodeBuffer::fromSource(
-                BytecodeSource(dataPointer.unwrapUnshared(), byteLength),
-                bytecode);
-  if (!ok) {
+  if (!BytecodeBuffer::fromSource(source, bytecode)) {
     ReportOutOfMemory(cx);
     return false;
   }
   return true;
 }
 
-// Returns a bytecode source over a buffer source, or an owned bytecode buffer
-// copy if the buffer source is shared. Callers should be sure to use
-// AutoPinBufferSourceLength for the resulting lifetime of the bytecode.
+// The same as `GetBytecodeSource`, but instead returns an owned bytecode
+// buffer if the buffer source is shared.
 static bool GetBytecodeBufferOrSource(JSContext* cx, Handle<JSObject*> obj,
                                       unsigned errorNumber,
                                       BytecodeBufferOrSource* bytecode) {
-  SharedMem<uint8_t*> dataPointer;
-  size_t byteLength;
+  BytecodeSource source;
   bool isShared;
-  if (!GetBufferSourceMemory(cx, obj, errorNumber, &dataPointer, &byteLength,
-                             &isShared)) {
+  if (!GetBytecodeSource(cx, obj, errorNumber, &source, &isShared)) {
     return false;
   }
 
   if (!isShared) {
-    *bytecode = BytecodeBufferOrSource(
-        BytecodeSource(dataPointer.unwrapUnshared(), byteLength));
+    *bytecode = BytecodeBufferOrSource(source);
     return true;
   }
 
-  // The buffer source is shared, we need to make a copy to ensure we have an
+  // The buffer source is shared, we need to make a copy to ensure it we have an
   // immutable copy.
   AutoPinBufferSourceLength pin(cx, obj);
   BytecodeBuffer buffer;
-  if (!BytecodeBuffer::fromSharedMemory(dataPointer, byteLength, &buffer)) {
+  if (!BytecodeBuffer::fromSource(source, &buffer)) {
     ReportOutOfMemory(cx);
     return false;
   }

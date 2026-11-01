@@ -2,9 +2,9 @@ use super::CreateIndirectValidationPipelineError;
 use crate::{
     device::DeviceError,
     hal_label,
-    pipeline::{CreatePipelineError, CreateShaderModuleError},
+    pipeline::{CreateComputePipelineError, CreateShaderModuleError},
 };
-use alloc::{boxed::Box, format};
+use alloc::{boxed::Box, format, string::ToString as _};
 use core::num::NonZeroU64;
 use scopeguard::{guard, ScopeGuard};
 
@@ -221,8 +221,21 @@ impl Dispatch {
             },
             cache: None,
         };
-        let pipeline = unsafe { device.create_compute_pipeline(&pipeline_desc) }
-            .map_err(CreatePipelineError::from_hal_without_device_loss)?;
+        let pipeline =
+            unsafe { device.create_compute_pipeline(&pipeline_desc) }.map_err(|err| match err {
+                hal::PipelineError::Device(error) => {
+                    CreateComputePipelineError::Device(DeviceError::from_hal(error))
+                }
+                hal::PipelineError::Linkage(_stages, msg) => {
+                    CreateComputePipelineError::Internal(msg)
+                }
+                hal::PipelineError::EntryPoint(_stage) => CreateComputePipelineError::Internal(
+                    crate::device::ENTRYPOINT_FAILURE_ERROR.to_string(),
+                ),
+                hal::PipelineError::PipelineConstants(_, error) => {
+                    CreateComputePipelineError::PipelineConstants(error)
+                }
+            })?;
         let pipeline = guard(pipeline, |pipeline| unsafe {
             device.destroy_compute_pipeline(pipeline)
         });
@@ -236,7 +249,7 @@ impl Dispatch {
             usage: wgt::BufferUses::INDIRECT | wgt::BufferUses::STORAGE_READ_WRITE,
             memory_flags: hal::MemoryFlags::empty(),
         };
-        let (dst_buffer, _) =
+        let dst_buffer =
             unsafe { device.create_buffer(&dst_buffer_desc) }.map_err(DeviceError::from_hal)?;
         let dst_buffer = guard(dst_buffer, |buffer| unsafe {
             device.destroy_buffer(buffer)
@@ -257,7 +270,7 @@ impl Dispatch {
             buffers: &[hal::BufferBinding::new_unchecked(
                 dst_buffer.as_ref(),
                 0,
-                DST_BUFFER_SIZE,
+                Some(DST_BUFFER_SIZE),
             )],
             samplers: &[],
             textures: &[],

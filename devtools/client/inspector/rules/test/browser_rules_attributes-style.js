@@ -16,6 +16,7 @@ const TEST_URI = `
     In <span>a galaxy </span><span class="right">far far</span> <p align="left">away</p>
   </h1>
   <h2 align="left" style="text-align: center">foo</h2>
+  <table></table>
 `;
 
 add_task(async function () {
@@ -139,6 +140,20 @@ add_task(async function () {
       declarations: [
         { name: "text-align", value: "-moz-left", overridden: true },
       ],
+    },
+  ]);
+
+  await selectNode("table", inspector);
+  checkRuleViewContent(view, [
+    {
+      selector: "element",
+      selectorEditable: false,
+      declarations: [],
+    },
+    {
+      selector: "element attributes style",
+      selectorEditable: false,
+      declarations: [{ name: "color", value: "-moz-inherit-from-body-quirk" }],
     },
   ]);
 });

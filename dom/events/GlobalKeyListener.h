@@ -6,7 +6,6 @@
 #define mozilla_GlobalKeyListener_h_
 
 #include "mozilla/EventForwards.h"
-#include "mozilla/RefPtr.h"
 #include "mozilla/layers/KeyboardMap.h"
 #include "nsIDOMEventListener.h"
 #include "nsIWeakReferenceUtils.h"
@@ -50,7 +49,7 @@ class GlobalKeyListener : public nsIDOMEventListener {
   NS_DECL_NSIDOMEVENTLISTENER
 
  protected:
-  virtual ~GlobalKeyListener();
+  virtual ~GlobalKeyListener() = default;
 
   MOZ_CAN_RUN_SCRIPT
   void WalkHandlers(dom::KeyboardEvent* aKeyEvent);
@@ -118,7 +117,7 @@ class GlobalKeyListener : public nsIDOMEventListener {
 
   dom::EventTarget* mTarget;  // weak ref;
 
-  RefPtr<KeyEventHandler> mHandler;  // Linked list of event handlers.
+  KeyEventHandler* mHandler;  // Linked list of event handlers.
 };
 
 /**
@@ -134,11 +133,6 @@ class XULKeySetGlobalKeyListener final : public GlobalKeyListener {
 
   static void AttachKeyHandler(dom::Element* aElementTarget);
   static void DetachKeyHandler(dom::Element* aElementTarget);
-
-  // Called when a key element was added to or removed from aKeysetElement, or
-  // changed one of the attributes its handler was built from, so that the next
-  // key event rebuilds the handlers from the current key elements.
-  static void InvalidateHandlers(dom::Element* aKeysetElement);
 
  protected:
   virtual ~XULKeySetGlobalKeyListener();

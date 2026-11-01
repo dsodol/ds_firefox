@@ -552,10 +552,10 @@ void nsTreeContentView::ToggleOpenState(int32_t aRow, ErrorResult& aError) {
 
   if (row->IsOpen()) {
     row->mContent->SetAttr(kNameSpaceID_None, nsGkAtoms::open, u"false"_ns,
-                           true, IsKnownNewAttr::No);
+                           true);
   } else {
-    row->mContent->SetAttr(kNameSpaceID_None, nsGkAtoms::open, u"true"_ns, true,
-                           IsKnownNewAttr::No);
+    row->mContent->SetAttr(kNameSpaceID_None, nsGkAtoms::open, u"true"_ns,
+                           true);
   }
 }
 
@@ -662,8 +662,7 @@ void nsTreeContentView::SetCellValue(int32_t aRow, nsTreeColumn& aColumn,
   if (realRow) {
     Element* cell = GetCell(realRow, aColumn);
     if (cell) {
-      cell->SetAttr(kNameSpaceID_None, nsGkAtoms::value, aValue, true,
-                    IsKnownNewAttr::No);
+      cell->SetAttr(kNameSpaceID_None, nsGkAtoms::value, aValue, true);
     }
   }
 }
@@ -693,8 +692,7 @@ void nsTreeContentView::SetCellText(int32_t aRow, nsTreeColumn& aColumn,
   if (realRow) {
     Element* cell = GetCell(realRow, aColumn);
     if (cell) {
-      cell->SetAttr(kNameSpaceID_None, nsGkAtoms::label, aValue, true,
-                    IsKnownNewAttr::No);
+      cell->SetAttr(kNameSpaceID_None, nsGkAtoms::label, aValue, true);
     }
   }
 }
@@ -1050,7 +1048,7 @@ void nsTreeContentView::SerializeItem(Element* aContent, int32_t aParentIndex,
     return;
   }
 
-  aRows.AppendElement(std::make_unique<Row>(aContent, aParentIndex));
+  aRows.AppendElement(MakeUnique<Row>(aContent, aParentIndex));
   Row* row = aRows.LastElement().get();
 
   if (aContent->AttrValueIs(kNameSpaceID_None, nsGkAtoms::container,
@@ -1085,7 +1083,7 @@ void nsTreeContentView::SerializeSeparator(Element* aContent,
     return;
   }
 
-  auto row = std::make_unique<Row>(aContent, aParentIndex);
+  auto row = MakeUnique<Row>(aContent, aParentIndex);
   row->SetSeparator(true);
   aRows.AppendElement(std::move(row));
 }

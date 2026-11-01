@@ -71,11 +71,8 @@ pub enum Error {
     #[error("Crypto Error: {0}")]
     CryptoError(#[from] jwcrypto::JwCryptoError),
 
-    #[error("Encryption Error: {0}")]
-    EncryptionError(#[from] db_crypto::DbCryptoApiError),
-
-    #[error("Crypto data is not valid UTF-8: {0}")]
-    CryptoNotUtf8(String),
+    #[error("Missing local encryption key")]
+    MissingEncryptionKey,
 
     #[error("No record with guid exists: {0}")]
     NoSuchRecord(String),
@@ -143,15 +140,10 @@ impl GetErrorHandling for Error {
             })
             .report_error("autofill-crypto-error"),
 
-            Self::EncryptionError(e) => ErrorHandling::convert(AutofillApiError::CryptoError {
-                reason: e.to_string(),
+            Self::MissingEncryptionKey => ErrorHandling::convert(AutofillApiError::CryptoError {
+                reason: "Missing encryption key".to_string(),
             })
-            .report_error("autofill-encryption-error"),
-
-            Self::CryptoNotUtf8(reason) => ErrorHandling::convert(AutofillApiError::CryptoError {
-                reason: reason.clone(),
-            })
-            .report_error("autofill-crypto-not-utf8"),
+            .report_error("autofill-missing-encryption-key"),
 
             Self::NoSuchRecord(guid) => {
                 ErrorHandling::convert(AutofillApiError::NoSuchRecord { guid: guid.clone() })

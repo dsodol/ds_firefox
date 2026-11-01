@@ -21,7 +21,3 @@ XPCOM_MANIFESTS += [
 include("/ipc/chromium/chromium-config.mozbuild")
 
 FINAL_LIBRARY = "xul"
-
-SOURCE_HEADERS += [
-    "nsDocShellModule.h",
-]

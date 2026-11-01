@@ -732,7 +732,10 @@ class TranslationsSettingsTestUtils {
   static async openTranslationsSettingsSubpage(lexicalShortlistPrefs = []) {
     const { cleanup, remoteClients, translationsSettingsTestUtils } =
       await setupAboutPreferences(LANGUAGE_PAIRS, {
-        prefs: [...lexicalShortlistPrefs],
+        prefs: [
+          ["browser.settings-redesign.enabled", true],
+          ...lexicalShortlistPrefs,
+        ],
       });
 
     const document = gBrowser.selectedBrowser.contentDocument;
@@ -4361,16 +4364,72 @@ async function modifyRemoteSettingsRecords(
   });
 }
 
-async function selectAboutPreferencesElements() {
+async function selectAboutPreferencesElements(redesignEnabled) {
   const document = gBrowser.selectedBrowser.contentDocument;
 
   const settingsButton = document.getElementById(
     "translations-manage-settings-button"
   );
 
+  if (redesignEnabled) {
+    return {
+      document,
+      settingsButton,
+    };
+  }
+
+  const rows = await waitForCondition(() => {
+    const elements = document.querySelectorAll(".translations-manage-language");
+    if (elements.length !== 4) {
+      return false;
+    }
+    return elements;
+  }, "Waiting for manage language rows.");
+
+  const [downloadAllRow, frenchRow, spanishRow, ukrainianRow] = rows;
+  const downloadAllLabel = downloadAllRow.querySelector("label");
+  const downloadAll = downloadAllRow.querySelector(
+    "#translations-manage-install-all"
+  );
+  const deleteAll = downloadAllRow.querySelector(
+    "#translations-manage-delete-all"
+  );
+  const frenchLabel = frenchRow.querySelector("label");
+  const frenchDownload = frenchRow.querySelector(
+    `[data-l10n-id="translations-manage-language-download-button"]`
+  );
+  const frenchDelete = frenchRow.querySelector(
+    `[data-l10n-id="translations-manage-language-remove-button"]`
+  );
+  const spanishLabel = spanishRow.querySelector("label");
+  const spanishDownload = spanishRow.querySelector(
+    `[data-l10n-id="translations-manage-language-download-button"]`
+  );
+  const spanishDelete = spanishRow.querySelector(
+    `[data-l10n-id="translations-manage-language-remove-button"]`
+  );
+  const ukrainianLabel = ukrainianRow.querySelector("label");
+  const ukrainianDownload = ukrainianRow.querySelector(
+    `[data-l10n-id="translations-manage-language-download-button"]`
+  );
+  const ukrainianDelete = ukrainianRow.querySelector(
+    `[data-l10n-id="translations-manage-language-remove-button"]`
+  );
   return {
     document,
+    downloadAllLabel,
+    downloadAll,
+    deleteAll,
+    frenchLabel,
+    frenchDownload,
+    frenchDelete,
+    ukrainianLabel,
+    ukrainianDownload,
+    ukrainianDelete,
     settingsButton,
+    spanishLabel,
+    spanishDownload,
+    spanishDelete,
   };
 }
 
@@ -4458,6 +4517,7 @@ async function setupAboutPreferences(
       ["browser.translations.logLevel", "All"],
       ["identity.fxaccounts.account.device.name", ""],
       [USE_LEXICAL_SHORTLIST_PREF, false],
+      ["browser.settings-redesign.enabled", true],
       ...DOCUMENT_LANGUAGE_METADATA_TEST_PREFS,
       ...prefs,
     ],
@@ -4484,24 +4544,29 @@ async function setupAboutPreferences(
 
   // Load the Languages pane if SRD is enabled (moved from General)
   const document = gBrowser.selectedBrowser.contentDocument;
-
-  let loaded = BrowserTestUtils.waitForEvent(document, "paneshown");
-  let categoryLanguages = document.getElementById("category-languages");
-  categoryLanguages.scrollIntoView();
-  EventUtils.synthesizeMouseAtCenter(
-    categoryLanguages,
-    {},
-    document.documentGlobal
+  let redesigned = Services.prefs.getBoolPref(
+    "browser.settings-redesign.enabled",
+    false
   );
-  EventUtils.synthesizeMouseAtCenter(
-    categoryLanguages,
-    {},
-    document.documentGlobal
-  );
-  let event = await loaded;
-  is(event.detail.category, "paneLanguages", "Loaded the correct pane");
+  if (redesigned) {
+    let loaded = BrowserTestUtils.waitForEvent(document, "paneshown");
+    let categoryLanguages = document.getElementById("category-languages");
+    categoryLanguages.scrollIntoView();
+    EventUtils.synthesizeMouseAtCenter(
+      categoryLanguages,
+      {},
+      document.documentGlobal
+    );
+    EventUtils.synthesizeMouseAtCenter(
+      categoryLanguages,
+      {},
+      document.documentGlobal
+    );
+    let event = await loaded;
+    is(event.detail.category, "paneLanguages", "Loaded the correct pane");
+  }
 
-  const elements = await selectAboutPreferencesElements();
+  const elements = await selectAboutPreferencesElements(redesigned);
 
   const translationsSettingsTestUtils = new TranslationsSettingsTestUtils(
     document

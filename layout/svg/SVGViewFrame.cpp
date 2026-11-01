@@ -61,7 +61,8 @@ class SVGViewFrame final : public nsIFrame {
 
 nsIFrame* NS_NewSVGViewFrame(mozilla::PresShell* aPresShell,
                              mozilla::ComputedStyle* aStyle) {
-  return new mozilla::SVGViewFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      mozilla::SVGViewFrame(aStyle, aPresShell->GetPresContext());
 }
 
 namespace mozilla {

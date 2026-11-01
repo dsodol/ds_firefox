@@ -7,7 +7,6 @@ package org.mozilla.fenix.settings
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertHasNoClickAction
-import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.hasContentDescription
@@ -17,17 +16,13 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import kotlin.time.Instant
 import mozilla.components.ExperimentalAndroidComponentsApi
 import mozilla.components.compose.base.theme.Theme
 import mozilla.components.concept.engine.ipprotection.ServiceState
-import mozilla.components.feature.ipprotection.store.state.AccountState
-import mozilla.components.feature.ipprotection.store.state.AccountStatus
 import mozilla.components.feature.ipprotection.store.state.Authorized
-import mozilla.components.feature.ipprotection.store.state.DataVolume
+import mozilla.components.feature.ipprotection.store.state.BYTES_PER_GB
 import mozilla.components.feature.ipprotection.store.state.EligibilityStatus
 import mozilla.components.feature.ipprotection.store.state.IPProtectionState
-import mozilla.components.feature.ipprotection.store.state.UsageQuota
 import mozilla.components.support.test.robolectric.testContext
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -50,13 +45,9 @@ class IPProtectionScreenTest {
             IPProtectionState(
                 eligibilityStatus = EligibilityStatus.Eligible,
                 proxyStatus = Authorized.DataLimitReached,
-                serviceStatus = ServiceState.Ready,
-                usageQuota =
-                    UsageQuota.Metered(
-                        resetTime = null,
-                        max = DataVolume.roundedGigabytes(maxDataGb),
-                        remaining = DataVolume.Zero,
-                    ),
+                serviceStatus = ServiceState.Uninitialized,
+                maxDataBytes = maxDataGb.toLong() * BYTES_PER_GB.toLong(),
+                remainingDataBytes = 0L,
             )
 
         setScreen(state = state)
@@ -90,12 +81,8 @@ class IPProtectionScreenTest {
                 eligibilityStatus = EligibilityStatus.Eligible,
                 proxyStatus = Authorized.Active,
                 serviceStatus = ServiceState.Ready,
-                usageQuota =
-                    UsageQuota.Metered(
-                        resetTime = Instant.parse("2026-06-01T00:00:00Z"),
-                        max = DataVolume.roundedGigabytes(50),
-                        remaining = DataVolume.roundedGigabytes(40),
-                    ),
+                maxDataBytes = 50L * BYTES_PER_GB.toLong(),
+                remainingDataBytes = 40L * BYTES_PER_GB.toLong(),
             )
 
         setScreen(state = state)
@@ -113,12 +100,8 @@ class IPProtectionScreenTest {
                 eligibilityStatus = EligibilityStatus.Eligible,
                 proxyStatus = Authorized.Active,
                 serviceStatus = ServiceState.Ready,
-                usageQuota =
-                    UsageQuota.Metered(
-                        resetTime = Instant.parse("2026-06-01T00:00:00Z"),
-                        max = DataVolume.roundedGigabytes(50),
-                        remaining = DataVolume.roundedGigabytes(40),
-                    ),
+                maxDataBytes = 50L * BYTES_PER_GB.toLong(),
+                remainingDataBytes = 40L * BYTES_PER_GB.toLong(),
             )
 
         setScreen(state = state, onLearnMoreClick = { learnMoreClicks++ })
@@ -134,7 +117,8 @@ class IPProtectionScreenTest {
             IPProtectionState(
                 eligibilityStatus = EligibilityStatus.Eligible,
                 proxyStatus = Authorized.Active,
-                usageQuota = UsageQuota.Unmetered(resetTime = null),
+                maxDataBytes = 0L,
+                remainingDataBytes = 0L,
             )
 
         setScreen(state = state, promoDate = PROMO_DATE)
@@ -153,12 +137,8 @@ class IPProtectionScreenTest {
                 eligibilityStatus = EligibilityStatus.Eligible,
                 proxyStatus = Authorized.Active,
                 serviceStatus = ServiceState.Ready,
-                usageQuota =
-                    UsageQuota.Metered(
-                        resetTime = Instant.parse("2026-06-01T00:00:00Z"),
-                        max = DataVolume.roundedGigabytes(50),
-                        remaining = DataVolume.roundedGigabytes(40),
-                    ),
+                maxDataBytes = 50L * BYTES_PER_GB.toLong(),
+                remainingDataBytes = 40L * BYTES_PER_GB.toLong(),
             )
 
         setScreen(state = state, promoDate = PROMO_DATE)
@@ -174,7 +154,8 @@ class IPProtectionScreenTest {
             IPProtectionState(
                 eligibilityStatus = EligibilityStatus.Eligible,
                 proxyStatus = Authorized.Active,
-                usageQuota = UsageQuota.Unmetered(resetTime = Instant.parse("2026-06-01T00:00:00Z")),
+                maxDataBytes = 0L,
+                remainingDataBytes = 0L,
             )
 
         setScreen(state = state)
@@ -184,9 +165,10 @@ class IPProtectionScreenTest {
         composeTestRule.onNode(hasPromoCardTitle()).assertDoesNotExist()
     }
 
+    // maxDataBytes is -1 until the service reports usage, which must not be mistaken for the uncapped promo plan.
     @Test
     fun `GIVEN usage data has not arrived and no promo is running WHEN rendering the screen THEN the description is shown`() {
-        setScreen(state = IPProtectionState(eligibilityStatus = EligibilityStatus.Eligible, usageQuota = null))
+        setScreen(state = IPProtectionState(eligibilityStatus = EligibilityStatus.Eligible))
 
         composeTestRule.onNode(hasVpnDescription()).assertExists()
 
@@ -207,11 +189,8 @@ class IPProtectionScreenTest {
                 eligibilityStatus = EligibilityStatus.Eligible,
                 proxyStatus = Authorized.Activating,
                 serviceStatus = ServiceState.Ready,
-                usageQuota =
-                    UsageQuota.Metered(
-                        max = DataVolume.roundedGigabytes(50),
-                        remaining = DataVolume.roundedGigabytes(40),
-                    ),
+                maxDataBytes = 0L,
+                remainingDataBytes = 0L,
             )
 
         setScreen(state = state, isLocationSelectionEnabled = true)
@@ -225,51 +204,6 @@ class IPProtectionScreenTest {
             .assertHasNoClickAction()
     }
 
-    @Test
-    fun `GIVEN the user has to sign in WHEN rendering the screen THEN an enabled Get started button is shown`() {
-        setScreen(
-            state =
-                IPProtectionState(
-                    eligibilityStatus = EligibilityStatus.Eligible,
-                    serviceStatus = ServiceState.Unauthenticated,
-                    accountState = AccountState(AccountStatus.NoAccount),
-                )
-        )
-
-        composeTestRule.onNodeWithText(testContext.getString(R.string.ip_protection_get_started)).assertIsEnabled()
-        composeTestRule
-            .onNodeWithText(testContext.getString(R.string.ip_protection_location_section))
-            .assertDoesNotExist()
-    }
-
-    @Test
-    fun `GIVEN the service has not accepted the signed-in account yet WHEN rendering the screen THEN a disabled Connecting button is shown`() {
-        setScreen(
-            state =
-                IPProtectionState(
-                    eligibilityStatus = EligibilityStatus.Eligible,
-                    serviceStatus = ServiceState.Unauthenticated,
-                    accountState = AccountState(AccountStatus.Authenticated),
-                )
-        )
-
-        composeTestRule.onNodeWithText(testContext.getString(R.string.ip_protection_connecting)).assertIsNotEnabled()
-        composeTestRule.onNodeWithText(testContext.getString(R.string.ip_protection_get_started)).assertDoesNotExist()
-    }
-
-    @Test
-    fun `GIVEN the service is unavailable WHEN rendering the screen THEN the Get started button is disabled`() {
-        setScreen(
-            state =
-                IPProtectionState(
-                    eligibilityStatus = EligibilityStatus.Eligible,
-                    serviceStatus = ServiceState.Unavailable,
-                )
-        )
-
-        composeTestRule.onNodeWithText(testContext.getString(R.string.ip_protection_get_started)).assertIsNotEnabled()
-    }
-
     private fun setScreen(
         state: IPProtectionState,
         promoDate: String? = null,
@@ -281,6 +215,8 @@ class IPProtectionScreenTest {
                 IPProtectionScreen(
                     state = state,
                     snackbarHostState = SnackbarHostState(),
+                    readyToUse = true,
+                    syncingData = false,
                     promoDate = promoDate,
                     onVpnToggle = {},
                     onLearnMoreClick = onLearnMoreClick,

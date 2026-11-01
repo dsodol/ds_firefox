@@ -53,9 +53,6 @@ Object.defineProperty(document, "l10n", {
     translateElements() {
       return Promise.resolve();
     },
-    translateFragment() {
-      return Promise.resolve();
-    },
     getAttributes(element) {
       return {
         id: element.getAttribute("data-l10n-id"),

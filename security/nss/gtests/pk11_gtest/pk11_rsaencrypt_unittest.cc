@@ -20,7 +20,6 @@
 #include "testvectors/rsa_signature-vectors.h"
 #include "testvectors/rsaencrypt_bb2048-vectors.h"
 #include "testvectors/rsaencrypt_bb3072-vectors.h"
-#include "pk11_import.h"
 
 namespace nss_test {
 
@@ -28,7 +27,7 @@ class RsaDecryptWycheproofTest : public ::testing::Test {
  protected:
   void Run(const std::string& name) {
     WycheproofHeader(name, "RSAES-PKCS1-v1_5",
-                     "rsaes_pkcs1_decrypt_schema_v1.json",
+                     "rsaes_pkcs1_decrypt_schema.json",
                      [this](JsonReader& r) { RunGroup(r); });
   }
 
@@ -40,7 +39,7 @@ class RsaDecryptWycheproofTest : public ::testing::Test {
     EXPECT_NE(nullptr, slot);
 
     SECKEYPrivateKey* key = nullptr;
-    SECStatus rv = nss_test::ImportDERPrivateKeyInfoAndReturnKey(
+    SECStatus rv = PK11_ImportDERPrivateKeyInfoAndReturnKey(
         slot.get(), &pkcs8_item, nullptr, nullptr, false, false, KU_ALL, &key,
         nullptr);
     ASSERT_EQ(SECSuccess, rv);
@@ -78,8 +77,8 @@ class RsaDecryptWycheproofTest : public ::testing::Test {
         break;
       }
 
-      if (n == "keySize" || n == "privateKey" || n == "privateKeyJwk" ||
-          n == "privateKeyPem" || n == "source") {
+      if (n == "d" || n == "e" || n == "keysize" || n == "n" ||
+          n == "privateKeyJwk" || n == "privateKeyPem") {
         r.SkipValue();
       } else if (n == "privateKeyPkcs8") {
         private_key = r.ReadHex();

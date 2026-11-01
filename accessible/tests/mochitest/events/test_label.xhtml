@@ -62,7 +62,7 @@
       ]);
       labelNode.setAttribute("value", "");
       await events;
-      testAccessibleTree("label", { LABEL: [] });
+      testAccessibleTree("label", { LABEL: [{ STATICTEXT: [] }] });
 
       // setValue("label", kNoValue, kRecreated)
       events = waitForEvents([
@@ -110,13 +110,16 @@
       await events;
       testAccessibleTree("descr", { LABEL: [{ STATICTEXT: [] }] });
 
-      // setValue("descr", "", kRecreated)
-      events = waitForEvents([
-        [EVENT_HIDE, descrNode],
-        [EVENT_SHOW, descrNode],
-      ]);
+      // setValue("descr", "", kTextRemoved, "si_ya")
+      let removed = waitForEvent(EVENT_TEXT_REMOVED, e => {
+        let tc = e.QueryInterface(nsIAccessibleTextChangeEvent);
+        return (
+          e.accessible === getAccessible(descrNode) &&
+          tc.modifiedText === "si_ya"
+        );
+      });
       descrNode.setAttribute("value", "");
-      await events;
+      await removed;
       testAccessibleTree("descr", { LABEL: [] });
 
       // setValue("descr", kNoValue, kRecreated)

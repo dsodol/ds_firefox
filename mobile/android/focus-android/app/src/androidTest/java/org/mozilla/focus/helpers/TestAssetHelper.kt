@@ -31,14 +31,6 @@ object TestAssetHelper {
                 title = "GenericPage",
             )
 
-    val MockWebServer.windowOpenAsset
-        get() =
-            createTestAsset(
-                path = "windowOpen.html",
-                content = "Window open test",
-                title = "windowOpen",
-            )
-
     val MockWebServer.htmlControlsPageAsset
         get() =
             createTestAsset(

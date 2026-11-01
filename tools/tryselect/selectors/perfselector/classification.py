@@ -62,11 +62,12 @@ class Suites(ClassificationEnum):
 
 
 class Variants(ClassificationEnum):
-    BYTECODE_CACHED = {"value": "bytecode-cached", "index": 0}
-    LIVE_SITES = {"value": "live-sites", "index": 1}
-    PROFILING = {"value": "profiling", "index": 2}
-    SWR = {"value": "swr", "index": 3}
-    NOVA = {"value": "nova", "index": 4}
+    FISSION = {"value": "fission", "index": 0}
+    BYTECODE_CACHED = {"value": "bytecode-cached", "index": 1}
+    LIVE_SITES = {"value": "live-sites", "index": 2}
+    PROFILING = {"value": "profiling", "index": 3}
+    SWR = {"value": "swr", "index": 4}
+    NOVA = {"value": "nova", "index": 5}
 
 
 """
@@ -142,7 +143,7 @@ def raptor_test_finder(task_cmd, task_label, test):
                     if "android" in task_label:
                         # Some tasks don't follow the proper ordering where a test
                         # name is specified after the app name
-                        if not task_without_app[-1]:
+                        if not task_without_app[-1] or task_without_app[-1] == "-nofis":
                             task_without_app = task_without_app[0].split("browsertime")
                     modified_task_label = task_without_app[-1]
                     break
@@ -358,6 +359,12 @@ class ClassificationProvider:
     @property
     def variants(self):
         return {
+            Variants.FISSION.value: {
+                "query": "!nofis",
+                "negation": "'nofis",
+                "platforms": [Platforms.ANDROID.value],
+                "apps": [Apps.FENIX.value, Apps.GECKOVIEW.value],
+            },
             Variants.BYTECODE_CACHED.value: {
                 "query": "'bytecode",
                 "negation": "!bytecode",
@@ -405,6 +412,7 @@ class ClassificationProvider:
                 "apps": list(self.apps.keys()),
                 "platforms": list(self.platforms.keys()),
                 "variants": [
+                    Variants.FISSION.value,
                     Variants.LIVE_SITES.value,
                     Variants.PROFILING.value,
                     Variants.BYTECODE_CACHED.value,
@@ -470,6 +478,7 @@ class ClassificationProvider:
                         Variants.BYTECODE_CACHED.value,
                         Variants.LIVE_SITES.value,
                         Variants.PROFILING.value,
+                        Variants.FISSION.value,
                     ]
                 },
                 "suites": [Suites.RAPTOR.value],
@@ -494,7 +503,9 @@ class ClassificationProvider:
                 "query": {
                     Suites.RAPTOR.value: ["'browsertime 'speedometer3"],
                 },
-                "variant-restrictions": {Suites.RAPTOR.value: [Variants.NOVA.value]},
+                "variant-restrictions": {
+                    Suites.RAPTOR.value: [Variants.FISSION.value, Variants.NOVA.value]
+                },
                 "suites": [Suites.RAPTOR.value],
                 "app-restrictions": {},
                 "tasks": [],
@@ -505,7 +516,7 @@ class ClassificationProvider:
                 "query": {
                     Suites.RAPTOR.value: ["'browsertime 'jetstream3"],
                 },
-                "variant-restrictions": {Suites.RAPTOR.value: []},
+                "variant-restrictions": {Suites.RAPTOR.value: [Variants.FISSION.value]},
                 "suites": [Suites.RAPTOR.value],
                 "app-restrictions": {},
                 "tasks": [],
@@ -634,7 +645,7 @@ class ClassificationProvider:
                 },
                 "suites": [Suites.TALOS.value, Suites.RAPTOR.value],
                 "variant-restrictions": {
-                    Suites.RAPTOR.value: [],
+                    Suites.RAPTOR.value: [Variants.FISSION.value],
                     Suites.TALOS.value: [],
                 },
                 "app-restrictions": {
@@ -659,7 +670,7 @@ class ClassificationProvider:
                     Platforms.MACOSX.value,
                     Platforms.WINDOWS.value,
                 ],
-                "variant-restrictions": {Suites.RAPTOR.value: []},
+                "variant-restrictions": {Suites.RAPTOR.value: [Variants.FISSION.value]},
                 "app-restrictions": {
                     Suites.RAPTOR.value: [Apps.FIREFOX.value],
                 },
@@ -765,7 +776,7 @@ class ClassificationProvider:
                 "suites": [Suites.RAPTOR.value, Suites.PERFTEST.value],
                 "variant-restrictions": {
                     Suites.PERFTEST.value: [],
-                    Suites.RAPTOR.value: [],
+                    Suites.RAPTOR.value: [Variants.FISSION.value],
                 },
                 "platform-restrictions": [
                     Platforms.ANDROID_A55.value,
@@ -788,7 +799,9 @@ class ClassificationProvider:
                 "query": {
                     Suites.RAPTOR.value: ["'browsertime 'speedometer3"],
                 },
-                "variant-restrictions": {Suites.RAPTOR.value: [Variants.NOVA.value]},
+                "variant-restrictions": {
+                    Suites.RAPTOR.value: [Variants.FISSION.value, Variants.NOVA.value]
+                },
                 "suites": [Suites.RAPTOR.value],
                 "platform-restrictions": [
                     Platforms.DESKTOP.value,

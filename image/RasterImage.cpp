@@ -722,8 +722,7 @@ bool RasterImage::SetMetadata(const ImageMetadata& aMetadata,
   if (LoadHasSize() && aMetadata.HasAnimation() && !mAnimationState) {
     // We're becoming animated, so initialize animation stuff.
     mAnimationState.emplace(mAnimationMode);
-    mFrameAnimator =
-        std::make_unique<FrameAnimator>(this, mSize.ToUnknownSize());
+    mFrameAnimator = MakeUnique<FrameAnimator>(this, mSize.ToUnknownSize());
 
     if (!StaticPrefs::image_mem_animated_discardable_AtStartup()) {
       // We don't support discarding animated images (See bug 414259).
@@ -1145,15 +1144,16 @@ LookupResult RasterImage::RequestDecodeForSizeInternal(
 static bool LaunchDecodingTask(IDecodingTask* aTask, RasterImage* aImage,
                                uint32_t aFlags, bool aHaveSourceData) {
   if (aHaveSourceData) {
+    nsCString uri(aImage->GetURIString());
+
     // If we have all the data, we can sync decode if requested.
     if (aFlags & imgIContainer::FLAG_SYNC_DECODE) {
-      DecodePool::Singleton()->SyncRunIfPossible(aTask, aImage->GetURI());
+      DecodePool::Singleton()->SyncRunIfPossible(aTask, uri);
       return true;
     }
 
     if (aFlags & imgIContainer::FLAG_SYNC_DECODE_IF_FAST) {
-      return DecodePool::Singleton()->SyncRunIfPreferred(aTask,
-                                                         aImage->GetURI());
+      return DecodePool::Singleton()->SyncRunIfPreferred(aTask, uri);
     }
   }
 

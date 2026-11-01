@@ -16,10 +16,6 @@ if CONFIG["MOZ_CODE_COVERAGE"]:
         "nsCodeCoverage.cpp",
     ]
 
-    SOURCE_HEADERS += [
-        "nsCodeCoverage.h",
-    ]
-
     XPCOM_MANIFESTS += [
         "components.conf",
     ]

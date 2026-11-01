@@ -8,6 +8,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.datastore.core.DataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import mozilla.components.lib.state.Action
@@ -74,7 +75,7 @@ class PocketMiddleware(
         when (action) {
             is AppAction.AppLifecycleAction.StartAction -> {
                 visualCompletenessQueue.runIfReadyOrQueue {
-                    coroutineScope.launch {
+                    coroutineScope.launch(IO) {
                         if (settings.showPocketRecommendationsFeature) {
                             pocketStoriesService.value.startPeriodicContentRecommendationsRefresh()
                         }

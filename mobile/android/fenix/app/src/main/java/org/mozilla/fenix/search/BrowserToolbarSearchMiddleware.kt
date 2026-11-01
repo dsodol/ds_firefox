@@ -22,7 +22,6 @@ import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -78,7 +77,10 @@ import mozilla.components.support.base.log.logger.Logger
 import mozilla.components.support.base.utils.NamedThreadFactory
 import mozilla.components.support.ktx.kotlin.isUrl
 import mozilla.components.ui.icons.R as iconsR
+import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.GleanMetrics.Events
+import org.mozilla.fenix.GleanMetrics.Toolbar
+import org.mozilla.fenix.GleanMetrics.ToolbarGoogleLensButton
 import org.mozilla.fenix.NavGraphDirections
 import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.BrowserFragmentDirections
@@ -93,7 +95,6 @@ import org.mozilla.fenix.components.appstate.AppAction.SearchAction.SearchEngine
 import org.mozilla.fenix.components.appstate.AppAction.SearchAction.SearchStarted
 import org.mozilla.fenix.components.appstate.VoiceSearchAction.VoiceInputRequestCleared
 import org.mozilla.fenix.components.appstate.VoiceSearchAction.VoiceInputRequested
-import org.mozilla.fenix.components.lens.CameraMode
 import org.mozilla.fenix.components.metrics.MetricsUtils
 import org.mozilla.fenix.components.search.BOOKMARKS_SEARCH_ENGINE_ID
 import org.mozilla.fenix.components.search.HISTORY_SEARCH_ENGINE_ID
@@ -110,9 +111,13 @@ import org.mozilla.fenix.search.SearchSelectorEvents.SearchSettingsItemClicked
 import org.mozilla.fenix.search.ext.searchEngineShortcuts
 import org.mozilla.fenix.settings.SupportUtils
 import org.mozilla.fenix.telemetry.ACTION_CLEAR_CLICKED
+import org.mozilla.fenix.telemetry.ACTION_LENS_CLICKED
 import org.mozilla.fenix.telemetry.ACTION_MICROPHONE_CLICKED
+import org.mozilla.fenix.telemetry.ACTION_QR_CLICKED
 import org.mozilla.fenix.telemetry.ACTION_SEARCH_ENGINE_SELECTOR_CLICKED
-import org.mozilla.fenix.telemetry.recordAddressBarButtonTapped
+import org.mozilla.fenix.telemetry.SOURCE_ADDRESS_BAR
+import org.mozilla.fenix.telemetry.SURFACE_BROWSER
+import org.mozilla.fenix.telemetry.SURFACE_HOME
 import org.mozilla.fenix.utils.Settings
 
 @VisibleForTesting
@@ -163,7 +168,6 @@ class BrowserToolbarSearchMiddleware(
     private var syncAvailableSearchEnginesJob: Job? = null
     private var observeQRScannerInputJob: Job? = null
     private var observeLensInputJob: Job? = null
-    private var observeLensFlowEndJob: Job? = null
     private var observeVoiceInputJob: Job? = null
     private var updateAutocompleteJob: Job? = null
 
@@ -189,7 +193,6 @@ class BrowserToolbarSearchMiddleware(
                     searchEngine = this.reconcileSelectedEngine(),
                 )
                 observeVoiceInputResults(store)
-                observeLensFlowEnd(store)
                 syncCurrentSearchEngine(store)
                 syncAvailableEngines(store)
                 updateSearchEndPageActions(store)
@@ -204,7 +207,6 @@ class BrowserToolbarSearchMiddleware(
                 }
                 observeQRScannerInputJob?.cancel()
                 observeVoiceInputJob?.cancel()
-                observeLensFlowEndJob?.cancel()
             }
 
             is CommitUrl -> handleCommitingUrl(action.text)
@@ -253,16 +255,24 @@ class BrowserToolbarSearchMiddleware(
         appStore.dispatch(SearchEnded)
     }
 
+    private fun recordButtonTapped(item: String) {
+        val surface = if (appStore.state.searchState.sourceTabId == null) SURFACE_HOME else SURFACE_BROWSER
+        Toolbar.buttonTapped.record(
+            Toolbar.ButtonTappedExtra(
+                source = SOURCE_ADDRESS_BAR,
+                item = item,
+                surface = surface,
+            )
+        )
+    }
+
     private fun handleToolbarButtonsActions(
         store: Store<BrowserToolbarState, BrowserToolbarAction>,
         action: BrowserToolbarAction,
     ) =
         when (action) {
             is SearchSelectorClicked -> {
-                recordAddressBarButtonTapped(
-                    ACTION_SEARCH_ENGINE_SELECTOR_CLICKED,
-                    appStore.state.searchState.sourceTabId,
-                )
+                recordButtonTapped(ACTION_SEARCH_ENGINE_SELECTOR_CLICKED)
             }
 
             is SearchSettingsItemClicked -> {
@@ -284,10 +294,7 @@ class BrowserToolbarSearchMiddleware(
             }
 
             is ClearSearchClicked -> {
-                recordAddressBarButtonTapped(
-                    ACTION_CLEAR_CLICKED,
-                    appStore.state.searchState.sourceTabId,
-                )
+                recordButtonTapped(ACTION_CLEAR_CLICKED)
                 store.dispatch(SearchQueryUpdated(BrowserToolbarQuery("")))
             }
 
@@ -297,11 +304,14 @@ class BrowserToolbarSearchMiddleware(
             }
 
             is QrScannerClicked -> {
+                recordButtonTapped(ACTION_QR_CLICKED)
                 observeQrScannerInput(store)
                 appStore.dispatch(QrScannerRequested)
             }
 
             is LensButtonClicked -> {
+                recordButtonTapped(ACTION_LENS_CLICKED)
+                ToolbarGoogleLensButton.tapped.record(NoExtras())
                 observeLensInput()
                 // The Lens camera screen lets the user toggle to QR scanning; observe both
                 // result streams so a QR string returned from the Lens flow still lands in
@@ -311,10 +321,7 @@ class BrowserToolbarSearchMiddleware(
             }
 
             is VoiceSearchButtonClicked -> {
-                recordAddressBarButtonTapped(
-                    ACTION_MICROPHONE_CLICKED,
-                    appStore.state.searchState.sourceTabId,
-                )
+                recordButtonTapped(ACTION_MICROPHONE_CLICKED)
                 appStore.dispatch(VoiceInputRequested)
             }
 
@@ -552,38 +559,27 @@ class BrowserToolbarSearchMiddleware(
                 )
             )
         } else if (isValidSearchEngine) {
-            add(buildCameraAction(selectedSearchEngine))
-        }
-    }
+            val isLensEnabled = settings.googleLensIntegrationEnabled && settings.googleLensIntegrationUserEnabled
 
-    private fun buildCameraAction(selectedSearchEngine: SearchEngine?): ActionButtonRes {
-        val isLensEnabled = settings.googleLensIntegrationEnabled && settings.googleLensIntegrationUserEnabled
-
-        if (!isLensEnabled || browsingModeManager.mode.isPrivate || !selectedSearchEngine.isGoogleSearchEngine()) {
-            return ActionButtonRes(
-                drawableResId = iconsR.drawable.mozac_ic_qr_code_24,
-                contentDescription = qrR.string.mozac_feature_qr_scanner,
-                state = ActionButton.State.DEFAULT,
-                onClick = QrScannerClicked,
-            )
-        }
-
-        // Both icons open the Lens camera, which reopens in the mode the user last selected.
-        return when (settings.lensCameraLastMode) {
-            CameraMode.LENS ->
-                ActionButtonRes(
-                    drawableResId = iconsR.drawable.mozac_ic_logo_google_lens_24,
-                    contentDescription = R.string.lens_search_content_description,
-                    state = ActionButton.State.DEFAULT,
-                    onClick = LensButtonClicked,
+            if (isLensEnabled && !browsingModeManager.mode.isPrivate && selectedSearchEngine.isGoogleSearchEngine()) {
+                add(
+                    ActionButtonRes(
+                        drawableResId = iconsR.drawable.mozac_ic_logo_google_lens_24,
+                        contentDescription = R.string.lens_search_content_description,
+                        state = ActionButton.State.DEFAULT,
+                        onClick = LensButtonClicked,
+                    )
                 )
-            CameraMode.QR ->
-                ActionButtonRes(
-                    drawableResId = iconsR.drawable.mozac_ic_qr_code_24,
-                    contentDescription = qrR.string.mozac_feature_qr_scanner,
-                    state = ActionButton.State.DEFAULT,
-                    onClick = LensButtonClicked,
+            } else {
+                add(
+                    ActionButtonRes(
+                        drawableResId = iconsR.drawable.mozac_ic_qr_code_24,
+                        contentDescription = qrR.string.mozac_feature_qr_scanner,
+                        state = ActionButton.State.DEFAULT,
+                        onClick = QrScannerClicked,
+                    )
                 )
+            }
         }
     }
 
@@ -632,24 +628,6 @@ class BrowserToolbarSearchMiddleware(
                         // survives that, this navigation doesn't.
                         appStore.dispatch(AppAction.LensAction.LensResultConsumed)
                         navController.navigate(R.id.action_global_browser)
-                    }
-                }
-        }
-    }
-
-    /**
-     * Rebuilds the end actions whenever a Lens camera flow ends, so the Lens button reflects a camera mode the user
-     * switched to before leaving the camera without a result.
-     */
-    private fun observeLensFlowEnd(store: Store<BrowserToolbarState, BrowserToolbarAction>) {
-        observeLensFlowEndJob?.cancel()
-        observeLensFlowEndJob = appStore.observeWhileActive {
-            map { it.lensState.isRequesting || it.lensState.inProgress }
-                .distinctUntilChanged()
-                .drop(1)
-                .collect { isLensFlowActive ->
-                    if (!isLensFlowActive) {
-                        updateSearchEndPageActions(store)
                     }
                 }
         }

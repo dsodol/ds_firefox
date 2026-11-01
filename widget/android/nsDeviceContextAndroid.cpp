@@ -5,7 +5,7 @@
 #include "nsDeviceContextAndroid.h"
 
 #include "mozilla/RefPtr.h"
-#include "mozilla/gfx/PrintTargetSkPDF.h"
+#include "mozilla/gfx/PrintTargetPDF.h"
 #include "nsAnonymousTemporaryFile.h"
 #include "nsComponentManagerUtils.h"
 #include "nsDirectoryServiceDefs.h"
@@ -26,6 +26,13 @@ nsDeviceContextSpecAndroid::~nsDeviceContextSpecAndroid() {
 }
 
 already_AddRefed<PrintTarget> nsDeviceContextSpecAndroid::MakePrintTarget() {
+  double width, height;
+  mPrintSettings->GetEffectiveSheetSize(&width, &height);
+
+  // convert twips to points
+  width /= TWIPS_PER_POINT_FLOAT;
+  height /= TWIPS_PER_POINT_FLOAT;
+
   auto stream = [&]() -> nsCOMPtr<nsIOutputStream> {
     if (mPrintSettings->GetOutputDestination() ==
         nsIPrintSettings::kOutputDestinationStream) {
@@ -46,7 +53,7 @@ already_AddRefed<PrintTarget> nsDeviceContextSpecAndroid::MakePrintTarget() {
     return s;
   }();
 
-  return PrintTargetSkPDF::CreateOrNull(stream);
+  return PrintTargetPDF::CreateOrNull(stream, IntSize::Ceil(width, height));
 }
 
 NS_IMETHODIMP

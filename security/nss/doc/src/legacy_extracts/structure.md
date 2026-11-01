@@ -1,6 +1,6 @@
 (mozilla-projects-nss-nss-structure)=
 
-# NSS API Structure
+# [NSS API Structure](#api_structure)
 
 ## Libraries
 

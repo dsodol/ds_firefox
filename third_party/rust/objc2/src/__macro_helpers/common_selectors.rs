@@ -11,22 +11,22 @@ use crate::runtime::Sel;
 
 #[inline]
 pub fn alloc_sel() -> Sel {
-    __sel_inner!("alloc", "alloc")
+    __sel_inner!("alloc\0", "alloc")
 }
 
 #[inline]
 pub fn init_sel() -> Sel {
-    __sel_inner!("init", "init")
+    __sel_inner!("init\0", "init")
 }
 
 #[inline]
 pub fn new_sel() -> Sel {
-    __sel_inner!("new", "new")
+    __sel_inner!("new\0", "new")
 }
 
 #[inline]
 pub fn dealloc_sel() -> Sel {
-    __sel_inner!("dealloc", "dealloc")
+    __sel_inner!("dealloc\0", "dealloc")
 }
 
 /// An undocumented selector called by the Objective-C runtime when
@@ -34,7 +34,7 @@ pub fn dealloc_sel() -> Sel {
 #[inline]
 #[allow(dead_code)] // May be useful in the future
 fn cxx_construct_sel() -> Sel {
-    __sel_inner!(".cxx_construct", ".cxx_construct")
+    __sel_inner!(".cxx_construct\0", ".cxx_construct")
 }
 
 /// Objective-C runtimes call `.cxx_destruct` as part of the final `dealloc`
@@ -71,7 +71,7 @@ fn cxx_construct_sel() -> Sel {
 #[inline]
 #[allow(dead_code)] // May be useful in the future
 fn cxx_destruct_sel() -> Sel {
-    __sel_inner!(".cxx_destruct", ".cxx_destruct")
+    __sel_inner!(".cxx_destruct\0", ".cxx_destruct")
 }
 
 #[cfg(test)]

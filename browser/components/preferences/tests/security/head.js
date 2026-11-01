@@ -7,6 +7,6 @@ Services.scriptloader.loadSubScript(
 );
 
 async function openSecurityPrefs(options = { leaveOpen: true }) {
-  let category = "connectionSecurity";
+  let category = SRD_PREF_VALUE ? "connectionSecurity" : "privacy";
   return openPreferencesViaOpenPreferencesAPI(category, options);
 }

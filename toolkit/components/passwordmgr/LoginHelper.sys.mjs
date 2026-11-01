@@ -1231,8 +1231,7 @@ export const LoginHelper = {
   },
 
   /**
-   * Open the password manager in a new tab and bring the browser window
-   * containing it to the foreground.
+   * Open the password manager window.
    *
    * @param {Window} window
    *                 the window from where we want to open the dialog
@@ -1273,10 +1272,6 @@ export const LoginHelper = {
     });
 
     tab.setAttribute("preselect-login", preselectedLogin);
-
-    // The caller may live in a different window (e.g. Page Info), so bring
-    // the browser window showing about:logins to the foreground.
-    browser.documentGlobal.focus();
   },
 
   /**

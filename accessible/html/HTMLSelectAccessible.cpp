@@ -90,12 +90,10 @@ LocalAccessible* HTMLSelectListAccessible::CurrentItem() const {
 }
 
 void HTMLSelectListAccessible::SetCurrentItem(const LocalAccessible* aItem) {
-  if (!aItem->GetContent()->IsElement()) {
-    return;
-  }
-  aItem->GetContent()->AsElement()->SetAttr(kNameSpaceID_None,
-                                            nsGkAtoms::selected, u"true"_ns,
-                                            true, IsKnownNewAttr::No);
+  if (!aItem->GetContent()->IsElement()) return;
+
+  aItem->GetContent()->AsElement()->SetAttr(
+      kNameSpaceID_None, nsGkAtoms::selected, u"true"_ns, true);
 }
 
 bool HTMLSelectListAccessible::IsAcceptableChild(nsIContent* aEl) const {

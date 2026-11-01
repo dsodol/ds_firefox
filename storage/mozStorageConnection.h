@@ -516,8 +516,7 @@ class Connection final : public mozIStorageConnection,
    * This variable should be accessed while holding the
    * sharedAsyncExecutionMutex.
    */
-  bool mAsyncExecutionThreadShuttingDown
-      MOZ_GUARDED_BY(sharedAsyncExecutionMutex);
+  bool mAsyncExecutionThreadShuttingDown;
 
   /**
    * Set to true just prior to calling sqlite3_close on the
@@ -526,7 +525,7 @@ class Connection final : public mozIStorageConnection,
    * This variable should be accessed while holding the
    * sharedAsyncExecutionMutex.
    */
-  bool mConnectionClosed MOZ_GUARDED_BY(sharedAsyncExecutionMutex);
+  bool mConnectionClosed;
 
   /**
    * Set to true if the underlying database file is encrypted on disk.

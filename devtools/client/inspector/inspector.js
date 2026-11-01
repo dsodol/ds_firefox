@@ -213,7 +213,6 @@ class Inspector extends EventEmitter {
   #cssProperties;
   #destroyed;
   #pendingSelectionUnique;
-  #rootElementWaitController;
   #InspectorTabPanel;
   #InspectorSplitBox;
   #TabBar;
@@ -469,7 +468,6 @@ class Inspector extends EventEmitter {
     // Record new-root timing for telemetry
     this.#newRootStart = this.panelWin.performance.now();
 
-    this.#stopWaitingForRootElement();
     this.selection.setNodeFront(null);
     this.#destroyMarkup();
 
@@ -732,7 +730,6 @@ class Inspector extends EventEmitter {
     }
     this.#destroyMarkup();
     this.#pendingSelectionUnique = null;
-    this.#stopWaitingForRootElement();
   };
 
   async #getCssProperties(targetFront) {
@@ -824,39 +821,7 @@ class Inspector extends EventEmitter {
       }
     }
 
-    // The document has no root element yet, try again when it gets one.
-    this.#waitForRootElement(rootNodeFront);
     return null;
-  }
-
-  /**
-   * Call onRootNodeAvailable again when children are added to the provided
-   * document node front.
-   *
-   * @param {NodeFront} rootNodeFront
-   *        The current root node front for the top walker.
-   */
-  #waitForRootElement(rootNodeFront) {
-    this.#rootElementWaitController = new AbortController();
-    rootNodeFront.walkerFront.on(
-      "mutations",
-      mutations => {
-        if (
-          mutations.some(
-            ({ type, target }) =>
-              type === "childList" && target === rootNodeFront
-          )
-        ) {
-          this.onRootNodeAvailable(rootNodeFront);
-        }
-      },
-      { signal: this.#rootElementWaitController.signal }
-    );
-  }
-
-  #stopWaitingForRootElement() {
-    this.#rootElementWaitController?.abort();
-    this.#rootElementWaitController = null;
   }
 
   /**
@@ -2058,7 +2023,6 @@ class Inspector extends EventEmitter {
       return;
     }
     this.#destroyed = true;
-    this.#stopWaitingForRootElement();
 
     // Prevents any further action from being dispatched
     this.store.dispatch(START_IGNORE_ACTION);

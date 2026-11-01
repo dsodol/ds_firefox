@@ -1,6 +1,6 @@
 gczeal(0);
 g1 = newGlobal({ sameZoneAs: this });
-enableTrackAllocations();
+enableShellAllocationMetadataBuilder();
 g1.Object;
 startgc(1);
 recomputeWrappers();

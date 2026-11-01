@@ -44,7 +44,8 @@ class SVGAFrame final : public SVGDisplayContainerFrame {
 
 nsIFrame* NS_NewSVGAFrame(mozilla::PresShell* aPresShell,
                           mozilla::ComputedStyle* aStyle) {
-  return new mozilla::SVGAFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell)
+      mozilla::SVGAFrame(aStyle, aPresShell->GetPresContext());
 }
 
 namespace mozilla {

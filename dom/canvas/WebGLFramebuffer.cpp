@@ -12,6 +12,7 @@
 #include "GLScreenBuffer.h"
 #include "MozFramebuffer.h"
 #include "WebGLContext.h"
+#include "WebGLContextUtils.h"
 #include "WebGLExtensions.h"
 #include "WebGLFormats.h"
 #include "WebGLRenderbuffer.h"

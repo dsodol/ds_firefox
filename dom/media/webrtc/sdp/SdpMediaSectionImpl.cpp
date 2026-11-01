@@ -6,8 +6,6 @@
 
 #include <ostream>
 
-#include "SdpMediaSection.h"
-
 #ifdef CRLF
 #  undef CRLF
 #endif
@@ -24,7 +22,7 @@ void SdpBandwidths::Serialize(std::ostream& os) const {
 SdpMediaSectionImpl::SdpMediaSectionImpl(
     const size_t level, UniquePtr<SdpAttributeListImpl>&& attributeList)
     : SdpMediaSection(level),
-      mMediaTypeInfo({.type = static_cast<SdpMediaSection::MediaType>(0)}),
+      mMediaType(static_cast<MediaType>(0)),
       mPort(0),
       mPortCount(0),
       mProtocol(static_cast<Protocol>(0)),
@@ -34,13 +32,13 @@ SdpMediaSectionImpl::SdpMediaSectionImpl(
     const SdpMediaSectionImpl& aOrig,
     UniquePtr<SdpAttributeListImpl>&& attributeList)
     : SdpMediaSection(aOrig),
-      mMediaTypeInfo(aOrig.mMediaTypeInfo),
+      mMediaType(aOrig.mMediaType),
       mPort(aOrig.mPort),
       mPortCount(aOrig.mPortCount),
       mProtocol(aOrig.mProtocol),
       mFormats(aOrig.mFormats),
       mConnection(aOrig.mConnection
-                      ? std::make_unique<SdpConnection>(*aOrig.mConnection)
+                      ? MakeUnique<SdpConnection>(*aOrig.mConnection)
                       : nullptr),
       mBandwidths(aOrig.mBandwidths),
       mAttributeList(std::move(attributeList)) {}
@@ -91,7 +89,7 @@ void SdpMediaSectionImpl::AddCodec(const std::string& pt,
                                    const uint16_t channels) {
   mFormats.push_back(pt);
 
-  auto rtpmap = std::make_unique<SdpRtpmapAttributeList>();
+  auto rtpmap = MakeUnique<SdpRtpmapAttributeList>();
   if (mAttributeList->HasAttribute(SdpAttribute::kRtpmapAttribute)) {
     const SdpRtpmapAttributeList& old = mAttributeList->GetRtpmap();
     for (auto it = old.mRtpmaps.begin(); it != old.mRtpmaps.end(); ++it) {
@@ -137,44 +135,35 @@ void SdpMediaSectionImpl::AddDataChannel(const std::string& name,
   if ((mProtocol == kUdpDtlsSctp) || (mProtocol == kTcpDtlsSctp)) {
     // new data channel format according to draft 21
     mFormats.push_back(name);
-    mAttributeList->SetAttribute(std::make_unique<SdpNumberAttribute>(
-        SdpAttribute::kSctpPortAttribute, port));
+    mAttributeList->SetAttribute(
+        MakeUnique<SdpNumberAttribute>(SdpAttribute::kSctpPortAttribute, port));
     if (message_size) {
-      mAttributeList->SetAttribute(std::make_unique<SdpNumberAttribute>(
+      mAttributeList->SetAttribute(MakeUnique<SdpNumberAttribute>(
           SdpAttribute::kMaxMessageSizeAttribute, message_size));
     }
   } else {
     // old data channels format according to draft 05
     std::string port_str = std::to_string(port);
     mFormats.push_back(port_str);
-    auto sctpmap = std::make_unique<SdpSctpmapAttributeList>();
+    auto sctpmap = MakeUnique<SdpSctpmapAttributeList>();
     sctpmap->PushEntry(port_str, name, streams);
     mAttributeList->SetAttribute(std::move(sctpmap));
     if (message_size) {
       // This is a workaround to allow detecting Firefox's w/o EOR support
-      mAttributeList->SetAttribute(std::make_unique<SdpNumberAttribute>(
+      mAttributeList->SetAttribute(MakeUnique<SdpNumberAttribute>(
           SdpAttribute::kMaxMessageSizeAttribute, message_size));
     }
   }
 }
 
 void SdpMediaSectionImpl::Serialize(std::ostream& os) const {
-  os << "m=" << mMediaTypeInfo << " " << mPort;
+  os << "m=" << mMediaType << " " << mPort;
   if (mPortCount) {
     os << "/" << mPortCount;
   }
   os << " " << mProtocol;
-  if (mMediaTypeInfo.type != SdpMediaSection::kUnknown) {
-    for (auto i = mFormats.begin(); i != mFormats.end(); ++i) {
-      os << " " << (*i);
-    }
-  } else {
-    mMediaTypeInfo.unknown.apply([&](const auto& u) {
-      MOZ_ASSERT(mMediaTypeInfo.unknown, "unknown media type must have data");
-      if (!u.formatString.empty()) {
-        os << " " << u.formatString;
-      }
-    });
+  for (auto i = mFormats.begin(); i != mFormats.end(); ++i) {
+    os << " " << (*i);
   }
   os << CRLF;
 

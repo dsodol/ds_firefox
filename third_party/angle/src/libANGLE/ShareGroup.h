@@ -11,13 +11,9 @@
 #define LIBANGLE_SHAREGROUP_H_
 
 #include <mutex>
-#include <type_traits>
 #include <vector>
 
-#include "common/FastVector.h"
-#include "common/SimpleMutex.h"
 #include "libANGLE/Context.h"
-#include "libANGLE/ObjectMap.h"
 
 namespace gl
 {
@@ -32,73 +28,7 @@ class ShareGroupImpl;
 
 namespace egl
 {
-class ContextMap final : public priv::ObjectMap<gl::Context, angle::SimpleMutex>
-{
-  public:
-    void pruneUnreferenced(ContextMap *invalidContextMap)
-    {
-        std::lock_guard<angle::SimpleMutex> lock(mMutex);
-        std::lock_guard<angle::SimpleMutex> invalidLock(invalidContextMap->mMutex);
-
-        // Cache total number of contexts before invalidation. This is used as a check to verify
-        // that no context is "lost" while being moved between the various sets.
-        size_t contextSetSizeBeforeInvalidation =
-            this->mObjects.size() + invalidContextMap->mObjects.size();
-
-        // If app called eglTerminate and no active threads remain,
-        // force release any context that is still current.
-        angle::HashMap<GLuint, gl::Context *> contextsStillCurrent = {};
-        for (auto context : this->mObjects)
-        {
-            if (context.second->isReferenced())
-            {
-                contextsStillCurrent.emplace(context);
-                continue;
-            }
-
-            // Add context that is not current to mInvalidContextSet for cleanup.
-            invalidContextMap->mObjects.emplace(context);
-        }
-
-        // There are many methods that require contexts that are still current to be present in
-        // display's contextSet like during context release or to notify of state changes in a
-        // subject. So as to not interrupt this flow, do not remove contexts that are still
-        // current on some thread from display's contextSet even though eglTerminate marks such
-        // contexts as invalid.
-        //
-        // "mState.contextSet" will now contain only those contexts that are still current on
-        // some thread.
-        this->mObjects = std::move(contextsStillCurrent);
-
-        // Assert that the total number of contexts is the same before and after context
-        // invalidation.
-        ASSERT(contextSetSizeBeforeInvalidation ==
-               this->mObjects.size() + invalidContextMap->mObjects.size());
-    }
-
-    template <typename ConditionType>
-    void notifyDeviceLost(ConditionType *deviceLost) const
-    {
-        std::lock_guard<angle::SimpleMutex> lock(mMutex);
-        if (*deviceLost)
-        {
-            return;
-        }
-        for (const auto &pair : this->mObjects)
-        {
-            pair.second->markContextLost(gl::GraphicsResetStatus::UnknownContextReset);
-        }
-        *deviceLost = true;
-    }
-};
-
-class UnlockedContextMap final : public priv::ObjectMap<gl::Context, angle::NoOpMutex>
-{
-  public:
-    size_t size() const { return mObjects.size(); }
-};
-
-using SharedContextMap = UnlockedContextMap;
+using ContextMap = angle::HashMap<GLuint, gl::Context *>;
 
 class ShareGroupState final : angle::NonCopyable
 {
@@ -106,7 +36,7 @@ class ShareGroupState final : angle::NonCopyable
     ShareGroupState();
     ~ShareGroupState();
 
-    const SharedContextMap &getContexts() const { return mContexts; }
+    const ContextMap &getContexts() const { return mContexts; }
     void addSharedContext(gl::Context *context);
     void removeSharedContext(gl::Context *context);
 
@@ -118,7 +48,7 @@ class ShareGroupState final : angle::NonCopyable
 
   private:
     // The list of contexts within the share group
-    SharedContextMap mContexts;
+    ContextMap mContexts;
 
     // Whether any context in the share group has robustness enabled.  If any context in the share
     // group is robust, any program created in any context of the share group must have robustness
@@ -148,7 +78,7 @@ class ShareGroup final : angle::NonCopyable
 
     void finishAllContexts();
 
-    const SharedContextMap &getContexts() const { return mState.getContexts(); }
+    const ContextMap &getContexts() const { return mState.getContexts(); }
     void addSharedContext(gl::Context *context);
     void removeSharedContext(gl::Context *context);
 

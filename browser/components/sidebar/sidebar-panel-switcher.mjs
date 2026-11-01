@@ -38,21 +38,55 @@ export class SidebarPanelSwitcher extends MozLitElement {
     this.open = false;
   }
 
+  get #controller() {
+    return window.browsingContext.embedderWindowGlobal.browsingContext.window
+      .SidebarController;
+  }
+
   get #currentView() {
-    return this.view || window.SidebarController.currentID;
+    return this.view || this.#controller.currentID;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    // Extension panels share a single document which is reused as the user
+    // switches between them, so re-resolve the label whenever a panel is shown.
+    window.addEventListener("SidebarFocused", this);
+    this.#updateLabel();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener("SidebarFocused", this);
+  }
+
+  handleEvent() {
+    this.#updateLabel();
+  }
+
+  willUpdate(changedProperties) {
+    if (changedProperties.has("view")) {
+      this.#updateLabel();
+    }
+  }
+
+  async #updateLabel() {
+    const items = await this.#controller.getRevampSwitcherItems();
+    this.label =
+      items.find(item => item.view === this.#currentView)?.label ?? "";
   }
 
   async #onButtonClick(e) {
     // Rebuild the list each time so it reflects the currently enabled tools and
     // extensions, then open the dropdown anchored to the switcher button.
-    this.items = await window.SidebarController.getRevampSwitcherItems();
+    this.items = await this.#controller.getRevampSwitcherItems();
     await this.updateComplete;
     this.panelList.toggle(e);
   }
 
   #onItemClick(view) {
     if (view !== this.#currentView) {
-      window.SidebarController.show(view);
+      this.#controller.show(view);
     }
   }
 

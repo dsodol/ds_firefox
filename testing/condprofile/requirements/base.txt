@@ -1,6 +1,5 @@
--c ../../config/requirements-condprofile.txt
 aiohttp==3.7.4.post0
-arsenic==21.8
+https://pypi.pub.build.mozilla.org/pub/arsenic-21.8-py3-none-any.whl
 requests==2.32.3
-pyyaml==6.0.2
+pyyaml==5.1.2
 mozversion>=1.0

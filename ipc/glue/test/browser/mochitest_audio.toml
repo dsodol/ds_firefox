@@ -14,7 +14,7 @@ prefs = [
 
 ["test_android_audio.html"]
 run-if = [
-  "os == 'android'",
+  "os == 'android' && !isolated_process",
 ]
 
 ["test_utility_audio.html"]

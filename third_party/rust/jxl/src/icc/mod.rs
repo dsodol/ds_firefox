@@ -20,7 +20,7 @@ mod tag;
 
 use header::read_header;
 use stream::IccStream;
-pub use stream::read_varint_from_reader;
+pub(crate) use stream::read_varint_from_reader;
 use tag::{read_single_command, read_tag_list};
 
 const ICC_CONTEXTS: usize = 41;
@@ -133,9 +133,8 @@ impl IncrementalIccReader {
 
         let len = len as usize;
 
-        let mut lz77_scratch = Vec::new();
-        let histograms = Histograms::decode(ICC_CONTEXTS, br, true, &mut lz77_scratch)?;
-        let reader = SymbolReader::new(&histograms, br, None, &mut lz77_scratch)?;
+        let histograms = Histograms::decode(ICC_CONTEXTS, br, true)?;
+        let reader = SymbolReader::new(&histograms, br, None)?;
         let initial_alloc = len.min(64 * 1024);
         let out_buf = Vec::new_with_capacity(initial_alloc)?;
         Ok(Self {
@@ -202,7 +201,6 @@ impl IncrementalIccReader {
             self.reader.restore(checkpoint);
             return Err(err);
         }
-        self.reader.check_for_error()?;
         if sym >= 256 {
             warn!(sym, "Invalid symbol in ICC stream");
             return Err(Error::InvalidIccStream);
@@ -217,6 +215,13 @@ impl IncrementalIccReader {
         self.prev_bytes = [b, self.prev_bytes[0]];
         if self.len > PREAMBLE_SIZE && self.out_buf.len() == PREAMBLE_SIZE {
             self.check_preamble()?;
+        }
+        Ok(())
+    }
+
+    pub fn read_all(&mut self, br: &mut BitReader) -> Result<()> {
+        for _ in self.out_buf.len()..self.num_coded_bytes() {
+            self.read_one(br)?;
         }
         Ok(())
     }

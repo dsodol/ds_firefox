@@ -204,7 +204,6 @@ dictionary SupportsOptions {
   boolean userAgent = false;
   boolean chrome = false;
   boolean quirks = false;
-  CSSRule? rule = null;
 };
 
 dictionary PropertyNamesOptions {

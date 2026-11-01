@@ -4,7 +4,6 @@
 
 package org.mozilla.fenix.home.ui
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
@@ -33,7 +32,6 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.dimensionResource
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
@@ -48,7 +46,6 @@ import kotlinx.coroutines.withContext
 import mozilla.components.compose.base.theme.Theme
 import mozilla.components.feature.top.sites.TopSite
 import mozilla.components.support.ktx.android.net.hostWithoutCommonPrefixes
-import mozilla.components.ui.icons.R as iconsR
 import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.GleanMetrics.History
 import org.mozilla.fenix.GleanMetrics.HomeBookmarks
@@ -68,7 +65,6 @@ import org.mozilla.fenix.home.bookmarks.view.Bookmarks
 import org.mozilla.fenix.home.bookmarks.view.BookmarksMenuItem
 import org.mozilla.fenix.home.collections.Collections
 import org.mozilla.fenix.home.collections.CollectionsMigrationPromoCard
-import org.mozilla.fenix.home.collections.CollectionsMigrationPromoSource
 import org.mozilla.fenix.home.collections.CollectionsState
 import org.mozilla.fenix.home.collections.migration.CollectionsMigrationCardAction
 import org.mozilla.fenix.home.collections.migration.CollectionsMigrationCardAction.ViewTabGroupsClicked
@@ -121,7 +117,6 @@ private const val POPULAR_SITES_TO_SHOW = 8
  * @param interactor [HomepageInteractor] for interactions with the homepage UI.
  * @param onCollectionsMigrationCardAction Invoked with the [CollectionsMigrationCardAction] to dispatch.
  * @param onTopSitesItemBound Invoked during the composition of a top site item.
- * @param onMiddleSearchBarVisibilityChanged Invoked when the middle search bar is shown/hidden.
  * @param modifier [Modifier] to be applied to the layout.
  */
 @Suppress("LongMethod", "CyclomaticComplexMethod", "CognitiveComplexMethod")
@@ -131,7 +126,6 @@ internal fun Homepage(
     interactor: HomepageInteractor,
     onCollectionsMigrationCardAction: (CollectionsMigrationCardAction) -> Unit,
     onTopSitesItemBound: () -> Unit,
-    onMiddleSearchBarVisibilityChanged: (isVisible: Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
@@ -187,7 +181,6 @@ internal fun Homepage(
                     HomepageHeader(
                         browsingMode = state.browsingMode,
                         showStoriesButton = headerState.showStoriesButton,
-                        showButtons = headerState.showButtons,
                         browsingModeChanged = browsingModeChanged,
                         onStoriesTapped = { interactor.onDiscoverMoreClicked() },
                     )
@@ -198,30 +191,6 @@ internal fun Homepage(
                 with(state) {
                     when (this) {
                         is HomepageState.Private -> {
-                            if (middleSearchState.searchBarEnabled) {
-                                LaunchedEffect(middleSearchState.searchBarVisible) {
-                                    onMiddleSearchBarVisibilityChanged(middleSearchState.searchBarVisible)
-                                }
-                            }
-
-                            Image(
-                                painter = painterResource(id = iconsR.drawable.mozac_ic_private_mode_circle_fill_72),
-                                contentDescription = null,
-                            )
-
-                            if (middleSearchState.isShown) {
-                                Spacer(Modifier.height(FirefoxTheme.layout.space.static400))
-
-                                SearchBar(
-                                    modifier = Modifier.padding(horizontal = horizontalMargin),
-                                    onClick = interactor::onNavigateSearch,
-                                )
-
-                                Spacer(Modifier.height(FirefoxTheme.layout.space.static400))
-                            } else {
-                                Spacer(Modifier.height(FirefoxTheme.layout.space.static300))
-                            }
-
                             PrivateBrowsingDescription(onLearnMoreClick = interactor::onLearnMoreClicked)
                         }
 
@@ -241,21 +210,6 @@ internal fun Homepage(
                             LaunchedEffect(longfoxEntryPointShown) {
                                 if (longfoxEntryPointShown) {
                                     interactor.onLongfoxEntryPointShown()
-                                }
-                            }
-
-                            if (middleSearchState.searchBarEnabled) {
-                                LaunchedEffect(middleSearchState.searchBarVisible) {
-                                    onMiddleSearchBarVisibilityChanged(middleSearchState.searchBarVisible)
-                                }
-
-                                if (middleSearchState.searchBarVisible) {
-                                    SearchBar(
-                                        modifier = Modifier.padding(horizontal = horizontalMargin),
-                                        onClick = interactor::onNavigateSearch,
-                                    )
-
-                                    Spacer(Modifier.height(FirefoxTheme.layout.space.static500))
                                 }
                             }
 
@@ -599,10 +553,7 @@ private fun CollectionsSection(
 
         CollectionsState.MigrationCard -> {
             CollectionsSectionContent {
-                CollectionsMigrationPromoCard(
-                    source = CollectionsMigrationPromoSource.HOMEPAGE,
-                    onClick = { onCollectionsMigrationCardAction(ViewTabGroupsClicked) },
-                )
+                CollectionsMigrationPromoCard(onClick = { onCollectionsMigrationCardAction(ViewTabGroupsClicked) })
             }
         }
 
@@ -684,7 +635,6 @@ private fun HomepagePreview() {
                 interactor = FakeHomepagePreview.homepageInteractor,
                 onCollectionsMigrationCardAction = {},
                 onTopSitesItemBound = {},
-                onMiddleSearchBarVisibilityChanged = {},
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -727,7 +677,6 @@ private fun HomepageBannerPreview() {
                 interactor = FakeHomepagePreview.homepageInteractor,
                 onCollectionsMigrationCardAction = {},
                 onTopSitesItemBound = {},
-                onMiddleSearchBarVisibilityChanged = {},
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -761,7 +710,6 @@ private fun HomepagePreviewCollections() {
                 interactor = FakeHomepagePreview.homepageInteractor,
                 onCollectionsMigrationCardAction = {},
                 onTopSitesItemBound = {},
-                onMiddleSearchBarVisibilityChanged = {},
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -795,7 +743,6 @@ private fun HomepageCollectionsMigrationCardPreview() {
                 interactor = FakeHomepagePreview.homepageInteractor,
                 onCollectionsMigrationCardAction = {},
                 onTopSitesItemBound = {},
-                onMiddleSearchBarVisibilityChanged = {},
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -832,7 +779,6 @@ private fun MinimalHomepagePreview() {
                 interactor = FakeHomepagePreview.homepageInteractor,
                 onCollectionsMigrationCardAction = {},
                 onTopSitesItemBound = {},
-                onMiddleSearchBarVisibilityChanged = {},
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -853,7 +799,6 @@ private fun PrivateHomepagePreview() {
             interactor = FakeHomepagePreview.homepageInteractor,
             onCollectionsMigrationCardAction = {},
             onTopSitesItemBound = {},
-            onMiddleSearchBarVisibilityChanged = {},
             modifier = Modifier.fillMaxSize(),
         )
     }

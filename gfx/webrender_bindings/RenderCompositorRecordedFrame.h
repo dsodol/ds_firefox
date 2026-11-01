@@ -6,7 +6,6 @@
 #define MOZILLA_GFX_RENDERCOMPOSITOR_RECORDEDFRAME_H
 
 #include "mozilla/layers/CompositionRecorder.h"
-#include "mozilla/layers/ScreenshotGrabber.h"
 
 namespace mozilla {
 

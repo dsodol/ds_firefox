@@ -53,7 +53,7 @@ class TabCollectionStorageTest {
     }
 
     @Test
-    fun testCreatingCollections() = runTest {
+    fun testCreatingCollections() {
         storage.createCollection("Empty")
         storage.createCollection(
             "Recipes",
@@ -80,7 +80,7 @@ class TabCollectionStorageTest {
     }
 
     @Test
-    fun testAddingTabsToExistingCollection() = runTest {
+    fun testAddingTabsToExistingCollection() {
         storage.createCollection("Articles")
         var id: Long?
 
@@ -111,7 +111,7 @@ class TabCollectionStorageTest {
     }
 
     @Test
-    fun testRemovingTabsFromCollection() = runTest {
+    fun testRemovingTabsFromCollection() {
         storage.createCollection(
             "Articles",
             listOf(
@@ -137,7 +137,7 @@ class TabCollectionStorageTest {
     }
 
     @Test
-    fun testRenamingCollection() = runTest {
+    fun testRenamingCollection() {
         storage.createCollection("Articles")
 
         getAllCollections().let { collections ->
@@ -152,7 +152,7 @@ class TabCollectionStorageTest {
     }
 
     @Test
-    fun testRemovingCollection() = runTest {
+    fun testRemovingCollection() {
         storage.createCollection("Articles")
         storage.createCollection("Recipes")
 
@@ -172,7 +172,7 @@ class TabCollectionStorageTest {
     }
 
     @Test
-    fun testCreatingCollectionAndRestoringState() = runTest {
+    fun testCreatingCollectionAndRestoringState() {
         val session1 = createTab("https://www.mozilla.org", title = "Mozilla")
         val session2 = createTab("https://www.firefox.com", title = "Firefox")
 
@@ -390,7 +390,7 @@ class TabCollectionStorageTest {
     }
 
     @Test
-    fun testRemovingAllCollections() = runTest {
+    fun testRemovingAllCollections() {
         storage.createCollection(
             "Articles",
             listOf(createTab("https://www.mozilla.org", title = "Mozilla")),

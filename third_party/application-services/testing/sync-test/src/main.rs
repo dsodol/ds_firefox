@@ -28,7 +28,7 @@ macro_rules! cleanup_clients {
 }
 
 pub fn init_testing() {
-    viaduct_backend_rust::viaduct_init_backend_rust();
+    viaduct_hyper::viaduct_init_backend_hyper();
     ensure_initialized();
 
     // Enable backtraces.

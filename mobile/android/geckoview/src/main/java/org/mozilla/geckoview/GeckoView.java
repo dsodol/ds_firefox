@@ -71,12 +71,6 @@ import org.mozilla.gecko.util.ThreadUtils;
 
 /**
  * A view container that hosts Gecko rendering, manages its surface, and dispatches input/events.
- *
- * <p>On Android S and later, GeckoView owns the Android scroll-capture (long screenshot) properties
- * for its content: while attached it installs its own {@link android.view.ScrollCaptureCallback}
- * and sets {@code SCROLL_CAPTURE_HINT_INCLUDE}, and it clears them on detach. Embedders should not
- * call {@code setScrollCaptureCallback} or {@code setScrollCaptureHint} on a GeckoView; those
- * values are managed by GeckoView and will be overwritten.
  */
 @UiThread
 public class GeckoView extends FrameLayout implements GeckoDisplay.NewSurfaceProvider {
@@ -145,7 +139,7 @@ public class GeckoView extends FrameLayout implements GeckoDisplay.NewSurfacePro
                 .size(wrapper.getWidth(), wrapper.getHeight())
                 .build());
         mDisplay.setDynamicToolbarMaxHeight(mDynamicToolbarMaxHeight);
-        GeckoView.this.maybeSetActive(true);
+        GeckoView.this.setActive(true);
       }
     }
 
@@ -154,7 +148,7 @@ public class GeckoView extends FrameLayout implements GeckoDisplay.NewSurfacePro
         if (mDisplay != null) {
           mDisplay.surfaceDestroyed();
         }
-        GeckoView.this.maybeSetActive(false);
+        GeckoView.this.setActive(false);
       }
 
       final GeckoDisplay display = mDisplay;
@@ -177,7 +171,7 @@ public class GeckoView extends FrameLayout implements GeckoDisplay.NewSurfacePro
                 .build());
         mDisplay.setDynamicToolbarMaxHeight(mDynamicToolbarMaxHeight);
         if (!mValid) {
-          GeckoView.this.maybeSetActive(true);
+          GeckoView.this.setActive(true);
         }
       }
       mValid = true;
@@ -187,7 +181,7 @@ public class GeckoView extends FrameLayout implements GeckoDisplay.NewSurfacePro
     public void onSurfaceDestroyed() {
       if (mDisplay != null) {
         mDisplay.surfaceDestroyed();
-        GeckoView.this.maybeSetActive(false);
+        GeckoView.this.setActive(false);
       }
       mValid = false;
     }
@@ -475,9 +469,9 @@ public class GeckoView extends FrameLayout implements GeckoDisplay.NewSurfacePro
     mDisplay.setDynamicToolbarMaxHeight(height);
   }
 
-  /* package */ void maybeSetActive(final boolean active) {
+  /* package */ void setActive(final boolean active) {
     if (mSession != null) {
-      mSession.maybeSetActive(active);
+      mSession.setActive(active);
     }
   }
 
@@ -765,11 +759,6 @@ public class GeckoView extends FrameLayout implements GeckoDisplay.NewSurfacePro
       mDisplay.acquire(mSession.acquireDisplay());
     }
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      setScrollCaptureCallback(new GeckoViewScrollCaptureCallback(() -> mSession));
-      setScrollCaptureHint(SCROLL_CAPTURE_HINT_INCLUDE);
-    }
-
     super.onAttachedToWindow();
 
     // This needs to be called after the `super.onAttachedToWindow()`.
@@ -785,10 +774,6 @@ public class GeckoView extends FrameLayout implements GeckoDisplay.NewSurfacePro
     removeWindowInsetsListener(KEYBOARD_WINDOW_INSETS_LISTENER);
     if (mWindowInsetsListeners.isEmpty()) {
       detachWindowInsetsListener(getActivityFromContext(getContext()));
-    }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      setScrollCaptureCallback(null);
-      setScrollCaptureHint(SCROLL_CAPTURE_HINT_AUTO);
     }
 
     if (mSession == null) {
@@ -1378,9 +1363,10 @@ public class GeckoView extends FrameLayout implements GeckoDisplay.NewSurfacePro
         return isDialogFinished;
       }
       final PrintManager printManager =
-          (PrintManager) printContext.getSystemService(Context.PRINT_SERVICE);
+          (PrintManager)
+              mActivityDelegate.getActivityContext().getSystemService(Context.PRINT_SERVICE);
       final PrintDocumentAdapter pda =
-          new GeckoViewPrintDocumentAdapter(pdfStream, printContext, isDialogFinished);
+          new GeckoViewPrintDocumentAdapter(pdfStream, getContext(), isDialogFinished);
       printManager.print("Firefox", pda, null);
       return isDialogFinished;
     }

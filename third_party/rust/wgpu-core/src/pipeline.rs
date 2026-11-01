@@ -137,18 +137,21 @@ impl ShaderModule {
 
     /// Select an entry point name, given an optional name and a shader stage.
     ///
-    /// This function resolves an `Option<&str>`
-    /// [`ProgrammableStageDescriptor::entry_point`][ep] value to the name of an
-    /// entry point in `self`.
+    /// This function takes care of turning the `Option<&str>`
+    /// [`ProgrammableStageDescriptor::entry_point`][ep] into a specific name.
     ///
-    /// If `entry_point` is given, verify that `self` has an entry point by that
-    /// name for `stage`, and then return the name as an owned `String`.
+    /// For non-passthrough shaders, if `entry_point` is `Some`, then return it
+    /// as a `String`. Otherwise, return the name of the unique entry point in
+    /// `self`'s module for `stage`; if there is not exactly one such entry
+    /// point, return an error.
     ///
-    /// If `entry_point` is `None`, verify that `self` has exactly one entry
-    /// point for `stage`, and return its name.
+    /// The non-passthrough case counts on `Interface::check_stage` to verify
+    /// that an entry point with the given name actually exists.
     ///
-    /// Passthrough modules do not record entry points' stages, so for those,
-    /// `stage` is ignored.
+    /// For passthrough shaders, if `entry_point` is `Some`, verify that an
+    /// entry point by that name exists (returning an error if not), and return
+    /// it as a `String`. Otherwise, if `entry_point` is `None`, then check that
+    /// this module has exactly one entry point, and return its name.
     ///
     /// [ep]: crate::pipeline::ProgrammableStageDescriptor::entry_point
     pub(crate) fn finalize_entry_point_name(
@@ -176,19 +179,19 @@ fn finalize_passthrough_entry_point_name(
         return if interface.entry_point_names.contains(ep) {
             Ok(ep.to_owned())
         } else {
-            Err(validation::StageError::NoEntryPointWithName(ep.to_owned()))
+            Err(validation::StageError::MissingEntryPoint(ep.to_owned()))
         };
     }
 
     match interface.entry_point_names.len() {
-        0 => Err(validation::StageError::NoEntryPoints),
+        0 => Err(validation::StageError::NoEntryPointFound),
         1 => Ok(interface
             .entry_point_names
             .iter()
             .next()
             .unwrap()
             .to_owned()),
-        _ => Err(validation::StageError::AmbiguousEntryPoint),
+        _ => Err(validation::StageError::MultipleEntryPointsFound),
     }
 }
 
@@ -204,27 +207,20 @@ pub enum CreateShaderModuleError {
     #[cfg(feature = "wgsl")]
     #[error("Shader '{label}' parsing error. Concrete error is available via `get_compilation_info`", label = _0.label.as_deref().unwrap_or_default())]
     Parsing(ShaderError<naga::front::wgsl::ParseError>),
-
     #[cfg(feature = "glsl")]
     #[error("Shader '{label}' parsing error. Concrete error is available via `get_compilation_info`", label = _0.label.as_deref().unwrap_or_default())]
     ParsingGlsl(ShaderError<naga::front::glsl::ParseErrors>),
-
     #[cfg(feature = "spirv")]
     #[error("Shader '{label}' parsing error. Concrete error is available via `get_compilation_info`", label = _0.label.as_deref().unwrap_or_default())]
     ParsingSpirV(ShaderError<naga::front::spv::Error>),
-
     #[error("Failed to generate the backend-specific code")]
     Generation,
-
     #[error(transparent)]
     Device(#[from] DeviceError),
-
     #[error("Shader '{label}' validation error. Concrete error is available via `get_compilation_info`", label = _0.label.as_deref().unwrap_or_default())]
     Validation(ShaderError<naga::WithSpan<naga::valid::ValidationError>>),
-
     #[error(transparent)]
     MissingFeatures(#[from] MissingFeatures),
-
     #[error(
         "Shader global {bind:?} uses a group index {group} that exceeds the max_bind_groups limit of {limit}."
     )]
@@ -233,10 +229,8 @@ pub enum CreateShaderModuleError {
         group: u32,
         limit: u32,
     },
-
     #[error("Generic shader passthrough does not contain any code compatible with this backend.")]
     NotCompiledForBackend,
-
     #[error(
         "Generic passthrough shaders which use GLSL or DXIL must contain exactly one entry point."
     )]
@@ -408,79 +402,6 @@ pub struct ProgrammableStageDescriptor<'a, SM = Arc<ShaderModule>> {
     pub zero_initialize_workgroup_memory: bool,
 }
 
-#[derive(Clone, Debug, Error)]
-#[non_exhaustive]
-pub enum CreatePipelineError {
-    #[error(transparent)]
-    Device(#[from] DeviceError),
-    #[error("Unable to derive an implicit layout")]
-    Implicit(#[from] ImplicitLayoutError),
-    #[error("Error matching {stage:?} shader requirements against the pipeline")]
-    Stage {
-        stage: wgt::ShaderStages,
-        #[source]
-        error: validation::StageError,
-    },
-    #[error("Internal error in {stage:?} shader: {message}")]
-    Internal {
-        stage: wgt::ShaderStages,
-        message: String,
-    },
-    #[error("Pipeline constant error in {stage:?} shader: {message}")]
-    PipelineConstants {
-        stage: wgt::ShaderStages,
-        message: String,
-    },
-    #[error(transparent)]
-    MissingFeatures(#[from] MissingFeatures),
-    #[error(transparent)]
-    MissingDownlevelFlags(#[from] MissingDownlevelFlags),
-    #[error(transparent)]
-    InvalidResource(#[from] InvalidResourceError),
-    #[error(transparent)]
-    Render(#[from] RenderError),
-}
-
-impl From<ColorAttachmentError> for CreatePipelineError {
-    fn from(error: ColorAttachmentError) -> Self {
-        Self::Render(error.into())
-    }
-}
-
-impl From<DepthStencilStateError> for CreatePipelineError {
-    fn from(error: DepthStencilStateError) -> Self {
-        Self::Render(error.into())
-    }
-}
-
-impl CreatePipelineError {
-    /// Convert a [`hal::PipelineError`] to a [`CreatePipelineError`], without noting device loss.
-    ///
-    /// If you have a [`Device`] handy, prefer to call
-    /// [`Device::handle_hal_pipeline_error`] instead, since that checks for
-    /// device loss errors and sets the device's lost flag accordingly.
-    ///
-    /// This is deliberately not a `From` impl, so that `?` cannot silently skip
-    /// device-loss handling.
-    pub(crate) fn from_hal_without_device_loss(error: hal::PipelineError) -> Self {
-        match error {
-            hal::PipelineError::Device(error) => {
-                CreatePipelineError::Device(DeviceError::from_hal(error))
-            }
-            hal::PipelineError::Linkage(stage, message) => {
-                CreatePipelineError::Internal { stage, message }
-            }
-            hal::PipelineError::EntryPoint(stage) => CreatePipelineError::Internal {
-                stage: hal::auxil::map_naga_stage(stage),
-                message: crate::device::ENTRYPOINT_FAILURE_ERROR.to_string(),
-            },
-            hal::PipelineError::PipelineConstants(stage, message) => {
-                CreatePipelineError::PipelineConstants { stage, message }
-            }
-        }
-    }
-}
-
 /// Number of implicit bind groups derived at pipeline creation.
 pub type ImplicitBindGroupCount = u8;
 
@@ -527,18 +448,35 @@ pub struct ComputePipelineDescriptor<
     pub cache: Option<PLC>,
 }
 
-impl WebGpuError for CreatePipelineError {
+#[derive(Clone, Debug, Error)]
+#[non_exhaustive]
+pub enum CreateComputePipelineError {
+    #[error(transparent)]
+    Device(#[from] DeviceError),
+    #[error("Unable to derive an implicit layout")]
+    Implicit(#[from] ImplicitLayoutError),
+    #[error("Error matching shader requirements against the pipeline")]
+    Stage(#[from] validation::StageError),
+    #[error("Internal error: {0}")]
+    Internal(String),
+    #[error("Pipeline constant error: {0}")]
+    PipelineConstants(String),
+    #[error(transparent)]
+    MissingDownlevelFlags(#[from] MissingDownlevelFlags),
+    #[error(transparent)]
+    InvalidResource(#[from] InvalidResourceError),
+}
+
+impl WebGpuError for CreateComputePipelineError {
     fn webgpu_error_type(&self) -> ErrorType {
         match self {
             Self::Device(e) => e.webgpu_error_type(),
             Self::InvalidResource(e) => e.webgpu_error_type(),
-            Self::MissingFeatures(e) => e.webgpu_error_type(),
             Self::MissingDownlevelFlags(e) => e.webgpu_error_type(),
             Self::Implicit(e) => e.webgpu_error_type(),
-            Self::Stage { error: e, .. } => e.webgpu_error_type(),
-            Self::Internal { .. } => ErrorType::Internal,
-            Self::PipelineConstants { .. } => ErrorType::Validation,
-            Self::Render(e) => e.webgpu_error_type(),
+            Self::Stage(e) => e.webgpu_error_type(),
+            Self::Internal(_) => ErrorType::Internal,
+            Self::PipelineConstants(_) => ErrorType::Validation,
         }
     }
 }
@@ -1047,14 +985,15 @@ pub enum DepthStencilStateError {
     MissingDepthWriteEnabled(wgt::TextureFormat),
 }
 
-/// Errors specific to render pipeline creation.
-///
-/// These are usually returned as [`CreatePipelineError::Render`].
 #[derive(Clone, Debug, Error)]
 #[non_exhaustive]
-pub enum RenderError {
+pub enum CreateRenderPipelineError {
     #[error(transparent)]
     ColorAttachment(#[from] ColorAttachmentError),
+    #[error(transparent)]
+    Device(#[from] DeviceError),
+    #[error("Unable to derive an implicit layout")]
+    Implicit(#[from] ImplicitLayoutError),
     #[error("Color state [{0}] is invalid")]
     ColorState(u8, #[source] ColorStateError),
     #[error("Depth/stencil state is invalid")]
@@ -1098,6 +1037,26 @@ pub enum RenderError {
     },
     #[error("Conservative Rasterization is only supported for wgt::PolygonMode::Fill")]
     ConservativeRasterizationNonFillPolygonMode,
+    #[error(transparent)]
+    MissingFeatures(#[from] MissingFeatures),
+    #[error(transparent)]
+    MissingDownlevelFlags(#[from] MissingDownlevelFlags),
+    #[error("Error matching {stage:?} shader requirements against the pipeline")]
+    Stage {
+        stage: wgt::ShaderStages,
+        #[source]
+        error: validation::StageError,
+    },
+    #[error("Internal error in {stage:?} shader: {error}")]
+    Internal {
+        stage: wgt::ShaderStages,
+        error: String,
+    },
+    #[error("Pipeline constant error in {stage:?} shader: {error}")]
+    PipelineConstants {
+        stage: wgt::ShaderStages,
+        error: String,
+    },
     #[error("In the provided shader, the type given for group {group} binding {binding} has a size of {size}. As the device does not support `DownlevelFlags::BUFFER_BINDINGS_NOT_16_BYTE_ALIGNED`, the type must have a size that is a multiple of 16 bytes.")]
     UnalignedShader { group: u32, binding: u32, size: u64 },
     #[error("Dual-source blending requires exactly one color target, but {count} color targets are present")]
@@ -1107,12 +1066,22 @@ pub enum RenderError {
         "but no render target for the pipeline was specified."
     ))]
     NoTargetSpecified,
+    #[error(transparent)]
+    InvalidResource(#[from] InvalidResourceError),
 }
 
-impl WebGpuError for RenderError {
+impl WebGpuError for CreateRenderPipelineError {
     fn webgpu_error_type(&self) -> ErrorType {
         match self {
+            Self::Device(e) => e.webgpu_error_type(),
+            Self::InvalidResource(e) => e.webgpu_error_type(),
+            Self::MissingFeatures(e) => e.webgpu_error_type(),
+            Self::MissingDownlevelFlags(e) => e.webgpu_error_type(),
+
+            Self::Internal { .. } => ErrorType::Internal,
+
             Self::ColorAttachment(_)
+            | Self::Implicit(_)
             | Self::ColorState(_, _)
             | Self::DepthStencilState(_)
             | Self::InvalidSampleCount(_)
@@ -1127,9 +1096,11 @@ impl WebGpuError for RenderError {
             | Self::ShaderLocationClash(_)
             | Self::StripIndexFormatForNonStripTopology { .. }
             | Self::ConservativeRasterizationNonFillPolygonMode
+            | Self::Stage { .. }
             | Self::UnalignedShader { .. }
             | Self::DualSourceBlendingWithMultipleColorTargets { .. }
             | Self::NoTargetSpecified
+            | Self::PipelineConstants { .. }
             | Self::VertexAttributeStrideTooLarge { .. } => ErrorType::Validation,
         }
     }
@@ -1323,7 +1294,7 @@ mod tests {
         let empty = passthrough_interface(&[]);
         assert!(matches!(
             finalize_passthrough_entry_point_name(&empty, None),
-            Err(validation::StageError::NoEntryPoints)
+            Err(validation::StageError::NoEntryPointFound)
         ));
 
         let single = passthrough_interface(&["main"]);
@@ -1335,7 +1306,7 @@ mod tests {
         let multiple = passthrough_interface(&["vertex", "fragment"]);
         assert!(matches!(
             finalize_passthrough_entry_point_name(&multiple, None),
-            Err(validation::StageError::AmbiguousEntryPoint)
+            Err(validation::StageError::MultipleEntryPointsFound)
         ));
     }
 
@@ -1348,7 +1319,7 @@ mod tests {
         );
         assert!(matches!(
             finalize_passthrough_entry_point_name(&interface, Some("missing")),
-            Err(validation::StageError::NoEntryPointWithName(name)) if name == "missing"
+            Err(validation::StageError::MissingEntryPoint(name)) if name == "missing"
         ));
     }
 }

@@ -50,12 +50,12 @@ UniquePtr<RenderCompositor> RenderCompositorEGL::Create(
     }
     return nullptr;
   }
-  return std::make_unique<RenderCompositorEGL>(aWidget, std::move(gl));
+  return MakeUnique<RenderCompositorEGL>(aWidget, std::move(gl));
 }
 
 EGLSurface RenderCompositorEGL::CreateEGLSurface() {
   EGLSurface surface = EGL_NO_SURFACE;
-  surface = gl::GLContextEGL::Cast(gl())->CreateEGLSurfaceForCompositorWidget(
+  surface = gl::GLContextEGL::CreateEGLSurfaceForCompositorWidget(
       mWidget, gl::GLContextEGL::Cast(gl())->mSurfaceConfig);
   if (surface == EGL_NO_SURFACE) {
     const auto* renderThread = RenderThread::Get();
@@ -70,7 +70,7 @@ RenderCompositorEGL::RenderCompositorEGL(
     const RefPtr<widget::CompositorWidget>& aWidget,
     RefPtr<gl::GLContext>&& aGL)
     : RenderCompositor(aWidget), mGL(aGL), mEGLSurface(EGL_NO_SURFACE) {
-  MOZ_RELEASE_ASSERT(mGL);
+  MOZ_ASSERT(mGL);
   LOG("RenderCompositorEGL::RenderCompositorEGL()");
 #ifdef MOZ_WAYLAND
   if (widget::GdkIsWaylandDisplay()) {
@@ -370,17 +370,5 @@ void RenderCompositorEGL::SetBufferDamageRegion(const wr::DeviceIntRect* aRects,
     }
   }
 }
-
-#ifdef MOZ_WIDGET_ANDROID
-bool RenderCompositorEGL::CaptureScreenPixels(
-    const gfx::IntRect& aSourceRect,
-    layers::AndroidHardwareBuffer* aHardwareBuffer) {
-  return CaptureScreenPixelsFromGL(
-      gl::GLContextEGL::Cast(mGL), aSourceRect, GetBufferSize(),
-      SurfaceOriginIsTopLeft() ? gl::OriginPos::TopLeft
-                               : gl::OriginPos::BottomLeft,
-      aHardwareBuffer);
-}
-#endif
 
 }  // namespace mozilla::wr

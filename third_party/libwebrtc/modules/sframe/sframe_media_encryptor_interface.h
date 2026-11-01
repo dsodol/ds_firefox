@@ -17,6 +17,7 @@
 
 #include "api/rtc_error.h"
 #include "api/sframe/sframe_encryptor_interface.h"
+#include "api/sframe/sframe_types.h"
 
 namespace webrtc {
 
@@ -24,6 +25,8 @@ namespace webrtc {
 // interface with the actual encrypt operation.
 class SframeMediaEncryptorInterface : public SframeEncryptorInterface {
  public:
+  virtual SframeMode mode() const = 0;
+
   virtual RTCErrorOr<size_t> Encrypt(std::span<const uint8_t> frame,
                                      std::span<const uint8_t> additional_data,
                                      std::span<uint8_t> encrypted_frame) = 0;

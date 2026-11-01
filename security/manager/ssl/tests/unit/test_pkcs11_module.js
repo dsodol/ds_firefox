@@ -47,10 +47,9 @@ add_task(async function test_pkcs11_module() {
 
   Services.fog.initializeFOG();
 
-  await Services.fog.testFlushAllChildren();
   equal(
     0,
-    (await Glean.pkcs11.thirdPartyModulesLoaded.testGetValue()) ?? 0,
+    await Glean.pkcs11.thirdPartyModulesLoaded.testGetValue(),
     "should have no third-party modules to begin with"
   );
 
@@ -63,7 +62,6 @@ add_task(async function test_pkcs11_module() {
   libraryFile.append("pkcs11testmodule");
   libraryFile.append(ctypes.libraryName("pkcs11testmodule"));
   await loadPKCS11Module(libraryFile, "PKCS11 Test Module", true);
-  await Services.fog.testFlushAllChildren();
   equal(
     1,
     await Glean.pkcs11.thirdPartyModulesLoaded.testGetValue(),
@@ -107,7 +105,6 @@ add_task(async function test_pkcs11_module() {
     Ci.nsIPKCS11ModuleDB
   );
   await pkcs11ModuleDB.deleteModule("PKCS11 Test Module");
-  await Services.fog.testFlushAllChildren();
   equal(
     0,
     await Glean.pkcs11.thirdPartyModulesLoaded.testGetValue(),

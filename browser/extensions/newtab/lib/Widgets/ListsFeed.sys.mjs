@@ -13,16 +13,11 @@ import {
   actionTypes as at,
   actionCreators as ac,
 } from "resource://newtab/common/Actions.mjs";
-import {
-  isWidgetAddable,
-  WIDGET_REGISTRY,
-} from "resource://newtab/common/WidgetsRegistry.mjs";
 
 const PREF_LISTS_ENABLED = "widgets.lists.enabled";
 const PREF_SYSTEM_LISTS_ENABLED = "widgets.system.lists.enabled";
 const PREF_WIDGETS_LISTS_MAX_LISTS = "widgets.lists.maxLists";
 const CACHE_KEY = "lists_widget";
-const LISTS_ENTRY = WIDGET_REGISTRY.find(w => w.id === "lists");
 
 /**
  * Class for the Lists widget, which manages the updates to the lists widget
@@ -40,10 +35,14 @@ export class ListsFeed {
   get enabled() {
     const prefs = this.store.getState()?.Prefs.values;
     const nimbusListsEnabled = prefs.widgetsConfig?.listsEnabled;
+    const nimbusListsTrainhopEnabled =
+      prefs.trainhopConfig?.widgets?.listsEnabled;
 
     return (
       prefs?.[PREF_LISTS_ENABLED] &&
-      (isWidgetAddable(LISTS_ENTRY, prefs) || nimbusListsEnabled)
+      (prefs?.[PREF_SYSTEM_LISTS_ENABLED] ||
+        nimbusListsEnabled ||
+        nimbusListsTrainhopEnabled)
     );
   }
 
@@ -130,7 +129,6 @@ export class ListsFeed {
     switch (action.data.name) {
       case PREF_LISTS_ENABLED:
       case PREF_SYSTEM_LISTS_ENABLED:
-      case "region":
       case "trainhopConfig":
       case "widgetsConfig": {
         if (this.enabled && !this.initialized) {

@@ -77,11 +77,7 @@
   <string name="about_content" tools:ignore="BrandUsage">%1$s は Mozilla の製品です。</string>
   <!-- Private Browsing -->
   <string name="private_browsing_common_myths">プライベートブラウジングについての誤解</string>
-  <!--
-    Private Browsing
-
-    Text to be announced by the accessibility service to inform the user that the private browsing mode is currently active.
-  -->
+  <!-- Text to be announced by the accessibility service to inform the user that the private browsing mode is currently active. -->
   <string name="private_browsing_a11y_session_announcement">プライベートブラウジングセッション</string>
   <!--
     True Private Browsing Mode
@@ -185,10 +181,8 @@
   <!--
     Browser Fragment
 
-    Label for popup button that appears when long-pressing the main menu. Tapping it allows the user to customize the main menu layout.
+    Content description (not visible, for screen readers etc.): Navigate backward (browsing history)
   -->
-  <string name="customize_menu">メニューをカスタマイズ</string>
-  <!-- Content description (not visible, for screen readers etc.): Navigate backward (browsing history) -->
   <string name="browser_menu_back">戻る</string>
   <!-- Content description (not visible, for screen readers etc.): Navigate forward (browsing history) -->
   <string name="browser_menu_forward">進む</string>
@@ -319,6 +313,8 @@
   <string name="browser_menu_default_banner_title">%1$s を既定のブラウザーにしましょう</string>
   <!-- Label text within the set as default banner -->
   <string name="browser_menu_default_banner_subtitle_2">高速、プライベート、あなたのために。</string>
+  <!-- Content description (not visible, for screen readers etc.) for the button that dismisses the set as default banner in the menu -->
+  <string name="browser_menu_default_banner_dismiss_promotion">宣伝を閉じる</string>
   <!-- Content description (not visible, for screen readers etc.) for recommended extensions in main menu -->
   <string name="browser_menu_recommended_extensions_content_description">詳細情報</string>
   <!--
@@ -726,11 +722,7 @@
     Title for the settings page
   -->
   <string name="settings">設定</string>
-  <!--
-    Preferences
-
-    Preference category for general settings
-  -->
+  <!-- Preference category for general settings -->
   <string name="preferences_category_general">一般</string>
   <!-- Preference category for all links about Fenix -->
   <string name="preferences_category_about">製品情報</string>
@@ -4615,8 +4607,8 @@
     Content description for the reader mode panel: a group of buttons floating over the content
   -->
   <string name="reader_mode_panel_content_description">リーダーモードのオプション</string>
-  <!-- Content description for the button in the reader view panel that turns on the Listen to Page feature (playback of content begins when button is pressed) -->
+  <!-- Content description for the button in reader mode panel that turns on the read aloud feature (playback of content begins when button is pressed) -->
   <string name="reader_mode_panel_listen_content_description">読み上げ</string>
-  <!-- Content description for media player displayed in Reader view when the Listen to Page (Read Aloud) feature is selected -->
+  <!-- Content description for media player displayed in Reader Mode when the Listen to Page (Read Aloud) feature is selected -->
   <string name="reader_mode_panel_media_player_content_description">メディアプレーヤー</string>
 </resources>

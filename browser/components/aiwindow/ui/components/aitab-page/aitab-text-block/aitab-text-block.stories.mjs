@@ -5,12 +5,16 @@
 import { html } from "chrome://global/content/vendor/lit.all.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/aitab-text-block.mjs";
-import { withHeadingFont } from "../aitab-story-font.mjs";
 
 export default {
   title: "Domain-specific UI Widgets/AI Window/AI Tab Text Block",
   component: "aitab-text-block",
-  decorators: [withHeadingFont],
+  // The type scale queries a container that aitab-page normally provides.
+  // Without it the headings stay at their narrow sizes at every width.
+  decorators: [
+    story =>
+      html`<div style="container: aitab-page / inline-size;">${story()}</div>`,
+  ],
   argTypes: {
     heading: { control: { type: "text" } },
     paragraphs: { control: { type: "object" } },

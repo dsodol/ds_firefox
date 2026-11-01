@@ -15,7 +15,6 @@
 #include "jit/VMFunctions.h"
 #include "js/friend/DumpFunctions.h"  // js::DumpObject, js::DumpValue
 #include "vm/JitActivation.h"
-#include "vm/JSContext.h"
 
 #include "jit/JSJitFrameIter-inl.h"
 #include "vm/JSScript-inl.h"
@@ -149,21 +148,12 @@ void JSJitFrameIter::baselineScriptAndPc(JSScript** scriptRes,
     return;
   }
 
-  // The return address is either in the frame's current BaselineScript
-  // or in a version of the script with a pending DebugModeOSRReturnSite.
+  // There must be a BaselineScript with a RetAddrEntry for the current return
+  // address.
   uint8_t* retAddr = resumePCinCurrentFrame();
-  const RetAddrEntry* retAddrEntry = nullptr;
-  if (baselineFrame()->hasPendingDebugModeOSRReturn()) {
-    JitRuntime* jitRuntime = activation_->cx()->runtime()->jitRuntime();
-    auto* site = jitRuntime->lookupDebugModeOSRReturnSite(retAddr);
-    MOZ_RELEASE_ASSERT(site);
-    retAddrEntry = &site->retAddrEntry();
-  } else {
-    BaselineScript* baselineScript = script->baselineScript();
-    MOZ_ASSERT(baselineScript->containsCodeAddress(retAddr));
-    retAddrEntry = &baselineScript->retAddrEntryFromReturnAddress(retAddr);
-  }
-  *pcRes = retAddrEntry->pc(script);
+  const RetAddrEntry& entry =
+      script->baselineScript()->retAddrEntryFromReturnAddress(retAddr);
+  *pcRes = entry.pc(script);
 }
 
 Value* JSJitFrameIter::actualArgs() const { return jsFrame()->actualArgs(); }

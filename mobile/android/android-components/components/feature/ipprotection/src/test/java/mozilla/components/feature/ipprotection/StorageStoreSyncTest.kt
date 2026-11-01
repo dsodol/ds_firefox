@@ -7,7 +7,6 @@ package mozilla.components.feature.ipprotection
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import mozilla.components.ExperimentalAndroidComponentsApi
-import mozilla.components.feature.ipprotection.storage.StorageStoreSync
 import mozilla.components.feature.ipprotection.store.IPProtectionAction
 import mozilla.components.feature.ipprotection.store.state.EligibilityStatus
 import org.junit.Assert.assertEquals
@@ -39,7 +38,7 @@ class StorageStoreSyncTest {
 
         testScheduler.advanceUntilIdle()
 
-        captureMiddleware.assertFirstAction(IPProtectionAction.EligibilityAction.EligibilityChanged::class) {
+        captureMiddleware.assertFirstAction(IPProtectionAction.EligibilityChanged::class) {
             assertEquals(EligibilityStatus.Eligible, it.eligibility)
         }
         assertEquals(EligibilityStatus.Eligible, ipProtectionStore.state.eligibilityStatus)
@@ -66,7 +65,7 @@ class StorageStoreSyncTest {
 
             testScheduler.advanceUntilIdle()
 
-            captureMiddleware.assertLastAction(IPProtectionAction.EligibilityAction.EligibilityChanged::class) {
+            captureMiddleware.assertLastAction(IPProtectionAction.EligibilityChanged::class) {
                 assertEquals("Unexpected forwarded status for $eligibility", eligibility, it.eligibility)
             }
             assertEquals(
@@ -92,7 +91,7 @@ class StorageStoreSyncTest {
 
         testScheduler.advanceUntilIdle()
 
-        captureMiddleware.assertNotDispatched(IPProtectionAction.EligibilityAction.EligibilityChanged::class)
+        captureMiddleware.assertNotDispatched(IPProtectionAction.EligibilityChanged::class)
         assertEquals(EligibilityStatus.Eligible, ipProtectionStore.state.eligibilityStatus)
     }
 }

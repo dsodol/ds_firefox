@@ -129,10 +129,6 @@ already_AddRefed<Promise> CredentialsContainer::Get(
     return nullptr;
   }
 
-  if (!CheckState(*promise)) {
-    return promise.forget();
-  }
-
   uint64_t totalOptions = 0;
   if (aOptions.mPublicKey.WasPassed()) {
     totalOptions += 1;
@@ -239,10 +235,6 @@ already_AddRefed<Promise> CredentialsContainer::Create(
     return nullptr;
   }
 
-  if (!CheckState(*promise)) {
-    return promise.forget();
-  }
-
   // Count the types of options provided. Must not be >1.
   uint64_t totalOptions = 0;
   if (aOptions.mPublicKey.WasPassed()) {
@@ -319,10 +311,6 @@ already_AddRefed<Promise> CredentialsContainer::Store(
     return nullptr;
   }
 
-  if (!CheckState(*promise)) {
-    return promise.forget();
-  }
-
   nsString type;
   aCredential.GetType(type);
   if (type.EqualsLiteral("public-key")) {
@@ -355,10 +343,6 @@ already_AddRefed<Promise> CredentialsContainer::PreventSilentAccess(
     return nullptr;
   }
 
-  if (!CheckState(*promise)) {
-    return promise.forget();
-  }
-
   WebIdentityHandler* identityHandler =
       mParent->GetOrCreateWebIdentityHandler();
   if (!identityHandler) {
@@ -368,17 +352,6 @@ already_AddRefed<Promise> CredentialsContainer::PreventSilentAccess(
 
   identityHandler->PreventSilentAccess(promise);
   return promise.forget();
-}
-
-bool CredentialsContainer::CheckState(Promise& aPromise) {
-  MOZ_ASSERT(mParent);
-  if (!mParent->IsFullyActive()) {
-    aPromise.MaybeRejectWithInvalidStateError(
-        "The document is not fully active."_ns);
-    return false;
-  }
-
-  return true;
 }
 
 }  // namespace mozilla::dom

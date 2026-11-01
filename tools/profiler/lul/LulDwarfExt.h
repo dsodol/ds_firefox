@@ -1230,12 +1230,6 @@ class DwarfCFIToModule : public CallFrameInfo::Handler {
 
     // MIPS.
     static unsigned int MIPS();
-
-    // LoongArch.
-    static unsigned int LOONGARCH();
-
-    // RISC-V.
-    static unsigned int RISCV();
   };
 
   // Create a handler for the dwarf2reader::CallFrameInfo parser that

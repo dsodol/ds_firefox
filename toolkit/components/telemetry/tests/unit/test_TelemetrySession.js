@@ -211,10 +211,10 @@ function checkPayloadInfo(data, reason) {
     );
   }
 
-  // Check for a valid revision: an hg.mozilla.org changeset or a GitHub commit.
+  // Check for a valid revision.
   if (data.revision != "") {
     const revisionUrlRegEx =
-      /^https?:\/\/(hg\.mozilla\.org(\/[a-z\S]+)+\/rev\/[0-9a-z]+|github\.com\/[\w.-]+\/[\w.-]+\/commit\/[0-9a-f]+)$/;
+      /^http[s]?:\/\/hg.mozilla.org(\/[a-z\S]+)+(\/rev\/[0-9a-z]+)$/g;
     Assert.ok(revisionUrlRegEx.test(data.revision));
   }
 
@@ -402,6 +402,10 @@ function checkPayload(payload, reason, successfulPings) {
 
   Assert.notEqual(Glean.memory.total.testGetValue(), null); // UNITS_BYTES
   Assert.notEqual(Glean.memory.jsCompartmentsSystem.testGetValue(), null); // UNITS_COUNT
+
+  Assert.ok(
+    "mainThread" in payload.slowSQL && "otherThreads" in payload.slowSQL
+  );
 
   // Check keyed histogram payload.
 
@@ -2094,7 +2098,12 @@ add_task(async function test_schedulerNothingDue() {
 });
 
 add_task(async function test_pingExtendedStats() {
-  const EXTENDED_PAYLOAD_FIELDS = ["log", "fileIOReports", "addonDetails"];
+  const EXTENDED_PAYLOAD_FIELDS = [
+    "log",
+    "slowSQL",
+    "fileIOReports",
+    "addonDetails",
+  ];
 
   // Reset telemetry and disable sending extended statistics.
   await TelemetryStorage.testClearPendingPings();
@@ -2115,6 +2124,13 @@ add_task(async function test_pingExtendedStats() {
         " must not be in the payload if the extended set is off."
     );
   }
+
+  // We check this one separately so that we can reuse EXTENDED_PAYLOAD_FIELDS below, since
+  // slowSQLStartup might not be there.
+  Assert.ok(
+    !("slowSQLStartup" in ping.payload),
+    "slowSQLStartup must not be sent if the extended set is off"
+  );
 
   Assert.ok(
     !("addonManager" in ping.payload.simpleMeasurements),

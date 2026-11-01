@@ -4,7 +4,6 @@
 
 package mozilla.components.feature.listentopage.playback
 
-import android.content.Context
 import android.content.Intent
 import android.content.res.Resources
 import android.os.Build
@@ -46,7 +45,6 @@ internal class ListenMediaSessionService : MediaSessionService() {
     private val logger = Logger("ListenMediaSessionService")
 
     private var listenPlayer: ListenPlayer? = null
-    private var sessionPlayer: SessionPlayer? = null
     private var mediaSession: MediaSession? = null
 
     @OptIn(UnstableApi::class)
@@ -55,9 +53,11 @@ internal class ListenMediaSessionService : MediaSessionService() {
 
         val player = ListenPlayer(this)
         listenPlayer = player
-        val session = listenMediaSession(this, player.exoPlayer)
-        sessionPlayer = session.player as SessionPlayer
-        mediaSession = session
+        mediaSession =
+            MediaSession.Builder(this, player.exoPlayer)
+                .setMediaButtonPreferences(notificationControls(resources, PlaybackSpeed.Default))
+                .setCallback(PlaybackSpeedCallback())
+                .build()
         player.exoPlayer.addListener(
             object : Player.Listener {
                 // The control carries the icon of the speed that is on, so it is republished whatever changed the
@@ -124,42 +124,11 @@ internal class ListenMediaSessionService : MediaSessionService() {
 
         listenPlayer?.release()
         listenPlayer = null
-
-        // Dropped rather than released: it wraps the player [ListenPlayer] owns, so releasing it here would release
-        // that same player a second time.
-        sessionPlayer = null
     }
 }
 
-/** The session the notification, the lock screen and [ListenPlaybackController] reach [player] through */
-@OptIn(UnstableApi::class)
-internal fun listenMediaSession(context: Context, player: Player): MediaSession {
-    var session: MediaSession? = null
-    val sessionPlayer =
-        SessionPlayer(player) { positionMs ->
-            session?.broadcastCustomCommand(
-                SessionCommand(COMMAND_SEEK_ARTICLE, Bundle.EMPTY),
-                Bundle().apply { putLong(KEY_POSITION_MS, positionMs) },
-            )
-        }
-
-    return MediaSession.Builder(context, sessionPlayer)
-        .setMediaButtonPreferences(notificationControls(context.resources, PlaybackSpeed.Default))
-        .setCallback(ListenSessionCallback(sessionPlayer, context.packageName))
-        .build()
-        .also { session = it }
-}
-
-/**
- * Grants the session its commands and does what a controller asks of them.
- *
- * @param sessionPlayer The session's player, which is given the article's timeline.
- * @param ownPackage The package this service runs in, which commands are granted to.
- */
-internal class ListenSessionCallback(
-    private val sessionPlayer: SessionPlayer,
-    private val ownPackage: String,
-) : MediaSession.Callback {
+/** Grants the speed control its command and does what the control asks. */
+private class PlaybackSpeedCallback : MediaSession.Callback {
 
     @OptIn(UnstableApi::class)
     override fun onConnect(
@@ -167,17 +136,10 @@ internal class ListenSessionCallback(
         controller: MediaSession.ControllerInfo,
     ): MediaSession.ConnectionResult {
         val granted = MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller).build()
-        val commands = granted.availableSessionCommands.buildUpon()
-        commands.add(SessionCommand(ACTION_CYCLE_SPEED, Bundle.EMPTY))
-        if (controller.packageName == ownPackage) {
-            commands.add(SessionCommand(COMMAND_SET_SESSION_ACTIVITY, Bundle.EMPTY))
-            commands.add(SessionCommand(COMMAND_SET_ARTICLE_DURATION, Bundle.EMPTY))
-            commands.add(SessionCommand(COMMAND_STOP_AND_BUFFER_AT, Bundle.EMPTY))
-            commands.add(SessionCommand(COMMAND_FINISH_AT, Bundle.EMPTY))
-        }
+        val cycleSpeedCommand = SessionCommand(ACTION_CYCLE_SPEED, Bundle.EMPTY)
 
         return MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
-            .setAvailableSessionCommands(commands.build())
+            .setAvailableSessionCommands(granted.availableSessionCommands.buildUpon().add(cycleSpeedCommand).build())
             .build()
     }
 
@@ -188,15 +150,11 @@ internal class ListenSessionCallback(
         customCommand: SessionCommand,
         args: Bundle,
     ): ListenableFuture<SessionResult> {
-        when (customCommand.customAction) {
-            ACTION_CYCLE_SPEED -> session.player.setPlaybackSpeed(session.player.nextSpeed().multiplier)
-            COMMAND_SET_SESSION_ACTIVITY -> session.setSessionActivity(args.sessionActivity())
-            COMMAND_SET_ARTICLE_DURATION -> sessionPlayer.setArticleDuration(args.getLong(KEY_DURATION_MS))
-            COMMAND_STOP_AND_BUFFER_AT -> sessionPlayer.bufferAt(args.getLong(KEY_POSITION_MS))
-            COMMAND_FINISH_AT -> sessionPlayer.finishAt(args.getLong(KEY_POSITION_MS))
-
-            else -> return super.onCustomCommand(session, controller, customCommand, args)
+        if (customCommand.customAction != ACTION_CYCLE_SPEED) {
+            return super.onCustomCommand(session, controller, customCommand, args)
         }
+
+        session.player.setPlaybackSpeed(session.player.nextSpeed().multiplier)
 
         return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     }
@@ -279,6 +237,9 @@ internal val PlaybackSpeed.icon: Int
             PlaybackSpeed.X1_75 -> iconsR.drawable.mozac_ic_playback_speed_1_7x_24
             PlaybackSpeed.X2 -> iconsR.drawable.mozac_ic_playback_speed_2x_24
         }
+
+/** The command the speed control sends, which no player command of media3's covers. */
+internal const val ACTION_CYCLE_SPEED = "mozilla.components.feature.listentopage.CYCLE_SPEED"
 
 private fun secondsLabel(resources: Resources, @PluralsRes label: Int, incrementMs: Long): String {
     val seconds = (incrementMs / MS_PER_SECOND).toInt()

@@ -31,7 +31,6 @@ import mozilla.components.lib.dataprotect.SecureAbove22Preferences
 import mozilla.components.lib.fetch.httpurlconnection.HttpURLConnectionClient
 import mozilla.components.service.fxa.FirefoxAccount
 import mozilla.components.service.fxa.FxaAuthData
-import mozilla.components.service.fxa.FxaService
 import mozilla.components.service.fxa.manager.FxaAccountManager
 import mozilla.components.service.fxa.manager.SCOPE_SYNC
 import mozilla.components.service.fxa.sync.GlobalSyncableStoreProvider
@@ -111,11 +110,7 @@ class MainActivity : AppCompatActivity(), LoginFragment.OnLoginCompleteListener,
 
         findViewById<View>(R.id.buttonWebView).setOnClickListener {
             launch {
-                val authUrl =
-                    accountManager.beginAuthentication(
-                        service = FxaService.Sync.identifier,
-                        entrypoint = SampleFxAEntryPoint.HomeMenu,
-                    )
+                val authUrl = accountManager.beginAuthentication(entrypoint = SampleFxAEntryPoint.HomeMenu)
                 if (authUrl == null) {
                     Toast.makeText(this@MainActivity, "Account auth error", Toast.LENGTH_LONG).show()
                     return@launch

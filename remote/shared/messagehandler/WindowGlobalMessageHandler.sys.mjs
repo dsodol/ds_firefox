@@ -234,7 +234,7 @@ export class WindowGlobalMessageHandler extends MessageHandler {
       case lazy.RootMessageHandler.type:
         return lazy
           .getMessageHandlerFrameChildActor(this)
-          .sendCommand(command, this.internalSessionId);
+          .sendCommand(command, this.sessionId);
       default:
         throw new Error(
           `Cannot forward command to "${command.destination.type}" from "${this.constructor.type}".`

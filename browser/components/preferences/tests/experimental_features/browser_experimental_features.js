@@ -29,7 +29,6 @@ add_task(async function testCanOpenWithPref() {
     "The setting-pane should be hidden when Home is selected"
   );
 
-  experimentalCategory.scrollIntoView();
   EventUtils.synthesizeMouseAtCenter(
     experimentalCategory,
     {},

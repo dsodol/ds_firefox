@@ -131,7 +131,7 @@ frontend::ScriptStencilRef LargeFirstDelazification::next() {
 bool LargeFirstDelazification::insert(frontend::ScriptStencilRef& ref) {
   const frontend::ScriptStencilExtra& extra = ref.scriptExtra();
   SourceSize size = extra.extent.sourceEnd - extra.extent.sourceStart;
-  if (!heap.emplaceBack(size, ref)) {
+  if (!heap.append(std::pair(size, ref))) {
     return false;
   }
 

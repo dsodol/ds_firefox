@@ -1,8 +1,8 @@
 schema: 1
 
 bugzilla:
-  product: Toolkit
-  component: Application Update
+  product: GeckoView
+  component: General
 
 origin:
   name: xz embedded
@@ -17,8 +17,8 @@ origin:
   license-file: COPYING
 
 vendoring:
-  url: https://github.com/tukaani-project/xz-embedded
-  source-hosting: github
+  url: http://git.tukaani.org/xz-embedded.git
+  source-hosting: git
   tracking: commit
 
   exclude:

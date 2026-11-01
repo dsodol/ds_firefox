@@ -13,20 +13,8 @@ var gPythonName = Services.env.get("PYTHON");
 
 const gCwd = Services.dirsvc.get("CurWorkD", Ci.nsIFile);
 
-const gTempDir = do_get_tempdir();
-
 function getRelativeFile(...components) {
   return new FileUtils.File(PathUtils.join(gCwd.path, ...components));
-}
-
-function getTempFile(aFilename) {
-  return new FileUtils.File(PathUtils.join(gTempDir.path, aFilename));
-}
-
-// dmd.py fixes the stacks of its input files in place, so give it a copy.
-function getScriptInputFile(aFilename) {
-  getRelativeFile(aFilename).copyTo(gTempDir, null);
-  return getTempFile(aFilename);
 }
 
 // If we're testing locally, the executable file is in "CurProcD". Otherwise,
@@ -84,8 +72,10 @@ function runProcess(aExeFile, aArgs) {
 }
 
 function test(aPrefix, aArgs) {
+  // DMD writes the JSON files to CurWorkD, so we do likewise here with
+  // |actualFile| for consistency. It is removed once we've finished.
   let expectedFile = getRelativeFile(`${aPrefix}-expected.txt`);
-  let actualFile = getTempFile(`${aPrefix}-actual.txt`);
+  let actualFile = getRelativeFile(`${aPrefix}-actual.txt`);
 
   // Run dmd.py on the JSON file, producing |actualFile|.
 
@@ -152,11 +142,11 @@ function run_test() {
 
   Services.env.set("DMD", "1");
 
-  runProcess(gDmdTestFile, [gTempDir.path]);
+  runProcess(gDmdTestFile, []);
 
   function test2(aTestName, aMode) {
     let name = "complete-" + aTestName + "-" + aMode;
-    jsonFile = getTempFile(`${name}.json`);
+    jsonFile = getRelativeFile(`${name}.json`);
     test(name, [jsonFile.path]);
     jsonFile.remove(true);
   }
@@ -176,7 +166,7 @@ function run_test() {
   test2("partial", "live");
 
   // Heap scan testing.
-  jsonFile = getTempFile("basic-scan.json");
+  jsonFile = getRelativeFile("basic-scan.json");
   ok(scanTest(jsonFile.path), "Basic scan test");
 
   let is64Bit = Services.appinfo.is64Bit;
@@ -201,7 +191,7 @@ function run_test() {
   // This just tests that stack traces of various lengths are truncated
   // appropriately. The number of records in the output is different for each
   // of the tested values.
-  jsonFile = getScriptInputFile("script-max-frames.json");
+  jsonFile = getRelativeFile("script-max-frames.json");
   test("script-max-frames-8", [jsonFile.path]); // --max-frames=8 is the default
   test("script-max-frames-3", [
     "--max-frames=3",
@@ -213,7 +203,7 @@ function run_test() {
   // This file has three records that are shown in a different order for each
   // of the different sort values. It also tests the handling of gzipped JSON
   // files.
-  jsonFile = getScriptInputFile("script-sort-by.json.gz");
+  jsonFile = getRelativeFile("script-sort-by.json.gz");
   test("script-sort-by-usable", ["--sort-by=usable", jsonFile.path]);
   test("script-sort-by-req", [
     "--sort-by=req",
@@ -225,16 +215,16 @@ function run_test() {
 
   // This file has several real stack traces taken from Firefox execution, each
   // of which tests a different allocator function (or functions).
-  jsonFile = getScriptInputFile("script-ignore-alloc-fns.json");
+  jsonFile = getRelativeFile("script-ignore-alloc-fns.json");
   test("script-ignore-alloc-fns", ["--ignore-alloc-fns", jsonFile.path]);
 
   // This tests "live"-mode diffs.
-  jsonFile = getScriptInputFile("script-diff-live1.json");
-  jsonFile2 = getScriptInputFile("script-diff-live2.json");
+  jsonFile = getRelativeFile("script-diff-live1.json");
+  jsonFile2 = getRelativeFile("script-diff-live2.json");
   test("script-diff-live", [jsonFile.path, jsonFile2.path]);
 
   // This tests "dark-matter"-mode diffs.
-  jsonFile = getScriptInputFile("script-diff-dark-matter1.json");
-  jsonFile2 = getScriptInputFile("script-diff-dark-matter2.json");
+  jsonFile = getRelativeFile("script-diff-dark-matter1.json");
+  jsonFile2 = getRelativeFile("script-diff-dark-matter2.json");
   test("script-diff-dark-matter", [jsonFile.path, jsonFile2.path]);
 }

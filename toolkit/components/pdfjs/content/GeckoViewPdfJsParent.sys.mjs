@@ -241,21 +241,17 @@ class FileSaver {
 }
 
 class SignatureHandler {
-  #actor;
+  #browser;
 
-  constructor(aActor) {
-    this.#actor = aActor;
+  constructor(aBrowser) {
+    this.#browser = aBrowser;
   }
 
   onEvent(aEvent, aData, aCallback) {
     debug`onEvent: name=${aEvent}, data=${aData}`;
 
-    if (!this.#actor.manager?.isCurrentGlobal) {
-      return;
-    }
-
     if (
-      this.#actor.browser.contentPrincipal.spec !==
+      this.#browser.contentPrincipal.spec !==
       "resource://pdf.js/web/viewer.html"
     ) {
       aCallback.onError("The document is not a PDF.");
@@ -263,15 +259,8 @@ class SignatureHandler {
     }
 
     if (aEvent === "GeckoView:PdfViewer:AddSignature") {
-      this.#actor
-        .sendQuery("PDFJS:Child:handleEvent", {
-          type: "addsignature",
-          detail: { text: aData.text },
-        })
-        .then(
-          () => aCallback.onSuccess(),
-          e => aCallback.onError(`Could not add the signature: ${e}.`)
-        );
+      // Bug 2069045 will add a real connection.
+      aCallback.onSuccess();
     }
   }
 }
@@ -345,7 +334,7 @@ export class GeckoViewPdfJsParent extends GeckoViewActorParent {
       "GeckoView:PDFSave",
     ]);
 
-    this.#signatureHandler = new SignatureHandler(this);
+    this.#signatureHandler = new SignatureHandler(this.browser);
     this.eventDispatcher.registerListener(this.#signatureHandler, [
       "GeckoView:PdfViewer:AddSignature",
     ]);

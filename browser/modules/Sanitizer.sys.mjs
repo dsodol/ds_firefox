@@ -81,33 +81,6 @@ export var Sanitizer = {
   TIMESPAN_24HOURS: 6,
 
   /**
-   * What the user used to open the clear browsing data dialog, recorded as
-   * the entry_point of browser.sanitizer.dialog_opened and dialog_closed.
-   */
-  DIALOG_ENTRY_POINTS: Object.freeze({
-    SHORTCUT: "shortcut",
-    MENU_BAR: "menu_bar",
-    APP_MENU: "app_menu",
-    QUICK_ACTION: "quick_action",
-    ADDRESS_BAR_SUGGESTION: "address_bar_suggestion",
-    SIDEBAR_HISTORY: "sidebar_history",
-    SETTINGS_HISTORY: "settings_history",
-    SETTINGS_SITE_DATA: "settings_site_data",
-    FIRE_BUTTON: "fire_button",
-    OTHER: "other",
-  }),
-
-  /**
-   * How the clear browsing data dialog closed, recorded as the outcome of
-   * browser.sanitizer.dialog_closed.
-   */
-  DIALOG_OUTCOMES: Object.freeze({
-    DELETED: "deleted",
-    CANCELLED: "cancelled",
-    DISMISSED: "dismissed",
-  }),
-
-  /**
    * Mapping time span constants to get total time in ms from the selected
    * time spans
    */
@@ -141,27 +114,14 @@ export var Sanitizer = {
    *
    * @param parentWindow the browser window to use as parent for the created
    *        dialog.
-   * @param {string} [mode] - flag to let the dialog know if it is opened
+   * @param {string} mode - flag to let the dialog know if it is opened
    *        using the clear on shutdown (clearOnShutdown) settings option
    *        in about:preferences or in a clear site data context (clearSiteData)
-   * @param {object} [options]
-   * @param {boolean} [options.closeWindowsWithHistory] - If the user chooses
-   *        to clear history, also close every browser window and open a new
-   *        one, as part of the same sanitization.
-   * @param {string} [options.entryPoint] - What the user used to open the
-   *        dialog, one of DIALOG_ENTRY_POINTS, recorded in its telemetry.
-   * @param {Event} [options.triggeringEvent] - The event that made the user
-   *        open the dialog. If it came from the keyboard, the dialog's initial
-   *        focus shows a focus ring.
    * @returns {"accept" | "cancel"} - The selected dialog box option.
    *
    * @throws if parentWindow is undefined or doesn't have a gDialogBox.
    */
-  async showUI(
-    parentWindow,
-    mode,
-    { closeWindowsWithHistory = false, entryPoint, triggeringEvent } = {}
-  ) {
+  async showUI(parentWindow, mode) {
     // Treat the hidden window as not being a parent window:
     if (
       parentWindow?.document.documentURI ==
@@ -174,18 +134,12 @@ export var Sanitizer = {
     let deferred = Promise.withResolvers();
 
     if (parentWindow?.gDialogBox) {
-      parentWindow.gDialogBox.open(
-        `chrome://browser/content/${dialogFile}`,
-        {
-          inBrowserWindow: true,
-          mode,
-          closeWindowsWithHistory,
-          entryPoint,
-          onAccept: () => deferred.resolve("accept"),
-          onCancel: () => deferred.resolve("cancel"),
-        },
-        triggeringEvent
-      );
+      parentWindow.gDialogBox.open(`chrome://browser/content/${dialogFile}`, {
+        inBrowserWindow: true,
+        mode,
+        onAccept: () => deferred.resolve("accept"),
+        onCancel: () => deferred.resolve("cancel"),
+      });
     } else {
       Services.ww.openWindow(
         parentWindow,
@@ -195,8 +149,6 @@ export var Sanitizer = {
         {
           needNativeUI: true,
           mode,
-          closeWindowsWithHistory,
-          entryPoint,
           onAccept: () => deferred.resolve("accept"),
           onCancel: () => deferred.resolve("cancel"),
         }
@@ -355,10 +307,6 @@ export var Sanitizer = {
    *         - range (default: null): array-tuple of [from, to] timestamps
    *         - privateStateForNewWindow (default: "non-private"): when clearing
    *           open windows, defines the private state for the newly opened window.
-   *         - progress: object to record the sanitization progress in. If
-   *           closing the open windows was refused, for example from a
-   *           beforeunload prompt, its openWindows property is "aborted" and
-   *           nothing has been cleared.
    * @returns {object} An object containing debug information about the
    *          sanitization progress. This state object is also used as
    *          AsyncShutdown metadata.
@@ -391,11 +339,7 @@ export var Sanitizer = {
     try {
       await promise;
     } finally {
-      Services.obs.notifyObservers(
-        null,
-        "sanitizer-sanitization-complete",
-        progress.openWindows == "aborted" ? "aborted" : null
-      );
+      Services.obs.notifyObservers(null, "sanitizer-sanitization-complete");
     }
     return progress;
   },
@@ -1024,20 +968,10 @@ async function sanitizeInternal(items, aItemsToClear, options) {
   let openWindowsIndex = itemsToClear.indexOf("openWindows");
   if (openWindowsIndex != -1) {
     itemsToClear.splice(openWindowsIndex, 1);
-    try {
-      await items.openWindows.clear(
-        null,
-        Object.assign(options, { progress: progress.openWindowsProgress })
-      );
-    } catch (ex) {
-      // Nothing has been cleared yet, so there is nothing to retry at the next
-      // startup either.
-      progress.openWindows = "aborted";
-      if (!progress.isShutdown) {
-        removePendingSanitization(uid);
-      }
-      throw ex;
-    }
+    await items.openWindows.clear(
+      null,
+      Object.assign(options, { progress: progress.openWindowsProgress })
+    );
     progress.openWindows = "cleared";
     delete progress.openWindowsProgress;
   }

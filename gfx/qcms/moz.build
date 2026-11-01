@@ -23,7 +23,3 @@ LICENSED_UNDER += ["sunsoft"]
 LICENSED_UNDER["sunsoft"].paths = [
     "qcms.h",
 ]
-
-SOURCE_HEADERS += [
-	"qcmsint.h",
-]

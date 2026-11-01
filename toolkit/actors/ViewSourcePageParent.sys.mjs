@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+const BUNDLE_URL = "chrome://global/locale/viewSource.properties";
+
 /**
  * ViewSourcePageParent manages the view source <browser> from the chrome side.
  */
@@ -38,13 +40,13 @@ export class ViewSourcePageParent extends JSWindowActorParent {
   }
 
   /**
-   * A getter for the view source localization.
+   * A getter for the view source string bundle.
    */
-  get l10n() {
-    if (this._l10n) {
-      return this._l10n;
+  get bundle() {
+    if (this._bundle) {
+      return this._bundle;
     }
-    return (this._l10n = new Localization(["toolkit/global/viewSource.ftl"]));
+    return (this._bundle = Services.strings.createBundle(BUNDLE_URL));
   }
 
   /**
@@ -52,17 +54,18 @@ export class ViewSourcePageParent extends JSWindowActorParent {
    * of the source code they're viewing. This will keep prompting until the
    * user either cancels out of the prompt, or enters a valid line number.
    */
-  async promptAndGoToLine() {
+  promptAndGoToLine() {
     let input = { value: this.lastLineFound };
     let window = Services.wm.getMostRecentWindow(null);
 
-    let [title, text] = await this.l10n.formatValues([
-      "view-source-go-to-line-title",
-      "view-source-go-to-line-text",
-    ]);
-    let ok = Services.prompt.prompt(window, title, text, input, null, {
-      value: 0,
-    });
+    let ok = Services.prompt.prompt(
+      window,
+      this.bundle.GetStringFromName("goToLineTitle"),
+      this.bundle.GetStringFromName("goToLineText"),
+      input,
+      null,
+      { value: 0 }
+    );
 
     if (!ok) {
       return;
@@ -71,11 +74,11 @@ export class ViewSourcePageParent extends JSWindowActorParent {
     let line = parseInt(input.value, 10);
 
     if (!(line > 0)) {
-      let [invalidTitle, invalidText] = await this.l10n.formatValues([
-        "view-source-invalid-input-title",
-        "view-source-invalid-input-text",
-      ]);
-      Services.prompt.alert(window, invalidTitle, invalidText);
+      Services.prompt.alert(
+        window,
+        this.bundle.GetStringFromName("invalidInputTitle"),
+        this.bundle.GetStringFromName("invalidInputText")
+      );
       this.promptAndGoToLine();
     } else {
       this.goToLine(line);
@@ -110,13 +113,13 @@ export class ViewSourcePageParent extends JSWindowActorParent {
    * line. This informs the user that their selection was likely out of range,
    * and then reprompts the user to try again.
    */
-  async onGoToLineFailed() {
+  onGoToLineFailed() {
     let window = Services.wm.getMostRecentWindow(null);
-    let [title, text] = await this.l10n.formatValues([
-      "view-source-out-of-range-title",
-      "view-source-out-of-range-text",
-    ]);
-    Services.prompt.alert(window, title, text);
+    Services.prompt.alert(
+      window,
+      this.bundle.GetStringFromName("outOfRangeTitle"),
+      this.bundle.GetStringFromName("outOfRangeText")
+    );
     this.promptAndGoToLine();
   }
 }

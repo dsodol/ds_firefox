@@ -70,21 +70,32 @@ if (!window.opener) {
         event.getCoalescedEvents();
       }
       target0.addEventListener("pointerrawupdate", onPointerRawUpdate);
-      function onPointerMove(event) {
-        // Windows may notify unexpected mouse move when multiple pointers are
-        // used even without the user actually moves the mouse.  Let's ignore
-        // the events since they are not what we're checking in this test.
-        if (event.pointerType != "touch") {
-          return;
+      const waitForPointerMove = new Promise(resolve => {
+        function onPointerMove(event) {
+          // Windows may notify unexpected mouse move when multiple pointers are
+          // used even without the user actually moves the mouse.  Let's ignore
+          // the events since they are not what we're checking in this test.
+          if (event.pointerType != "touch") {
+            return;
+          }
+          for (const coalescedEvent of event.getCoalescedEvents()) {
+            coalescedPointerMoveEvents.push(coalescedEvent);
+          }
+          if (pointerRawUpdateEvents.length > 1) {
+            target0.removeEventListener("pointermove", onPointerMove);
+            target0.removeEventListener("pointerrawupdate", onPointerRawUpdate);
+            for (const type of allEventsToLog) {
+              target0.removeEventListener(type, putEventToAllEvents, {capture: true});
+            }
+            resolve();
+          }
         }
-        for (const coalescedEvent of event.getCoalescedEvents()) {
-          coalescedPointerMoveEvents.push(coalescedEvent);
-        }
-      }
-      target0.addEventListener("pointermove", onPointerMove);
+        target0.addEventListener("pointermove", onPointerMove);
+      });
 
-      target0.addEventListener("pointerup", event => {
+      target0.addEventListener("pointerup", async event => {
         utils.restoreNormalRefresh();
+        await waitForPointerMove;
         for (const event of allEvents) {
           info(`${event.type}: ${stringifyPointerEvent(event)}`);
         }
@@ -117,7 +128,7 @@ if (!window.opener) {
             opener.is(
               "{}",
               stringifyPointerEvent(coalescedPointerMoveEvents[i]),
-              `coalescedPointerMoveEvents(${i}): should not be there`
+              `coalescedPointerMoveEvents(${i++}): should not be there`
             );
           }
         } else if (pointerRawUpdateEvents.length > coalescedPointerMoveEvents.length) {
@@ -125,7 +136,7 @@ if (!window.opener) {
             opener.is(
               stringifyPointerEvent(pointerRawUpdateEvents[i]),
               "{}",
-              `pointerrawupdate(${i}): should not be there`
+              `pointerrawupdate(${i++}): should not be there`
             );
           }
         }

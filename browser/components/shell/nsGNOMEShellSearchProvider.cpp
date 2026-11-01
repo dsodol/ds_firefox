@@ -182,9 +182,8 @@ void nsGNOMEShellSearchProvider::LaunchSearch(
   }
 }
 
-static void HandleMethodCall(GDBusConnection* /*aConnection*/,
-                             const gchar* /*aSender*/,
-                             const gchar* /*aObjectPath*/,
+static void HandleMethodCall(GDBusConnection* aConnection, const gchar* aSender,
+                             const gchar* aObjectPath,
                              const gchar* aInterfaceName,
                              const gchar* aMethodName, GVariant* aParameters,
                              GDBusMethodInvocation* aInvocation,
@@ -218,9 +217,9 @@ static void HandleMethodCall(GDBusConnection* /*aConnection*/,
   }
 }
 
-static GVariant* HandleGetProperty(GDBusConnection* /*aConnection*/,
-                                   const gchar* /*aSender*/,
-                                   const gchar* /*aObjectPath*/,
+static GVariant* HandleGetProperty(GDBusConnection* aConnection,
+                                   const gchar* aSender,
+                                   const gchar* aObjectPath,
                                    const gchar* aInterfaceName,
                                    const gchar* aPropertyName, GError** aError,
                                    gpointer aUserData) {
@@ -231,13 +230,12 @@ static GVariant* HandleGetProperty(GDBusConnection* /*aConnection*/,
   return nullptr;
 }
 
-static gboolean HandleSetProperty(GDBusConnection* /*aConnection*/,
-                                  const gchar* /*aSender*/,
-                                  const gchar* /*aObjectPath*/,
+static gboolean HandleSetProperty(GDBusConnection* aConnection,
+                                  const gchar* aSender,
+                                  const gchar* aObjectPath,
                                   const gchar* aInterfaceName,
-                                  const gchar* aPropertyName,
-                                  GVariant* /*aValue*/, GError** aError,
-                                  gpointer aUserData) {
+                                  const gchar* aPropertyName, GVariant* aValue,
+                                  GError** aError, gpointer aUserData) {
   MOZ_ASSERT(aUserData);
   MOZ_ASSERT(NS_IsMainThread());
   g_set_error(aError, G_IO_ERROR, G_IO_ERROR_FAILED,

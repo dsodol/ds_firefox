@@ -19,5 +19,6 @@ __all__ = [
     "PER_TAB_PAUSE",
     "SETTLE_WAIT_TIME",
     "ITERATIONS",
+    "webservers",
     "process_perf_data",
 ]

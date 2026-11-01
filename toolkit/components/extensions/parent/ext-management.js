@@ -232,7 +232,7 @@ this.management = class extends ExtensionAPIPersistent {
         async install({ url, hash }) {
           let listener = {
             onDownloadEnded(install) {
-              if (install.addon.appDisabled) {
+              if (install.addon.appDisabled || install.addon.type !== "theme") {
                 install.cancel();
                 return false;
               }
@@ -247,7 +247,6 @@ this.management = class extends ExtensionAPIPersistent {
             hash,
             telemetryInfo,
             triggeringPrincipal: extension.principal,
-            type: "theme",
           });
           install.addListener(listener);
           try {

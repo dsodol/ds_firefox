@@ -24,22 +24,18 @@ import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.menu.data.MenuItemActionButton
 import mozilla.components.compose.menu.data.MenuItemBadge
 import mozilla.components.compose.menu.data.MenuItemSummary
-import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.ui.MenuItemIconRes
 import mozilla.components.compose.menu.ui.MenuItemState
 import mozilla.components.concept.engine.ipprotection.ServiceState
 import mozilla.components.feature.ipprotection.store.IPProtectionAction
 import mozilla.components.feature.ipprotection.store.IPProtectionStore
-import mozilla.components.feature.ipprotection.store.state.AccountState
-import mozilla.components.feature.ipprotection.store.state.AccountStatus
 import mozilla.components.feature.ipprotection.store.state.Authorized
-import mozilla.components.feature.ipprotection.store.state.DataVolume
+import mozilla.components.feature.ipprotection.store.state.BYTES_PER_GB
 import mozilla.components.feature.ipprotection.store.state.EligibilityStatus
 import mozilla.components.feature.ipprotection.store.state.IPProtectionState
 import mozilla.components.feature.ipprotection.store.state.ProxyStatus
 import mozilla.components.feature.ipprotection.store.state.Uninitialized
-import mozilla.components.feature.ipprotection.store.state.UsageQuota
 import mozilla.components.support.test.robolectric.testContext
 import mozilla.components.ui.icons.R as iconsR
 import org.junit.Rule
@@ -49,7 +45,6 @@ import org.mozilla.fenix.GleanMetrics.Vpn
 import org.mozilla.fenix.NavGraphDirections
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.accounts.FenixFxAEntryPoint
-import org.mozilla.fenix.components.menu.MenuTarget
 import org.mozilla.fenix.components.menu.fake.FakeMenuHost
 import org.mozilla.fenix.components.menu.fake.reachableEvents
 import org.mozilla.fenix.components.menu.store.MenuAction
@@ -66,14 +61,14 @@ class VpnMenuItemProviderTest {
     fun `GIVEN the user is not eligible WHEN building the menu item THEN don't show it`() = runTest {
         val provider = provider(IPProtectionStore(IPProtectionState()))
 
-        assertTrue(provider.itemsFlow.value.isEmpty())
+        assertNull(provider.itemFlow.value)
     }
 
     @Test
     fun `GIVEN IP protection is off WHEN building the menu item THEN show it as a switch that is off`() = runTest {
         val provider = provider(eligibleStore(Uninitialized))
 
-        assertEquals(expectedItem(), provider.itemsFlow.value.single())
+        assertEquals(expectedItem(), provider.itemFlow.value)
     }
 
     @Test
@@ -85,7 +80,7 @@ class VpnMenuItemProviderTest {
                 badgeTextRes = R.string.preferences_ip_protection_on,
                 badgeState = MenuItemState.ACTIVE,
             ),
-            provider.itemsFlow.value.single(),
+            provider.itemFlow.value,
         )
     }
 
@@ -97,14 +92,13 @@ class VpnMenuItemProviderTest {
                     IPProtectionState(
                         eligibilityStatus = EligibilityStatus.Eligible,
                         serviceStatus = ServiceState.Unauthenticated,
-                        accountState = AccountState(AccountStatus.NoAccount),
                     )
                 )
             val provider = provider(store)
 
             assertEquals(
                 expectedItem(badgeTextRes = R.string.ip_protection_menu_try_vpn_cta, role = Button),
-                provider.itemsFlow.value.single(),
+                provider.itemFlow.value,
             )
         }
 
@@ -114,23 +108,18 @@ class VpnMenuItemProviderTest {
             IPProtectionStore(
                 IPProtectionState(
                     eligibilityStatus = EligibilityStatus.Eligible,
-                    serviceStatus = ServiceState.Ready,
                     proxyStatus = Authorized.DataLimitReached,
-                    usageQuota =
-                        UsageQuota.Metered(
-                            max = DataVolume.roundedGigabytes(5),
-                            remaining = DataVolume.Zero,
-                        ),
+                    maxDataBytes = (5 * BYTES_PER_GB).toLong(),
                 )
             )
         val provider = provider(store)
 
         assertEquals(
             MenuItemSummary(
-                text = Text.Resource(R.string.ip_protection_menu_limit_reached, listOf(5L)),
+                text = Text.Resource(R.string.ip_protection_menu_limit_reached, listOf(5)),
                 state = MenuItemState.WARNING,
             ),
-            (provider.itemsFlow.value.single() as StandardMenuItem).summary,
+            (provider.itemFlow.value as StandardMenuItem).summary,
         )
     }
 
@@ -138,27 +127,7 @@ class VpnMenuItemProviderTest {
     fun `GIVEN the data limit is unknown WHEN building the menu item THEN don't show a summary`() = runTest {
         val provider = provider(eligibleStore(Uninitialized))
 
-        assertNull((provider.itemsFlow.value.single() as StandardMenuItem).summary)
-    }
-
-    @Test
-    fun `GIVEN target is CustomizeMenu WHEN building the menu item THEN show it without click events`() = runTest {
-        val provider =
-            VpnMenuItemProvider(
-                eligibleStore(Uninitialized),
-                target = MenuTarget.CustomizeMenu,
-                scope = backgroundScope,
-            )
-
-        assertEquals(
-            StandardMenuItem(
-                title = MenuItemTitle(Text.Resource(R.string.ip_protection_toggle_label)),
-                icon = MenuItemIconRes(iconsR.drawable.mozac_ic_globe_24),
-                onClickEvent = null,
-                state = MenuItemState.DEFAULT,
-            ),
-            provider.itemsFlow.value.single(),
-        )
+        assertNull((provider.itemFlow.value as StandardMenuItem).summary)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -167,12 +136,12 @@ class VpnMenuItemProviderTest {
         val store = eligibleStore(Uninitialized)
         val provider = provider(store)
 
-        assertEquals(expectedItem(), provider.itemsFlow.value.single())
+        assertEquals(expectedItem(), provider.itemFlow.value)
 
-        store.dispatch(IPProtectionAction.EligibilityAction.EligibilityChanged(EligibilityStatus.Ineligible))
+        store.dispatch(IPProtectionAction.EligibilityChanged(EligibilityStatus.Ineligible))
         runCurrent()
 
-        assertTrue(provider.itemsFlow.value.isEmpty())
+        assertNull(provider.itemFlow.value)
     }
 
     @Test
@@ -181,7 +150,7 @@ class VpnMenuItemProviderTest {
 
         provider(store).onEvent(MenuAction.IPProtectionToggle, menu)
 
-        verify { store.dispatch(IPProtectionAction.ActivationAction.Toggle) }
+        verify { store.dispatch(IPProtectionAction.Toggle) }
         assertFalse(menu.isUsed)
         assertNotNull(Vpn.menuTurnedOn.testGetValue())
     }
@@ -192,55 +161,19 @@ class VpnMenuItemProviderTest {
 
         provider(store).onEvent(MenuAction.IPProtectionToggle, menu)
 
-        verify { store.dispatch(IPProtectionAction.ActivationAction.Toggle) }
+        verify { store.dispatch(IPProtectionAction.Toggle) }
         assertFalse(menu.isUsed)
         assertNotNull(Vpn.menuTurnedOff.testGetValue())
     }
 
     @Test
     fun `GIVEN signing in is needed WHEN toggling IP protection THEN show its settings instead`() = runTest {
-        val store =
-            IPProtectionStore(
-                IPProtectionState(
-                    eligibilityStatus = EligibilityStatus.Eligible,
-                    serviceStatus = ServiceState.Unauthenticated,
-                    accountState = AccountState(AccountStatus.NoAccount),
-                )
-            )
+        val store = IPProtectionStore(IPProtectionState(serviceStatus = ServiceState.Unauthenticated))
 
         provider(store).onEvent(MenuAction.IPProtectionToggle, menu)
 
         assertEquals(settingsDirections, menu.directions)
         assertNotNull(Vpn.menuTryItTapped.testGetValue())
-    }
-
-    @Test
-    fun `GIVEN the service has not accepted the signed-in account yet WHEN toggling IP protection THEN show its settings without recording a try-it tap`() =
-        runTest {
-            val store =
-                IPProtectionStore(
-                    IPProtectionState(
-                        eligibilityStatus = EligibilityStatus.Eligible,
-                        serviceStatus = ServiceState.Unauthenticated,
-                        accountState = AccountState(AccountStatus.Authenticated),
-                    )
-                )
-
-            provider(store).onEvent(MenuAction.IPProtectionToggle, menu)
-
-            assertEquals(settingsDirections, menu.directions)
-            assertNull(Vpn.menuTryItTapped.testGetValue())
-        }
-
-    @Test
-    fun `GIVEN IP protection has not reported its state yet WHEN toggling it THEN nothing happens`() = runTest {
-        val store = spyk(IPProtectionStore(IPProtectionState(eligibilityStatus = EligibilityStatus.Eligible)))
-
-        provider(store).onEvent(MenuAction.IPProtectionToggle, menu)
-
-        verify(exactly = 0) { store.dispatch(IPProtectionAction.ActivationAction.Toggle) }
-        assertFalse(menu.isUsed)
-        assertNull(Vpn.menuTurnedOn.testGetValue())
     }
 
     @Test
@@ -256,7 +189,7 @@ class VpnMenuItemProviderTest {
         listOf(Authorized.Idle, Authorized.Active).forEach { status ->
             val provider = provider(eligibleStore(status))
 
-            val events = provider.itemsFlow.value.single().reachableEvents()
+            val events = requireNotNull(provider.itemFlow.value).reachableEvents()
 
             assertTrue(events.all { provider.handles(it) }, "Not all of $events are handled")
             assertFalse(provider.handles(MenuAction.Navigate.Settings))
@@ -267,19 +200,11 @@ class VpnMenuItemProviderTest {
         NavGraphDirections.actionGlobalIpProtectionFragment(entrypoint = FenixFxAEntryPoint.IPProtectionMainMenu)
 
     // The item is kept up to date on a scope that runTest cancels at the end of each test.
-    private fun TestScope.provider(
-        ipProtectionStore: IPProtectionStore,
-        target: MenuTarget = MenuTarget.BrowserTab,
-    ) = VpnMenuItemProvider(ipProtectionStore = ipProtectionStore, target = target, scope = backgroundScope)
+    private fun TestScope.provider(ipProtectionStore: IPProtectionStore) =
+        VpnMenuItemProvider(ipProtectionStore = ipProtectionStore, scope = backgroundScope)
 
     private fun eligibleStore(proxyStatus: ProxyStatus) =
-        IPProtectionStore(
-            IPProtectionState(
-                eligibilityStatus = EligibilityStatus.Eligible,
-                serviceStatus = ServiceState.Ready,
-                proxyStatus = proxyStatus,
-            )
-        )
+        IPProtectionStore(IPProtectionState(eligibilityStatus = EligibilityStatus.Eligible, proxyStatus = proxyStatus))
 
     private fun expectedItem(
         badgeTextRes: Int = R.string.preferences_ip_protection_off,
@@ -287,7 +212,7 @@ class VpnMenuItemProviderTest {
         role: Role = Switch,
     ) =
         StandardMenuItem(
-            title = MenuItemTitle(Text.Resource(R.string.ip_protection_toggle_label)),
+            title = Text.Resource(R.string.ip_protection_toggle_label),
             icon = MenuItemIconRes(iconsR.drawable.mozac_ic_globe_24),
             role = role,
             onClickEvent = MenuAction.IPProtectionToggle,

@@ -66,8 +66,6 @@
 #  include "cutils/properties.h"
 #endif
 
-#include <memory>
-
 namespace mozilla {
 
 namespace {
@@ -847,7 +845,8 @@ UniquePtr<SandboxBroker::Policy> SandboxBrokerPolicyFactory::GetContentPolicy(
 
   std::call_once(mContentInited, [this] { InitContentPolicy(); });
   MOZ_ASSERT(mCommonContentPolicy);
-  auto policy = std::make_unique<SandboxBroker::Policy>(*mCommonContentPolicy);
+  UniquePtr<SandboxBroker::Policy> policy(
+      new SandboxBroker::Policy(*mCommonContentPolicy));
 
   // No read blocking at level 2 and below.
   // file:// processes also get global read permissions
@@ -1001,7 +1000,7 @@ static void AddVulkanDependencies(SandboxBroker::Policy* policy, int aPid) {
 
 /* static */ UniquePtr<SandboxBroker::Policy>
 SandboxBrokerPolicyFactory::GetRDDPolicy(int aPid) {
-  auto policy = std::make_unique<SandboxBroker::Policy>();
+  auto policy = MakeUnique<SandboxBroker::Policy>();
 
   AddSharedMemoryPaths(policy.get(), aPid);
 
@@ -1119,7 +1118,7 @@ SandboxBrokerPolicyFactory::GetRDDPolicy(int aPid) {
 
 /* static */ UniquePtr<SandboxBroker::Policy>
 SandboxBrokerPolicyFactory::GetSocketProcessPolicy(int aPid) {
-  auto policy = std::make_unique<SandboxBroker::Policy>();
+  auto policy = MakeUnique<SandboxBroker::Policy>();
 
   policy->AddPath(rdonly, "/dev/urandom");
   policy->AddPath(rdonly, "/dev/random");
@@ -1178,7 +1177,7 @@ SandboxBrokerPolicyFactory::GetSocketProcessPolicy(int aPid) {
 
 /* static */ UniquePtr<SandboxBroker::Policy>
 SandboxBrokerPolicyFactory::GetUtilityProcessPolicy(int aPid) {
-  auto policy = std::make_unique<SandboxBroker::Policy>();
+  auto policy = MakeUnique<SandboxBroker::Policy>();
 
   policy->AddPath(rdonly, "/dev/urandom");
   policy->AddPath(rdonly, "/proc/cpuinfo");
@@ -1242,7 +1241,7 @@ SandboxBrokerPolicyFactory::GetUtilityProcessPolicy(int aPid) {
 /* static */
 UniquePtr<SandboxBroker::Policy>
 SandboxBrokerPolicyFactory::GetHWInferencePolicy(int aPid) {
-  auto policy = std::make_unique<SandboxBroker::Policy>();
+  auto policy = MakeUnique<SandboxBroker::Policy>();
 
   AddSharedMemoryPaths(policy.get(), aPid);
 

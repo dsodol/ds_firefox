@@ -1,4 +1,8 @@
 add_task(async function test_openPreferences_spotlight() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.settings-redesign.enabled", true]],
+  });
+
   for (let [arg, expectedPane, expectedHash, expectedSubcategory] of [
     ["privacy-reports", "panePermissionsData", "#permissionsData", "reports"],
     [

@@ -796,7 +796,9 @@ SECTION .text
     pmulhrsw      m8, m10, [pw_2048]
     pmulhrsw      m9, m11, [pw_2048]
     packuswb      m8, m9
-    vpblendvb     m8, m2, m8, m1
+    pand          m8, m1
+    pandn         m9, m1, m2
+    por           m8, m9
 %ifidn %2, v
     mova [tmpq+strideq*2], m8                   ; p5
 %else

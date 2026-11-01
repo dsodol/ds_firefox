@@ -22,7 +22,6 @@
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/MouseEvents.h"
 #include "mozilla/PresShell.h"
-#include "mozilla/SVGImageContext.h"
 #include "mozilla/ScrollContainerFrame.h"
 #include "mozilla/Try.h"
 #include "mozilla/dom/CustomEvent.h"
@@ -223,7 +222,7 @@ void nsTreeBodyFrame::CancelImageRequests() {
 // Creates a new tree frame
 //
 nsIFrame* NS_NewTreeBodyFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
-  return new nsTreeBodyFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell) nsTreeBodyFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsTreeBodyFrame)
@@ -2203,7 +2202,7 @@ nsresult nsTreeBodyFrame::HandleEvent(nsPresContext* aPresContext,
     }
   } else if (aEvent->mMessage == eDragEnter) {
     if (!mSlots) {
-      mSlots = std::make_unique<Slots>();
+      mSlots = MakeUnique<Slots>();
     }
 
     // Cache several things we'll need throughout the course of our work. These

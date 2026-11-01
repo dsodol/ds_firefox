@@ -56,6 +56,7 @@ class StructureHLSL : angle::NonCopyable
     TString addStructConstructor(const TStructure &structure);
     TString addBuiltInConstructor(const TType &type, const TIntermSequence *parameters);
 
+    static TString defineNameless(const TStructure &structure);
     void ensureStructDefined(const TStructure &structure);
 
     std::string structsHeader() const;
