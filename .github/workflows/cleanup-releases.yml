@@ -1,0 +1,37 @@
+name: Delete obsolete releases
+
+on:
+  push:
+    paths:
+      - .github/workflows/cleanup-releases.yml
+
+permissions:
+  contents: write
+
+jobs:
+  delete:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASES: build-20261101020325
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
+      - name: Delete releases and their tags
+        run: |
+          for tag in $RELEASES; do
+            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+              echo "Deleted release $tag"
+            else
+              echo "Release $tag not found"
+            fi
+          done
+      - name: Remove this one-off workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -q .github/workflows/cleanup-releases.yml
+          git commit -q -m "Remove the one-off release cleanup workflow"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
