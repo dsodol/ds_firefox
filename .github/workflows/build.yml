@@ -59,6 +59,7 @@ jobs:
           ac_add_options --enable-optimize
           ac_add_options --disable-debug-symbols
           ac_add_options --disable-maintenance-service
+          ac_add_options --enable-bootstrap
           ac_add_options --with-app-update-url=$UPDATE_URL
           export MAR_CHANNEL_ID=$MAR_CHANNEL
           export ACCEPTED_MAR_CHANNEL_IDS=$MAR_CHANNEL
@@ -120,7 +121,13 @@ jobs:
           MAR="obj-win64/dist/firefox-$VERSION-$BUILD_ID.complete.mar"
           ./mach repackage mar --input obj-win64/dist/firefox-*.win64.zip --mar "$PWD/tools/ds_firefox/signed-mar.sh" \
             --output "$MAR" --arch x86_64 --mar-channel-id "$MAR_CHANNEL"
-          rm -f "$KEY"
+
+          # Throwaway key for the negative test: the updater must reject it.
+          openssl genrsa -out "$RUNNER_TEMP/wrong-key.pem" 4096 2>/dev/null
+          MAR_SIGNING_KEY_FILE="$RUNNER_TEMP/wrong-key.pem" ./mach repackage mar \
+            --input obj-win64/dist/firefox-*.win64.zip --mar "$PWD/tools/ds_firefox/signed-mar.sh" \
+            --output "$RUNNER_TEMP/wrong-key.mar" --arch x86_64 --mar-channel-id "$MAR_CHANNEL"
+          rm -f "$KEY" "$RUNNER_TEMP/wrong-key.pem"
 
           openssl x509 -inform DER -in toolkit/mozapps/update/updater/ds_firefox_primary.der \
             -pubkey -noout > "$RUNNER_TEMP/mar-signing-pub.pem"
@@ -142,6 +149,16 @@ jobs:
           cat obj-win64/dist/update.xml
           echo "mar=$MAR" >> "$GITHUB_OUTPUT"
 
+      - name: Test the update with the real updater
+        if: steps.mar.outputs.mar != ''
+        env:
+          MAR: ${{ steps.mar.outputs.mar }}
+        run: |
+          echo "Correctly signed update must stage:"
+          tools/ds_firefox/test-update.sh obj-win64/dist/firefox "$MAR" applied
+          echo "Update signed with the wrong key must be rejected (CERT_VERIFY_ERROR 19):"
+          tools/ds_firefox/test-update.sh obj-win64/dist/firefox "$RUNNER_TEMP/wrong-key.mar" 19
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
@@ -156,11 +173,14 @@ jobs:
             exit 1
           fi
           NOTES="Windows x86_64 build of $GITHUB_SHA. Run the installer .exe to install."
+          LATEST=(--latest)
           if [ -n "$MAR" ] && [ -f "$MAR" ]; then
             FILES+=("$MAR" obj-win64/dist/update.xml)
             NOTES="$NOTES Installed builds update to this release silently."
           else
-            NOTES="$NOTES This release has no update package because the MAR_SIGNING_KEY secret was not set."
+            # Keep serving update.xml from the previous release.
+            LATEST=(--latest=false)
+            NOTES="$NOTES This release has no update package because the MAR_SIGNING_KEY secret was not set, so it is not marked as latest."
           fi
           printf 'Publishing: %s\n' "${FILES[@]}"
           TARGET=()
@@ -168,4 +188,4 @@ jobs:
             TARGET=(--target "$GITHUB_SHA")
           fi
           gh release create "$TAG" "${FILES[@]}" --repo "$RELEASE_REPO" "${TARGET[@]}" \
-            --title "ds_firefox $VERSION ($TAG)" --latest --notes "$NOTES"
+            --title "ds_firefox $VERSION ($TAG)" "${LATEST[@]}" --notes "$NOTES"
